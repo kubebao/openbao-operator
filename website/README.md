@@ -41,7 +41,7 @@ declarative policy and validation instructions live under `redirects/`.
 
 ## Version policy
 
-- The unprefixed site is the current stable `0.5.x` line through OpenBao Operator 0.5.0.
+- The unprefixed site is the current stable `0.5.x` line through OpenBao Operator 0.5.1.
 - `/0.4.x/` retains the previous stable 0.4 minor-line contract through 0.4.2.
 - `/next/` tracks unreleased behavior on `main`. It must never be presented as a stable production contract.
 - `/latest/` and its retained suffix routes are compatibility redirects to the equivalent unprefixed stable pages.
