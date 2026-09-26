@@ -61,6 +61,12 @@ primary:
         url: docs/operate/backups/
       - title: Upgrade a cluster
         url: docs/operate/upgrades/
+      - title: Upgrade OpenBao to 2.7
+        url: docs/operate/openbao-270/
+      - title: Reconcile approved operator policies
+        url: docs/operate/operator-policies/
+      - title: Migrate controller JWT authentication
+        url: docs/operate/controller-jwt-migration/
       - title: Run planned maintenance
         url: docs/operate/maintenance/
       - title: Troubleshoot a cluster
@@ -103,6 +109,13 @@ primary:
         url: docs/reference/compatibility/
       - title: API reference
         url: docs/reference/api/
+        items:
+          - title: OpenBaoCluster
+            url: docs/reference/api/openbaocluster/
+          - title: OpenBaoRestore
+            url: docs/reference/api/openbaorestore/
+          - title: OpenBaoTenant
+            url: docs/reference/api/openbaotenant/
       - title: Status and events
         url: docs/reference/status-and-events/
       - title: Upgrade the operator

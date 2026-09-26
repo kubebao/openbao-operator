@@ -1118,6 +1118,16 @@ kbd {
   color: var(--mint);
 }
 
+.nav-secondary-group > summary {
+  display: list-item;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.nav-secondary-group[open] > summary {
+  color: var(--mint);
+}
+
 .doc-main {
   min-width: 0;
   color: var(--text);

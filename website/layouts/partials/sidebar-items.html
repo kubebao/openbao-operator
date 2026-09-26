@@ -1,0 +1,13 @@
+{{- $current := .current -}}
+{{- $site := .site -}}
+<div class="nav-children">
+  {{- range .items -}}
+    {{- $item := . -}}
+    {{- with $site.GetPage (printf "/%s" .url) -}}
+      <a class="{{ if eq $current.RelPermalink .RelPermalink }}is-current{{ end }}" href="{{ .RelPermalink }}"{{ if eq $current.RelPermalink .RelPermalink }} aria-current="page"{{ end }}>{{ $item.title }}</a>
+      {{- with $item.items -}}
+        {{ partial "sidebar-items.html" (dict "current" $current "site" $site "items" .) }}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+</div>
