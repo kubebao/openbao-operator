@@ -3,6 +3,7 @@ package restore
 import (
 	"fmt"
 	"maps"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,6 +60,11 @@ func getRestoreExecutorImage(restore *openbaov1alpha1.OpenBaoRestore, cluster *o
 
 // buildRestoreJob creates a Kubernetes Job for executing the restore.
 func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, cluster *openbaov1alpha1.OpenBaoCluster, verifiedExecutorDigest string) (*batchv1.Job, error) {
+	if restore.Status.Execution == nil || restore.Status.Execution.PreparedAt == nil ||
+		restore.Status.Execution.PreparedAt.IsZero() {
+		return nil, fmt.Errorf("restore staging requires a persisted preparation timestamp")
+	}
+	preparationDeadline := restore.Status.Execution.PreparedAt.Add(constants.DefaultRestorePreparationTimeout)
 	jobName := restoreJobName(restore)
 	labels := restoreLabels(cluster)
 	security.AddManagedWorkloadSecurityLabels(labels, cluster)
@@ -77,6 +83,9 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 
 	// Build environment variables
 	envVars := buildRestoreEnvVars(restore, cluster, m.clientConfig)
+	envVars = append(envVars, corev1.EnvVar{
+		Name: constants.EnvRestorePreparationDeadline, Value: preparationDeadline.UTC().Format(time.RFC3339),
+	})
 
 	tlsTrust, err := portopenbao.ResolveClientTrustBundle(cluster)
 	if err != nil {
@@ -93,6 +102,15 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 	// Build volumes and mounts
 	volumes := buildRestoreVolumes(restore, cluster, tlsTrust)
 	volumeMounts := buildRestoreVolumeMounts(restore, cluster, tlsTrust)
+	scratchLimit := resource.NewQuantity(constants.DefaultRestoreScratchLimitBytes, resource.BinarySI)
+	volumes = append(volumes, corev1.Volume{
+		Name:         "restore-scratch",
+		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: scratchLimit}},
+	})
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name: "restore-scratch", MountPath: constants.PathRestoreScratch,
+	})
+	ephemeralStorage := *resource.NewQuantity(constants.DefaultRestoreEphemeralStorageBytes, resource.BinarySI)
 
 	// Build container
 	container := corev1.Container{
@@ -110,12 +128,14 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 		// SECURITY: Resource limits prevent restore jobs from exhausting node resources
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("100m"),
-				corev1.ResourceMemory: resource.MustParse("128Mi"),
+				corev1.ResourceCPU:              resource.MustParse("100m"),
+				corev1.ResourceEphemeralStorage: ephemeralStorage,
+				corev1.ResourceMemory:           resource.MustParse("128Mi"),
 			},
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
+				corev1.ResourceCPU:              resource.MustParse("500m"),
+				corev1.ResourceEphemeralStorage: ephemeralStorage,
+				corev1.ResourceMemory:           resource.MustParse("512Mi"),
 			},
 		},
 		VolumeMounts: volumeMounts,
@@ -123,7 +143,10 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 
 	// Keep the Job until the controller persists its terminal result and all
 	// post-restore recovery. The controller removes it deliberately afterward.
-	backoffLimit := int32(3)
+	// A failed executor can have submitted its snapshot before losing the
+	// response. Do not restart it to retry the entire destructive operation.
+	// Job settings alone do not prevent duplicate Pods from being started.
+	backoffLimit := int32(0)
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +158,8 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 			},
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit: &backoffLimit,
+			BackoffLimit:          &backoffLimit,
+			ActiveDeadlineSeconds: ptr.To(int64((constants.DefaultRestorePreparationTimeout + 10*time.Minute).Seconds())),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: podTemplateLabels,
@@ -143,7 +167,7 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 				Spec: corev1.PodSpec{
 					ServiceAccountName:           restoreServiceAccountName(cluster),
 					AutomountServiceAccountToken: ptr.To(false),
-					RestartPolicy:                corev1.RestartPolicyOnFailure,
+					RestartPolicy:                corev1.RestartPolicyNever,
 					SecurityContext: func() *corev1.PodSecurityContext {
 						podSecurityContext := &corev1.PodSecurityContext{
 							RunAsNonRoot: ptr.To(true),

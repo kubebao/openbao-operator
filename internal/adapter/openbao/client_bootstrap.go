@@ -90,8 +90,9 @@ func (c *Client) Snapshot(ctx context.Context, writer io.Writer) error {
 	return nil
 }
 
-// Restore restores a snapshot to the cluster. By default, OpenBao verifies that
-// the snapshot is compatible with the target cluster's seal configuration.
+// Restore submits a snapshot without following redirects or replaying its body.
+// A successful response confirms acceptance, not completion of snapshot application.
+// By default, OpenBao verifies compatibility with the target's seal configuration.
 func (c *Client) Restore(ctx context.Context, reader io.Reader, options portopenbao.RestoreOptions) error {
 	if err := c.requireAuth("restore operation"); err != nil {
 		return err
@@ -110,10 +111,17 @@ func (c *Client) Restore(ctx context.Context, reader io.Reader, options portopen
 		return fmt.Errorf("failed to authorize restore request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("X-Vault-No-Request-Forwarding", "true")
+	// Readers such as bytes.Reader enable replay by default. A destructive
+	// snapshot request must not offer the transport a second copy of its body.
+	req.GetBody = nil
 
 	restoreClient := &http.Client{
 		Transport: c.httpClient.Transport,
 		Timeout:   portopenbao.DefaultSnapshotTimeout,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 
 	statusCode, body, err := c.doAndReadAll(req, restoreClient, "failed to execute restore request")

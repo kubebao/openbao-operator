@@ -71,6 +71,9 @@ func (m *Manager) applyRestoreDecision(
 		}
 		original := restore.DeepCopy()
 		restore.Status.Message = restoreJobRunningStatusMessage(observation.job.Name)
+		if observation.state.waitMessage != "" {
+			restore.Status.Message = observation.state.waitMessage
+		}
 		if err := m.patchStatus(ctx, restore, original); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to patch restore status while job is running: %w", err)
 		}

@@ -451,8 +451,10 @@ func (f *restoreRecoveryFixture) markJobTerminal(t *testing.T, succeeded bool) {
 	job := f.job(t)
 	if succeeded {
 		job.Status.Succeeded = 1
+		job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 	} else {
 		job.Status.Failed = 1
+		job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}
 	}
 	require.NoError(t, f.base.Status().Update(t.Context(), job))
 }

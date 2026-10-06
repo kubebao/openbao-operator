@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -160,14 +162,30 @@ func newRestoreObservationCluster(restore *openbaov1alpha1.OpenBaoRestore) *open
 	}}
 }
 
-func TestClassifyRestoreJob_PrefersSuccess(t *testing.T) {
+func TestClassifyRestoreJob_RequiresTerminalConditions(t *testing.T) {
 	t.Parallel()
-
-	job := &batchv1.Job{}
-	job.Status.Succeeded = 1
-	job.Status.Failed = 1
-
-	if got := classifyRestoreJob(job); got != restoreJobSucceeded {
-		t.Fatalf("classifyRestoreJob() = %d, want %d", got, restoreJobSucceeded)
+	one := int32(1)
+	complete := batchv1.JobCondition{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}
+	failed := batchv1.JobCondition{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}
+	for _, tt := range []struct {
+		name   string
+		status batchv1.JobStatus
+		want   restoreJobState
+	}{
+		{"empty", batchv1.JobStatus{}, restoreJobRunning},
+		{"succeeded counter", batchv1.JobStatus{Succeeded: 1}, restoreJobRunning},
+		{"failed counter", batchv1.JobStatus{Failed: 1}, restoreJobRunning},
+		{"failed pod and active replacement", batchv1.JobStatus{Failed: 1, Active: 1}, restoreJobRunning},
+		{"success criteria met", batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobSuccessCriteriaMet, Status: corev1.ConditionTrue}}}, restoreJobRunning},
+		{"failure target", batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobFailureTarget, Status: corev1.ConditionTrue}}}, restoreJobRunning},
+		{"false condition", batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionFalse}}}, restoreJobRunning},
+		{"complete", batchv1.JobStatus{Succeeded: 1, Failed: 1, Conditions: []batchv1.JobCondition{complete}}, restoreJobSucceeded},
+		{"failed", batchv1.JobStatus{Conditions: []batchv1.JobCondition{failed}}, restoreJobFailed},
+		{"conflicting terminal conditions", batchv1.JobStatus{Conditions: []batchv1.JobCondition{complete, failed}}, restoreJobRunning},
+		{"complete with active pod", batchv1.JobStatus{Active: 1, Conditions: []batchv1.JobCondition{complete}}, restoreJobRunning},
+		{"failed with terminating pod", batchv1.JobStatus{Terminating: &one, Conditions: []batchv1.JobCondition{failed}}, restoreJobRunning},
+	} {
+		t.Run(tt.name, func(t *testing.T) { require.Equal(t, tt.want, classifyRestoreJob(&batchv1.Job{Status: tt.status})) })
 	}
+	require.Equal(t, restoreJobRunning, classifyRestoreJob(nil))
 }

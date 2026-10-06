@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -44,54 +45,82 @@ func runRestore(ctx context.Context) error {
 	}
 	fmt.Printf("Restore key: %s\n", settings.key)
 
-	leaderURL, err := findRestoreLeader(ctx, cfg)
-	if err != nil {
-		return categorizef(errLeaderCategory, "failed to find leader: %w", err)
-	}
-	fmt.Printf("Found leader at: %s\n", leaderURL)
-
-	fmt.Printf("Authenticating to leader (method=%s)...\n", cfg.AuthMethod)
-	token, err := authenticate(ctx, cfg, leaderURL)
-	if err != nil {
-		return categorizef(errAuthCategory, "failed to authenticate: %w", err)
-	}
-	fmt.Println("Authentication successful")
-
-	baoClient, closeClient, err := openClusterClient(cfg, "restore", leaderURL, token)
+	deadline, err := restorePreparationDeadline()
 	if err != nil {
 		return categorize(errConfigCategory, err)
 	}
-	defer closeClient()
+	prepareCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
 
 	restoreCfg := buildRestoreExecutorConfig(cfg, settings)
-
-	fmt.Println("Creating storage client...")
-	storageClient, err := openStorageClient(ctx, &restoreCfg)
+	storageClient, err := openStorageClient(prepareCtx, &restoreCfg)
 	if err != nil {
 		return categorizef(errStorageCategory, "failed to create storage client: %w", err)
 	}
-	defer func() {
-		_ = storageClient.Close()
-	}()
-	fmt.Println("Storage client created")
+	defer func() { _ = storageClient.Close() }()
 
-	reader, objInfo, err := downloadRestoreSnapshot(ctx, storageClient, settings.key)
+	return executeRestore(ctx, prepareCtx, storageClient, settings, constants.PathRestoreScratch,
+		func(ctx context.Context) (portopenbao.ClusterActions, func(), error) {
+			leaderURL, err := findRestoreLeader(ctx, cfg)
+			if err != nil {
+				return nil, nil, categorizef(errLeaderCategory, "failed to find leader: %w", err)
+			}
+			token, err := authenticate(ctx, cfg, leaderURL)
+			if err != nil {
+				return nil, nil, categorizef(errAuthCategory, "failed to authenticate: %w", err)
+			}
+			return openClusterClient(cfg, "restore", leaderURL, token)
+		})
+}
+
+// executeRestore completes staging and client preparation before sending any bytes
+// to the destructive endpoint. The caller supplies the persisted preparation deadline.
+func executeRestore(
+	ctx, prepareCtx context.Context,
+	storageClient blobstore.BlobStore,
+	settings restoreSettings,
+	scratchDir string,
+	connect func(context.Context) (portopenbao.ClusterActions, func(), error),
+) (err error) {
+	staged, err := downloadRestoreSnapshot(prepareCtx, storageClient, settings.key, scratchDir,
+		constants.DefaultRestoreSnapshotLimitBytes)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = reader.Close()
-	}()
+	defer func() { err = errors.Join(err, staged.Close()) }()
+	fmt.Printf("Snapshot staged: size=%d, digest=%s\n", staged.size, staged.digest)
 
-	_, _ = fmt.Fprintf(os.Stdout, "Found snapshot: %s (size: %d bytes)\n", settings.key, objInfo.Size)
-	fmt.Println("Snapshot downloaded successfully")
-	fmt.Println("Restoring snapshot to cluster...")
+	baoClient, closeClient, err := connect(prepareCtx)
+	if err != nil {
+		return err
+	}
+	defer closeClient()
+	if err := prepareCtx.Err(); err != nil {
+		return categorizef(errSnapshotCategory, "restore preparation expired: %w", err)
+	}
+
+	fmt.Println("Submitting staged snapshot to cluster...")
+	// The HTTP transport owns its request body, but staging owns this descriptor.
+	// Hide Close so transport cleanup cannot close the file before our cleanup.
+	reader := struct{ io.Reader }{staged.file}
 	if err := baoClient.Restore(ctx, reader, portopenbao.RestoreOptions{Force: settings.force}); err != nil {
 		return categorizef(errSnapshotCategory, "failed to restore snapshot: %w", err)
 	}
-
-	_, _ = fmt.Fprintf(os.Stdout, "Restore completed successfully from: %s\n", settings.key)
+	_, _ = fmt.Fprintf(os.Stdout, "Snapshot restore request accepted from: %s\n", settings.key)
 	return nil
+}
+
+func restorePreparationDeadline() (time.Time, error) {
+	value := os.Getenv(constants.EnvRestorePreparationDeadline)
+	deadline, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%s must contain an absolute RFC3339 deadline: %w",
+			constants.EnvRestorePreparationDeadline, err)
+	}
+	if !time.Now().Before(deadline) {
+		return time.Time{}, fmt.Errorf("restore preparation deadline has expired")
+	}
+	return deadline, nil
 }
 
 func findRestoreLeader(ctx context.Context, cfg *backupconfig.ExecutorConfig) (string, error) {
@@ -128,29 +157,6 @@ func buildRestoreExecutorConfig(
 	}
 
 	return restoreCfg
-}
-
-func downloadRestoreSnapshot(
-	ctx context.Context,
-	storageClient blobstore.BlobStore,
-	key string,
-) (io.ReadCloser, *blobstore.ObjectInfo, error) {
-	fmt.Printf("Verifying snapshot exists: %s\n", key)
-	objInfo, err := storageClient.Head(ctx, key)
-	if err != nil {
-		return nil, nil, categorizef(errVerificationCategory, "failed to verify snapshot exists: %w", err)
-	}
-	if objInfo == nil {
-		return nil, nil, categorize(errVerificationCategory, fmt.Errorf("snapshot not found: %s", key))
-	}
-
-	fmt.Println("Downloading snapshot from storage...")
-	reader, err := storageClient.Download(ctx, key)
-	if err != nil {
-		return nil, nil, categorizef(errStorageCategory, "failed to download snapshot: %w", err)
-	}
-
-	return reader, objInfo, nil
 }
 
 func resolveRestoreSettings(cfg *backupconfig.ExecutorConfig) (restoreSettings, error) {

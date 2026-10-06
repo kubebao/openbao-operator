@@ -26,6 +26,13 @@ operator installation. Changes to the OpenBao workload version use `spec.version
 Take and verify a current backup for every managed production cluster. An operator rollback is not a data rollback.
 {{< /callout >}}
 
+## Restore executor changes in Next
+
+Restore executors stage snapshots before submission and reject snapshots larger than 8 GiB. Each executor requests
+about 9 GiB of ephemeral storage. Check node capacity and namespace quotas before upgrading. Restore Jobs use a
+40-minute deadline and do not retry failed containers or follow HTTP redirects. Finish in-flight restores before
+upgrading because an older executor does not provide these guarantees.
+
 ## Upgrade a Helm installation
 
 1. Replace `X.Y.Z` with the exact target release.

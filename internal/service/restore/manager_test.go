@@ -95,6 +95,9 @@ func managedRestoreJobForRestore(
 	job *batchv1.Job,
 	restore *openbaov1alpha1.OpenBaoRestore,
 ) *batchv1.Job {
+	if job.UID == "" {
+		job.UID = types.UID(job.Name + "-uid")
+	}
 	controller := true
 	job.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion: openbaov1alpha1.GroupVersion.String(),
@@ -827,6 +830,7 @@ func TestHandleRunning_RestoreJobAlreadyExistsDuringCreate(t *testing.T) {
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 
 	cluster := &openbaov1alpha1.OpenBaoCluster{
@@ -911,6 +915,7 @@ func TestHandleRunning_DoesNotRecreateMissingCommittedJob(t *testing.T) {
 			scheme := runtime.NewScheme()
 			require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 			require.NoError(t, batchv1.AddToScheme(scheme))
+			require.NoError(t, corev1.AddToScheme(scheme))
 
 			cluster := &openbaov1alpha1.OpenBaoCluster{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster", Namespace: "default"},
@@ -963,6 +968,7 @@ func TestHandleRunning_RejectsForeignSucceededJob(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	cluster := &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{
 		Name:      "test-cluster",
@@ -985,7 +991,7 @@ func TestHandleRunning_RejectsForeignSucceededJob(t *testing.T) {
 			Name:      restoreJobName(restore),
 			Namespace: restore.Namespace,
 		},
-		Status: batchv1.JobStatus{Succeeded: 1},
+		Status: batchv1.JobStatus{Succeeded: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
 	}
 
 	k8sClient := fake.NewClientBuilder().
@@ -1005,6 +1011,7 @@ func TestHandleRunning_FailedJobSetsActionableMessage(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	cluster := &openbaov1alpha1.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1080,6 +1087,7 @@ func TestHandleRunning_SucceededJobWaitsForSteadyReadReplicaRestore(t *testing.T
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 	restartCompletedAt := metav1.Now()
 
 	cluster := &openbaov1alpha1.OpenBaoCluster{
@@ -1136,7 +1144,7 @@ func TestHandleRunning_SucceededJobWaitsForSteadyReadReplicaRestore(t *testing.T
 			Namespace: "default",
 		},
 		Status: batchv1.JobStatus{
-			Succeeded: 1,
+			Succeeded: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
 		},
 	}, restore)
 
@@ -1169,6 +1177,7 @@ func TestHandleRunning_SucceededJobCompletesAfterSteadyReadReplicaRestore(t *tes
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 	restartCompletedAt := metav1.Now()
 
 	cluster := &openbaov1alpha1.OpenBaoCluster{
@@ -1230,7 +1239,7 @@ func TestHandleRunning_SucceededJobCompletesAfterSteadyReadReplicaRestore(t *tes
 			Namespace: "default",
 		},
 		Status: batchv1.JobStatus{
-			Succeeded: 1,
+			Succeeded: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}},
 		},
 	}, restore)
 
@@ -1258,6 +1267,7 @@ func TestHandleRunning_SucceededJobRequestsVoterRestart(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, appsv1.AddToScheme(scheme))
 
 	replicas := int32(3)
@@ -1287,7 +1297,7 @@ func TestHandleRunning_SucceededJobRequestsVoterRestart(t *testing.T) {
 
 	job := managedRestoreJobForRestore(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{Name: restoreJobName(restore), Namespace: "default"},
-		Status:     batchv1.JobStatus{Succeeded: 1},
+		Status:     batchv1.JobStatus{Succeeded: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
 	}, restore)
 	statefulSet := managedVoterStatefulSetForCluster(&appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{Name: cluster.Name, Namespace: cluster.Namespace, Generation: 2},
@@ -1368,6 +1378,7 @@ func TestHandleRunning_SucceededJobCompletesAfterVoterRestart(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, appsv1.AddToScheme(scheme))
 
 	replicas := int32(3)
@@ -1398,7 +1409,7 @@ func TestHandleRunning_SucceededJobCompletesAfterVoterRestart(t *testing.T) {
 
 	job := managedRestoreJobForRestore(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{Name: restoreJobName(restore), Namespace: "default"},
-		Status:     batchv1.JobStatus{Succeeded: 1},
+		Status:     batchv1.JobStatus{Succeeded: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
 	}, restore)
 	statefulSet := managedVoterStatefulSetForCluster(&appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{Name: cluster.Name, Namespace: cluster.Namespace, Generation: 2},
@@ -1875,7 +1886,7 @@ func TestRestoreJobFailedStatusMessage_AppendsFailureHint(t *testing.T) {
 			Namespace: "default",
 		},
 		Status: batchv1.JobStatus{
-			Failed: 1,
+			Failed: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}},
 		},
 	}
 
@@ -2200,6 +2211,7 @@ func TestHandleDeletion(t *testing.T) {
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	now := metav1.Now()
 	restore := &openbaov1alpha1.OpenBaoRestore{
@@ -2235,6 +2247,7 @@ func TestHandleDeletion_KeepsFinalizerWhenLockReleaseFails(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	now := metav1.Now()
 	restore := &openbaov1alpha1.OpenBaoRestore{
@@ -2277,6 +2290,7 @@ func TestHandleDeletion_DrainsCommittedRestoreJob(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	now := metav1.Now()
 	restore := &openbaov1alpha1.OpenBaoRestore{
@@ -2344,6 +2358,7 @@ func TestHandleDeletion_RejectsForeignRestoreJob(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
 
 	now := metav1.Now()
 	restore := &openbaov1alpha1.OpenBaoRestore{
