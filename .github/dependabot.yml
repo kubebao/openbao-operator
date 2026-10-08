@@ -48,3 +48,20 @@ updates:
       docker-images:
         patterns:
           - "*"
+
+  - package-ecosystem: npm
+    directory: /hack/ci/release-please
+    schedule:
+      interval: weekly
+      day: thursday
+      time: "03:00"
+      timezone: Europe/Amsterdam
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
