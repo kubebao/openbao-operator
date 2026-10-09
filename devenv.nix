@@ -45,10 +45,10 @@ let
 
   goPackage = exactPackage "Go" goVersion (
     pkgs.go_1_27.overrideAttrs {
-      version = "1.27.1";
+      version = "1.27.2";
       src = pkgs.fetchurl {
-        url = "https://go.dev/dl/go1.27.1.src.tar.gz";
-        hash = "sha256-TkCKuuEm2Ra2FkYnGT8sVPDjyhMS1pO4bbRfhiqyOLE=";
+        url = "https://go.dev/dl/go1.27.2.src.tar.gz";
+        hash = "sha256-A0ldorpkiU1A9cSZLklFT6eLUGkGBP+Stq//UIG3bmI=";
       };
     }
   );
