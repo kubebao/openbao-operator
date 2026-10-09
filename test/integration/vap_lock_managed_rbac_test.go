@@ -713,6 +713,30 @@ func TestVAP_LockManagedRBAC_AllowsStatefulSetControllerManagedPVC(t *testing.T)
 		t.Fatalf("expected kube-scheduler managed PVC selected-node update to succeed, got: %v", err)
 	}
 
+	// AKS runs its managed scheduler and volume controllers as "aksService".
+	aksControlPlaneClient := newPrivilegedImpersonatedClient(t, "aksService")
+	if err := aksControlPlaneClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedPVC.Name}, managedPVC); err != nil {
+		t.Fatalf("get managed PVC before AKS control plane bind update: %v", err)
+	}
+	managedPVC.Annotations["volume.kubernetes.io/selected-node"] = "aks-zone1-00000000-vms1"
+	if err := aksControlPlaneClient.Update(ctx, managedPVC); err != nil {
+		t.Fatalf("expected AKS control plane managed PVC selected-node update to succeed, got: %v", err)
+	}
+
+	if err := aksControlPlaneClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedPVC.Name}, managedPVC); err != nil {
+		t.Fatalf("get managed PVC before AKS control plane label update: %v", err)
+	}
+	managedPVC.Labels["example.com/direct-edit"] = "true"
+	err = aksControlPlaneClient.Update(ctx, managedPVC)
+	requireAdmissionDenied(t, err)
+	if !strings.Contains(err.Error(), "Direct modification of OpenBao-managed resources is prohibited") {
+		t.Fatalf("unexpected AKS control plane PVC label update error message: %v", err)
+	}
+	delete(managedPVC.Labels, "example.com/direct-edit")
+	if err := aksControlPlaneClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedPVC.Name}, managedPVC); err != nil {
+		t.Fatalf("get managed PVC after denied AKS control plane label update: %v", err)
+	}
+
 	storageProvisionerClient := newPrivilegedImpersonatedClient(
 		t,
 		"system:serviceaccount:storage-system:example-csi-provisioner",
