@@ -109,7 +109,7 @@ in
   profiles.editor.module = {
     overlays = [
       (_: previous: {
-        go-tools = previous.go-tools.overrideAttrs {
+        go-tools = previous.go-tools.overrideAttrs (old: {
           version = "2026.2.1";
           src = previous.fetchFromGitHub {
             owner = "dominikh";
@@ -117,8 +117,19 @@ in
             tag = "2026.2.1";
             hash = "sha256-wellofnfLW4lQy68UQyFJfvrKCfrZ/EllLODX1g9taY=";
           };
-          vendorHash = "sha256-3no4wPqFG0RfSsWB0z8EYxeoZ30t+Zf7ZayzFCLEm2A=";
-        };
+          # Backport upstream's x/tools compatibility and unified v5 export fixes.
+          patches = (old.patches or [ ]) ++ [
+            (previous.fetchpatch {
+              url = "https://github.com/dominikh/go-tools/commit/1341da9da9eb3f2de42c4d7bc020a6a89a40da23.patch";
+              hash = "sha256-msu/e7/TTMWWbMXqwsBiNsp4SYNcnJM641rfx+sUIdU=";
+            })
+            (previous.fetchpatch {
+              url = "https://github.com/dominikh/go-tools/commit/f1838cc308e5cfbb38d91cfc973355611845997e.patch";
+              hash = "sha256-ozZT78h2tH6N61eEL7SHd51vzpul2XwzIUcv1g8n1fM=";
+            })
+          ];
+          vendorHash = "sha256-hGhti2JALbY0cq8DgAC4/viY2K+uo7wexEMh4x6C5uQ=";
+        });
       })
     ];
     languages.go = {
