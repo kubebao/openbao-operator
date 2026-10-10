@@ -312,6 +312,7 @@ REPO="${PUBLISHER_REPO}" \
   VERSION="${VERSION}" \
   SOURCE_REF="${source_ref}" \
   CHECKSUMS_PATH="${tmpdir}/checksums.txt" \
+  CHECKSUMS_ATTESTATION_BUNDLE="${tmpdir}/checksums.intoto.jsonl" \
   CHART_DIGEST="${chart_digest}" \
   VERIFY_CHART=true \
   bash "${ROOT_DIR}/hack/ci/verify-release-artifact-attestations.sh"

@@ -17,6 +17,7 @@ HEAD = "a" * 40
 IMAGES = ["openbao-operator", "openbao-init", "openbao-backup", "openbao-upgrade"]
 
 MOCK = r'''#!/usr/bin/env python3
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -48,11 +49,23 @@ if command == "gh":
         subject = args[2]
         workflow = "release.yml"
         if subject.startswith("oci://"):
+            assert "--bundle-from-oci" in args, "repository attestation API unavailable"
+            assert "--bundle" not in args, args
             assert subject.startswith("oci://ghcr.io/" + owner + "/"), args
+            assert subject.endswith("@" + digest), args
+            attestation = json.loads((fixture / "oci-attestation.json").read_text())
+            assert attestation["publisher"] == publisher, "attestation publisher mismatch"
             if "/charts/" not in subject:
                 workflow = "reusable-build.yml"
         else:
             assert Path(subject).name == "checksums.txt", args
+            assert "--bundle-from-oci" not in args, args
+            if "--bundle" in args:
+                attestation = json.loads(Path(option("--bundle")).read_text())
+                assert attestation["publisher"] == publisher, "attestation publisher mismatch"
+                assert attestation["digest"] == hashlib.sha256(Path(subject).read_bytes()).hexdigest(), "attestation digest mismatch"
+            else:
+                assert publisher == repository, "repository attestation API unavailable"
         assert option("--signer-workflow") == publisher + "/.github/workflows/" + workflow, args
     elif args[:2] == ["release", "view"]:
         assert option("--repo") == repository, args
@@ -141,8 +154,16 @@ class PostReleasePublisherTests(unittest.TestCase):
         checksums = "".join(
             hashlib.sha256((self.assets / name).read_bytes()).hexdigest() + "  " + name + "\n"
             for name in names
+            if not name.startswith("checksums.")
         )
         (self.assets / "checksums.txt").write_text(checksums, encoding="utf-8")
+        # These claims model verifier routing and rejection, not cryptography.
+        (self.assets / "checksums.intoto.jsonl").write_text(json.dumps({
+            "publisher": publisher, "digest": hashlib.sha256(checksums.encode()).hexdigest(),
+        }), encoding="utf-8")
+        (self.directory / "oci-attestation.json").write_text(
+            json.dumps({"publisher": publisher}), encoding="utf-8"
+        )
         owner = publisher.split("/")[0]
         self.provenance = {
             "release": {
@@ -167,10 +188,12 @@ class PostReleasePublisherTests(unittest.TestCase):
         self.version = version
         self.publisher = publisher
 
-    def verify(self, publisher_override=None):
-        (self.assets / "provenance-index.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+    def environment(self):
         environment = os.environ.copy()
-        for name in ["PUBLISHER_REPO", "GIT_REMOTE", "ALLOW_DRAFT", "SIGNER_WORKFLOW", "SOURCE_REF", "CHART_IMAGE"]:
+        for name in [
+            "PUBLISHER_REPO", "GIT_REMOTE", "ALLOW_DRAFT", "SIGNER_WORKFLOW",
+            "SOURCE_REF", "CHART_IMAGE", "CHECKSUMS_ATTESTATION_BUNDLE",
+        ]:
             environment.pop(name, None)
         environment.update({
             "PATH": str(self.bin) + os.pathsep + environment["PATH"],
@@ -185,6 +208,11 @@ class PostReleasePublisherTests(unittest.TestCase):
             "MAX_ATTEMPTS": "1",
             "RETRY_SECONDS": "0",
         })
+        return environment
+
+    def verify(self, publisher_override=None):
+        (self.assets / "provenance-index.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        environment = self.environment()
         if publisher_override is not None:
             environment["PUBLISHER_REPO"] = publisher_override
         result = subprocess.run(
@@ -192,6 +220,26 @@ class PostReleasePublisherTests(unittest.TestCase):
             env=environment, capture_output=True, text=True, check=False,
         )
         return result
+
+    def verify_checksums(self, bundle=None):
+        environment = self.environment()
+        environment.update({
+            "REPO": self.publisher,
+            "OWNER": self.publisher.split("/")[0],
+            "VERIFY_CHART": "false",
+            "CHECKSUMS_PATH": str(self.assets / "checksums.txt"),
+        })
+        if bundle is not None:
+            environment["CHECKSUMS_ATTESTATION_BUNDLE"] = str(bundle)
+        return subprocess.run(
+            ["bash", str(ROOT / "hack/ci/verify-release-artifact-attestations.sh")],
+            env=environment, capture_output=True, text=True, check=False,
+        )
+
+    def attestation_commands(self):
+        log = self.directory / "commands.jsonl"
+        commands = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+        return [command for command in commands if command[:3] == ["gh", "attestation", "verify"]]
 
     def assert_success(self, result):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -209,6 +257,10 @@ class PostReleasePublisherTests(unittest.TestCase):
         commands = [json.loads(line) for line in (self.directory / "commands.jsonl").read_text().splitlines()]
         self.assertEqual(sum(command[:3] == ["gh", "attestation", "verify"] for command in commands), 6)
         self.assertEqual(sum(command[0] == "cosign" for command in commands), 6)
+        attestations = self.attestation_commands()
+        self.assertEqual(sum("--bundle-from-oci" in command for command in attestations), 5)
+        checksum_command = attestations[-1]
+        self.assertEqual(Path(checksum_command[checksum_command.index("--bundle") + 1]).name, "checksums.intoto.jsonl")
 
     def test_historical_release_uses_original_publisher_and_current_repository(self):
         self.fixture("0.5.1", "dc-tec/openbao-operator")
@@ -217,6 +269,67 @@ class PostReleasePublisherTests(unittest.TestCase):
     def test_new_release_defaults_to_current_publisher(self):
         self.fixture("0.6.0", REPOSITORY)
         self.assert_success(self.verify())
+
+    def test_registry_attestation_rejects_wrong_publisher_without_api_fallback(self):
+        self.fixture("0.5.1", "dc-tec/openbao-operator")
+        (self.directory / "oci-attestation.json").write_text(json.dumps({"publisher": REPOSITORY}))
+        result = self.verify(self.publisher)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("attestation publisher mismatch", result.stderr)
+        self.assertEqual(len(self.attestation_commands()), 1)
+        self.assertFalse((self.directory / "evidence.json").exists())
+
+    def test_checksum_bundle_rejects_wrong_publisher_without_api_fallback(self):
+        self.fixture("0.5.1", "dc-tec/openbao-operator")
+        bundle = self.assets / "checksums.intoto.jsonl"
+        claims = json.loads(bundle.read_text())
+        claims["publisher"] = REPOSITORY
+        bundle.write_text(json.dumps(claims))
+        result = self.verify(self.publisher)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("attestation publisher mismatch", result.stderr)
+        self.assertEqual(len(self.attestation_commands()), 6)
+        self.assertFalse((self.directory / "evidence.json").exists())
+
+    def test_missing_or_empty_explicit_bundle_fails_before_verification(self):
+        self.fixture("0.6.0", REPOSITORY)
+        bundle = self.directory / "missing.jsonl"
+        for empty in [False, True]:
+            with self.subTest(empty=empty):
+                if empty:
+                    bundle.touch()
+                result = self.verify_checksums(bundle)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("checksums attestation bundle missing or empty", result.stderr)
+                self.assertEqual(self.attestation_commands(), [])
+
+    def test_invalid_bundle_fails_without_api_fallback(self):
+        self.fixture("0.6.0", REPOSITORY)
+        bundle = self.assets / "checksums.intoto.jsonl"
+        bundle.write_text("invalid JSON\n")
+        result = self.verify_checksums(bundle)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.attestation_commands()), 1)
+        self.assertIn("--bundle", self.attestation_commands()[0])
+
+    def test_checksum_bundle_must_match_subject_digest(self):
+        self.fixture("0.6.0", REPOSITORY)
+        bundle = self.assets / "checksums.intoto.jsonl"
+        claims = json.loads(bundle.read_text())
+        claims["digest"] = "0" * 64
+        bundle.write_text(json.dumps(claims))
+        result = self.verify_checksums(bundle)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("attestation digest mismatch", result.stderr)
+        self.assertEqual(len(self.attestation_commands()), 1)
+
+    def test_in_flight_publication_can_verify_checksums_without_exported_bundle(self):
+        self.fixture("0.6.0", REPOSITORY)
+        result = self.verify_checksums()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        commands = self.attestation_commands()
+        self.assertEqual(len(commands), 1)
+        self.assertNotIn("--bundle", commands[0])
 
     def test_historical_release_rejects_current_publisher_without_fallback(self):
         self.fixture("0.5.1", "dc-tec/openbao-operator")

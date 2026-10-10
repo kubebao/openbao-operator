@@ -26,6 +26,7 @@ verify_one() {
   while (( attempts < MAX_ATTEMPTS )); do
     attempts=$((attempts + 1))
     if gh attestation verify "oci://${image_ref}" \
+      --bundle-from-oci \
       --repo "${REPO}" \
       --signer-workflow "${SIGNER_WORKFLOW}" \
       --source-ref "${SOURCE_REF}" \

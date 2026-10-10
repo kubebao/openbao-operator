@@ -20,6 +20,16 @@ if [[ ! -f "${CHECKSUMS_PATH}" ]]; then
   exit 1
 fi
 
+# Published releases carry this bundle; in-flight publication still uses the API.
+checksums_bundle_args=()
+if [[ -n "${CHECKSUMS_ATTESTATION_BUNDLE:-}" ]]; then
+  if [[ ! -s "${CHECKSUMS_ATTESTATION_BUNDLE}" ]]; then
+    echo "checksums attestation bundle missing or empty: ${CHECKSUMS_ATTESTATION_BUNDLE}" >&2
+    exit 1
+  fi
+  checksums_bundle_args=(--bundle "${CHECKSUMS_ATTESTATION_BUNDLE}")
+fi
+
 if [[ "${VERIFY_CHART}" == "auto" ]]; then
   if [[ -n "${CHART_DIGEST:-}" ]]; then
     VERIFY_CHART="true"
@@ -35,6 +45,7 @@ verify_oci_subject() {
   while (( attempts < MAX_ATTEMPTS )); do
     attempts=$((attempts + 1))
     if gh attestation verify "oci://${oci_ref}" \
+      --bundle-from-oci \
       --repo "${REPO}" \
       --signer-workflow "${SIGNER_WORKFLOW}" \
       --source-ref "${SOURCE_REF}" \
@@ -59,6 +70,7 @@ verify_file_subject() {
   while (( attempts < MAX_ATTEMPTS )); do
     attempts=$((attempts + 1))
     if gh attestation verify "${file_path}" \
+      "${checksums_bundle_args[@]}" \
       --repo "${REPO}" \
       --signer-workflow "${SIGNER_WORKFLOW}" \
       --source-ref "${SOURCE_REF}" \
