@@ -52,7 +52,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/upstream dist/candidate
-          artifacts_json="$(gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/artifacts")"
+          # Filter by name so unrelated artifacts cannot hide the bundle on a later API page.
+          artifacts_json="$(gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/artifacts?name=nightly-candidate-bundle")"
           ARTIFACTS_JSON="${artifacts_json}" ARTIFACT_NAME="nightly-candidate-bundle" python3 - <<'PY'
           import json
           import os
