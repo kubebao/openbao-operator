@@ -10,6 +10,7 @@ MIGRATION_FIXTURE_DIR="${ROOT_DIR}/test/fixtures/api-migration"
 source "${FIXTURE_DIR}/versions.env"
 
 FROM_VERSION="${OPERATOR_UPGRADE_E2E_FROM_VERSION:-${OPERATOR_UPGRADE_BASELINE}}"
+MIGRATION_FROM_VERSION="${OPERATOR_UPGRADE_MIGRATION_BASELINE}"
 TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-${OPERATOR_UPGRADE_TARGET_RELEASE}}"
 TARGET_VERSION="${OPERATOR_UPGRADE_E2E_TARGET_VERSION:-${TARGET_RELEASE}-e2e}"
 VERIFY_ONLY="${OPERATOR_UPGRADE_E2E_VERIFY_ONLY:-false}"
@@ -305,7 +306,7 @@ verify_harness() {
   local required_files=(
     "${FIXTURE_DIR}/versions.env"
     "${ROOT_DIR}/release-notes/${TARGET_RELEASE}.md"
-    "${MIGRATION_FIXTURE_DIR}/${FROM_VERSION}-openbaocluster.yaml"
+    "${MIGRATION_FIXTURE_DIR}/${MIGRATION_FROM_VERSION}-openbaocluster.yaml"
     "${MIGRATION_FIXTURE_DIR}/${TARGET_RELEASE}-openbaocluster.yaml"
     "${FIXTURE_DIR}/tenant.yaml"
     "${FIXTURE_DIR}/cluster.yaml"
@@ -342,8 +343,8 @@ verify_harness() {
       exit 1
     fi
   done
-  if ! grep -Fq "### Upgrade from ${FROM_VERSION}" "${ROOT_DIR}/release-notes/${TARGET_RELEASE}.md"; then
-    echo "release notes must document the ${FROM_VERSION} upgrade path" >&2
+  if ! grep -Fq "### Upgrade from ${MIGRATION_FROM_VERSION}" "${ROOT_DIR}/release-notes/${TARGET_RELEASE}.md"; then
+    echo "release notes must document the ${MIGRATION_FROM_VERSION} API migration path" >&2
     exit 1
   fi
   if ! grep -Fq "image: \"${DEFAULT_HARDENED_INIT_IMAGE}\"" "${FIXTURE_DIR}/hardened-cluster.yaml"; then
@@ -351,7 +352,7 @@ verify_harness() {
     exit 1
   fi
 
-  echo "Operator upgrade E2E harness verified: ${FROM_VERSION} -> ${TARGET_VERSION}"
+  echo "Operator upgrade E2E harness verified: ${FROM_VERSION} -> ${TARGET_VERSION} (API migration fixtures: ${MIGRATION_FROM_VERSION} -> ${TARGET_RELEASE})"
 }
 
 verify_harness
@@ -613,7 +614,7 @@ render_migration_fixture() {
 }
 
 echo "Migrating stored API fields while ${FROM_VERSION} still owns the cluster..." >&2
-render_migration_fixture "${MIGRATION_FIXTURE_DIR}/${FROM_VERSION}-openbaocluster.yaml" | \
+render_migration_fixture "${MIGRATION_FIXTURE_DIR}/${MIGRATION_FROM_VERSION}-openbaocluster.yaml" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
 migration_uid="$(
   "${KUBECTL_BIN}" get openbaocluster/api-stability-migration \

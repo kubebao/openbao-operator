@@ -30,8 +30,8 @@ type workflowStep struct {
 }
 
 func TestAPIContractPreservesOperatorUpgradeHarness(t *testing.T) {
-	// The inventory describes an approved migration; its baseline also selects
-	// the operator-upgrade fixtures and must not follow the schema checker baseline.
+	// Keep the approved API migration fixture pair independent of both the
+	// runtime upgrade baseline and the schema checker baseline.
 	env := []string{
 		"OPERATOR_UPGRADE_E2E_FROM_VERSION=",
 		"OPERATOR_UPGRADE_E2E_TARGET_RELEASE=",
