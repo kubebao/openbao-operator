@@ -251,7 +251,7 @@ spec:
                       Image is the container image to use for backup operations.
                       If not specified, OPERATOR_BACKUP_IMAGE can supply a complete image reference, including a digest.
                       Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_BACKUP_IMAGE_REPOSITORY
-                      (default: "ghcr.io/dc-tec/openbao-backup") and the tag matches OPERATOR_VERSION.
+                      (default: "ghcr.io/kubebao/openbao-backup") and the tag matches OPERATOR_VERSION.
                       This allows users to override the image for air-gapped environments or custom registries.
                     type: string
                   jwtAuthRole:
@@ -326,7 +326,7 @@ spec:
                                   Image is the container image to use for the init container.
                                   If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.
                                   Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY
-                                  (default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION.
+                                  (default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION.
                                 type: string
                             type: object
                           plugins:
@@ -683,6 +683,20 @@ spec:
                                   AzureKeyVault configures the Azure Key Vault seal type.
                                   Required when Type is "azurekeyvault".
                                 properties:
+                                  authMethod:
+                                    description: |-
+                                      AuthMethod selects how the seal authenticates to Azure, rendered as the
+                                      seal's auth_method. When empty, OpenBao chooses: a client ID without a
+                                      client secret selects managed_identity, which uses the instance metadata
+                                      service. Set workload_identity for Azure Workload Identity, where the
+                                      workload identity webhook also injects AZURE_CLIENT_ID.
+                                    enum:
+                                    - workload_identity
+                                    - managed_identity
+                                    - client_secret
+                                    - environment
+                                    - default
+                                    type: string
                                   clientID:
                                     description: ClientID is the Azure client ID.
                                     type: string
@@ -1178,6 +1192,7 @@ spec:
                               snapshot source version.
                             enum:
                             - 2.7.0
+                            - 2.7.1
                             type: string
                         required:
                         - storage
@@ -1960,7 +1975,7 @@ spec:
                     description: |-
                       Subject is the OIDC subject for keyless verification.
                       Required for keyless verification when PublicKey is not provided.
-                      Example (GitHub Actions): https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
+                      Example (GitHub Actions): https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
                       The version in the subject MUST match the image tag version.
                     type: string
                   subjectRegExp:
@@ -2042,7 +2057,7 @@ spec:
                       Image is the container image to use for the init container.
                       If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.
                       Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY
-                      (default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION.
+                      (default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION.
                     type: string
                 type: object
               maintenance:
@@ -2848,7 +2863,7 @@ spec:
                 description: |-
                   OperatorImageVerification configures supply chain security checks for operator-managed helper images
                   (init container and backup/upgrade/restore executors) and custom BlueGreen validation-hook images.
-                  Helper images are typically signed by the operator project (e.g., dc-tec/openbao-operator)
+                  Helper images are typically signed by the operator project (e.g., kubebao/openbao-operator)
                   rather than the OpenBao upstream project.
                   If omitted, helper image verification does not fall back to ImageVerification.
                   In Development, omitted means disabled. In Hardened, omitted means enabled.
@@ -2917,7 +2932,7 @@ spec:
                     description: |-
                       Subject is the OIDC subject for keyless verification.
                       Required for keyless verification when PublicKey is not provided.
-                      Example (GitHub Actions): https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
+                      Example (GitHub Actions): https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
                       The version in the subject MUST match the image tag version.
                     type: string
                   subjectRegExp:
@@ -5461,6 +5476,20 @@ spec:
                       AzureKeyVault configures the Azure Key Vault seal type.
                       Required when Type is "azurekeyvault".
                     properties:
+                      authMethod:
+                        description: |-
+                          AuthMethod selects how the seal authenticates to Azure, rendered as the
+                          seal's auth_method. When empty, OpenBao chooses: a client ID without a
+                          client secret selects managed_identity, which uses the instance metadata
+                          service. Set workload_identity for Azure Workload Identity, where the
+                          workload identity webhook also injects AZURE_CLIENT_ID.
+                        enum:
+                        - workload_identity
+                        - managed_identity
+                        - client_secret
+                        - environment
+                        - default
+                        type: string
                       clientID:
                         description: ClientID is the Azure client ID.
                         type: string
@@ -6060,7 +6089,7 @@ spec:
 
                       If not specified, OPERATOR_UPGRADE_IMAGE can supply a complete image reference, including a digest.
                       Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_UPGRADE_IMAGE_REPOSITORY
-                      (default: "ghcr.io/dc-tec/openbao-upgrade") and the tag matches OPERATOR_VERSION.
+                      (default: "ghcr.io/kubebao/openbao-upgrade") and the tag matches OPERATOR_VERSION.
                     type: string
                   jwtAuthRole:
                     description: |-
@@ -7172,7 +7201,7 @@ spec:
                           Image is the container image to use for the init container.
                           If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.
                           Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY
-                          (default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION.
+                          (default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION.
                         type: string
                     type: object
                   plugins:
@@ -7521,6 +7550,20 @@ spec:
                           AzureKeyVault configures the Azure Key Vault seal type.
                           Required when Type is "azurekeyvault".
                         properties:
+                          authMethod:
+                            description: |-
+                              AuthMethod selects how the seal authenticates to Azure, rendered as the
+                              seal's auth_method. When empty, OpenBao chooses: a client ID without a
+                              client secret selects managed_identity, which uses the instance metadata
+                              service. Set workload_identity for Azure Workload Identity, where the
+                              workload identity webhook also injects AZURE_CLIENT_ID.
+                            enum:
+                            - workload_identity
+                            - managed_identity
+                            - client_secret
+                            - environment
+                            - default
+                            type: string
                           clientID:
                             description: ClientID is the Azure client ID.
                             type: string
@@ -8008,6 +8051,7 @@ spec:
                       source version.
                     enum:
                     - 2.7.0
+                    - 2.7.1
                     type: string
                 required:
                 - storage

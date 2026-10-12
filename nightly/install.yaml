@@ -251,7 +251,7 @@ spec:
                       Image is the container image to use for backup operations.
                       If not specified, OPERATOR_BACKUP_IMAGE can supply a complete image reference, including a digest.
                       Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_BACKUP_IMAGE_REPOSITORY
-                      (default: "ghcr.io/dc-tec/openbao-backup") and the tag matches OPERATOR_VERSION.
+                      (default: "ghcr.io/kubebao/openbao-backup") and the tag matches OPERATOR_VERSION.
                       This allows users to override the image for air-gapped environments or custom registries.
                     type: string
                   jwtAuthRole:
@@ -326,7 +326,7 @@ spec:
                                   Image is the container image to use for the init container.
                                   If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.
                                   Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY
-                                  (default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION.
+                                  (default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION.
                                 type: string
                             type: object
                           plugins:
@@ -683,6 +683,20 @@ spec:
                                   AzureKeyVault configures the Azure Key Vault seal type.
                                   Required when Type is "azurekeyvault".
                                 properties:
+                                  authMethod:
+                                    description: |-
+                                      AuthMethod selects how the seal authenticates to Azure, rendered as the
+                                      seal's auth_method. When empty, OpenBao chooses: a client ID without a
+                                      client secret selects managed_identity, which uses the instance metadata
+                                      service. Set workload_identity for Azure Workload Identity, where the
+                                      workload identity webhook also injects AZURE_CLIENT_ID.
+                                    enum:
+                                    - workload_identity
+                                    - managed_identity
+                                    - client_secret
+                                    - environment
+                                    - default
+                                    type: string
                                   clientID:
                                     description: ClientID is the Azure client ID.
                                     type: string
@@ -1178,6 +1192,7 @@ spec:
                               snapshot source version.
                             enum:
                             - 2.7.0
+                            - 2.7.1
                             type: string
                         required:
                         - storage
@@ -1960,7 +1975,7 @@ spec:
                     description: |-
                       Subject is the OIDC subject for keyless verification.
                       Required for keyless verification when PublicKey is not provided.
-                      Example (GitHub Actions): https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
+                      Example (GitHub Actions): https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
                       The version in the subject MUST match the image tag version.
                     type: string
                   subjectRegExp:
@@ -2042,7 +2057,7 @@ spec:
                       Image is the container image to use for the init container.
                       If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.
                       Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY
-                      (default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION.
+                      (default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION.
                     type: string
                 type: object
               maintenance:
@@ -2848,7 +2863,7 @@ spec:
                 description: |-
                   OperatorImageVerification configures supply chain security checks for operator-managed helper images
                   (init container and backup/upgrade/restore executors) and custom BlueGreen validation-hook images.
-                  Helper images are typically signed by the operator project (e.g., dc-tec/openbao-operator)
+                  Helper images are typically signed by the operator project (e.g., kubebao/openbao-operator)
                   rather than the OpenBao upstream project.
                   If omitted, helper image verification does not fall back to ImageVerification.
                   In Development, omitted means disabled. In Hardened, omitted means enabled.
@@ -2917,7 +2932,7 @@ spec:
                     description: |-
                       Subject is the OIDC subject for keyless verification.
                       Required for keyless verification when PublicKey is not provided.
-                      Example (GitHub Actions): https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
+                      Example (GitHub Actions): https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
                       The version in the subject MUST match the image tag version.
                     type: string
                   subjectRegExp:
@@ -5461,6 +5476,20 @@ spec:
                       AzureKeyVault configures the Azure Key Vault seal type.
                       Required when Type is "azurekeyvault".
                     properties:
+                      authMethod:
+                        description: |-
+                          AuthMethod selects how the seal authenticates to Azure, rendered as the
+                          seal's auth_method. When empty, OpenBao chooses: a client ID without a
+                          client secret selects managed_identity, which uses the instance metadata
+                          service. Set workload_identity for Azure Workload Identity, where the
+                          workload identity webhook also injects AZURE_CLIENT_ID.
+                        enum:
+                        - workload_identity
+                        - managed_identity
+                        - client_secret
+                        - environment
+                        - default
+                        type: string
                       clientID:
                         description: ClientID is the Azure client ID.
                         type: string
@@ -6060,7 +6089,7 @@ spec:
 
                       If not specified, OPERATOR_UPGRADE_IMAGE can supply a complete image reference, including a digest.
                       Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_UPGRADE_IMAGE_REPOSITORY
-                      (default: "ghcr.io/dc-tec/openbao-upgrade") and the tag matches OPERATOR_VERSION.
+                      (default: "ghcr.io/kubebao/openbao-upgrade") and the tag matches OPERATOR_VERSION.
                     type: string
                   jwtAuthRole:
                     description: |-
@@ -7172,7 +7201,7 @@ spec:
                           Image is the container image to use for the init container.
                           If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.
                           Otherwise, defaults to "<repo>:X.Y.Z" where <repo> is derived from OPERATOR_INIT_IMAGE_REPOSITORY
-                          (default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION.
+                          (default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION.
                         type: string
                     type: object
                   plugins:
@@ -7521,6 +7550,20 @@ spec:
                           AzureKeyVault configures the Azure Key Vault seal type.
                           Required when Type is "azurekeyvault".
                         properties:
+                          authMethod:
+                            description: |-
+                              AuthMethod selects how the seal authenticates to Azure, rendered as the
+                              seal's auth_method. When empty, OpenBao chooses: a client ID without a
+                              client secret selects managed_identity, which uses the instance metadata
+                              service. Set workload_identity for Azure Workload Identity, where the
+                              workload identity webhook also injects AZURE_CLIENT_ID.
+                            enum:
+                            - workload_identity
+                            - managed_identity
+                            - client_secret
+                            - environment
+                            - default
+                            type: string
                           clientID:
                             description: ClientID is the Azure client ID.
                             type: string
@@ -8008,6 +8051,7 @@ spec:
                       source version.
                     enum:
                     - 2.7.0
+                    - 2.7.1
                     type: string
                 required:
                 - storage
@@ -9653,10 +9697,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261008-80875025186c
+          value: nightly-20261012-e87117fcc5ea
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/dc-tec/openbao-operator@sha256:c6d90a24ad7a3680a89940e18b41e0811884cd5db1155b32b9c96b423f18cc7a
+        image: ghcr.io/kubebao/openbao-operator@sha256:d65dbd920bcd4b4d4dd5740584744fe8fcd2b1513b51ccef454ad146b12165af
         livenessProbe:
           httpGet:
             path: /healthz
@@ -9771,8 +9815,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261008-80875025186c
-        image: ghcr.io/dc-tec/openbao-operator@sha256:c6d90a24ad7a3680a89940e18b41e0811884cd5db1155b32b9c96b423f18cc7a
+          value: nightly-20261012-e87117fcc5ea
+        image: ghcr.io/kubebao/openbao-operator@sha256:d65dbd920bcd4b4d4dd5740584744fe8fcd2b1513b51ccef454ad146b12165af
         livenessProbe:
           httpGet:
             path: /healthz
@@ -9986,7 +10030,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:4fe62c598a00d07ae0569c52123bf927ab9e81745655f17f79ee539e3a267031
+    openbao.org/admission-policy-fingerprint: sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7
   name: openbao-operator-openbao-lock-managed-resource-mutations
 spec:
   failurePolicy: Fail
@@ -10194,6 +10238,8 @@ spec:
   - expression: request.userInfo.username == "system:kube-scheduler" || request.userInfo.username
       == "system:serviceaccount:kube-system:kube-scheduler"
     name: is_kube_scheduler
+  - expression: request.userInfo.username == "aksService"
+    name: is_aks_control_plane
   - expression: request.userInfo.username.matches("^system:serviceaccount:[^:]+:.*(csi|provisioner).*$")
     name: is_storage_provisioner_serviceaccount
   - expression: request.userInfo.username == "system:serviceaccount:kube-system:persistent-volume-binder"
@@ -10370,6 +10416,7 @@ spec:
   - expression: |-
       variables.is_pvc_request && request.operation == "UPDATE" && (variables.is_kube_scheduler ||
 
+        variables.is_aks_control_plane ||
         variables.is_kube_controller_manager ||
         variables.is_persistent_volume_binder ||
         variables.is_pvc_protection_controller ||
@@ -10383,11 +10430,13 @@ spec:
       variables.pvc_new_finalizers.all(f,
 
         f in variables.pvc_old_finalizers ||
-        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+        (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
       variables.pvc_old_finalizers.all(f,
 
         f in variables.pvc_new_finalizers ||
-        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+        (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
       variables.pvc_new_annotations.all(k, v,
 
         !k.startsWith("openbao.org/") ||
@@ -11604,7 +11653,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:57b606ac5326679442a76aa837e28b90cd2f130c72a6e8d8e4064eca6b798f0f
+    openbao.org/admission-policy-fingerprint: sha256:adaa05dbbddde9dded957721499e49337a1eb2ed5a7c682a1340354e27730d8d
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -11822,6 +11871,11 @@ spec:
       >= 2.7.0.
   - expression: '!variables.has_listener_key_exchange || variables.listener_key_exchange_current_version_supported'
     message: Complete the OpenBao >= 2.7.0 upgrade before configuring spec.configuration.listener.tlsKeyExchangePreferences.
+  - expression: '!variables.has_azure_key_vault_auth_method || variables.azure_key_vault_auth_method_version_supported'
+    message: spec.unseal.azureKeyVault.authMethod requires OpenBao >= 2.6.0; earlier
+      versions ignore it and select managed identity when a client ID is set.
+  - expression: '!variables.has_azure_key_vault_auth_method || variables.azure_key_vault_auth_method_current_version_supported'
+    message: Complete the OpenBao >= 2.6.0 upgrade before configuring spec.unseal.azureKeyVault.authMethod.
   - expression: '!has(object.spec.profile) || object.spec.profile != "Hardened" ||
       !variables.has_backup || !has(object.spec.backup.target.insecureSkipVerify)
       || object.spec.backup.target.insecureSkipVerify != true'
@@ -12257,6 +12311,9 @@ spec:
   - expression: has(object.spec.configuration) && has(object.spec.configuration.listener)
       && has(object.spec.configuration.listener.tlsKeyExchangePreferences)
     name: has_listener_key_exchange
+  - expression: has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
+      has(object.spec.unseal.azureKeyVault.authMethod)
+    name: has_azure_key_vault_auth_method
   - expression: has(object.spec.backup)
     name: has_backup
   - expression: 'variables.has_backup && has(object.spec.backup.target.provider) &&
@@ -12424,6 +12481,21 @@ spec:
         (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] == 7 &&
          (variables.current_version_parts[2] > 0 || variables.current_version_prerelease == ""))))
     name: listener_key_exchange_current_version_supported
+  - expression: |-
+      variables.spec_version_valid && (variables.spec_version_parts[0] > 2 ||
+
+       (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] > 6) ||
+       (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] == 6 &&
+        (variables.spec_version_parts[2] > 0 || variables.spec_version_prerelease == "")))
+    name: azure_key_vault_auth_method_version_supported
+  - expression: |-
+      variables.current_version_normalized == "" || (variables.current_version_valid &&
+
+       (variables.current_version_parts[0] > 2 ||
+        (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] > 6) ||
+        (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] == 6 &&
+         (variables.current_version_parts[2] > 0 || variables.current_version_prerelease == ""))))
+    name: azure_key_vault_auth_method_current_version_supported
   - expression: 'oldObject != null && has(oldObject.status) && has(oldObject.status.upgrade)
       && has(oldObject.status.upgrade.targetVersion) && oldObject.status.upgrade.targetVersion
       != "" ? (oldObject.status.upgrade.targetVersion.startsWith("v") ? oldObject.status.upgrade.targetVersion.substring(1)
