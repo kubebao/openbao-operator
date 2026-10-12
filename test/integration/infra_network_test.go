@@ -32,6 +32,7 @@ const (
 )
 
 func TestInfraNetwork_ServiceSelectorsExcludeHelperPods(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	namespace := newTestNamespace(t)
 	cluster := newMinimalClusterObj(namespace, "infra-server-backends")
 	cluster.Spec.Service = &openbaov1alpha1.ServiceConfig{}
@@ -53,7 +54,7 @@ func TestInfraNetwork_ServiceSelectorsExcludeHelperPods(t *testing.T) {
 		}
 		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: podLabels},
 			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "test", Image: "test.invalid/fixture:latest"}}}}
-		require.NoError(t, k8sClient.Create(ctx, pod))
+		require.NoError(t, c.Create(ctx, pod))
 	}
 	for _, name := range []string{cluster.Name, cluster.Name + infraPublicServiceSuffix} {
 		svc := &corev1.Service{}
@@ -62,7 +63,7 @@ func TestInfraNetwork_ServiceSelectorsExcludeHelperPods(t *testing.T) {
 		uid, clusterIP := svc.UID, svc.Spec.ClusterIP
 		// Simulate an existing broad selector, then repair it through real SSA.
 		delete(svc.Spec.Selector, constants.LabelOpenBaoComponent)
-		require.NoError(t, k8sClient.Update(ctx, svc))
+		require.NoError(t, c.Update(ctx, svc))
 		before := &corev1.PodList{}
 		require.NoError(t, k8sClient.List(ctx, before,
 			client.InNamespace(namespace), client.MatchingLabels(svc.Spec.Selector)))
