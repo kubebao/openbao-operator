@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math"
-	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -115,6 +114,7 @@ type nativeScenarioContext struct {
 	createdNamespaces []string
 	cfg               *rest.Config
 	client            client.Client
+	artifacts         map[string]string
 }
 
 type resourceWriteTracker struct {
@@ -433,6 +433,11 @@ func (n *nativeScenarioContext) runRollingUpgrade(ctx context.Context) (Result, 
 	requestedAt := time.Now().UTC()
 	phases := []Phase{{Name: "upgrade_requested", At: requestedAt, Source: "harness"}}
 	phaseTimes := map[string]time.Time{"upgrade_requested": requestedAt}
+	probeLog, err := n.createAvailabilityProbeLog()
+	if err != nil {
+		return n.result(phases, nil), err
+	}
+	defer func() { _ = probeLog.Close() }()
 	if err := n.patchUpgradeTarget(ctx, cluster.Name); err != nil {
 		measurements := rollingUpgradeMeasurements(phaseTimes, requestedAt, nil, 0, tracker.count)
 		return n.result(phases, measurements), err
@@ -444,7 +449,7 @@ func (n *nativeScenarioContext) runRollingUpgrade(ctx context.Context) (Result, 
 		podReadyTimes        []time.Time
 		targetReadyPods      = map[string]struct{}{}
 	)
-	err := pollUntil(ctx, func() (bool, error) {
+	err = pollUntil(ctx, func() (bool, error) {
 		if err := tracker.observe(ctx, n.client, n.namespace, cluster.Name); err != nil {
 			return false, err
 		}
@@ -460,11 +465,13 @@ func (n *nativeScenarioContext) runRollingUpgrade(ctx context.Context) (Result, 
 			}
 			recordPhaseOnce(&phases, phaseTimes, "upgrade_session_started", startedAt, "openbaocluster_status")
 		}
-		probeAvailable, err := n.probeClusterAvailability(ctx, cluster.Name)
-		if err != nil {
+		probe := n.probeClusterAvailability(ctx, cluster.Name)
+		if !probe.Available {
 			availabilityFailures++
-		} else if !probeAvailable {
-			availabilityFailures++
+			n.observeFailedAvailabilityProbe(ctx, cluster.Name, &probe)
+		}
+		if err := json.NewEncoder(probeLog).Encode(probe); err != nil {
+			return false, fmt.Errorf("write availability probe artifact: %w", err)
 		}
 
 		pods, err := n.clusterPods(ctx, cluster.Name)
@@ -651,6 +658,7 @@ func (n *nativeScenarioContext) result(
 		Phases:       phases,
 		Measurements: measurements,
 		Namespace:    n.namespace,
+		Artifacts:    n.artifacts,
 		Cleanup:      n.cleanup,
 	}
 }
@@ -856,37 +864,6 @@ func (n *nativeScenarioContext) clusterPods(ctx context.Context, clusterName str
 		return pods.Items[i].Name < pods.Items[j].Name
 	})
 	return pods.Items, nil
-}
-
-func (n *nativeScenarioContext) probeClusterAvailability(ctx context.Context, clusterName string) (bool, error) {
-	transport, err := rest.TransportFor(n.cfg)
-	if err != nil {
-		return false, fmt.Errorf("create API transport: %w", err)
-	}
-	httpClient := &http.Client{Transport: transport, Timeout: 5 * time.Second}
-	url := fmt.Sprintf(
-		"%s/api/v1/namespaces/%s/services/https:%s-public:8200/proxy/v1/sys/health?standbyok=true&perfstandbyok=true",
-		n.cfg.Host,
-		n.namespace,
-		clusterName,
-	)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return false, fmt.Errorf("build health probe request: %w", err)
-	}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusTooManyRequests, 472, 473:
-		return true, nil
-	default:
-		return false, nil
-	}
 }
 
 func (n *nativeScenarioContext) cleanup(ctx context.Context) {

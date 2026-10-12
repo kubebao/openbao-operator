@@ -121,7 +121,7 @@ scenarios:
       - name: scenario_completed
 
   - name: restore
-    description: Native S3 restore orchestration using a per-sample backup fixture and explicit restore phases.
+    description: Native S3 restore submission and administrator Resume on a per-sample fixture; application remains unconfirmed.
     labels: [restore, disaster-recovery]
     executor: native-go
     existingCluster:
@@ -160,7 +160,9 @@ scenarios:
       - name: restore_validation_ready
       - name: restore_job_created
       - name: restore_started
-      - name: restore_completed
+      - name: restore_submission_accepted
+      - name: restore_recovery_requested
+      - name: restore_recovery_released
       - name: scenario_completed
 
   - name: rolling-upgrade

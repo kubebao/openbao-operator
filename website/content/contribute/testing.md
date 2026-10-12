@@ -50,6 +50,23 @@ make test-e2e-ci \
 
 Continue with [CI routing]({{< relref "/contribute/ci.md" >}}).
 
+## Diagnose performance findings
+
+Inspect the scenario artifacts before changing a performance baseline. Warmup scenario errors remain failures in the summary,
+even though warmup measurements do not enter the performance comparison. A scenario with no measured samples cannot pass.
+
+The rolling-upgrade scenario writes an `availabilityProbes` JSONL artifact. Each probe records its timestamp,
+duration, HTTP status or transport error, and availability result. Failed HTTP responses retain up to 4 KiB of health
+or proxy response data. Failed probes also capture Pod readiness,
+deletion state, and public Service EndpointSlices. Errors while collecting this state remain separate from the probe result.
+The zero-failure availability gate remains in effect.
+
+The restore scenario owns its source cluster and snapshot fixture. After observing a successful submission receipt,
+the harness acknowledges administrator `Resume` and waits for managed Pod replacement and hold release.
+`restore_total_seconds` measures the interval from the restore request to recovery release.
+The restore can remain `Unknown`: this measurement does not confirm snapshot application.
+The scenario records submission acceptance, recovery acknowledgement, and recovery release as separate phases.
+
 ## Policy approval and repair
 
 Run `make test-policy-reconciliation-openbao` with Docker available. The test starts a disposable OpenBao dev server

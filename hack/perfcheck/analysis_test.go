@@ -21,6 +21,50 @@ func TestSummarizeValues(t *testing.T) {
 	}
 }
 
+func TestAnalyzeScenarioReportsWarmupFailuresWithoutMeasuringWarmups(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name         string
+		warmupStatus string
+		measured     bool
+		wantStatus   string
+		wantFinding  string
+	}{
+		{"failed warmup only", sampleStatusScenarioError, false, measurementSeverityFail, "warmup 1: setup failed"},
+		{"failed warmup followed by sample", sampleStatusScenarioError, true,
+			measurementSeverityFail, "warmup 1: setup failed"},
+		{"measurement error followed by sample", sampleStatusMeasurementError, true,
+			measurementSeverityWarn, "warmup 1: setup failed"},
+		{"successful warmup only", sampleStatusPass, false, measurementSeverityFail, "scenario produced no measured samples"},
+		{"successful warmup excluded", sampleStatusPass, true, sampleStatusPass, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			spec := scenarioSpec{Name: "restore", Primary: []string{metricRestoreTotalSeconds}}
+			samples := []sampleDocument{{Scenario: spec.Name, Sample: 1, Warmup: true, Status: tt.warmupStatus,
+				Error: "setup failed", Measurements: map[string]float64{metricRestoreTotalSeconds: 900}}}
+			if tt.measured {
+				samples = append(samples, sampleDocument{Scenario: spec.Name, Sample: 1, Status: sampleStatusPass,
+					Measurements: map[string]float64{metricRestoreTotalSeconds: 30}})
+			}
+			policy := policyDocument{Defaults: measurementPolicy{Policy: measurementPolicyInformational, MinimumSamples: 1}}
+			got := analyzeScenarioSamples(spec, samples, baselineDocument{}, nil, policy)
+			if got.Status != tt.wantStatus || got.Warmups != 1 {
+				t.Fatalf("summary = %+v, want status %q and one warmup", got, tt.wantStatus)
+			}
+			if tt.measured && (got.Samples != 1 || got.Measurements[metricRestoreTotalSeconds].Median != 30) {
+				t.Fatalf("warmup affected measured results: %+v", got)
+			}
+			if !tt.measured && (got.Samples != 0 || len(got.Measurements) != 0) {
+				t.Fatalf("warmup was included in measurements: %+v", got)
+			}
+			if tt.wantFinding != "" && (len(got.Findings) == 0 || got.Findings[0].Message != tt.wantFinding) {
+				t.Fatalf("findings = %+v, want %q", got.Findings, tt.wantFinding)
+			}
+		})
+	}
+}
+
 func TestWriteScenarioBaselineRequiresMinimumSuccessfulSamples(t *testing.T) {
 	t.Parallel()
 

@@ -1101,8 +1101,10 @@ func collectKubernetesArtifacts(
 		{"events.json", append([]string{"get", "events"}, scopeArgs...)},
 		{"statefulsets.json", append([]string{"get", "statefulsets"}, scopeArgs...)},
 		{"services.json", append([]string{"get", "services"}, scopeArgs...)},
+		{"endpointslices.json", append([]string{"get", "endpointslices.discovery.k8s.io"}, scopeArgs...)},
 		{"persistentvolumeclaims.json", append([]string{"get", "persistentvolumeclaims"}, scopeArgs...)},
 		{"openbaoclusters.json", append([]string{"get", "openbaoclusters.openbao.org"}, scopeArgs...)},
+		{"openbaorestores.json", append([]string{"get", "openbaorestores.openbao.org"}, scopeArgs...)},
 	}
 	for _, target := range jsonTargets {
 		args := append([]string{}, target.args...)

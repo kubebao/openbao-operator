@@ -171,7 +171,7 @@ jobs:
             echo "docs=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|config/|test/|website/generated/api-reference\.md|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(ci/|dev/install-ast-grep\.sh|tools/|helm(chart|values)/|boilerplate\.go\.txt)|\.golangci\.yml)'; then
+          if changed_matches '^(internal/|cmd/|api/|config/|test/|website/generated/api-reference\.md|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(ci/|perfcheck/|dev/install-ast-grep\.sh|tools/|helm(chart|values)/|boilerplate\.go\.txt)|\.golangci\.yml)'; then
             echo "go_quality=true" >> "${GITHUB_OUTPUT}"
           else
             echo "go_quality=false" >> "${GITHUB_OUTPUT}"
@@ -189,7 +189,7 @@ jobs:
             echo "go_toolchain=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|config/|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(tools/|helm(chart|values)/)|test/(integration/|unit/))'; then
+          if changed_matches '^(internal/|cmd/|api/|config/|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(perfcheck/|tools/|helm(chart|values)/)|test/(integration/|unit/|perf/))'; then
             echo "go_tests=true" >> "${GITHUB_OUTPUT}"
           else
             echo "go_tests=false" >> "${GITHUB_OUTPUT}"

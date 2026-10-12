@@ -154,10 +154,12 @@ func (n *nativeScenarioContext) runRestore(ctx context.Context) (Result, error) 
 			if current.Status.CompletionTime != nil {
 				at = current.Status.CompletionTime.Time
 			}
-			recordPhaseOnce(&phases, phaseTimes, "restore_completed", at, "openbaorestore_status")
+			recordPhaseOnce(&phases, phaseTimes, "restore_recovery_released", at, "openbaorestore_status")
 			return true, nil
 		case openbaov1alpha1.RestorePhaseFailed:
 			return false, fmt.Errorf("OpenBaoRestore failed: %s", strings.TrimSpace(current.Status.Message))
+		case openbaov1alpha1.RestorePhaseUnknown:
+			return n.resumeFixtureRestore(ctx, current, fixture.cluster, &phases, phaseTimes)
 		default:
 			return false, nil
 		}
@@ -478,7 +480,7 @@ func restoreMeasurements(
 ) map[string]float64 {
 	measurements := phaseMeasurements(phaseTimes, "restore_requested", map[string]string{
 		metricRestoreValidationSeconds: "restore_validation_ready",
-		metricRestoreTotalSeconds:      "restore_completed",
+		metricRestoreTotalSeconds:      "restore_recovery_released",
 	})
 	if started := phaseTimes["restore_job_created"]; !started.IsZero() {
 		duration := phaseTimes["restore_job_completed"].Sub(started).Seconds()

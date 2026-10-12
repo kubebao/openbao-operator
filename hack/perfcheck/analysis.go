@@ -117,21 +117,28 @@ func analyzeScenarioSamples(
 	for _, sample := range samples {
 		if sample.Warmup {
 			scenario.Warmups++
-			continue
+		} else {
+			scenario.Samples++
 		}
-		scenario.Samples++
 		if sample.Status != sampleStatusPass {
 			severity := measurementSeverityFail
 			classification := sample.Status
 			if sample.Status == sampleStatusMeasurementError {
 				severity = measurementSeverityWarn
 			}
+			message := sample.Error
+			if sample.Warmup {
+				message = fmt.Sprintf("warmup %d: %s", sample.Sample, message)
+			}
 			findings = append(findings, analysisFinding{
 				Scenario:       scenarioName,
 				Severity:       severity,
 				Classification: classification,
-				Message:        sample.Error,
+				Message:        message,
 			})
+			continue
+		}
+		if sample.Warmup {
 			continue
 		}
 		for metric, value := range sample.Measurements {
@@ -140,6 +147,12 @@ func analyzeScenarioSamples(
 			}
 			values[metric] = append(values[metric], value)
 		}
+	}
+	if scenario.Samples == 0 && statusFromFindings(findings) != measurementSeverityFail {
+		findings = append(findings, analysisFinding{
+			Scenario: scenarioName, Severity: measurementSeverityFail,
+			Classification: sampleStatusScenarioError, Message: "scenario produced no measured samples",
+		})
 	}
 
 	keys := make([]string, 0, len(values))
