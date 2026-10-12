@@ -45,7 +45,7 @@ const (
 	PolicyFingerprintAnnotation = "openbao.org/admission-policy-fingerprint"
 
 	fingerprintOpenBaoValidateOpenBaoCluster       = "sha256:828902329ac47bb74fa1ef8ab7f92d80e1f16b3e2d088b8e585d2dd77b9fd6c1"
-	fingerprintOpenBaoLockManagedResourceMutations = "sha256:40a9dc3487c64f06948c06332195145cca5ee5554bd7e5970f385ad17b3f51cf"
+	fingerprintOpenBaoLockManagedResourceMutations = "sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7"
 
 	dependencyOpenBaoValidateOpenBaoCluster             = "openbao-validate-openbaocluster"
 	dependencyOpenBaoValidateOpenBaoTenant              = "openbao-validate-openbao-tenant"

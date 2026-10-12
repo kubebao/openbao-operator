@@ -756,6 +756,26 @@ func TestVAP_LockManagedRBAC_AllowsStatefulSetControllerManagedPVC(t *testing.T)
 		t.Fatalf("expected CSI provisioner managed PVC metadata update to succeed, got: %v", err)
 	}
 
+	leakProtectionFinalizer := "example.csi.test/csi-leak-protection"
+	if err := schedulerClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedPVC.Name}, managedPVC); err != nil {
+		t.Fatalf("get managed PVC before scheduler leak-protection finalizer update: %v", err)
+	}
+	managedPVC.Finalizers = append(managedPVC.Finalizers, leakProtectionFinalizer)
+	err = schedulerClient.Update(ctx, managedPVC)
+	requireAdmissionDenied(t, err)
+
+	if err := storageProvisionerClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedPVC.Name}, managedPVC); err != nil {
+		t.Fatalf("get managed PVC before CSI leak-protection finalizer update: %v", err)
+	}
+	managedPVC.Finalizers = append(managedPVC.Finalizers, leakProtectionFinalizer)
+	if err := storageProvisionerClient.Update(ctx, managedPVC); err != nil {
+		t.Fatalf("expected CSI provisioner leak-protection finalizer addition to succeed, got: %v", err)
+	}
+	managedPVC.Finalizers = managedPVC.Finalizers[:len(managedPVC.Finalizers)-1]
+	if err := storageProvisionerClient.Update(ctx, managedPVC); err != nil {
+		t.Fatalf("expected CSI provisioner leak-protection finalizer removal to succeed, got: %v", err)
+	}
+
 	persistentVolumeBinderClient := newPrivilegedImpersonatedClient(
 		t,
 		"system:serviceaccount:kube-system:persistent-volume-binder",
