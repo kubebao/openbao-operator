@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:40a9dc3487c64f06948c06332195145cca5ee5554bd7e5970f385ad17b3f51cf
+    openbao.org/admission-policy-fingerprint: sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -371,10 +371,12 @@ spec:
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
         variables.pvc_new_finalizers.all(f,
           f in variables.pvc_old_finalizers ||
-          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+          (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
         variables.pvc_old_finalizers.all(f,
           f in variables.pvc_new_finalizers ||
-          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+          (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
         variables.pvc_new_annotations.all(k, v,
           !k.startsWith("openbao.org/") ||
           (k in variables.pvc_old_annotations && variables.pvc_old_annotations[k] == v)) &&
