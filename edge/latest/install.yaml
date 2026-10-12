@@ -9697,10 +9697,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-7407ec69ff45
+          value: edge-e87117fcc5ea
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:49ccd5075e765a8306e236e303a5e914665e22a7fd7ed979d61214575c849fb9
+        image: ghcr.io/kubebao/openbao-operator@sha256:d65dbd920bcd4b4d4dd5740584744fe8fcd2b1513b51ccef454ad146b12165af
         livenessProbe:
           httpGet:
             path: /healthz
@@ -9815,8 +9815,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-7407ec69ff45
-        image: ghcr.io/kubebao/openbao-operator@sha256:49ccd5075e765a8306e236e303a5e914665e22a7fd7ed979d61214575c849fb9
+          value: edge-e87117fcc5ea
+        image: ghcr.io/kubebao/openbao-operator@sha256:d65dbd920bcd4b4d4dd5740584744fe8fcd2b1513b51ccef454ad146b12165af
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10030,7 +10030,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:40a9dc3487c64f06948c06332195145cca5ee5554bd7e5970f385ad17b3f51cf
+    openbao.org/admission-policy-fingerprint: sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7
   name: openbao-operator-openbao-lock-managed-resource-mutations
 spec:
   failurePolicy: Fail
@@ -10430,11 +10430,13 @@ spec:
       variables.pvc_new_finalizers.all(f,
 
         f in variables.pvc_old_finalizers ||
-        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+        (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
       variables.pvc_old_finalizers.all(f,
 
         f in variables.pvc_new_finalizers ||
-        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+        f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+        (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
       variables.pvc_new_annotations.all(k, v,
 
         !k.startsWith("openbao.org/") ||
