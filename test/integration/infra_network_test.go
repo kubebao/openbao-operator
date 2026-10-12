@@ -7,15 +7,19 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
 
@@ -26,6 +30,54 @@ const (
 	infraBackendTLSPolicySuffix = "-backend-tls-policy"
 	gatewayCAConfigMapKeyCACert = "ca.crt"
 )
+
+func TestInfraNetwork_ServiceSelectorsExcludeHelperPods(t *testing.T) {
+	namespace := newTestNamespace(t)
+	cluster := newMinimalClusterObj(namespace, "infra-server-backends")
+	cluster.Spec.Service = &openbaov1alpha1.ServiceConfig{}
+	require.NoError(t, k8sClient.Create(ctx, cluster))
+	createTLSSecret(t, namespace, cluster.Name)
+	c := newControllerClient(t)
+	spec := newTestStatefulSetSpec(cluster)
+	require.NoError(t, reconcileClusterResources(ctx, logr.Discard(), c, k8sScheme, cluster, spec))
+	sts := &appsv1.StatefulSet{}
+	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), sts))
+	require.NotContains(t, sts.Spec.Selector.MatchLabels, constants.LabelOpenBaoComponent,
+		"the immutable StatefulSet selector must remain compatible with existing workloads")
+	for name, podLabels := range map[string]map[string]string{
+		"server": sts.Spec.Template.Labels,
+		"helper": resourceidentity.Labels(cluster),
+	} {
+		if name == "helper" {
+			podLabels[constants.LabelOpenBaoComponent] = "upgrade"
+		}
+		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: podLabels},
+			Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "test", Image: "test.invalid/fixture:latest"}}}}
+		require.NoError(t, k8sClient.Create(ctx, pod))
+	}
+	for _, name := range []string{cluster.Name, cluster.Name + infraPublicServiceSuffix} {
+		svc := &corev1.Service{}
+		key := client.ObjectKey{Namespace: namespace, Name: name}
+		require.NoError(t, k8sClient.Get(ctx, key, svc))
+		uid, clusterIP := svc.UID, svc.Spec.ClusterIP
+		// Simulate an existing broad selector, then repair it through real SSA.
+		delete(svc.Spec.Selector, constants.LabelOpenBaoComponent)
+		require.NoError(t, k8sClient.Update(ctx, svc))
+		before := &corev1.PodList{}
+		require.NoError(t, k8sClient.List(ctx, before,
+			client.InNamespace(namespace), client.MatchingLabels(svc.Spec.Selector)))
+		require.Len(t, before.Items, 2)
+		require.NoError(t, reconcileClusterResources(ctx, logr.Discard(), c, k8sScheme, cluster, spec))
+		require.NoError(t, k8sClient.Get(ctx, key, svc))
+		require.Equal(t, uid, svc.UID)
+		require.Equal(t, clusterIP, svc.Spec.ClusterIP)
+		after := &corev1.PodList{}
+		require.NoError(t, k8sClient.List(ctx, after,
+			client.InNamespace(namespace), client.MatchingLabels(svc.Spec.Selector)))
+		require.Len(t, after.Items, 1)
+		require.Equal(t, "server", after.Items[0].Name)
+	}
+}
 
 func TestInfraNetwork_HeadlessService_IsIdempotent(t *testing.T) {
 	namespace := newTestNamespace(t)

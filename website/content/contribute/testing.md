@@ -61,6 +61,9 @@ or proxy response data. Failed probes also capture Pod readiness,
 deletion state, and public Service EndpointSlices. Errors while collecting this state remain separate from the probe result.
 The zero-failure availability gate remains in effect.
 
+OpenBao Services select server Pods with `openbao.org/component=openbaocluster`.
+Helper Job Pods use other component values and do not serve OpenBao endpoints.
+
 The restore scenario owns its source cluster and snapshot fixture. After observing a successful submission receipt,
 the harness acknowledges administrator `Resume` and waits for managed Pod replacement and hold release.
 `restore_total_seconds` measures the interval from the restore request to recovery release.
