@@ -712,7 +712,9 @@ wait_for_statefulset_init_image operator-upgrade-transit "${LOCAL_INIT_IMAGE}"
   --timeout=10m >/dev/null
 
 echo "Reapplying the Hardened contract through candidate admission..." >&2
-render_hardened_fixture | "${KUBECTL_BIN}" apply -f - >/dev/null
+render_hardened_fixture | \
+  inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
+  "${KUBECTL_BIN}" apply -f - >/dev/null
 wait_for_statefulset_init_image operator-upgrade-hardened "${HARDENED_INIT_IMAGE}"
 wait_for_hardened_cluster
 
