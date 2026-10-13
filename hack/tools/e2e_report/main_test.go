@@ -392,3 +392,14 @@ func TestFormatDurationRoundsToMilliseconds(t *testing.T) {
 		})
 	}
 }
+
+func TestPrecompiledReportLocationsRetainSuiteBudgets(t *testing.T) {
+	for _, file := range []string{
+		"/builder/work/operator/test/e2e/Cluster_Lifecycle_test.go",
+		"github.com/kubebao/openbao-operator/test/e2e/Cluster_Lifecycle_test.go",
+	} {
+		if got := normalizeReportFile(file); got != "test/e2e/Cluster_Lifecycle_test.go" {
+			t.Fatalf("precompiled report location = %s", got)
+		}
+	}
+}

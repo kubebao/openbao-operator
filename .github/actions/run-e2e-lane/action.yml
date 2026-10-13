@@ -1,0 +1,156 @@
+name: Run E2E lane
+description: Prepare, execute, validate, collect, and clean up one planned E2E lane with run-scoped binaries.
+
+inputs:
+  lane:
+    description: Planned matrix row as JSON, including the effective selector and expected scenario IDs.
+    required: true
+  manager-image:
+    description: Per-run operator image reference.
+    required: true
+  config-init-image:
+    description: Per-run config init image reference.
+    required: true
+  backup-executor-image:
+    description: Per-run backup executor image reference.
+    required: true
+  upgrade-executor-image:
+    description: Per-run upgrade executor image reference.
+    required: true
+  hardened-init-image:
+    description: Override the planned hardened init image for release qualification.
+    default: ""
+  hardened-upgrade-executor-image:
+    description: Override the planned hardened upgrade helper for release qualification.
+    default: ""
+  openbao-image:
+    description: Override the planned OpenBao image for per-run seal fixtures.
+    default: ""
+  kmip-server-image:
+    description: Per-run PyKMIP fixture image for the seal lane.
+    default: ""
+  operator-version:
+    description: Operator version to render during release qualification.
+    default: ""
+  report-dir:
+    description: Directory for lane evidence.
+    required: true
+  artifact-name:
+    description: Attempt-specific artifact name for lane evidence.
+    required: true
+  registry-token:
+    description: GitHub token with package read access.
+    required: true
+  configure-docker-mirror:
+    description: Configure the CI runner's Docker Hub cache before creating containers.
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Configure E2E lane
+      shell: bash
+      env:
+        LANE_JSON: ${{ inputs.lane }}
+        MANAGER_IMAGE: ${{ inputs.manager-image }}
+        CONFIG_INIT_IMAGE: ${{ inputs.config-init-image }}
+        BACKUP_EXECUTOR_IMAGE: ${{ inputs.backup-executor-image }}
+        UPGRADE_EXECUTOR_IMAGE: ${{ inputs.upgrade-executor-image }}
+        HARDENED_INIT_IMAGE: ${{ inputs.hardened-init-image }}
+        HARDENED_UPGRADE_IMAGE: ${{ inputs.hardened-upgrade-executor-image }}
+        OPENBAO_IMAGE: ${{ inputs.openbao-image }}
+        KMIP_SERVER_IMAGE: ${{ inputs.kmip-server-image }}
+        RELEASE_OPERATOR_VERSION: ${{ inputs.operator-version }}
+        REPORT_DIR: ${{ inputs.report-dir }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+      run: python3 hack/ci/configure-e2e-lane.py
+
+    - name: Download E2E binaries
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: e2e-binaries
+        path: ${{ runner.temp }}/e2e-binaries
+
+    - name: Verify E2E binaries
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 hack/ci/e2e-binaries.py verify "${E2E_BINARY_DIR}" "${E2E_SOURCE_SHA}"
+        chmod +x "${E2E_BINARY_DIR}/ginkgo" "${E2E_BINARY_DIR}/e2e_report"
+        cp "${E2E_BINARY_DIR}/metadata.json" "${E2E_REPORT_DIR}/binary-metadata.json"
+
+    - name: Configure Docker Hub cache
+      if: inputs.configure-docker-mirror == 'true'
+      uses: ./.github/actions/setup-docker-mirror
+
+    - name: Setup repo tools
+      uses: ./.github/actions/setup-repo-tools
+
+    - name: Setup Kubernetes CLI tools
+      uses: ./.github/actions/setup-kubernetes-tools
+      with:
+        install-dir: bin/
+
+    - name: Login to GHCR (pull)
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.registry-token }}
+
+    - name: Prepare E2E lane
+      id: prepare
+      uses: ./.github/actions/prepare-e2e-lane
+      with:
+        kind-node-image: ${{ env.KIND_NODE_IMAGE }}
+        kind-cluster: kind
+        manager-image: ${{ inputs.manager-image }}
+        config-init-image: ${{ inputs.config-init-image }}
+        backup-executor-image: ${{ inputs.backup-executor-image }}
+        upgrade-executor-image: ${{ inputs.upgrade-executor-image }}
+        hardened-upgrade-executor-image: ${{ env.E2E_HARDENED_UPGRADE_EXECUTOR_IMAGE }}
+        load-backup-executor-image: ${{ env.E2E_LOAD_BACKUP_EXECUTOR_IMAGE }}
+        load-upgrade-executor-image: ${{ env.E2E_LOAD_UPGRADE_EXECUTOR_IMAGE }}
+        preload-storage-emulators: ${{ env.E2E_PRELOAD_STORAGE_EMULATORS }}
+        preload-rustfs-image: ${{ env.E2E_PRELOAD_RUSTFS_IMAGE }}
+        preload-fake-gcs-image: ${{ env.E2E_PRELOAD_FAKE_GCS_IMAGE }}
+        preload-azurite-image: ${{ env.E2E_PRELOAD_AZURITE_IMAGE }}
+        rustfs-image: ${{ env.E2E_RUSTFS_IMAGE }}
+        fake-gcs-image: ${{ env.E2E_FAKE_GCS_IMAGE }}
+        azurite-image: ${{ env.E2E_AZURITE_IMAGE }}
+        report-dir: ${{ inputs.report-dir }}
+        artifact-name: ${{ inputs.artifact-name }}
+
+    - name: Run E2E Tests
+      shell: bash
+      env:
+        GOFLAGS: -mod=vendor
+        E2E_RUSTFS_IMAGE: ${{ steps.prepare.outputs['rustfs-image'] }}
+        E2E_FAKE_GCS_IMAGE: ${{ steps.prepare.outputs['fake-gcs-image'] }}
+        E2E_AZURITE_IMAGE: ${{ steps.prepare.outputs['azurite-image'] }}
+      run: make test-e2e-ci
+
+    - name: Summarize E2E report
+      if: always()
+      shell: bash
+      run: bash hack/ci/summarize-e2e.sh
+
+    - name: Collect E2E artifacts (failure)
+      if: failure()
+      shell: bash
+      run: bash hack/ci/collect-e2e-artifacts.sh
+
+    - name: Delete E2E cluster
+      if: >-
+        always() && (steps.prepare.outcome == 'success' || steps.prepare.outcome == 'failure' || steps.prepare.outcome == 'cancelled')
+      shell: bash
+      run: kind delete cluster --name kind
+
+    - name: Upload E2E artifacts
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: artifacts/
+        retention-days: 7
+        if-no-files-found: error

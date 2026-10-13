@@ -57,7 +57,9 @@ func runRouting(t *testing.T, base, head, failure, event string) (map[string]str
 		commitFixture(t, dir)
 	}
 	headSHA := gitCommand(t, dir, "rev-parse", "HEAD")
-	for _, name := range []string{"e2e-lifecycle-paths.txt", "e2e-seal-paths.txt", "e2e-selection-paths.txt"} {
+	for _, name := range []string{
+		"e2e-lifecycle-paths.txt", "e2e-seal-paths.txt", "e2e-execution-paths.txt", "e2e-selection-paths.txt",
+	} {
 		data, err := os.ReadFile(filepath.Join("..", "..", "..", "hack", "ci", name))
 		if err != nil {
 			t.Fatal(err)
@@ -172,6 +174,32 @@ func TestChangeDetectionRoutesRealGitDiffs(t *testing.T) {
 			for _, key := range test.routes {
 				if outputs[key] != routingTrue {
 					t.Errorf("%s not selected", key)
+				}
+			}
+		})
+	}
+}
+
+func TestSharedExecutionChangesSelectEveryLaneFamily(t *testing.T) {
+	for _, path := range []string{
+		".github/actions/run-e2e-lane/action.yml",
+		".github/actions/prepare-e2e-lane/action.yml",
+		"hack/ci/build-e2e-binaries.sh",
+		"hack/ci/configure-e2e-lane.py",
+		"hack/ci/e2e-binaries.py",
+		"hack/ci/run-e2e.sh",
+		"hack/ci/summarize-e2e.sh",
+		"hack/ci/e2e-execution-paths.txt",
+		"hack/tools/e2e_report/main.go",
+	} {
+		t.Run(path, func(t *testing.T) {
+			outputs, err := runRouting(t, "normal", path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{"workflow", "e2e", "e2e_backup", "e2e_upgrade", "e2e_hardened", "e2e_seal"} {
+				if outputs[key] != routingTrue {
+					t.Fatalf("shared execution change %s does not select %s", path, key)
 				}
 			}
 		})

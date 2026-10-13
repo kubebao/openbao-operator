@@ -820,10 +820,9 @@ func TestCIWorkflowWiresSealLaneFixtures(t *testing.T) {
 		"Build PyKMIP fixture image",
 		"openbao_softhsm_ref:",
 		"pykmip_server_ref:",
-		"E2E_ENABLE_SOFTHSM_SUITE:",
-		"E2E_ENABLE_KMIP_SUITE:",
-		"E2E_KMIP_SERVER_IMAGE:",
-		"--fail-on-selected-skips",
+		"kmip-server-image:",
+		"openbao-image:",
+		"./.github/actions/run-e2e-lane",
 	}
 	for _, value := range required {
 		if !strings.Contains(workflow, value) {

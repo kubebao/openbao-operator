@@ -265,12 +265,28 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload E2E execution plan
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-plan
           path: artifacts/e2e-plan/
           overwrite: true
           retention-days: 7
+
+      - name: Compile E2E executables once
+        env:
+          GOFLAGS: -mod=vendor
+          E2E_BINARY_DIR: ${{ runner.temp }}/e2e-binaries
+          E2E_SOURCE_SHA: ${{ github.sha }}
+        run: make build-e2e-binaries
+
+      - name: Upload E2E binaries
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-binaries
+          path: ${{ runner.temp }}/e2e-binaries/
+          overwrite: true
+          retention-days: 7
+          if-no-files-found: error
 
   e2e:
     name: E2E Gate (${{ matrix.name }} / kind ${{ matrix.k8s }})
@@ -285,7 +301,6 @@ jobs:
       max-parallel: 6
       matrix: ${{ fromJSON(needs.e2e-matrix.outputs.matrix) }}
     env:
-      KIND_NODE_IMAGE: ${{ matrix.kind_node_image }}
       MANAGER_REF: ${{ needs.prepare.outputs.manager_image }}:${{ needs.prepare.outputs.build_tag }}
       CONFIG_INIT_REF: ${{ needs.prepare.outputs.config_init_image }}:${{ needs.prepare.outputs.build_tag }}
       BACKUP_EXECUTOR_REF: ${{ needs.prepare.outputs.backup_executor_image }}:${{ needs.prepare.outputs.build_tag }}
@@ -296,123 +311,20 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
-      - name: Setup repo tools
-        uses: ./.github/actions/setup-repo-tools
-
-      - name: Login to GHCR (pull)
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Run planned E2E lane
+        uses: ./.github/actions/run-e2e-lane
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Kubernetes CLI tools
-        uses: ./.github/actions/setup-kubernetes-tools
-        with:
-          install-dir: bin/
-
-      - name: Prepare E2E lane
-        id: prepare-e2e-lane
-        uses: ./.github/actions/prepare-e2e-lane
-        with:
-          kind-node-image: ${{ matrix.kind_node_image }}
-          kind-cluster: kind
+          lane: ${{ toJSON(matrix) }}
           manager-image: ${{ env.MANAGER_REF }}
           config-init-image: ${{ env.CONFIG_INIT_REF }}
           backup-executor-image: ${{ env.BACKUP_EXECUTOR_REF }}
           upgrade-executor-image: ${{ env.UPGRADE_EXECUTOR_REF }}
+          hardened-init-image: ${{ env.CONFIG_INIT_REF }}
           hardened-upgrade-executor-image: ${{ env.UPGRADE_EXECUTOR_REF }}
-          load-backup-executor-image: ${{ matrix.load_backup_executor_image }}
-          load-upgrade-executor-image: ${{ matrix.load_upgrade_executor_image }}
-          preload-storage-emulators: ${{ matrix.preload_storage_emulators }}
-          preload-rustfs-image: ${{ matrix.preload_rustfs_image }}
-          preload-fake-gcs-image: ${{ matrix.preload_fake_gcs_image }}
-          preload-azurite-image: ${{ matrix.preload_azurite_image }}
-          rustfs-image: ${{ matrix.rustfs_image }}
-          fake-gcs-image: ${{ matrix.fake_gcs_image }}
-          azurite-image: ${{ matrix.azurite_image }}
+          operator-version: ${{ needs.prepare.outputs.build_tag }}
           report-dir: artifacts/e2e-reports/release-gate/kind-${{ matrix.k8s }}/${{ matrix.id }}-${{ matrix.coverage }}
-          artifact-name: e2e-artifacts-release-gate-kind-${{ matrix.k8s }}-${{ matrix.id }}-${{ matrix.coverage }}
-
-      - name: Run E2E
-        env:
-          GOFLAGS: -mod=vendor
-          OPENBAO_REQUEUE_STANDARD: 10s
-          E2E_TIMEOUT: ${{ matrix.e2e_timeout }}
-          E2E_PARALLEL_NODES: ${{ matrix.parallel_nodes }}
-          E2E_FAIL_ON_EMPTY: "true"
-          E2E_POLL_PROGRESS_AFTER: "10m"
-          E2E_LABEL_FILTER: ${{ matrix.label_filter }}
-          E2E_SKIP_IMAGE_BUILD: "true"
-          E2E_INSTALL_CSI_HOSTPATH: ${{ matrix.install_csi_hostpath }}
-          E2E_ENABLE_HARDENED_SIGNED_SUITE: ${{ matrix.hardened_signed }}
-
-          OPERATOR_VERSION: ${{ needs.prepare.outputs.build_tag }}
-
-          E2E_OPERATOR_IMAGE: ${{ env.MANAGER_REF }}
-          E2E_OPENBAO_IMAGE: ${{ matrix.openbao_image }}
-          E2E_RUSTFS_IMAGE: ${{ steps.prepare-e2e-lane.outputs['rustfs-image'] }}
-          E2E_FAKE_GCS_IMAGE: ${{ steps.prepare-e2e-lane.outputs['fake-gcs-image'] }}
-          E2E_AZURITE_IMAGE: ${{ steps.prepare-e2e-lane.outputs['azurite-image'] }}
-          E2E_CONFIG_INIT_IMAGE: ${{ env.CONFIG_INIT_REF }}
-          E2E_HARDENED_CONFIG_INIT_IMAGE: ${{ env.CONFIG_INIT_REF }}
-          E2E_BACKUP_EXECUTOR_IMAGE: ${{ env.BACKUP_EXECUTOR_REF }}
-          E2E_UPGRADE_EXECUTOR_IMAGE: ${{ env.UPGRADE_EXECUTOR_REF }}
-          E2E_HARDENED_UPGRADE_EXECUTOR_IMAGE: ${{ env.UPGRADE_EXECUTOR_REF }}
-          E2E_LOAD_BACKUP_EXECUTOR_IMAGE: ${{ matrix.load_backup_executor_image }}
-          E2E_LOAD_UPGRADE_EXECUTOR_IMAGE: ${{ matrix.load_upgrade_executor_image }}
-          E2E_PRELOAD_UPGRADE_IMAGES: ${{ matrix.preload_upgrade_images }}
-          E2E_PRELOAD_HARDENED_ASSETS: ${{ matrix.preload_hardened_assets }}
-          KIND_CLUSTER: kind
-        run: make test-e2e-ci
-
-      - name: Summarize E2E report
-        if: always()
-        env:
-          EXPECTED_CASE_IDS: ${{ toJSON(matrix.expected_case_ids) }}
-          E2E_LABEL_FILTER: ${{ matrix.label_filter }}
-          GOFLAGS: -mod=vendor
-          KIND_NODE_IMAGE: ${{ matrix.kind_node_image }}
-        run: |
-          set -euo pipefail
-          report_status=1
-          mkdir -p "${E2E_REPORT_DIR:-artifacts/e2e-reports}"
-          expected_cases="${E2E_REPORT_DIR:-artifacts/e2e-reports}/expected-cases.json"
-          printf '%s\n' "${EXPECTED_CASE_IDS}" > "${expected_cases}"
-          if [[ -z "${E2E_JSON_REPORT:-}" ]] || [[ ! -s "${E2E_JSON_REPORT}" ]]; then
-            {
-              echo "## E2E Report Summary"
-              echo
-              echo "No Ginkgo JSON report was produced for ${{ matrix.name }} on kind ${{ matrix.k8s }}."
-            } > "${E2E_SUMMARY_REPORT:-e2e-summary.md}"
-          else
-            report_status=0
-            go run ./hack/tools/e2e_report \
-              --json-report "${E2E_JSON_REPORT}" \
-              --manifest test/e2e/suites.yaml \
-              --fail-on-selected-skips \
-              --expected-cases "${expected_cases}" \
-              --markdown-out "${E2E_SUMMARY_REPORT}" \
-              --json-out "${E2E_SUMMARY_JSON}" \
-              --lane "${{ matrix.name }} (${{ matrix.profile }} / ${{ matrix.coverage }})" \
-              --selector "${E2E_LABEL_FILTER}" \
-              --kubernetes-version "${KIND_NODE_IMAGE}" \
-              --openbao-version "${{ matrix.openbao_image }}" || report_status=$?
-          fi
-          cat "${E2E_SUMMARY_REPORT}" >> "${GITHUB_STEP_SUMMARY}"
-          exit "${report_status}"
-
-      - name: Collect E2E artifacts (failure)
-        if: failure()
-        run: bash hack/ci/collect-e2e-artifacts.sh
-
-      - name: Upload E2E artifacts
-        if: always() && env.E2E_ARTIFACT_NAME != ''
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ env.E2E_ARTIFACT_NAME }}
-          path: artifacts/
-          retention-days: 7
+          artifact-name: e2e-artifacts-release-gate-kind-${{ matrix.k8s }}-${{ matrix.id }}-${{ matrix.coverage }}-${{ github.run_attempt }}
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
 
   operator-upgrade-e2e:
     name: Operator Upgrade E2E

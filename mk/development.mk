@@ -152,6 +152,7 @@ test-ci-tools: ## Test CI job expectations, diff routing, timing reports, E2E pl
 		./hack/tools/ci_checks ./hack/tools/ci_report \
 		./hack/tools/e2e_plan ./hack/tools/e2e_report ./hack/tools/e2e_catalog ./hack/tools/e2e_manifest \
 		./.github/scripts
+	@python3 hack/ci/test_e2e_execution.py
 
 .PHONY: verify-vendor
 verify-vendor: ## Verify vendor/ is synchronized with go.mod/go.sum.
@@ -471,6 +472,13 @@ E2E_NO_COLOR ?= false
 E2E_FOCUS ?=
 E2E_LABEL_FILTER ?=
 E2E_SKIP_CLEANUP ?= false
+E2E_BINARY_DIR ?=
+E2E_SOURCE_SHA ?= $(shell git rev-parse HEAD)
+E2E_DRY_RUN ?= false
+
+export E2E_PARALLEL_NODES E2E_TIMEOUT E2E_JUNIT_REPORT E2E_JSON_REPORT E2E_GOJSON_REPORT
+export E2E_POLL_PROGRESS_AFTER E2E_FAIL_ON_EMPTY E2E_KEEP_GOING E2E_TRACE E2E_NO_COLOR
+export E2E_FOCUS E2E_LABEL_FILTER E2E_BINARY_DIR E2E_SOURCE_SHA E2E_DRY_RUN
 
 PERF_NODE_IMAGE ?= kindest/node:v1.34.3
 PERF_SAMPLES ?= 3
@@ -612,49 +620,17 @@ test-e2e-existing: manifests generate fmt vet ginkgo ## Run the e2e tests agains
 	fi; \
 	eval E2E_USE_EXISTING_CLUSTER=true go test ./test/e2e/ $$GO_TEST_FLAGS
 
+.PHONY: build-e2e-binaries
+build-e2e-binaries: ## Build the E2E suite, Ginkgo runner, and reporter once for this source and platform.
+	@bash hack/ci/build-e2e-binaries.sh "$(or $(E2E_BINARY_DIR),artifacts/e2e-binaries)" "$(E2E_SOURCE_SHA)"
+
 .PHONY: test-e2e-ci
-test-e2e-ci: ginkgo ## Run the e2e tests in CI mode (does not modify files).
-	@for report in "$(E2E_JUNIT_REPORT)" "$(E2E_JSON_REPORT)" "$(E2E_GOJSON_REPORT)"; do \
-		if [ -n "$$report" ]; then \
-			mkdir -p "$$(dirname "$$report")"; \
-		fi; \
-	done; \
-	GINKGO_FLAGS="-tags=e2e -v --timeout=$(E2E_TIMEOUT)"; \
-	if [ -n "$(E2E_FOCUS)" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --focus=\"$(E2E_FOCUS)\""; \
-	fi; \
-	if [ -n "$(E2E_LABEL_FILTER)" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --label-filter=\"$(E2E_LABEL_FILTER)\""; \
-	fi; \
-	if [ "$(E2E_TRACE)" = "true" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --trace"; \
-	fi; \
-	if [ "$(E2E_NO_COLOR)" = "true" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --no-color"; \
-	fi; \
-	if [ -n "$(E2E_JUNIT_REPORT)" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --junit-report=$(E2E_JUNIT_REPORT)"; \
-	fi; \
-	if [ -n "$(E2E_JSON_REPORT)" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --json-report=$(E2E_JSON_REPORT)"; \
-	fi; \
-	if [ -n "$(E2E_GOJSON_REPORT)" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --gojson-report=$(E2E_GOJSON_REPORT)"; \
-	fi; \
-	if [ -n "$(E2E_POLL_PROGRESS_AFTER)" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --poll-progress-after=$(E2E_POLL_PROGRESS_AFTER)"; \
-	fi; \
-	if [ "$(E2E_FAIL_ON_EMPTY)" = "true" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --fail-on-empty"; \
-	fi; \
-	if [ "$(E2E_KEEP_GOING)" = "true" ]; then \
-		GINKGO_FLAGS="$$GINKGO_FLAGS --keep-going"; \
-	fi; \
-	eval KIND=$(KIND) KIND_CLUSTER=$(KIND_CLUSTER) "$(GINKGO)" $$GINKGO_FLAGS --procs=$(E2E_PARALLEL_NODES) ./test/e2e/
-	@if [ "$(E2E_SKIP_CLEANUP)" != "true" ]; then \
+test-e2e-ci: $(if $(E2E_BINARY_DIR),,ginkgo) ## Run E2E with source or verified precompiled binaries.
+	@KIND="$(KIND)" KIND_CLUSTER="$(KIND_CLUSTER)" GINKGO="$(GINKGO)" bash hack/ci/run-e2e.sh
+	@if [ "$(E2E_SKIP_CLEANUP)" != "true" ] && [ "$(E2E_DRY_RUN)" != "true" ]; then \
 		$(MAKE) cleanup-test-e2e; \
 	else \
-		echo "E2E_SKIP_CLEANUP=true: Keeping Kind cluster $(KIND_CLUSTER) for debugging"; \
+		echo "Skipping cleanup: Keeping Kind cluster $(KIND_CLUSTER) for debugging"; \
 	fi
 
 .PHONY: e2e-catalog

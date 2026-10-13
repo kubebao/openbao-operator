@@ -65,3 +65,6 @@ dist/mutation/
 tmp/air/
 __debug*
 artifacts/
+
+# Staged precompiled E2E suite for Ginkgo workers.
+test/e2e/e2e-precompiled.test

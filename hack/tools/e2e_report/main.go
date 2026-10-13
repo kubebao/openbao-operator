@@ -566,6 +566,10 @@ func normalizeReportFile(file string) string {
 	if file == "" {
 		return "(unknown)"
 	}
+	// A precompiled suite can report the builder's workspace path.
+	if idx := strings.LastIndex(filepath.ToSlash(file), "/test/e2e/"); idx >= 0 {
+		return filepath.ToSlash(file)[idx+1:]
+	}
 	if filepath.IsAbs(file) {
 		if cwd, err := os.Getwd(); err == nil {
 			if rel, err := filepath.Rel(cwd, file); err == nil && !strings.HasPrefix(rel, "..") {

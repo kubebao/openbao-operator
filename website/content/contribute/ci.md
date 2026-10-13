@@ -16,6 +16,11 @@ verifiedBy:
   - hack/tools/e2e_plan/selection.go
   - hack/tools/e2e_report/selection.go
   - hack/ci/e2e-selection-paths.txt
+  - .github/actions/run-e2e-lane/action.yml
+  - hack/ci/build-e2e-binaries.sh
+  - hack/ci/e2e-binaries.py
+  - hack/ci/run-e2e.sh
+  - hack/ci/e2e-execution-paths.txt
   - test/e2e/suites.yaml
 ---
 
@@ -34,7 +39,8 @@ Fork pull requests still need a maintainer or local run for cluster qualificatio
 The advisory `CI Measurement` job collects the current attempt's job and step timings after validation and edge
 qualification. Its `ci-measurements-<attempt>` artifact contains raw run and job metadata, a JSON summary, and a
 Markdown summary. E2E reports add lane counts and specification timings. The snapshot excludes the measurement job.
-Runner-minutes sum job execution time; concurrent jobs overlap. Failed-job reruns measure only that attempt.
+Runner-minutes sum job execution time; concurrent jobs overlap. The E2E category includes shared compilation in
+`Plan E2E Matrix`. Failed-job reruns measure only that attempt.
 Successful jobs inherited from previous attempts remain visible but do not count toward its runner consumption.
 E2E artifact names include the attempt number so reports from previous attempts are excluded.
 Missing reports do not prove qualification.
@@ -116,6 +122,23 @@ CI, nightly, and release lanes run `e2e_report --expected-cases` against the pla
 pass exactly once. Missing, extra, duplicate, skipped, pending, and failed scenarios block the lane. Missing reports,
 selector mismatches, and dry-run reports also fail validation. Lane artifacts retain `expected-cases.json`, the Ginkgo
 report, and the validation summary.
+
+The matrix-planning job builds the E2E test suite, vendored Ginkgo runner, and report summarizer once, alongside
+image preparation. The run-scoped `e2e-binaries` artifact records the source SHA, operating system, architecture,
+pinned Go and Ginkgo versions, CGO setting, build tag, and SHA-256 checksums. Builds require a clean checkout.
+The artifact remains available when only failed lanes are rerun; full reruns replace it.
+
+CI, nightly, and release workflows call `.github/actions/run-e2e-lane`. The action consumes the planned row and
+workflow-owned image references. Release helper overrides and per-run seal fixtures remain separate inputs.
+Each lane verifies the bundle before cluster preparation. Missing, stale, incompatible, or corrupted binaries fail
+the lane. CI does not fall back to compiling the suite in a lane. Downloads stay in the runner's temporary directory,
+so lane evidence does not upload the binary bundle again.
+Shared harness paths in `hack/ci/e2e-execution-paths.txt` select all lane families on trusted PRs.
+
+The shared action prepares Kind and images, runs the verified suite with the planned worker count, and validates its
+reports. It collects diagnostics before deleting the cluster, including after preparation or execution failures.
+Evidence uploads run after cleanup. Lane artifacts include the binary metadata, expected IDs, JSON and JUnit reports,
+and validation summary. Go setup remains available because suite install and deploy helpers still use Make and Go tools.
 
 The `backup-restore` lane covers storage-provider backup and restore behavior. The `restore-tests` lane covers
 managed targets, scheduled restore tests, and cleanup after the full confirmation timeout. These lanes run in

@@ -305,9 +305,10 @@ func TestWorkflowArtifactAttemptScope(t *testing.T) {
 				Name string `yaml:"name"`
 				Run  string `yaml:"run"`
 				With struct {
-					Name      string `yaml:"name"`
-					Pattern   string `yaml:"pattern"`
-					Overwrite bool   `yaml:"overwrite"`
+					Name         string `yaml:"name"`
+					Pattern      string `yaml:"pattern"`
+					ArtifactName string `yaml:"artifact-name"`
+					Overwrite    bool   `yaml:"overwrite"`
 				} `yaml:"with"`
 			} `yaml:"steps"`
 		} `yaml:"jobs"`
@@ -343,7 +344,7 @@ func TestWorkflowArtifactAttemptScope(t *testing.T) {
 		}
 	}
 	for _, step := range workflow.Jobs["e2e"].Steps {
-		if step.Name == "Compute E2E report paths" && !strings.Contains(step.Run, "${GITHUB_RUN_ATTEMPT}") {
+		if step.Name == "Run planned E2E lane" && !strings.Contains(step.With.ArtifactName, "${{ github.run_attempt }}") {
 			t.Error("E2E reports lack an attempt identity")
 		}
 	}

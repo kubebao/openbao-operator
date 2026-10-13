@@ -5,8 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/onsi/ginkgo/v2/types"
@@ -39,6 +37,8 @@ func TestWorkflowScenarioValidationBlocksIncompleteEvidence(t *testing.T) {
 						If   string            `yaml:"if"`
 						Run  string            `yaml:"run"`
 						Env  map[string]string `yaml:"env"`
+						Uses string            `yaml:"uses"`
+						With map[string]string `yaml:"with"`
 					} `yaml:"steps"`
 				} `yaml:"jobs"`
 			}
@@ -54,27 +54,45 @@ func TestWorkflowScenarioValidationBlocksIncompleteEvidence(t *testing.T) {
 			if !catalogChecked {
 				t.Fatal("matrix planning must reject stale scenario catalogs before selecting cases")
 			}
-			var script string
+			shared := false
 			for _, step := range workflow.Jobs["e2e"].Steps {
-				if step.Name != "Summarize E2E report" {
-					continue
+				if step.Uses == "./.github/actions/run-e2e-lane" && step.With["lane"] == "${{ toJSON(matrix) }}" {
+					shared = true
 				}
-				if step.If != "always()" || step.Env["EXPECTED_CASE_IDS"] != "${{ toJSON(matrix.expected_case_ids) }}" {
-					t.Fatal("every planned lane must validate its recorded scenario IDs, including after failure")
-				}
-				script = regexp.MustCompile(`\$\{\{.*?\}\}`).ReplaceAllString(step.Run, "test-lane")
 			}
-			if script == "" || !strings.Contains(script, "--expected-cases") {
+			if !shared {
+				t.Fatal("every lane must use the shared execution and scenario validation action")
+			}
+			actionData, err := os.ReadFile(filepath.Join(root, ".github/actions/run-e2e-lane/action.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var action struct {
+				Runs struct {
+					Steps []struct{ Name, If, Run string }
+				} `yaml:"runs"`
+			}
+			if err := yaml.Unmarshal(actionData, &action); err != nil {
+				t.Fatal(err)
+			}
+			var script string
+			for _, step := range action.Runs.Steps {
+				if step.Name == "Summarize E2E report" && step.If == "always()" {
+					script = step.Run
+				}
+			}
+			if script != "bash hack/ci/summarize-e2e.sh" {
 				t.Fatal("blocking scenario validation step is missing")
 			}
 			for _, state := range []string{"passed", "skipped", "missing scenario", "no report"} {
 				t.Run(state, func(t *testing.T) {
 					dir := t.TempDir()
-					bin := filepath.Join(dir, "go")
-					// Intercept only the workflow's go run invocation; execute
-					// the real compiled reporter with its original arguments.
-					stub := "#!/usr/bin/env bash\nshift 2\ncd '" + root + "'\nexec '" + binary + "' \"$@\"\n"
-					if err := os.WriteFile(bin, []byte(stub), 0o700); err != nil {
+					// The shared step executes the compiled reporter directly.
+					binaryData, err := os.ReadFile(binary)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(filepath.Join(dir, "e2e_report"), binaryData, 0o700); err != nil {
 						t.Fatal(err)
 					}
 					report := selectionReport()
@@ -97,8 +115,8 @@ func TestWorkflowScenarioValidationBlocksIncompleteEvidence(t *testing.T) {
 						}
 					}
 					cmd := exec.Command("bash", "-ec", script)
-					cmd.Dir = dir
-					cmd.Env = append(os.Environ(), "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"),
+					cmd.Dir = root
+					cmd.Env = append(os.Environ(), "E2E_BINARY_DIR="+dir, "E2E_LANE_NAME=test-lane", "E2E_OPENBAO_IMAGE=test-image",
 						"EXPECTED_CASE_IDS=[\"planned\"]", "E2E_LABEL_FILTER=test-lane", "KIND_NODE_IMAGE=kindest/node:test",
 						"E2E_REPORT_DIR="+dir, "E2E_JSON_REPORT="+reportPath, "E2E_SUMMARY_REPORT="+filepath.Join(dir, "summary.md"),
 						"E2E_SUMMARY_JSON="+filepath.Join(dir, "summary.json"), "GITHUB_STEP_SUMMARY="+filepath.Join(dir, "job.md"))

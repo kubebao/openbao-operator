@@ -8,6 +8,8 @@ verifiedBy:
   - test/e2e/suites.yaml
   - hack/tools/e2e_plan/selection.go
   - hack/tools/e2e_report/selection.go
+  - hack/ci/run-e2e.sh
+  - hack/ci/build-e2e-binaries.sh
   - hack/perf/v2/scenarios.yaml
 ---
 
@@ -58,6 +60,26 @@ make test-e2e-ci \
   E2E_JSON_REPORT=artifacts/e2e-reports/local/ginkgo.json \
   E2E_FAIL_ON_EMPTY=true
 ```
+
+To reuse a compiled suite locally, build it from a clean checkout with the pinned Go toolchain. The default bundle
+location is `artifacts/e2e-binaries`. It records the current commit and platform; a bundle from another commit or
+platform is rejected.
+
+```sh
+make build-e2e-binaries
+make test-e2e-ci \
+  E2E_BINARY_DIR=artifacts/e2e-binaries \
+  E2E_LABEL_FILTER='lifecycle && !openshift' \
+  E2E_PARALLEL_NODES=2 \
+  E2E_JUNIT_REPORT=artifacts/e2e-reports/local/junit.xml \
+  E2E_JSON_REPORT=artifacts/e2e-reports/local/ginkgo.json \
+  E2E_FAIL_ON_EMPTY=true
+```
+
+Add `E2E_DRY_RUN=true` to check selection in serial mode without running suite hooks or deleting a Kind cluster. Dry-run reports
+cannot qualify a lane. Without `E2E_BINARY_DIR`, `make test-e2e-ci` compiles the source suite as before.
+Run `make test-ci-tools` to check shared execution, bundle verification, worker coordination, and report validation
+without a cluster.
 
 Continue with [CI routing]({{< relref "/contribute/ci.md" >}}).
 
