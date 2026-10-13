@@ -15,8 +15,8 @@ platform: "auto"
 
 # -- Operator image configuration
 image:
-  # -- Image repository for the operator manager
-  repository: ghcr.io/dc-tec/openbao-operator
+  # -- Image repository for KubeBao builds. Historical releases remain under ghcr.io/dc-tec.
+  repository: ghcr.io/kubebao/openbao-operator
   # -- Image tag. Defaults to Chart.appVersion if not set
   tag: ""
   # -- Image digest. If set, takes precedence over tag

@@ -16,7 +16,7 @@ Tenancy Mode: Multi-Tenant
 
 Next steps:
   - Onboard namespaces with OpenBaoTenant:
-    https://dc-tec.github.io/openbao-operator/latest/user-guide/openbaotenant/onboarding/
+    https://docs.kubebao.org/docs/get-started/onboard-namespace/
 {{- else }}
 
 Tenancy Mode: Single-Tenant
@@ -31,8 +31,8 @@ Tenancy Mode: Single-Tenant
 
 Next steps:
   - Operator installation guide:
-    https://dc-tec.github.io/openbao-operator/latest/user-guide/operator/installation/
+    https://docs.kubebao.org/docs/get-started/install/
   - Create your first OpenBaoCluster:
-    https://dc-tec.github.io/openbao-operator/latest/user-guide/openbaocluster/getting-started/
+    https://docs.kubebao.org/docs/get-started/create-cluster/
   - Repository:
-    https://github.com/dc-tec/openbao-operator
+    https://github.com/kubebao/openbao-operator

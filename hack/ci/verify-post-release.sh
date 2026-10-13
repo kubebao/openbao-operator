@@ -6,14 +6,17 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat >&2 <<'USAGE'
-usage: VERSION=X.Y.Z [REPO=dc-tec/openbao-operator] hack/ci/verify-post-release.sh
+usage: VERSION=X.Y.Z [REPO=kubebao/openbao-operator] hack/ci/verify-post-release.sh
 
 Verifies the post-release invariants that should hold after the Release workflow
 has published a stable or prerelease release.
 
 Environment:
   VERSION       Required release version, for example 0.3.0.
-  REPO          GitHub repository. Default: dc-tec/openbao-operator.
+  REPO          Current GitHub repository for tags, releases, and PRs. Default: kubebao/openbao-operator.
+  PUBLISHER_REPO
+                Original artifact publisher for signatures, attestations, and GHCR. Default: ${REPO}.
+                Set to dc-tec/openbao-operator for pre-transfer releases, including 0.5.1.
   GIT_REMOTE    Git remote used for branch/tag checks. Default: https://github.com/${REPO}.git.
   ALLOW_DRAFT   Set to 1 to allow a draft GitHub Release. Default: 0.
   EVIDENCE_OUT  Optional path where a JSON verification evidence file is written.
@@ -37,8 +40,9 @@ require_cmd() {
 }
 
 VERSION="${VERSION:-${1:-}}"
-REPO="${REPO:-dc-tec/openbao-operator}"
-OWNER="${REPO%%/*}"
+REPO="${REPO:-kubebao/openbao-operator}"
+PUBLISHER_REPO="${PUBLISHER_REPO:-${REPO}}"
+OWNER="${PUBLISHER_REPO%%/*}"
 GIT_REMOTE="${GIT_REMOTE:-https://github.com/${REPO}.git}"
 ALLOW_DRAFT="${ALLOW_DRAFT:-0}"
 EVIDENCE_OUT="${EVIDENCE_OUT:-}"
@@ -151,7 +155,7 @@ info "verifying published release-asset checksums"
   sha256sum -c checksums.txt
 )
 
-identity="https://github.com/${REPO}/.github/workflows/release.yml@refs/tags/${VERSION}"
+identity="https://github.com/${PUBLISHER_REPO}/.github/workflows/release.yml@refs/tags/${VERSION}"
 
 info "verifying checksums signature"
 cosign verify-blob \
@@ -160,6 +164,15 @@ cosign verify-blob \
   --certificate-identity "${identity}" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   "${tmpdir}/checksums.txt" >/dev/null
+
+provenance_repo="$(jq -r '.release.repository' "${tmpdir}/provenance-index.json")"
+if [[ "${provenance_repo}" != "${PUBLISHER_REPO}" ]]; then
+  fail "provenance repository is '${provenance_repo}', expected publisher '${PUBLISHER_REPO}'"
+fi
+provenance_owner="$(jq -r '.release.owner' "${tmpdir}/provenance-index.json")"
+if [[ "${provenance_owner}" != "${OWNER}" ]]; then
+  fail "provenance owner is '${provenance_owner}', expected '${OWNER}'"
+fi
 
 provenance_tag="$(jq -r '.release.tag' "${tmpdir}/provenance-index.json")"
 if [[ "${provenance_tag}" != "${VERSION}" ]]; then
@@ -218,7 +231,7 @@ done
 
 attestation_signer_workflow="$(jq -er '.identity_constraints.reusable_build_signer_workflow' "${tmpdir}/provenance-index.json")"
 info "verifying published image attestations"
-REPO="${REPO}" \
+REPO="${PUBLISHER_REPO}" \
   VERSION="${VERSION}" \
   SOURCE_REF="${source_ref}" \
   SIGNER_WORKFLOW="${attestation_signer_workflow}" \
@@ -294,7 +307,7 @@ cosign verify \
   "ghcr.io/${OWNER}/charts/openbao-operator@${chart_digest}" >/dev/null
 
 info "verifying chart and checksums attestations"
-REPO="${REPO}" \
+REPO="${PUBLISHER_REPO}" \
   OWNER="${OWNER}" \
   VERSION="${VERSION}" \
   SOURCE_REF="${source_ref}" \
@@ -371,6 +384,7 @@ if [[ -n "${EVIDENCE_OUT}" ]]; then
   jq -n \
     --arg schema_version "1" \
     --arg repo "${REPO}" \
+    --arg publisher_repo "${PUBLISHER_REPO}" \
     --arg version "${VERSION}" \
     --arg verified_at "${VERIFIED_AT}" \
     --arg release_run_id "${RELEASE_RUN_ID}" \
@@ -391,6 +405,7 @@ if [[ -n "${EVIDENCE_OUT}" ]]; then
     {
       schema_version: $schema_version,
       repository: $repo,
+      publisher_repository: $publisher_repo,
       version: $version,
       verified_at: $verified_at,
       release_run: {
