@@ -547,15 +547,17 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			scheduled.Status = openbaov1alpha1.OpenBaoClusterStatus{}
 			scheduled.Spec.Replicas = 1
 			scheduled.Spec.ReadReplicas = nil
-			scheduled.Spec.Backup.Schedule = "* * * * *"
+			// Leave time to observe the persisted deadline before the first attempt.
+			firstRun := time.Now().UTC().Add(3 * time.Minute).Truncate(time.Minute)
+			scheduled.Spec.Backup.Schedule = fmt.Sprintf("%d %d * * *", firstRun.Minute(), firstRun.Hour())
 			Expect(admin.Create(ctx, scheduled)).To(Succeed())
 			DeferCleanup(func() {
-				Expect(admin.Delete(ctx, scheduled)).To(Succeed())
+				Expect(client.IgnoreNotFound(admin.Delete(ctx, scheduled))).To(Succeed())
 			})
 			policy := newBackupNetworkPolicy(tenantNamespace, scheduled.Name, rustfsName, 9000, "backup", "restore")
 			Expect(admin.Create(ctx, policy)).To(Succeed())
 			DeferCleanup(func() {
-				Expect(admin.Delete(ctx, policy)).To(Succeed())
+				Expect(client.IgnoreNotFound(admin.Delete(ctx, policy))).To(Succeed())
 			})
 
 			By("checking that the first deadline is persisted before any backup attempt")
