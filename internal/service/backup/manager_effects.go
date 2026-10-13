@@ -13,6 +13,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/logging"
 	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
+	"github.com/kubebao/openbao-operator/internal/port/adminops"
 	"github.com/kubebao/openbao-operator/internal/service/opslifecycle"
 )
 
@@ -24,7 +25,9 @@ func (m *Manager) applyBackupDecision(
 	decision backupDecision,
 ) (recon.Result, error) {
 	observation := decision.observation
-	applyInitialBackupSchedule(cluster, observation)
+	if err := m.applyInitialBackupSchedule(ctx, cluster, observation); err != nil {
+		return recon.Result{}, fmt.Errorf("failed to initialize backup schedule: %w", err)
+	}
 
 	switch decision.kind {
 	case backupDecisionIdle:
@@ -42,12 +45,29 @@ func (m *Manager) applyBackupDecision(
 	}
 }
 
-func applyInitialBackupSchedule(cluster *openbaov1alpha1.OpenBaoCluster, observation backupObservation) {
+func (m *Manager) applyInitialBackupSchedule(
+	ctx context.Context,
+	cluster *openbaov1alpha1.OpenBaoCluster,
+	observation backupObservation,
+) error {
 	if !observation.configured || observation.initialNextSchedule.IsZero() || cluster.Status.Backup == nil || cluster.Status.Backup.NextScheduledBackup != nil {
-		return
+		return nil
 	}
-	next := metav1.NewTime(observation.initialNextSchedule)
-	cluster.Status.Backup.NextScheduledBackup = &next
+	if m.adminOpsMutator == nil {
+		return fmt.Errorf("adminops status mutator is required")
+	}
+
+	return m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.Status.Backup == nil {
+			obj.Status.Backup = &openbaov1alpha1.BackupStatus{}
+		}
+		// Preserve a deadline or backup history persisted after our observation.
+		if obj.Status.Backup.NextScheduledBackup == nil {
+			next := metav1.NewTime(observation.initialNextSchedule)
+			obj.Status.Backup.NextScheduledBackup = &next
+		}
+		return nil
+	}, adminops.ForceOwnershipOnConflict)
 }
 
 func applyIdleBackup(logger logr.Logger, observation backupObservation) (recon.Result, error) {

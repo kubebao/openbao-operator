@@ -15,6 +15,7 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 | `backup-restore-handles-transient-s3-auth-failure-with-10300347` | handles transient S3 auth failure with backup retry after controller restart | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `failure-injection` |
 | `dr-s3-restore-cr` | restores from S3 backup using OpenBaoRestore CR | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `read-replicas`, `read-replicas-restore` |
 | `dr-s3-restore-controller-restart` | retains the restore hold after controller restart while running | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `failure-injection` |
+| `dr-s3-initial-schedule` | starts the first scheduled S3 backup | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor` |
 
 ## `dr-azure-provider-backup-smoke`
 
@@ -146,3 +147,21 @@ Recorded checkpoints:
 - waiting for restore to enter Running phase
 - restarting controller deployment during restore execution
 - authorizing managed voter and read-replica restarts
+
+
+## `dr-s3-initial-schedule`
+
+Path: `DR: Storage Providers Backup & Restore > S3 Backup & Restore with RustFS > starts the first scheduled S3 backup`
+
+State: `active`
+
+Generated fallback ID: `backup-restore-starts-the-first-scheduled-s3-backup-519ec7a4`
+
+Covers: _none_
+
+Labels: `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`
+
+Recorded checkpoints:
+- creating a cluster without backup status or a manual trigger
+- checking that the first deadline is persisted before any backup attempt
+- waiting for a scheduled snapshot without sending a manual trigger

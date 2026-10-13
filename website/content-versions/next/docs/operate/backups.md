@@ -9,6 +9,8 @@ verifiedBy:
   - api/v1alpha1/openbaocluster_status_types.go
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/service/backup/manager_reconcile.go
+  - internal/service/backup/manager_effects.go
+  - test/integration/backup_manager_test.go
   - internal/service/backup/manager_trigger.go
   - internal/service/backup/manager_retention.go
   - internal/service/workloadidentity/readiness.go
@@ -60,6 +62,10 @@ spec:
 
 `schedule` is a five-field cron expression. The default provider is `s3`, but set it explicitly so intent remains
 clear.
+
+The operator persists the first scheduled run in `status.backup.nextScheduledBackup` before it waits for that run.
+The deadline survives reconciliation and controller restarts. Check `status.backup.lastBackupTime` and
+`status.backup.lastBackupName` to verify that a scheduled backup succeeds.
 
 | Provider | Required target fields | Secret keys |
 | --- | --- | --- |

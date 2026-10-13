@@ -3213,6 +3213,47 @@
     "suiteTitle": ""
   },
   {
+    "id": "dr-s3-initial-schedule",
+    "generatedId": "backup-restore-starts-the-first-scheduled-s3-backup-519ec7a4",
+    "caseLabel": "dr-s3-initial-schedule",
+    "file": "test/e2e/backup_restore_test.go",
+    "type": "It",
+    "name": "starts the first scheduled S3 backup",
+    "path": [
+      "DR: Storage Providers Backup \u0026 Restore",
+      "S3 Backup \u0026 Restore with RustFS",
+      "starts the first scheduled S3 backup"
+    ],
+    "labels": [
+      "dr",
+      "backup",
+      "restore",
+      "storage-providers",
+      "nightly",
+      "slow",
+      "e2e-anchor",
+      "case:dr-s3-initial-schedule"
+    ],
+    "domainLabels": [
+      "dr",
+      "backup",
+      "restore",
+      "storage-providers",
+      "nightly",
+      "slow",
+      "e2e-anchor"
+    ],
+    "steps": [
+      "creating a cluster without backup status or a manual trigger",
+      "checking that the first deadline is persisted before any backup attempt",
+      "waiting for a scheduled snapshot without sending a manual trigger"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "restore-cross-cluster-disposable",
     "generatedId": "restore-cross-cluster-confirms-and-cleans-a-disposable-restore-67f9ae83",
     "caseLabel": "restore-cross-cluster-disposable",
