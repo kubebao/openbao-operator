@@ -86,8 +86,12 @@ reviewed `next` contract into `X.Y.x`, pin its API source to the final tag, and 
 releases update that same `X.Y.x` line and its release notes; they do not create another documentation route. `latest`
 remains an alias to stable and never tracks unreleased code.
 
-The release workflow builds the complete Hugo site from the tagged tree and publishes that validated artifact. There
-is no generated patch-level snapshot command: the reviewed minor-line content must already be in the release change.
+The release workflow builds the complete Hugo site from the tagged tree. Releases with a zero patch version publish
+that validated artifact. The reviewed minor-line content must already be in the release change.
+
+Patch releases build the tagged documentation without publishing it to the shared site. After the patch tag is
+published, update the stable manual and its API source reference on `main`, then publish the site through the normal
+main documentation workflow. This preserves the current `next` documentation from main.
 {{< /callout >}}
 
 ## Request an exact version
