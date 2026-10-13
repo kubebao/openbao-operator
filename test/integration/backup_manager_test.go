@@ -4,11 +4,13 @@
 package integration
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,6 +36,58 @@ func newIntegrationBackupManager(t *testing.T) *backup.Manager {
 		security.NewImageVerifier(logr.Discard(), k8sClient, nil),
 		"",
 	).WithReader(k8sClient).WithAdminOpsStatusMutator(adminopsstatus.NewMutator(k8sClient, k8sClient))
+}
+
+func TestBackupManager_InitialSchedulePersistsAcrossReconciles(t *testing.T) {
+	for _, initialized := range []bool{false, true} {
+		t.Run(fmt.Sprintf("initialized=%t", initialized), func(t *testing.T) {
+			namespace := newTestNamespace(t)
+			cluster := newMinimalClusterObj(namespace, "initial-schedule")
+			cluster.Spec.Backup = &openbaov1alpha1.BackupSchedule{
+				Schedule: "0 0 * * *",
+				Target: openbaov1alpha1.BackupTarget{
+					Endpoint: "https://minio.example",
+					Bucket:   testBackupBucket,
+				},
+				JWTAuthRole: "backup",
+				Image:       "openbao-backup:dev",
+			}
+			require.NoError(t, k8sClient.Create(ctx, cluster))
+			updateClusterStatus(t, cluster, func(status *openbaov1alpha1.OpenBaoClusterStatus) {
+				status.Initialized = initialized
+				status.Phase = openbaov1alpha1.ClusterPhaseRunning
+				status.CurrentVersion = cluster.Spec.Version
+				status.UpgradeRequests = &openbaov1alpha1.UpgradeRequestStatus{LastHandledRetry: "keep-me"}
+			})
+
+			var latest openbaov1alpha1.OpenBaoCluster
+			key := client.ObjectKeyFromObject(cluster)
+			require.NoError(t, k8sClient.Get(ctx, key, &latest))
+			require.Nil(t, latest.Status.Backup)
+			manager := newIntegrationBackupManager(t)
+			result, err := manager.Reconcile(ctx, logr.Discard(), &latest)
+			require.NoError(t, err)
+			require.Positive(t, result.RequeueAfter)
+
+			var stored openbaov1alpha1.OpenBaoCluster
+			require.NoError(t, k8sClient.Get(ctx, key, &stored))
+			require.NotNil(t, stored.Status.Backup)
+			require.NotNil(t, stored.Status.Backup.NextScheduledBackup)
+			next := stored.Status.Backup.NextScheduledBackup.DeepCopy()
+			require.Equal(t, "keep-me", stored.Status.UpgradeRequests.LastHandledRetry)
+
+			// Use a new manager and a fresh API read to model a controller restart.
+			manager = newIntegrationBackupManager(t)
+			_, err = manager.Reconcile(ctx, logr.Discard(), &stored)
+			require.NoError(t, err)
+			require.NoError(t, k8sClient.Get(ctx, key, &latest))
+			require.Equal(t, next, latest.Status.Backup.NextScheduledBackup)
+			require.Equal(t, "keep-me", latest.Status.UpgradeRequests.LastHandledRetry)
+			var jobs batchv1.JobList
+			require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(namespace)))
+			require.Empty(t, jobs.Items, "future schedule must not start a backup")
+		})
+	}
 }
 
 func TestBackupManager_ManualTrigger_CreatesJobAndWiring(t *testing.T) {
