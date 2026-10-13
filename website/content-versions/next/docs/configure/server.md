@@ -189,3 +189,26 @@ kubectl explain openbaocluster.spec.plugins
 
 After an update, inspect the `OpenBaoCluster` conditions, generated ConfigMap, StatefulSet revision, Pod events, and
 OpenBao logs. A schema-valid option can still be incompatible with the selected OpenBao version or external runtime.
+
+## Configure trusted PROXY protocol sources
+
+Use `allow_authorized` to trust client-address metadata from selected proxies. Replace the example addresses with the
+source IP addresses or CIDRs that OpenBao observes for your load balancers. Hostnames are not accepted.
+
+{{< command label="configure" title="Trust selected proxy sources" >}}
+spec:
+  configuration:
+    listener:
+      proxyProtocolBehavior: allow_authorized
+      proxyProtocolAuthorizedAddrs:
+        - "192.0.2.10"
+        - "2001:db8::/64"
+{{< /command >}}
+
+Both `allow_authorized` and `deny_unauthorized` require a nonempty address list. With `allow_authorized`, OpenBao uses
+PROXY metadata from trusted sources and the peer IP address for other sources. Direct connections remain available;
+use NetworkPolicy or firewall rules to control API access. `deny_unauthorized` rejects connections from other sources,
+including operator clients and health probes unless their source addresses are authorized. `use_always` trusts PROXY
+metadata from every source and does not require an address list.
+
+These settings apply to the API listener. The dedicated metrics listener retains its existing configuration.
