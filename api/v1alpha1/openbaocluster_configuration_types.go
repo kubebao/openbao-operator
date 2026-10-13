@@ -41,7 +41,7 @@ type ImageVerificationConfig struct {
 
 	// Subject is the OIDC subject for keyless verification.
 	// Required for keyless verification when PublicKey is not provided.
-	// Example (GitHub Actions): https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
+	// Example (GitHub Actions): https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
 	// The version in the subject MUST match the image tag version.
 	// +optional
 	Subject string `json:"subject,omitempty"`
