@@ -56,6 +56,10 @@ spec:
 `schedule` is a five-field cron expression. The default provider is `s3`, but set it explicitly so intent remains
 clear.
 
+The operator persists the first scheduled run in `status.backup.nextScheduledBackup` before it waits for that run.
+The deadline survives reconciliation and controller restarts. Check `status.backup.lastBackupTime` and
+`status.backup.lastBackupName` to verify that a scheduled backup succeeds.
+
 | Provider | Required target fields | Secret keys |
 | --- | --- | --- |
 | S3 | `endpoint`, `bucket`; `region` defaults to `us-east-1` | `accessKeyId`, `secretAccessKey`; optional `sessionToken`, `region`, `caCert` |

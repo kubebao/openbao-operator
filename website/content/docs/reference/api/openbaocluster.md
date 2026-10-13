@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoCluster API.
 eyebrow: Reference · Generated API
 weight: 1
 verifiedBy:
-  - api/v1alpha1 at 0.5.1
-  - website/generated/api-reference.md at 0.5.1
+  - api/v1alpha1 at 0.5.2
+  - website/generated/api-reference.md at 0.5.2
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.5.1` for the `0.5.x` documentation line.
+This page is synchronized from the generated API reference at `0.5.2` for the `0.5.x` documentation line.
 {{< /callout >}}
 
 
@@ -974,7 +974,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `tlsDisable` _boolean_ | TLSDisable controls TLS on the listener.<br />Note: This is typically managed by the operator based on spec.tls.enabled.<br />Hardened clusters reject tlsDisable=true. |  | Optional: \{\} <br /> |
-| `proxyProtocolBehavior` _string_ | ProxyProtocolBehavior allows configuring proxy protocol (e.g. for LoadBalancers). |  | Enum: [use_always allow_any deny_unauthorized] <br />Optional: \{\} <br /> |
+| `proxyProtocolBehavior` _string_ | ProxyProtocolBehavior configures PROXY protocol on the API listener.<br />Supported values are use_always, allow_authorized, and deny_unauthorized.<br />The legacy allow_any value remains in the schema for compatibility but is<br />rejected by the operator. Use allow_authorized to trust selected proxies. |  | Enum: [use_always allow_any allow_authorized deny_unauthorized] <br />Optional: \{\} <br /> |
+| `proxyProtocolAuthorizedAddrs` _string array_ | ProxyProtocolAuthorizedAddrs lists trusted proxy source IP addresses or CIDRs.<br />Required for allow_authorized and deny_unauthorized. With allow_authorized,<br />connections from other sources use the peer IP address instead of PROXY metadata.<br />This setting applies only to the API listener, not the metrics listener. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### LoggingConfig

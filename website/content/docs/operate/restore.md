@@ -52,6 +52,23 @@ configuration. The target must also be initialized and must not have `Upgrading=
 For Hardened targets, configure explicit, port-scoped `spec.network.egressRules` on the target cluster and set
 `credentialsSecretRef`, workload-identity metadata, or S3 `roleArn` on the restore source.
 
+## Executor limits
+
+The executor downloads the complete snapshot into a disk-backed staging volume before authenticating and submitting it.
+It checks the downloaded length and computes a SHA-256 digest. An object key and digest alone do not establish backup
+provenance. HTTP redirects, automatic request replay, and restore container retries are disabled.
+
+| Requirement | Value |
+| --- | --- |
+| Snapshot size | Up to 8 GiB |
+| Restore Pod ephemeral storage | About 9 GiB requested and limited; check node capacity and namespace quotas |
+| Preparation (scheduling, download, leader discovery) | About 30 minutes |
+| Restore Job deadline | About 40 minutes, including image pulls |
+
+The operator requires a terminal Job condition and terminated containers in any remaining executor Pods before
+processing the result. Job success or failure counters alone do not establish completion. These observations do not
+prove that a process stopped on an unreachable node or that OpenBao finished applying the snapshot.
+
 ## Prepare a cross-cluster restore
 
 A snapshot does not replace the target's unseal root. The target cluster must be able to unwrap the restored barrier
