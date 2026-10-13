@@ -26,52 +26,20 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
-  artifacthub.io/prerelease: 'false'
+  artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/changes: |
-    - kind: added
-      description: "compat: qualify OpenBao 2.7 external seal plugins"
     - kind: fixed
-      description: "api: clarify missing TLS rotation period validation"
-    - kind: fixed
-      description: "backup: abort partial uploads when the snapshot stream fails"
-    - kind: fixed
-      description: "backup: keep the newest snapshot when applying retention"
-    - kind: fixed
-      description: "backup: limit retention to scheduled backup keys"
-    - kind: fixed
-      description: "backup: preserve trigger before job creation"
-    - kind: fixed
-      description: "metrics: clear finalized reconciliation series"
-    - kind: fixed
-      description: "metrics: keep cluster phase gauges one-hot"
-    - kind: fixed
-      description: "readiness: require synchronized caches and fresh admission checks"
-    - kind: fixed
-      description: "startup: validate platform discovery and return errors"
-    - kind: fixed
-      description: "status: preserve restore state in final adminops patch"
-    - kind: fixed
-      description: "upgrade: correct peer identity, rollback retries, and rollout verification"
-    - kind: fixed
-      description: "upgrade: guard blue/green rollback and preserve active inputs"
-    - kind: fixed
-      description: "upgrade: limit blue/green abort to phases before promotion"
-    - kind: fixed
-      description: "upgrade: retry transient rolling partition conflicts"
-    - kind: changed
-      description: "kube: reuse apply responses for ownership verification"
-    - kind: changed
-      description: "raft: avoid redundant Autopilot configuration writes"
+      description: "release: backport compatible fixes for 0.5.2"
   artifacthub.io/images: |
     - name: openbao-operator
-      image: ghcr.io/dc-tec/openbao-operator:0.5.1
+      image: ghcr.io/kubebao/openbao-operator:0.5.2
     - name: openbao-init
-      image: ghcr.io/dc-tec/openbao-init:0.5.1
+      image: ghcr.io/kubebao/openbao-init:0.5.2
     - name: openbao-backup
-      image: ghcr.io/dc-tec/openbao-backup:0.5.1
+      image: ghcr.io/kubebao/openbao-backup:0.5.2
     - name: openbao-upgrade
-      image: ghcr.io/dc-tec/openbao-upgrade:0.5.1
+      image: ghcr.io/kubebao/openbao-upgrade:0.5.2
   artifacthub.io/crds: |
     - kind: OpenBaoCluster
       version: v1alpha1
