@@ -231,7 +231,9 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 		_ = f.Cleanup(cleanupCtx)
 	})
 
-	It("provisions tenant RBAC via OpenBaoTenant", func() {
+	It("provisions tenant RBAC via OpenBaoTenant", Label(
+		"case:cluster-profile-hardened-provisions-tenant-rbac-via-openbaotenant-90cecec2",
+	), func() {
 		By("verifying OpenBaoTenant is provisioned")
 		waitForTenantProvisioned()
 		_, _ = fmt.Fprintf(GinkgoWriter, "Tenant %q successfully provisioned\n", f.TenantName)
@@ -1200,7 +1202,9 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 		})
 	})
 
-	It("verifies Raft Autopilot is configured with cleanup_dead_servers enabled", func() {
+	It("verifies Raft Autopilot is configured with cleanup_dead_servers enabled", Label(
+		"case:cluster-profile-hardened-verifies-raft-autopilot-is-configured-with-f66c15e2",
+	), func() {
 		By("ensuring public service exists before creating verification pod")
 		// Wait for the public service to be created by the operator
 		svc := &corev1.Service{}

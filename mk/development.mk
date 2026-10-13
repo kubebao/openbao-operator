@@ -148,7 +148,10 @@ verify-workflows: actionlint verify-release-automation test-ci-tools ## Validate
 
 .PHONY: test-ci-tools
 test-ci-tools: ## Test CI job expectations, diff routing, timing reports, E2E plans, and PR labels.
-	@GOFLAGS="$(GOFLAGS_VENDOR)" go test -count=1 ./hack/tools/ci_checks ./hack/tools/ci_report ./hack/tools/e2e_plan ./.github/scripts
+	@GOFLAGS="$(GOFLAGS_VENDOR)" go test -count=1 \
+		./hack/tools/ci_checks ./hack/tools/ci_report \
+		./hack/tools/e2e_plan ./hack/tools/e2e_report ./hack/tools/e2e_catalog ./hack/tools/e2e_manifest \
+		./.github/scripts
 
 .PHONY: verify-vendor
 verify-vendor: ## Verify vendor/ is synchronized with go.mod/go.sum.
@@ -665,7 +668,8 @@ e2e-catalog: ginkgo ## Generate a catalog of E2E suites, specs, labels, and By-s
 e2e-manifest-validate: ## Validate test/e2e/suites.yaml against the generated E2E catalog.
 	@GOFLAGS="$(GOFLAGS_VENDOR)" go run ./hack/tools/e2e_manifest \
 		--manifest test/e2e/suites.yaml \
-		--catalog test/e2e/catalog/cases.json
+		--catalog test/e2e/catalog/cases.json \
+		--require-case-ids
 
 .PHONY: e2e-ci-matrix
 e2e-ci-matrix: ## Generate the GitHub Actions E2E matrix from test/e2e/suites.yaml.

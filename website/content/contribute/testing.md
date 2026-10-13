@@ -6,6 +6,8 @@ weight: 3
 verifiedBy:
   - Makefile
   - test/e2e/suites.yaml
+  - hack/tools/e2e_plan/selection.go
+  - hack/tools/e2e_report/selection.go
   - hack/perf/v2/scenarios.yaml
 ---
 
@@ -37,6 +39,14 @@ devenv tasks run operator:ci-core
 - Use the manual HSM lane for KMIP and PKCS#11 paths that require test-only provider fixtures.
 
 E2E suites are declared in `test/e2e/suites.yaml`. Update the suite owner, risk tier, isolation class, labels, coverage tags, CI lane, nightly policy, and parallelism whenever an E2E spec changes ownership or scope. Then run `make verify-e2e-manifest`.
+
+Give each E2E scenario one unique `case:<id>` label. Keep the ID when the title, file, or lane changes.
+Declare the owning lanes in the suite's `ci.lanes` and make their full selectors select each automatic scenario once.
+The planner rejects missing IDs, undeclared or overlapping owners, and automatic scenarios that no lane selects.
+Manual platform and external-cluster scenarios retain their separate qualification requirements.
+
+Generated matrices list `expected_case_ids` for every lane. CI validates those IDs against the Ginkgo report and
+requires every planned scenario to pass exactly once. A dry run can check selection but cannot prove execution.
 
 Set `E2E_FAIL_ON_EMPTY=true` with label filters. Write Ginkgo JSON and JUnit reports so a failed lane retains selected specs, failure details, and slow-test evidence.
 

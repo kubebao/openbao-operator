@@ -1031,10 +1031,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Download CI routing plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ci-routing
+          path: artifacts/ci-routing
+
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
-        with:
-          cache-tools: false
+
+      - name: Verify E2E scenario catalog and ownership
+        run: make verify-e2e-manifest
 
       - name: Generate E2E matrix
         id: plan
@@ -1042,7 +1049,11 @@ jobs:
           GOFLAGS: -mod=vendor
         run: |
           set -euo pipefail
-          matrix="$(go run ./hack/tools/e2e_plan --manifest test/e2e/suites.yaml --format github-matrix)"
+          matrix="$(go run ./hack/tools/e2e_plan \
+            --manifest test/e2e/suites.yaml --format github-matrix \
+            --ci-plan artifacts/ci-routing/expected-checks.json --sha "${GITHUB_SHA}")"
+          mkdir -p artifacts/e2e-plan
+          printf '%s\n' "${matrix}" > artifacts/e2e-plan/matrix.json
           printf 'matrix=%s\n' "${matrix}" >> "${GITHUB_OUTPUT}"
           {
             echo "## E2E Matrix"
@@ -1051,6 +1062,14 @@ jobs:
             echo "${matrix}"
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload E2E execution plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-plan
+          path: artifacts/e2e-plan/
+          overwrite: true
+          retention-days: 7
 
   e2e:
     needs: [changes, e2e-matrix, build-e2e-images]
@@ -1066,89 +1085,13 @@ jobs:
       matrix: ${{ fromJSON(needs.e2e-matrix.outputs.matrix) }}
     env:
       KIND_NODE_IMAGE: ${{ matrix.kind_node_image }}
+      E2E_LABEL_FILTER: ${{ matrix.label_filter }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Determine E2E Filter
-        id: filter
-        env:
-          HAS_E2E_CHANGES: ${{ needs.changes.outputs.e2e == 'true' }}
-          FULL_E2E: >-
-            ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_full_e2e == 'true' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full-e2e')) }}
-          PR_BACKUP: >-
-            ${{ needs.changes.outputs.manual_backup_e2e == 'true' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'backup')) }}
-          PR_UPGRADE: >-
-            ${{ needs.changes.outputs.manual_upgrade_e2e == 'true' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'upgrades')) }}
-          PR_HARDENED: >-
-            ${{ needs.changes.outputs.manual_hardened_e2e == 'true' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'security') || contains(github.event.pull_request.labels.*.name, 'provisioner') || contains(github.event.pull_request.labels.*.name, 'admission') || contains(github.event.pull_request.labels.*.name, 'controller'))) }}
-          PR_SEAL: ${{ needs.changes.outputs.manual_seal_e2e }}
-          E2E_BACKUP_CHANGED: ${{ needs.changes.outputs.e2e_backup }}
-          E2E_UPGRADE_CHANGED: ${{ needs.changes.outputs.e2e_upgrade }}
-          E2E_HARDENED_CHANGED: ${{ needs.changes.outputs.e2e_hardened }}
-          E2E_SEAL_CHANGED: ${{ needs.changes.outputs.e2e_seal }}
-          EXCLUDE_PENTEST_ON_DEFAULT_PR: ${{ matrix.exclude_pentest_on_default_pr }}
-          LABEL_FILTER: ${{ matrix.label_filter }}
-          PR_LABEL_FILTER: ${{ matrix.pr_label_filter }}
-          PR_SCOPE: ${{ matrix.pr_scope }}
-          SHARD_NAME: ${{ matrix.name }}
-        run: |
-          set -euo pipefail
-
-          FULL_FILTER="${LABEL_FILTER}"
-          PR_FILTER="${PR_LABEL_FILTER}"
-          FILTER="${FULL_FILTER}"
-          if [[ "${FULL_E2E}" != "true" ]] && [[ -n "${PR_FILTER}" ]]; then
-            FILTER="${PR_FILTER}"
-          fi
-          SHOULD_RUN="false"
-
-          case "${PR_SCOPE}" in
-            always)
-              if [[ "${FULL_E2E}" == "true" ]] || [[ "${HAS_E2E_CHANGES}" == "true" ]]; then
-                SHOULD_RUN="true"
-              fi
-              ;;
-            backup)
-              if [[ "${FULL_E2E}" == "true" ]] || [[ "${PR_BACKUP}" == "true" ]] || [[ "${E2E_BACKUP_CHANGED}" == "true" ]]; then
-                SHOULD_RUN="true"
-              fi
-              ;;
-            upgrade)
-              if [[ "${FULL_E2E}" == "true" ]] || [[ "${PR_UPGRADE}" == "true" ]] || [[ "${E2E_UPGRADE_CHANGED}" == "true" ]]; then
-                SHOULD_RUN="true"
-              fi
-              ;;
-            hardened)
-              if [[ "${FULL_E2E}" == "true" ]] || [[ "${PR_HARDENED}" == "true" ]] || [[ "${E2E_HARDENED_CHANGED}" == "true" ]]; then
-                SHOULD_RUN="true"
-              fi
-              ;;
-            seal)
-              if [[ "${FULL_E2E}" == "true" ]] || [[ "${PR_SEAL}" == "true" ]] || [[ "${E2E_SEAL_CHANGED}" == "true" ]]; then
-                SHOULD_RUN="true"
-              fi
-              ;;
-          esac
-
-          if [[ "${FULL_E2E}" != "true" ]]; then
-            FILTER="(${FILTER}) && !lower-layer-covered"
-          fi
-
-          if [[ "${FULL_E2E}" != "true" ]] && [[ "${EXCLUDE_PENTEST_ON_DEFAULT_PR}" == "true" ]] && [[ "${PR_HARDENED}" != "true" ]]; then
-            FILTER="(${FILTER}) && !pentest"
-          fi
-
-          echo "E2E_LABEL_FILTER=$FILTER" >> "${GITHUB_ENV}"
-          echo "SHOULD_RUN=$SHOULD_RUN" >> "${GITHUB_ENV}"
-          if [[ "$SHOULD_RUN" == "false" ]]; then
-            echo "::notice::Skipping ${SHARD_NAME} shard (routing optimization)"
-          else
-            echo "::notice::Running ${SHARD_NAME} with filter: $FILTER"
-          fi
-
       - name: Validate seal fixture image references
-        if: env.SHOULD_RUN == 'true' && matrix.id == 'hsm'
+        if: matrix.id == 'hsm'
         env:
           OPENBAO_SOFTHSM_REF: ${{ needs.build-e2e-images.outputs.openbao_softhsm_ref }}
           PYKMIP_SERVER_REF: ${{ needs.build-e2e-images.outputs.pykmip_server_ref }}
@@ -1160,21 +1103,17 @@ jobs:
           fi
 
       - name: Configure Docker Hub cache
-        if: env.SHOULD_RUN == 'true'
         uses: ./.github/actions/setup-docker-mirror
 
       - name: Setup repo tools
-        if: env.SHOULD_RUN == 'true'
         uses: ./.github/actions/setup-repo-tools
 
       - name: Setup Kubernetes CLI tools
-        if: env.SHOULD_RUN == 'true'
         uses: ./.github/actions/setup-kubernetes-tools
         with:
           install-dir: bin/
 
       - name: Login to GHCR (pull)
-        if: env.SHOULD_RUN == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -1183,7 +1122,6 @@ jobs:
 
       - name: Compute E2E report paths
         id: e2e-report
-        if: env.SHOULD_RUN == 'true'
         run: |
           set -euo pipefail
           sanitized_name="$(printf '%s' '${{ matrix.name }}' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
@@ -1193,7 +1131,6 @@ jobs:
 
       - name: Prepare E2E lane
         id: prepare-e2e-lane
-        if: env.SHOULD_RUN == 'true'
         uses: ./.github/actions/prepare-e2e-lane
         with:
           kind-node-image: ${{ matrix.kind_node_image }}
@@ -1216,11 +1153,9 @@ jobs:
           artifact-name: ${{ steps.e2e-report.outputs.artifact_name }}
 
       - name: Run E2E Tests
-        if: env.SHOULD_RUN == 'true'
         env:
           GOFLAGS: -mod=vendor
           OPENBAO_REQUEUE_STANDARD: 10s
-          # E2E_LABEL_FILTER is set by previous step
           E2E_PARALLEL_NODES: ${{ matrix.parallel_nodes }}
           E2E_TIMEOUT: ${{ matrix.e2e_timeout }}
           E2E_FAIL_ON_EMPTY: "true"
@@ -1249,11 +1184,16 @@ jobs:
         run: make test-e2e-ci
 
       - name: Summarize E2E report
-        if: always() && env.SHOULD_RUN == 'true'
+        if: always()
         env:
+          EXPECTED_CASE_IDS: ${{ toJSON(matrix.expected_case_ids) }}
           GOFLAGS: -mod=vendor
         run: |
           set -euo pipefail
+          report_status=1
+          mkdir -p "${E2E_REPORT_DIR:-artifacts/e2e-reports}"
+          expected_cases="${E2E_REPORT_DIR:-artifacts/e2e-reports}/expected-cases.json"
+          printf '%s\n' "${EXPECTED_CASE_IDS}" > "${expected_cases}"
           if [[ -z "${E2E_JSON_REPORT:-}" ]] || [[ ! -s "${E2E_JSON_REPORT}" ]]; then
             {
               echo "## E2E Report Summary"
@@ -1270,6 +1210,7 @@ jobs:
               --json-report "${E2E_JSON_REPORT}" \
               --manifest test/e2e/suites.yaml \
               --fail-on-selected-skips \
+              --expected-cases "${expected_cases}" \
               --markdown-out "${E2E_SUMMARY_REPORT}" \
               --json-out "${E2E_SUMMARY_JSON}" \
               --lane "${{ matrix.name }}" \
@@ -1278,14 +1219,14 @@ jobs:
               --openbao-version "${openbao_version}" || report_status=$?
           fi
           cat "${E2E_SUMMARY_REPORT}" >> "${GITHUB_STEP_SUMMARY}"
-          exit "${report_status:-0}"
+          exit "${report_status}"
 
       - name: Collect E2E artifacts (failure)
         if: failure()
         run: bash hack/ci/collect-e2e-artifacts.sh
 
       - name: Upload E2E artifacts
-        if: always() && env.SHOULD_RUN == 'true' && env.E2E_ARTIFACT_NAME != ''
+        if: always() && env.E2E_ARTIFACT_NAME != ''
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.E2E_ARTIFACT_NAME }}

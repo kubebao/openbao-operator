@@ -13,7 +13,7 @@ Notes:
 
 - Files: `24`
 - Specs: `98`
-- Explicit case IDs: `50`
+- Explicit case IDs: `98`
 - Coverage tags: `56`
 
 ## Suites
@@ -21,27 +21,27 @@ Notes:
 | Suite | Cases | Tracked | Pending | Labels | Source |
 | --- | ---: | ---: | ---: | --- | --- |
 | [Cluster Lifecycle: Deletion Policy](suites/Cluster_DeletionPolicy_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `deletion` | `test/e2e/Cluster_DeletionPolicy_test.go` |
-| [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 8 | 0 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
-| [Hardened profile (External TLS + Transit auto-unseal + SelfInit)](suites/Cluster_Profile_Hardened_test.md) | 5 | 3 | 0 | `profile-hardened`, `security`, `cluster`, `upgrade`, `bluegreen`, `hardened`, `rolling` | `test/e2e/Cluster_Profile_Hardened_test.go` |
+| [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 8 | 8 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
+| [Hardened profile (External TLS + Transit auto-unseal + SelfInit)](suites/Cluster_Profile_Hardened_test.md) | 5 | 5 | 0 | `profile-hardened`, `security`, `cluster`, `upgrade`, `bluegreen`, `hardened`, `rolling` | `test/e2e/Cluster_Profile_Hardened_test.go` |
 | [Cluster Runtime Controls](suites/Cluster_Runtime_Controls_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `runtime` | `test/e2e/Cluster_Runtime_Controls_test.go` |
 | [Self-init Secret inputs](suites/Cluster_SelfInit_Secret_Inputs_test.md) | 1 | 1 | 0 | `lifecycle`, `cluster`, `self-init-inputs` | `test/e2e/Cluster_SelfInit_Secret_Inputs_test.go` |
-| [ACME TLS (OpenBao native ACME client)](suites/Cluster_TLS_ACME_test.md) | 2 | 1 | 0 | `tls`, `security`, `slow` | `test/e2e/Cluster_TLS_ACME_test.go` |
+| [ACME TLS (OpenBao native ACME client)](suites/Cluster_TLS_ACME_test.md) | 2 | 2 | 0 | `tls`, `security`, `slow` | `test/e2e/Cluster_TLS_ACME_test.go` |
 | [Cluster TLS Lifecycle](suites/Cluster_TLS_Lifecycle_test.md) | 1 | 1 | 0 | `tls`, `cluster`, `lifecycle` | `test/e2e/Cluster_TLS_Lifecycle_test.go` |
-| [Cluster KMIP Unseal](suites/Cluster_Unseal_KMIP_test.md) | 1 | 0 | 0 | `cluster`, `lifecycle`, `unseal`, `kmip`, `hsm` | `test/e2e/Cluster_Unseal_KMIP_test.go` |
-| [Cluster PKCS#11 Unseal](suites/Cluster_Unseal_PKCS11_test.md) | 1 | 0 | 0 | `cluster`, `lifecycle`, `unseal`, `pkcs11`, `hsm` | `test/e2e/Cluster_Unseal_PKCS11_test.go` |
+| [Cluster KMIP Unseal](suites/Cluster_Unseal_KMIP_test.md) | 1 | 1 | 0 | `cluster`, `lifecycle`, `unseal`, `kmip`, `hsm` | `test/e2e/Cluster_Unseal_KMIP_test.go` |
+| [Cluster PKCS#11 Unseal](suites/Cluster_Unseal_PKCS11_test.md) | 1 | 1 | 0 | `cluster`, `lifecycle`, `unseal`, `pkcs11`, `hsm` | `test/e2e/Cluster_Unseal_PKCS11_test.go` |
 | [Controller JWT lifecycle](suites/Controller_JWT_test.md) | 1 | 1 | 0 | `lifecycle`, `controller-jwt`, `slow` | `test/e2e/Controller_JWT_test.go` |
 | [Manager Resilience](suites/Manager_Resilience_test.md) | 3 | 3 | 0 | `manager`, `cluster`, `e2e-anchor` | `test/e2e/Manager_Resilience_test.go` |
 | [Manager](suites/Operator_Manager_test.md) | 1 | 1 | 0 | `manager`, `critical`, `smoke` | `test/e2e/Operator_Manager_test.go` |
-| [OpenShift Platform](suites/Platform_OpenShift_test.md) | 2 | 0 | 0 | `openshift`, `platform` | `test/e2e/Platform_OpenShift_test.go` |
-| [Security Guardrails](suites/Security_Guardrails_test.md) | 22 | 2 | 0 | `security`, `critical`, `admission`, `pentest`, `config`, `tokens`, `rbac`, `tamper` | `test/e2e/Security_Guardrails_test.go` |
+| [OpenShift Platform](suites/Platform_OpenShift_test.md) | 2 | 2 | 0 | `openshift`, `platform` | `test/e2e/Platform_OpenShift_test.go` |
+| [Security Guardrails](suites/Security_Guardrails_test.md) | 22 | 22 | 0 | `security`, `critical`, `admission`, `pentest`, `config`, `tokens`, `rbac`, `tamper` | `test/e2e/Security_Guardrails_test.go` |
 | [Tenant Data Isolation](suites/Tenant_Data_Isolation_test.md) | 1 | 1 | 0 | `security`, `tenant`, `tenancy` | `test/e2e/Tenant_Data_Isolation_test.go` |
-| [Tenant Isolation](suites/Tenant_Isolation_test.md) | 6 | 0 | 0 | `security`, `tenant`, `tenancy`, `critical`, `single-tenant` | `test/e2e/Tenant_Isolation_test.go` |
+| [Tenant Isolation](suites/Tenant_Isolation_test.md) | 6 | 6 | 0 | `security`, `tenant`, `tenancy`, `critical`, `single-tenant` | `test/e2e/Tenant_Isolation_test.go` |
 | [Upgrade Strategies: Operation Lock Contention](suites/Upgrade_Operation_Lock_test.md) | 3 | 3 | 0 | `upgrade`, `backup`, `operation-lock`, `slow`, `e2e-anchor` | `test/e2e/Upgrade_Operation_Lock_test.go` |
-| [Upgrade Strategies](suites/Upgrade_Strategies_test.md) | 12 | 7 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `e2e-anchor`, `failure`, `gateway`, `requires-gateway-api`, `tls-passthrough`, `rollback`, `rolling`, `recovery`, `snapshot`, `read-replicas`, `read-replicas-rolling`, `chaos` | `test/e2e/Upgrade_Strategies_test.go` |
+| [Upgrade Strategies](suites/Upgrade_Strategies_test.md) | 12 | 12 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `e2e-anchor`, `failure`, `gateway`, `requires-gateway-api`, `tls-passthrough`, `rollback`, `rolling`, `recovery`, `snapshot`, `read-replicas`, `read-replicas-rolling`, `chaos` | `test/e2e/Upgrade_Strategies_test.go` |
 | [Upgrade Strategy Switching](suites/Upgrade_Strategy_Switch_test.md) | 1 | 1 | 0 | `upgrade`, `rolling`, `bluegreen`, `slow` | `test/e2e/Upgrade_Strategy_Switch_test.go` |
 | [Upgrade Strategies: Blue/Green Drift](suites/Upgrade_Target_Drift_test.md) | 1 | 1 | 0 | `upgrade`, `bluegreen`, `slow` | `test/e2e/Upgrade_Target_Drift_test.go` |
 | [Security: Anti-Tamper Policy](suites/anti_tamper_policy_test.md) | 2 | 2 | 0 | `security`, `tamper`, `cluster`, `slow` | `test/e2e/anti_tamper_policy_test.go` |
-| [DR: Storage Providers Backup & Restore](suites/backup_restore_test.md) | 9 | 7 | 0 | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke`, `read-replicas`, `read-replicas-restore`, `failure-injection` | `test/e2e/backup_restore_test.go` |
+| [DR: Storage Providers Backup & Restore](suites/backup_restore_test.md) | 9 | 9 | 0 | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke`, `read-replicas`, `read-replicas-restore`, `failure-injection` | `test/e2e/backup_restore_test.go` |
 | [Restore across independent Kubernetes clusters](suites/restore_cross_cluster_test.md) | 2 | 2 | 0 | `restore-cross-cluster`, `dr`, `restore`, `slow` | `test/e2e/restore_cross_cluster_test.go` |
 | [Minimal fresh restore and scheduled restore tests](suites/restore_minimal_test.md) | 7 | 7 | 0 | `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor` | `test/e2e/restore_minimal_test.go` |
 

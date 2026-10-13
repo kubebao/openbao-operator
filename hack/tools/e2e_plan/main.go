@@ -18,6 +18,9 @@ var idPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type options struct {
 	ManifestPath               string
+	CatalogPath                string
+	CIPlanPath                 string
+	SHA                        string
 	Format                     string
 	Profile                    string
 	Lane                       string
@@ -37,6 +40,7 @@ type manifest struct {
 	Parallelism parallelismPolicy `yaml:"parallelism"`
 	CILanes     []ciLaneConfig    `yaml:"ciLanes"`
 	Nightly     nightlyConfig     `yaml:"nightly"`
+	Suites      []scenarioSuite   `yaml:"suites"`
 }
 
 type versionPolicy struct {
@@ -125,35 +129,36 @@ type githubMatrix struct {
 }
 
 type matrixRow struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	LabelFilter              string `json:"label_filter"`
-	PRLabelFilter            string `json:"pr_label_filter"`
-	PRScope                  string `json:"pr_scope"`
-	TimeoutMinutes           int    `json:"timeout_minutes"`
-	E2ETimeout               string `json:"e2e_timeout"`
-	ParallelNodes            int    `json:"parallel_nodes"`
-	Kubernetes               string `json:"k8s,omitempty"`
-	KindNodeImage            string `json:"kind_node_image,omitempty"`
-	Coverage                 string `json:"coverage,omitempty"`
-	Profile                  string `json:"profile,omitempty"`
-	ExcludePentestOnDefault  string `json:"exclude_pentest_on_default_pr"`
-	HardenedSigned           string `json:"hardened_signed"`
-	OpenBaoImage             string `json:"openbao_image"`
-	HardenedInitImage        string `json:"hardened_init_image"`
-	HardenedUpgradeImage     string `json:"hardened_upgrade_executor_image"`
-	InstallCSIHostPath       string `json:"install_csi_hostpath"`
-	LoadBackupExecutorImage  string `json:"load_backup_executor_image"`
-	LoadUpgradeExecutorImage string `json:"load_upgrade_executor_image"`
-	PreloadUpgradeImages     string `json:"preload_upgrade_images"`
-	PreloadHardenedAssets    string `json:"preload_hardened_assets"`
-	PreloadStorageEmulators  string `json:"preload_storage_emulators"`
-	PreloadRustFSImage       string `json:"preload_rustfs_image"`
-	PreloadFakeGCSImage      string `json:"preload_fake_gcs_image"`
-	PreloadAzuriteImage      string `json:"preload_azurite_image"`
-	RustFSImage              string `json:"rustfs_image"`
-	FakeGCSImage             string `json:"fake_gcs_image"`
-	AzuriteImage             string `json:"azurite_image"`
+	ID                       string   `json:"id"`
+	Name                     string   `json:"name"`
+	LabelFilter              string   `json:"label_filter"`
+	ExpectedCaseIDs          []string `json:"expected_case_ids"`
+	PRLabelFilter            string   `json:"pr_label_filter"`
+	PRScope                  string   `json:"pr_scope"`
+	TimeoutMinutes           int      `json:"timeout_minutes"`
+	E2ETimeout               string   `json:"e2e_timeout"`
+	ParallelNodes            int      `json:"parallel_nodes"`
+	Kubernetes               string   `json:"k8s,omitempty"`
+	KindNodeImage            string   `json:"kind_node_image,omitempty"`
+	Coverage                 string   `json:"coverage,omitempty"`
+	Profile                  string   `json:"profile,omitempty"`
+	ExcludePentestOnDefault  string   `json:"exclude_pentest_on_default_pr"`
+	HardenedSigned           string   `json:"hardened_signed"`
+	OpenBaoImage             string   `json:"openbao_image"`
+	HardenedInitImage        string   `json:"hardened_init_image"`
+	HardenedUpgradeImage     string   `json:"hardened_upgrade_executor_image"`
+	InstallCSIHostPath       string   `json:"install_csi_hostpath"`
+	LoadBackupExecutorImage  string   `json:"load_backup_executor_image"`
+	LoadUpgradeExecutorImage string   `json:"load_upgrade_executor_image"`
+	PreloadUpgradeImages     string   `json:"preload_upgrade_images"`
+	PreloadHardenedAssets    string   `json:"preload_hardened_assets"`
+	PreloadStorageEmulators  string   `json:"preload_storage_emulators"`
+	PreloadRustFSImage       string   `json:"preload_rustfs_image"`
+	PreloadFakeGCSImage      string   `json:"preload_fake_gcs_image"`
+	PreloadAzuriteImage      string   `json:"preload_azurite_image"`
+	RustFSImage              string   `json:"rustfs_image"`
+	FakeGCSImage             string   `json:"fake_gcs_image"`
+	AzuriteImage             string   `json:"azurite_image"`
 }
 
 func main() {
@@ -169,19 +174,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	var matrix githubMatrix
 	switch opts.Format {
 	case "github-matrix":
-		matrix, err := buildGithubMatrix(m)
+		matrix, err = buildGithubMatrix(m)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "e2e_plan: %v\n", err)
 			os.Exit(1)
 		}
-		if err := writeJSON(matrix); err != nil {
-			fmt.Fprintf(os.Stderr, "e2e_plan: %v\n", err)
-			os.Exit(1)
-		}
 	case "github-nightly-matrix":
-		matrix, err := buildGithubNightlyMatrix(m, opts.Profile, nightlyFilters{
+		matrix, err = buildGithubNightlyMatrix(m, opts.Profile, nightlyFilters{
 			Lane:                       opts.Lane,
 			Kubernetes:                 opts.Kubernetes,
 			CompatibilityRotationIndex: opts.CompatibilityRotationIndex,
@@ -190,19 +192,26 @@ func main() {
 			fmt.Fprintf(os.Stderr, "e2e_plan: %v\n", err)
 			os.Exit(1)
 		}
-		if err := writeJSON(matrix); err != nil {
-			fmt.Fprintf(os.Stderr, "e2e_plan: %v\n", err)
-			os.Exit(1)
-		}
 	default:
 		fmt.Fprintf(os.Stderr, "e2e_plan: unsupported format %q\n", opts.Format)
 		os.Exit(2)
+	}
+	if err := planScenarios(&matrix, m, opts); err != nil {
+		fmt.Fprintf(os.Stderr, "e2e_plan: %v\n", err)
+		os.Exit(1)
+	}
+	if err := writeJSON(matrix); err != nil {
+		fmt.Fprintf(os.Stderr, "e2e_plan: %v\n", err)
+		os.Exit(1)
 	}
 }
 
 func parseOptions() (options, error) {
 	var opts options
 	flag.StringVar(&opts.ManifestPath, "manifest", defaultManifestPath, "E2E suite manifest path")
+	flag.StringVar(&opts.CatalogPath, "catalog", "test/e2e/catalog/cases.json", "E2E scenario catalog path")
+	flag.StringVar(&opts.CIPlanPath, "ci-plan", "", "recorded CI expectations and selection policy for github-matrix")
+	flag.StringVar(&opts.SHA, "sha", "", "tested source SHA; required with --ci-plan")
 	flag.StringVar(&opts.Format, "format", "github-matrix", "output format: github-matrix or github-nightly-matrix")
 	flag.StringVar(&opts.Profile, "profile", "daily", "nightly profile for github-nightly-matrix")
 	flag.StringVar(&opts.Lane, "lane", "", "optional nightly lane id filter for github-nightly-matrix")

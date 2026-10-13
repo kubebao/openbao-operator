@@ -65,7 +65,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			_ = f.Cleanup(cleanupCtx)
 		})
 
-		It("provisions tenant RBAC via OpenBaoTenant", func() {
+		It("provisions tenant RBAC via OpenBaoTenant", Label(
+			"case:cluster-lifecycle-provisions-tenant-rbac-via-openbaotenant-1798196a",
+		), func() {
 			By("verifying OpenBaoTenant is provisioned")
 			Eventually(func(g Gomega) {
 				updated := &openbaov1alpha1.OpenBaoTenant{}
@@ -75,7 +77,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 		})
 
-		It("creates an OpenBaoCluster and converges to Available", func() {
+		It("creates an OpenBaoCluster and converges to Available", Label(
+			"case:cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b",
+		), func() {
 			By(fmt.Sprintf("creating OpenBaoCluster %q in namespace %q", clusterName, f.Namespace))
 			auditFileStorage := &openbaov1alpha1.AuditFileStorageConfig{
 				Mode: openbaov1alpha1.AuditFileStorageModeManagedPVC,
@@ -213,7 +217,10 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			Expect(c.Get(ctx, types.NamespacedName{Name: clusterName + "-config", Namespace: f.Namespace}, cm)).To(Succeed())
 		})
 
-		It("writes file audit records to managed audit storage", Label("audit"), func() {
+		It("writes file audit records to managed audit storage", Label(
+			"case:cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
+			"audit",
+		), func() {
 			auditPVCName := clusterName + "-audit"
 			verifierLabels := map[string]string{"role": "test-verifier"}
 
@@ -268,7 +275,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			}, framework.DefaultLongWaitTimeout, 10*time.Second).Should(Succeed())
 		})
 
-		It("expands storage by increasing spec.storage.size (if supported)", func() {
+		It("expands storage by increasing spec.storage.size (if supported)", Label(
+			"case:cluster-lifecycle-expands-storage-by-increasing-spec-storage-212f934d",
+		), func() {
 			pvcName := fmt.Sprintf("data-%s-0", clusterName)
 			podName := fmt.Sprintf("%s-0", clusterName)
 
@@ -391,7 +400,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			_ = f.Cleanup(cleanupCtx)
 		})
 
-		It("creates a cluster with self-init disabled and produces expected Secrets", func() {
+		It("creates a cluster with self-init disabled and produces expected Secrets", Label(
+			"case:cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
+		), func() {
 			By(fmt.Sprintf("creating OpenBaoCluster %q", clusterName))
 			cluster, err := f.CreateDevelopmentCluster(ctx, framework.DevelopmentClusterConfig{
 				Name:                 clusterName,
@@ -505,7 +516,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			}, framework.DefaultLongWaitTimeout, 10*time.Second).Should(Succeed())
 		}
 
-		It("creates a cluster with 1 replica and verifies autopilot min_quorum=1", func() {
+		It("creates a cluster with 1 replica and verifies autopilot min_quorum=1", Label(
+			"case:cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
+		), func() {
 			By(fmt.Sprintf("creating OpenBaoCluster %q with 1 replica", clusterName))
 			requests := append(
 				append([]openbaov1alpha1.SelfInitRequest{}, e2ehelpers.CreateAutopilotVerificationRequests(f.Namespace)...),
@@ -633,7 +646,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			_, _ = fmt.Fprintf(GinkgoWriter, "✓ Raft Autopilot min_quorum=1 verified\n")
 		})
 
-		It("scales up to 3 replicas and verifies autopilot min_quorum=3", func() {
+		It("scales up to 3 replicas and verifies autopilot min_quorum=3", Label(
+			"case:cluster-lifecycle-scales-up-to-3-replicas-and-9bd63a38",
+		), func() {
 
 			By("updating cluster to 3 replicas")
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -693,7 +708,9 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			_, _ = fmt.Fprintf(GinkgoWriter, "✓ Raft Autopilot min_quorum=3 verified after scale up\n")
 		})
 
-		It("scales down to 1 replica, remains responsive, and verifies autopilot min_quorum=1", func() {
+		It("scales down to 1 replica, remains responsive, and verifies autopilot min_quorum=1", Label(
+			"case:cluster-lifecycle-scales-down-to-1-replica-remains-f03c312f",
+		), func() {
 
 			By("updating cluster to 1 replica")
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {

@@ -27,6 +27,14 @@ type checkPlan struct {
 	Event   string          `json:"event"`
 	Checks  map[string]bool `json:"checks"`
 	Reason  string          `json:"e2eExclusionReason,omitempty"`
+	E2E     e2eSelection    `json:"e2eSelection"`
+}
+
+// e2eSelection records lane routing once, before the matrix is expanded.
+type e2eSelection struct {
+	Full           bool            `json:"full"`
+	Scopes         map[string]bool `json:"scopes"`
+	IncludePentest bool            `json:"includePentest"`
 }
 
 type eventPayload struct {
@@ -148,17 +156,12 @@ func buildPlan(
 		return checkPlan{}, err
 	}
 	mainPush := eventName == eventPush && ref == "refs/heads/main"
-	labelsRequestE2E := false
-	for _, label := range event.PullRequest.Labels {
-		if eventName == eventPullRequest && slices.Contains([]string{
-			"ci:full-e2e", "backup", "upgrades", "security", "provisioner", "admission", "controller",
-		}, label.Name) {
-			labelsRequestE2E = true
-		}
-	}
+	selection := buildE2ESelection(eventName, mainPush, event, routes)
 	trustedImages := eventName != eventPullRequest || event.PullRequest.Head.Repo.FullName == repository
-	manual := routes["manual_e2e_requested"]
-	e2e := mainPush || manual || (trustedImages && (routes["e2e"] || routes["e2e_seal"] || labelsRequestE2E))
+	e2e := false
+	for _, selected := range selection.Scopes {
+		e2e = e2e || (trustedImages && selected)
+	}
 	build := e2e || (trustedImages && routes["operator_upgrade_e2e"])
 	checks := map[string]bool{
 		changesJob:        true,
@@ -177,6 +180,7 @@ func buildPlan(
 		checks[job] = mainPush || routes[route]
 	}
 	plan := checkPlan{Version: planVersion, SHA: sha, Event: eventName, Checks: checks}
+	plan.E2E = selection
 	if !trustedImages {
 		plan.Reason = "Fork pull requests do not publish E2E images; " +
 			"cluster qualification requires a maintainer or local run."
@@ -184,6 +188,29 @@ func buildPlan(
 		plan.Reason = "Current path, label, and manual-input policy does not select the Ginkgo E2E matrix."
 	}
 	return plan, nil
+}
+
+func buildE2ESelection(eventName string, mainPush bool, event eventPayload, routes map[string]bool) e2eSelection {
+	labels := map[string]bool{}
+	if eventName == eventPullRequest {
+		for _, label := range event.PullRequest.Labels {
+			labels[label.Name] = true
+		}
+	}
+	full := mainPush || routes["manual_full_e2e"] || labels["ci:full-e2e"]
+	hardened := routes["manual_hardened_e2e"] || labels["security"] || labels["provisioner"] ||
+		labels["admission"] || labels["controller"]
+	return e2eSelection{
+		Full: full,
+		Scopes: map[string]bool{
+			"always":   full || routes["e2e"],
+			"backup":   full || routes["manual_backup_e2e"] || labels["backup"] || routes["e2e_backup"],
+			"upgrade":  full || routes["manual_upgrade_e2e"] || labels["upgrades"] || routes["e2e_upgrade"],
+			"hardened": full || hardened || routes["e2e_hardened"],
+			"seal":     full || routes["manual_seal_e2e"] || routes["e2e_seal"],
+		},
+		IncludePentest: full || hardened,
+	}
 }
 
 func parseRouting(eventName string, routing map[string]string) (map[string]bool, error) {

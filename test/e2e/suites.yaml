@@ -99,7 +99,8 @@ ciLanes:
 
   - id: upgrade-rolling
     name: "Upgrade Rolling"
-    labelFilter: "((upgrade && (rolling || snapshot || recovery || operation-lock) && !hardened) && !openshift)"
+    # The idle strategy-switch scenario belongs to upgrade-bluegreen-core.
+    labelFilter: "((upgrade && (rolling || snapshot || recovery || operation-lock) && !hardened) && !openshift && !case:idle-upgrade-strategy-switch)"
     prLabelFilter: "((upgrade && e2e-anchor && (rolling || operation-lock) && !hardened) && !openshift)"
     prScope: upgrade
     timeoutMinutes: 45

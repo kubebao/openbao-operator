@@ -751,7 +751,10 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			Expect(metricErr).NotTo(HaveOccurred(), "Last metrics output:\n%s", metricsOutput)
 		})
 
-		It("handles transient S3 auth failure with backup retry after controller restart", Label("failure-injection"), func() {
+		It("handles transient S3 auth failure with backup retry after controller restart", Label(
+			"case:backup-restore-handles-transient-s3-auth-failure-with-10300347",
+			"failure-injection",
+		), func() {
 			Expect(backupKey).NotTo(BeEmpty(), "backup key should be available before failure injection")
 
 			By("injecting invalid backup credentials")
@@ -1277,7 +1280,9 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			}
 		})
 
-		It("restores from Azure backup using OpenBaoRestore CR", func() {
+		It("restores from Azure backup using OpenBaoRestore CR", Label(
+			"case:backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a",
+		), func() {
 			Expect(backupKey).NotTo(BeEmpty(), "backup key should have been set by previous test")
 
 			By("creating an OpenBaoRestore resource from the Azure backup key")

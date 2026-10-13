@@ -243,6 +243,9 @@ jobs:
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
 
+      - name: Verify E2E scenario catalog and ownership
+        run: make verify-e2e-manifest
+
       - name: Generate release-gate E2E matrix
         id: matrix
         env:
@@ -250,6 +253,8 @@ jobs:
         run: |
           set -euo pipefail
           matrix="$(make --silent e2e-release-matrix)"
+          mkdir -p artifacts/e2e-plan
+          printf '%s\n' "${matrix}" > artifacts/e2e-plan/matrix.json
           printf 'matrix=%s\n' "${matrix}" >> "${GITHUB_OUTPUT}"
           {
             echo "## Release E2E Matrix"
@@ -258,6 +263,14 @@ jobs:
             echo "${matrix}"
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload E2E execution plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-plan
+          path: artifacts/e2e-plan/
+          overwrite: true
+          retention-days: 7
 
   e2e:
     name: E2E Gate (${{ matrix.name }} / kind ${{ matrix.k8s }})
@@ -356,11 +369,16 @@ jobs:
       - name: Summarize E2E report
         if: always()
         env:
+          EXPECTED_CASE_IDS: ${{ toJSON(matrix.expected_case_ids) }}
           E2E_LABEL_FILTER: ${{ matrix.label_filter }}
           GOFLAGS: -mod=vendor
           KIND_NODE_IMAGE: ${{ matrix.kind_node_image }}
         run: |
           set -euo pipefail
+          report_status=1
+          mkdir -p "${E2E_REPORT_DIR:-artifacts/e2e-reports}"
+          expected_cases="${E2E_REPORT_DIR:-artifacts/e2e-reports}/expected-cases.json"
+          printf '%s\n' "${EXPECTED_CASE_IDS}" > "${expected_cases}"
           if [[ -z "${E2E_JSON_REPORT:-}" ]] || [[ ! -s "${E2E_JSON_REPORT}" ]]; then
             {
               echo "## E2E Report Summary"
@@ -373,6 +391,7 @@ jobs:
               --json-report "${E2E_JSON_REPORT}" \
               --manifest test/e2e/suites.yaml \
               --fail-on-selected-skips \
+              --expected-cases "${expected_cases}" \
               --markdown-out "${E2E_SUMMARY_REPORT}" \
               --json-out "${E2E_SUMMARY_JSON}" \
               --lane "${{ matrix.name }} (${{ matrix.profile }} / ${{ matrix.coverage }})" \
@@ -381,7 +400,7 @@ jobs:
               --openbao-version "${{ matrix.openbao_image }}" || report_status=$?
           fi
           cat "${E2E_SUMMARY_REPORT}" >> "${GITHUB_STEP_SUMMARY}"
-          exit "${report_status:-0}"
+          exit "${report_status}"
 
       - name: Collect E2E artifacts (failure)
         if: failure()

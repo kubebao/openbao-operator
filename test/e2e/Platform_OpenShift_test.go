@@ -43,7 +43,9 @@ var _ = Describe("OpenShift Platform", Label("openshift", "platform"), Ordered, 
 		}
 	})
 
-	It("does not pin runAsUser/runAsGroup in operator Deployments", func() {
+	It("does not pin runAsUser/runAsGroup in operator Deployments", Label(
+		"case:platform-openshift-does-not-pin-runasuser-runasgroup-in-ee682f26",
+	), func() {
 		ctx := context.Background()
 		names := []types.NamespacedName{
 			{Namespace: operatorNamespace, Name: "openbao-operator-controller"},
@@ -72,7 +74,9 @@ var _ = Describe("OpenShift Platform", Label("openshift", "platform"), Ordered, 
 		}
 	})
 
-	It("creates StatefulSet pod template without pinned UID/GID/FSGroup", func() {
+	It("creates StatefulSet pod template without pinned UID/GID/FSGroup", Label(
+		"case:platform-openshift-creates-statefulset-pod-template-without-pinned-30198dd7",
+	), func() {
 		ctx := context.Background()
 		var err error
 		f, err = framework.New(ctx, k8sClient, "openshift-platform", operatorNamespace)

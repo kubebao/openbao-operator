@@ -154,7 +154,9 @@ var _ = Describe("ACME TLS (OpenBao native ACME client)", Label("tls", "security
 		_ = f.Cleanup(cleanupCtx)
 	})
 
-	It("provisions tenant RBAC via OpenBaoTenant", func() {
+	It("provisions tenant RBAC via OpenBaoTenant", Label(
+		"case:cluster-tls-acme-provisions-tenant-rbac-via-openbaotenant-cbd56667",
+	), func() {
 		By("verifying OpenBaoTenant is provisioned")
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoTenant{}

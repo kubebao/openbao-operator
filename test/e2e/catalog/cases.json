@@ -112,6 +112,7 @@
   {
     "id": "cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
     "generatedId": "cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
+    "caseLabel": "cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "creates a cluster with self-init disabled and produces expected Secrets",
@@ -123,7 +124,8 @@
     "labels": [
       "lifecycle",
       "cluster",
-      "profile-development"
+      "profile-development",
+      "case:cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f"
     ],
     "domainLabels": [
       "lifecycle",
@@ -142,6 +144,7 @@
   {
     "id": "cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
     "generatedId": "cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
+    "caseLabel": "cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "creates a cluster with 1 replica and verifies autopilot min_quorum=1",
@@ -156,7 +159,8 @@
       "profile-development",
       "scaling",
       "autopilot",
-      "smoke"
+      "smoke",
+      "case:cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c"
     ],
     "domainLabels": [
       "lifecycle",
@@ -182,6 +186,7 @@
   {
     "id": "cluster-lifecycle-scales-down-to-1-replica-remains-f03c312f",
     "generatedId": "cluster-lifecycle-scales-down-to-1-replica-remains-f03c312f",
+    "caseLabel": "cluster-lifecycle-scales-down-to-1-replica-remains-f03c312f",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "scales down to 1 replica, remains responsive, and verifies autopilot min_quorum=1",
@@ -196,7 +201,8 @@
       "profile-development",
       "scaling",
       "autopilot",
-      "smoke"
+      "smoke",
+      "case:cluster-lifecycle-scales-down-to-1-replica-remains-f03c312f"
     ],
     "domainLabels": [
       "lifecycle",
@@ -224,6 +230,7 @@
   {
     "id": "cluster-lifecycle-scales-up-to-3-replicas-and-9bd63a38",
     "generatedId": "cluster-lifecycle-scales-up-to-3-replicas-and-9bd63a38",
+    "caseLabel": "cluster-lifecycle-scales-up-to-3-replicas-and-9bd63a38",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "scales up to 3 replicas and verifies autopilot min_quorum=3",
@@ -238,7 +245,8 @@
       "profile-development",
       "scaling",
       "autopilot",
-      "smoke"
+      "smoke",
+      "case:cluster-lifecycle-scales-up-to-3-replicas-and-9bd63a38"
     ],
     "domainLabels": [
       "lifecycle",
@@ -264,6 +272,7 @@
   {
     "id": "cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b",
     "generatedId": "cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b",
+    "caseLabel": "cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "creates an OpenBaoCluster and converges to Available",
@@ -276,7 +285,8 @@
       "lifecycle",
       "cluster",
       "critical",
-      "tenant"
+      "tenant",
+      "case:cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b"
     ],
     "domainLabels": [
       "lifecycle",
@@ -300,6 +310,7 @@
   {
     "id": "cluster-lifecycle-expands-storage-by-increasing-spec-storage-212f934d",
     "generatedId": "cluster-lifecycle-expands-storage-by-increasing-spec-storage-212f934d",
+    "caseLabel": "cluster-lifecycle-expands-storage-by-increasing-spec-storage-212f934d",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "expands storage by increasing spec.storage.size (if supported)",
@@ -312,7 +323,8 @@
       "lifecycle",
       "cluster",
       "critical",
-      "tenant"
+      "tenant",
+      "case:cluster-lifecycle-expands-storage-by-increasing-spec-storage-212f934d"
     ],
     "domainLabels": [
       "lifecycle",
@@ -336,6 +348,7 @@
   {
     "id": "cluster-lifecycle-provisions-tenant-rbac-via-openbaotenant-1798196a",
     "generatedId": "cluster-lifecycle-provisions-tenant-rbac-via-openbaotenant-1798196a",
+    "caseLabel": "cluster-lifecycle-provisions-tenant-rbac-via-openbaotenant-1798196a",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "provisions tenant RBAC via OpenBaoTenant",
@@ -348,7 +361,8 @@
       "lifecycle",
       "cluster",
       "critical",
-      "tenant"
+      "tenant",
+      "case:cluster-lifecycle-provisions-tenant-rbac-via-openbaotenant-1798196a"
     ],
     "domainLabels": [
       "lifecycle",
@@ -367,6 +381,7 @@
   {
     "id": "cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
     "generatedId": "cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
+    "caseLabel": "cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
     "file": "test/e2e/Cluster_Lifecycle_test.go",
     "type": "It",
     "name": "writes file audit records to managed audit storage",
@@ -380,6 +395,7 @@
       "cluster",
       "critical",
       "tenant",
+      "case:cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
       "audit"
     ],
     "domainLabels": [
@@ -536,6 +552,7 @@
   {
     "id": "cluster-profile-hardened-provisions-tenant-rbac-via-openbaotenant-90cecec2",
     "generatedId": "cluster-profile-hardened-provisions-tenant-rbac-via-openbaotenant-90cecec2",
+    "caseLabel": "cluster-profile-hardened-provisions-tenant-rbac-via-openbaotenant-90cecec2",
     "file": "test/e2e/Cluster_Profile_Hardened_test.go",
     "type": "It",
     "name": "provisions tenant RBAC via OpenBaoTenant",
@@ -546,7 +563,8 @@
     "labels": [
       "profile-hardened",
       "security",
-      "cluster"
+      "cluster",
+      "case:cluster-profile-hardened-provisions-tenant-rbac-via-openbaotenant-90cecec2"
     ],
     "domainLabels": [
       "profile-hardened",
@@ -564,6 +582,7 @@
   {
     "id": "cluster-profile-hardened-verifies-raft-autopilot-is-configured-with-f66c15e2",
     "generatedId": "cluster-profile-hardened-verifies-raft-autopilot-is-configured-with-f66c15e2",
+    "caseLabel": "cluster-profile-hardened-verifies-raft-autopilot-is-configured-with-f66c15e2",
     "file": "test/e2e/Cluster_Profile_Hardened_test.go",
     "type": "It",
     "name": "verifies Raft Autopilot is configured with cleanup_dead_servers enabled",
@@ -574,7 +593,8 @@
     "labels": [
       "profile-hardened",
       "security",
-      "cluster"
+      "cluster",
+      "case:cluster-profile-hardened-verifies-raft-autopilot-is-configured-with-f66c15e2"
     ],
     "domainLabels": [
       "profile-hardened",
@@ -794,6 +814,7 @@
   {
     "id": "cluster-tls-acme-provisions-tenant-rbac-via-openbaotenant-cbd56667",
     "generatedId": "cluster-tls-acme-provisions-tenant-rbac-via-openbaotenant-cbd56667",
+    "caseLabel": "cluster-tls-acme-provisions-tenant-rbac-via-openbaotenant-cbd56667",
     "file": "test/e2e/Cluster_TLS_ACME_test.go",
     "type": "It",
     "name": "provisions tenant RBAC via OpenBaoTenant",
@@ -804,7 +825,8 @@
     "labels": [
       "tls",
       "security",
-      "slow"
+      "slow",
+      "case:cluster-tls-acme-provisions-tenant-rbac-via-openbaotenant-cbd56667"
     ],
     "domainLabels": [
       "tls",
@@ -878,6 +900,7 @@
   {
     "id": "cluster-unseal-kmip-initializes-restarts-and-scales-using-a-d2fcee95",
     "generatedId": "cluster-unseal-kmip-initializes-restarts-and-scales-using-a-d2fcee95",
+    "caseLabel": "cluster-unseal-kmip-initializes-restarts-and-scales-using-a-d2fcee95",
     "file": "test/e2e/Cluster_Unseal_KMIP_test.go",
     "type": "It",
     "name": "initializes, restarts, and scales using a PyKMIP-backed KMIP seal",
@@ -890,7 +913,8 @@
       "lifecycle",
       "unseal",
       "kmip",
-      "hsm"
+      "hsm",
+      "case:cluster-unseal-kmip-initializes-restarts-and-scales-using-a-d2fcee95"
     ],
     "domainLabels": [
       "cluster",
@@ -918,6 +942,7 @@
   {
     "id": "cluster-unseal-pkcs11-initializes-restarts-and-scales-using-a-50e1c83b",
     "generatedId": "cluster-unseal-pkcs11-initializes-restarts-and-scales-using-a-50e1c83b",
+    "caseLabel": "cluster-unseal-pkcs11-initializes-restarts-and-scales-using-a-50e1c83b",
     "file": "test/e2e/Cluster_Unseal_PKCS11_test.go",
     "type": "It",
     "name": "initializes, restarts, and scales using a SoftHSM-backed PKCS#11 seal",
@@ -930,7 +955,8 @@
       "lifecycle",
       "unseal",
       "pkcs11",
-      "hsm"
+      "hsm",
+      "case:cluster-unseal-pkcs11-initializes-restarts-and-scales-using-a-50e1c83b"
     ],
     "domainLabels": [
       "cluster",
@@ -1164,6 +1190,7 @@
   {
     "id": "platform-openshift-creates-statefulset-pod-template-without-pinned-30198dd7",
     "generatedId": "platform-openshift-creates-statefulset-pod-template-without-pinned-30198dd7",
+    "caseLabel": "platform-openshift-creates-statefulset-pod-template-without-pinned-30198dd7",
     "file": "test/e2e/Platform_OpenShift_test.go",
     "type": "It",
     "name": "creates StatefulSet pod template without pinned UID/GID/FSGroup",
@@ -1173,7 +1200,8 @@
     ],
     "labels": [
       "openshift",
-      "platform"
+      "platform",
+      "case:platform-openshift-creates-statefulset-pod-template-without-pinned-30198dd7"
     ],
     "domainLabels": [
       "openshift",
@@ -1191,6 +1219,7 @@
   {
     "id": "platform-openshift-does-not-pin-runasuser-runasgroup-in-ee682f26",
     "generatedId": "platform-openshift-does-not-pin-runasuser-runasgroup-in-ee682f26",
+    "caseLabel": "platform-openshift-does-not-pin-runasuser-runasgroup-in-ee682f26",
     "file": "test/e2e/Platform_OpenShift_test.go",
     "type": "It",
     "name": "does not pin runAsUser/runAsGroup in operator Deployments",
@@ -1200,7 +1229,8 @@
     ],
     "labels": [
       "openshift",
-      "platform"
+      "platform",
+      "case:platform-openshift-does-not-pin-runasuser-runasgroup-in-ee682f26"
     ],
     "domainLabels": [
       "openshift",
@@ -1258,6 +1288,7 @@
   {
     "id": "security-guardrails-accepts-structured-configuration-protected-stanzas-cannot-2a18b9bd",
     "generatedId": "security-guardrails-accepts-structured-configuration-protected-stanzas-cannot-2a18b9bd",
+    "caseLabel": "security-guardrails-accepts-structured-configuration-protected-stanzas-cannot-2a18b9bd",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "accepts structured configuration (protected stanzas cannot be overridden)",
@@ -1269,7 +1300,8 @@
     "labels": [
       "security",
       "critical",
-      "admission"
+      "admission",
+      "case:security-guardrails-accepts-structured-configuration-protected-stanzas-cannot-2a18b9bd"
     ],
     "domainLabels": [
       "security",
@@ -1285,6 +1317,7 @@
   {
     "id": "security-guardrails-blocks-cross-namespace-tenant-targeting-self-6a21b1fd",
     "generatedId": "security-guardrails-blocks-cross-namespace-tenant-targeting-self-6a21b1fd",
+    "caseLabel": "security-guardrails-blocks-cross-namespace-tenant-targeting-self-6a21b1fd",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "blocks cross-namespace tenant targeting (self-service mode)",
@@ -1296,7 +1329,8 @@
     "labels": [
       "security",
       "critical",
-      "admission"
+      "admission",
+      "case:security-guardrails-blocks-cross-namespace-tenant-targeting-self-6a21b1fd"
     ],
     "domainLabels": [
       "security",
@@ -1312,6 +1346,7 @@
   {
     "id": "security-guardrails-enforces-hardened-profile-invariants-446324b0",
     "generatedId": "security-guardrails-enforces-hardened-profile-invariants-446324b0",
+    "caseLabel": "security-guardrails-enforces-hardened-profile-invariants-446324b0",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "enforces Hardened profile invariants",
@@ -1323,7 +1358,8 @@
     "labels": [
       "security",
       "critical",
-      "admission"
+      "admission",
+      "case:security-guardrails-enforces-hardened-profile-invariants-446324b0"
     ],
     "domainLabels": [
       "security",
@@ -1339,6 +1375,7 @@
   {
     "id": "security-guardrails-enforces-digest-pinned-images-for-managed-a108b1a3",
     "generatedId": "security-guardrails-enforces-digest-pinned-images-for-managed-a108b1a3",
+    "caseLabel": "security-guardrails-enforces-digest-pinned-images-for-managed-a108b1a3",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "enforces digest-pinned images for managed workloads when digest enforcement is required",
@@ -1350,7 +1387,8 @@
     "labels": [
       "security",
       "critical",
-      "admission"
+      "admission",
+      "case:security-guardrails-enforces-digest-pinned-images-for-managed-a108b1a3"
     ],
     "domainLabels": [
       "security",
@@ -1366,6 +1404,7 @@
   {
     "id": "security-guardrails-requires-backup-and-restore-credential-secret-aa243663",
     "generatedId": "security-guardrails-requires-backup-and-restore-credential-secret-aa243663",
+    "caseLabel": "security-guardrails-requires-backup-and-restore-credential-secret-aa243663",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "requires backup and restore credential Secret read authorization",
@@ -1377,7 +1416,8 @@
     "labels": [
       "security",
       "critical",
-      "admission"
+      "admission",
+      "case:security-guardrails-requires-backup-and-restore-credential-secret-aa243663"
     ],
     "domainLabels": [
       "security",
@@ -1393,6 +1433,7 @@
   {
     "id": "security-guardrails-requires-transit-credential-secret-read-authorization-abe9d539",
     "generatedId": "security-guardrails-requires-transit-credential-secret-read-authorization-abe9d539",
+    "caseLabel": "security-guardrails-requires-transit-credential-secret-read-authorization-abe9d539",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "requires transit credential Secret read authorization",
@@ -1404,7 +1445,8 @@
     "labels": [
       "security",
       "critical",
-      "admission"
+      "admission",
+      "case:security-guardrails-requires-transit-credential-secret-read-authorization-abe9d539"
     ],
     "domainLabels": [
       "security",
@@ -1420,6 +1462,7 @@
   {
     "id": "security-guardrails-reports-degraded-when-gateway-api-crds-d5cb95ff",
     "generatedId": "security-guardrails-reports-degraded-when-gateway-api-crds-d5cb95ff",
+    "caseLabel": "security-guardrails-reports-degraded-when-gateway-api-crds-d5cb95ff",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "reports Degraded when Gateway API CRDs are missing",
@@ -1431,7 +1474,8 @@
     "labels": [
       "security",
       "critical",
-      "config"
+      "config",
+      "case:security-guardrails-reports-degraded-when-gateway-api-crds-d5cb95ff"
     ],
     "domainLabels": [
       "security",
@@ -1447,6 +1491,7 @@
   {
     "id": "security-guardrails-applies-admission-guardrails-to-controller-rbac-7093e068",
     "generatedId": "security-guardrails-applies-admission-guardrails-to-controller-rbac-7093e068",
+    "caseLabel": "security-guardrails-applies-admission-guardrails-to-controller-rbac-7093e068",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "applies admission guardrails to controller RBAC writes",
@@ -1460,6 +1505,7 @@
       "critical",
       "pentest",
       "tokens",
+      "case:security-guardrails-applies-admission-guardrails-to-controller-rbac-7093e068",
       "rbac"
     ],
     "domainLabels": [
@@ -1481,6 +1527,7 @@
   {
     "id": "security-guardrails-applies-admission-guardrails-to-provisioner-namespace-451d674f",
     "generatedId": "security-guardrails-applies-admission-guardrails-to-provisioner-namespace-451d674f",
+    "caseLabel": "security-guardrails-applies-admission-guardrails-to-provisioner-namespace-451d674f",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "applies admission guardrails to provisioner Namespace mutations",
@@ -1494,6 +1541,7 @@
       "critical",
       "pentest",
       "tokens",
+      "case:security-guardrails-applies-admission-guardrails-to-provisioner-namespace-451d674f",
       "rbac"
     ],
     "domainLabels": [
@@ -1515,6 +1563,7 @@
   {
     "id": "security-guardrails-applies-admission-guardrails-to-provisioner-identity-911cb8f6",
     "generatedId": "security-guardrails-applies-admission-guardrails-to-provisioner-identity-911cb8f6",
+    "caseLabel": "security-guardrails-applies-admission-guardrails-to-provisioner-identity-911cb8f6",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "applies admission guardrails to provisioner identity",
@@ -1528,6 +1577,7 @@
       "critical",
       "pentest",
       "tokens",
+      "case:security-guardrails-applies-admission-guardrails-to-provisioner-identity-911cb8f6",
       "rbac"
     ],
     "domainLabels": [
@@ -1551,6 +1601,7 @@
   {
     "id": "security-guardrails-disables-default-serviceaccount-token-automount-67dd5069",
     "generatedId": "security-guardrails-disables-default-serviceaccount-token-automount-67dd5069",
+    "caseLabel": "security-guardrails-disables-default-serviceaccount-token-automount-67dd5069",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "disables default ServiceAccount token automount",
@@ -1563,7 +1614,8 @@
       "security",
       "critical",
       "pentest",
-      "tokens"
+      "tokens",
+      "case:security-guardrails-disables-default-serviceaccount-token-automount-67dd5069"
     ],
     "domainLabels": [
       "security",
@@ -1580,6 +1632,7 @@
   {
     "id": "security-guardrails-prevents-operator-identities-from-cluster-scoped-14024c52",
     "generatedId": "security-guardrails-prevents-operator-identities-from-cluster-scoped-14024c52",
+    "caseLabel": "security-guardrails-prevents-operator-identities-from-cluster-scoped-14024c52",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "prevents operator identities from cluster-scoped RBAC writes",
@@ -1593,6 +1646,7 @@
       "critical",
       "pentest",
       "tokens",
+      "case:security-guardrails-prevents-operator-identities-from-cluster-scoped-14024c52",
       "rbac"
     ],
     "domainLabels": [
@@ -1614,6 +1668,7 @@
   {
     "id": "security-guardrails-uses-projected-kubernetes-api-token-with-51dbf1f2",
     "generatedId": "security-guardrails-uses-projected-kubernetes-api-token-with-51dbf1f2",
+    "caseLabel": "security-guardrails-uses-projected-kubernetes-api-token-with-51dbf1f2",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "uses projected Kubernetes API token with explicit audience and TTL",
@@ -1626,7 +1681,8 @@
       "security",
       "critical",
       "pentest",
-      "tokens"
+      "tokens",
+      "case:security-guardrails-uses-projected-kubernetes-api-token-with-51dbf1f2"
     ],
     "domainLabels": [
       "security",
@@ -1646,6 +1702,7 @@
   {
     "id": "security-guardrails-has-required-validatingadmissionpolicy-dependencies-installed-and-87ec7cda",
     "generatedId": "security-guardrails-has-required-validatingadmissionpolicy-dependencies-installed-and-87ec7cda",
+    "caseLabel": "security-guardrails-has-required-validatingadmissionpolicy-dependencies-installed-and-87ec7cda",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "has required ValidatingAdmissionPolicy dependencies installed and correctly bound",
@@ -1657,7 +1714,8 @@
     "labels": [
       "security",
       "critical",
-      "rbac"
+      "rbac",
+      "case:security-guardrails-has-required-validatingadmissionpolicy-dependencies-installed-and-87ec7cda"
     ],
     "domainLabels": [
       "security",
@@ -1673,6 +1731,7 @@
   {
     "id": "security-guardrails-restricts-openbao-pod-serviceaccount-pod-patching-abbf5716",
     "generatedId": "security-guardrails-restricts-openbao-pod-serviceaccount-pod-patching-abbf5716",
+    "caseLabel": "security-guardrails-restricts-openbao-pod-serviceaccount-pod-patching-abbf5716",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "restricts OpenBao pod ServiceAccount pod patching to cluster pods",
@@ -1685,6 +1744,7 @@
       "security",
       "critical",
       "rbac",
+      "case:security-guardrails-restricts-openbao-pod-serviceaccount-pod-patching-abbf5716",
       "pentest"
     ],
     "domainLabels": [
@@ -1706,6 +1766,7 @@
   {
     "id": "security-guardrails-allows-managed-pod-deletion-during-maintenance-80b5ee0d",
     "generatedId": "security-guardrails-allows-managed-pod-deletion-during-maintenance-80b5ee0d",
+    "caseLabel": "security-guardrails-allows-managed-pod-deletion-during-maintenance-80b5ee0d",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "allows managed Pod deletion during maintenance with cluster maintenance permission",
@@ -1717,7 +1778,8 @@
     "labels": [
       "security",
       "critical",
-      "tamper"
+      "tamper",
+      "case:security-guardrails-allows-managed-pod-deletion-during-maintenance-80b5ee0d"
     ],
     "domainLabels": [
       "security",
@@ -1733,6 +1795,7 @@
   {
     "id": "security-guardrails-prevents-managed-pod-deletion-during-maintenance-238e18f8",
     "generatedId": "security-guardrails-prevents-managed-pod-deletion-during-maintenance-238e18f8",
+    "caseLabel": "security-guardrails-prevents-managed-pod-deletion-during-maintenance-238e18f8",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "prevents managed Pod deletion during maintenance without cluster maintenance permission",
@@ -1744,7 +1807,8 @@
     "labels": [
       "security",
       "critical",
-      "tamper"
+      "tamper",
+      "case:security-guardrails-prevents-managed-pod-deletion-during-maintenance-238e18f8"
     ],
     "domainLabels": [
       "security",
@@ -1760,6 +1824,7 @@
   {
     "id": "security-guardrails-prevents-sidecar-injection-via-statefulset-updates-145c71ee",
     "generatedId": "security-guardrails-prevents-sidecar-injection-via-statefulset-updates-145c71ee",
+    "caseLabel": "security-guardrails-prevents-sidecar-injection-via-statefulset-updates-145c71ee",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "prevents sidecar injection via StatefulSet updates",
@@ -1771,7 +1836,8 @@
     "labels": [
       "security",
       "critical",
-      "tamper"
+      "tamper",
+      "case:security-guardrails-prevents-sidecar-injection-via-statefulset-updates-145c71ee"
     ],
     "domainLabels": [
       "security",
@@ -1787,6 +1853,7 @@
   {
     "id": "security-guardrails-prevents-unauthorized-deletion-of-the-tls-9e011135",
     "generatedId": "security-guardrails-prevents-unauthorized-deletion-of-the-tls-9e011135",
+    "caseLabel": "security-guardrails-prevents-unauthorized-deletion-of-the-tls-9e011135",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "prevents unauthorized deletion of the TLS CA secret",
@@ -1798,7 +1865,8 @@
     "labels": [
       "security",
       "critical",
-      "tamper"
+      "tamper",
+      "case:security-guardrails-prevents-unauthorized-deletion-of-the-tls-9e011135"
     ],
     "domainLabels": [
       "security",
@@ -1814,6 +1882,7 @@
   {
     "id": "security-guardrails-prevents-unauthorized-deletion-of-the-unseal-2ea235de",
     "generatedId": "security-guardrails-prevents-unauthorized-deletion-of-the-unseal-2ea235de",
+    "caseLabel": "security-guardrails-prevents-unauthorized-deletion-of-the-unseal-2ea235de",
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
     "name": "prevents unauthorized deletion of the unseal Secret",
@@ -1825,7 +1894,8 @@
     "labels": [
       "security",
       "critical",
-      "tamper"
+      "tamper",
+      "case:security-guardrails-prevents-unauthorized-deletion-of-the-unseal-2ea235de"
     ],
     "domainLabels": [
       "security",
@@ -1920,6 +1990,7 @@
   {
     "id": "tenant-isolation-allows-self-service-provisioning-within-own-67dc337d",
     "generatedId": "tenant-isolation-allows-self-service-provisioning-within-own-67dc337d",
+    "caseLabel": "tenant-isolation-allows-self-service-provisioning-within-own-67dc337d",
     "file": "test/e2e/Tenant_Isolation_test.go",
     "type": "It",
     "name": "allows self-service provisioning within own namespace",
@@ -1932,7 +2003,8 @@
       "security",
       "tenant",
       "tenancy",
-      "critical"
+      "critical",
+      "case:tenant-isolation-allows-self-service-provisioning-within-own-67dc337d"
     ],
     "domainLabels": [
       "security",
@@ -1949,6 +2021,7 @@
   {
     "id": "tenant-isolation-blocks-cross-namespace-provisioning-attempts-15ee6ba1",
     "generatedId": "tenant-isolation-blocks-cross-namespace-provisioning-attempts-15ee6ba1",
+    "caseLabel": "tenant-isolation-blocks-cross-namespace-provisioning-attempts-15ee6ba1",
     "file": "test/e2e/Tenant_Isolation_test.go",
     "type": "It",
     "name": "blocks cross-namespace provisioning attempts",
@@ -1961,7 +2034,8 @@
       "security",
       "tenant",
       "tenancy",
-      "critical"
+      "critical",
+      "case:tenant-isolation-blocks-cross-namespace-provisioning-attempts-15ee6ba1"
     ],
     "domainLabels": [
       "security",
@@ -1978,6 +2052,7 @@
   {
     "id": "tenant-isolation-creates-an-openbaocluster-without-openbaotenant-ffc0817d",
     "generatedId": "tenant-isolation-creates-an-openbaocluster-without-openbaotenant-ffc0817d",
+    "caseLabel": "tenant-isolation-creates-an-openbaocluster-without-openbaotenant-ffc0817d",
     "file": "test/e2e/Tenant_Isolation_test.go",
     "type": "It",
     "name": "creates an OpenBaoCluster without OpenBaoTenant",
@@ -1990,7 +2065,8 @@
       "security",
       "tenant",
       "tenancy",
-      "single-tenant"
+      "single-tenant",
+      "case:tenant-isolation-creates-an-openbaocluster-without-openbaotenant-ffc0817d"
     ],
     "domainLabels": [
       "security",
@@ -2009,6 +2085,7 @@
   {
     "id": "tenant-isolation-reacts-to-statefulset-deletion-via-event-0a45a642",
     "generatedId": "tenant-isolation-reacts-to-statefulset-deletion-via-event-0a45a642",
+    "caseLabel": "tenant-isolation-reacts-to-statefulset-deletion-via-event-0a45a642",
     "file": "test/e2e/Tenant_Isolation_test.go",
     "type": "It",
     "name": "reacts to StatefulSet deletion via event-driven reconciliation",
@@ -2021,7 +2098,8 @@
       "security",
       "tenant",
       "tenancy",
-      "single-tenant"
+      "single-tenant",
+      "case:tenant-isolation-reacts-to-statefulset-deletion-via-event-0a45a642"
     ],
     "domainLabels": [
       "security",
@@ -2042,6 +2120,7 @@
   {
     "id": "tenant-isolation-reconciles-the-cluster-to-available-via-ef2fac83",
     "generatedId": "tenant-isolation-reconciles-the-cluster-to-available-via-ef2fac83",
+    "caseLabel": "tenant-isolation-reconciles-the-cluster-to-available-via-ef2fac83",
     "file": "test/e2e/Tenant_Isolation_test.go",
     "type": "It",
     "name": "reconciles the cluster to Available via event-driven reconciliation",
@@ -2054,7 +2133,8 @@
       "security",
       "tenant",
       "tenancy",
-      "single-tenant"
+      "single-tenant",
+      "case:tenant-isolation-reconciles-the-cluster-to-available-via-ef2fac83"
     ],
     "domainLabels": [
       "security",
@@ -2075,6 +2155,7 @@
   {
     "id": "tenant-isolation-sets-up-single-tenant-mode-environment-4b87e620",
     "generatedId": "tenant-isolation-sets-up-single-tenant-mode-environment-4b87e620",
+    "caseLabel": "tenant-isolation-sets-up-single-tenant-mode-environment-4b87e620",
     "file": "test/e2e/Tenant_Isolation_test.go",
     "type": "It",
     "name": "sets up single-tenant mode environment",
@@ -2087,7 +2168,8 @@
       "security",
       "tenant",
       "tenancy",
-      "single-tenant"
+      "single-tenant",
+      "case:tenant-isolation-sets-up-single-tenant-mode-environment-4b87e620"
     ],
     "domainLabels": [
       "security",
@@ -2342,6 +2424,7 @@
   {
     "id": "upgrade-strategies-aborts-before-promotion-when-the-pre-230729f6",
     "generatedId": "upgrade-strategies-aborts-before-promotion-when-the-pre-230729f6",
+    "caseLabel": "upgrade-strategies-aborts-before-promotion-when-the-pre-230729f6",
     "file": "test/e2e/Upgrade_Strategies_test.go",
     "type": "It",
     "name": "aborts before promotion when the pre-promotion hook fails",
@@ -2357,7 +2440,8 @@
       "slow",
       "bluegreen",
       "verification",
-      "failure"
+      "failure",
+      "case:upgrade-strategies-aborts-before-promotion-when-the-pre-230729f6"
     ],
     "domainLabels": [
       "upgrade",
@@ -2427,6 +2511,7 @@
   {
     "id": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
     "generatedId": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
+    "caseLabel": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
     "file": "test/e2e/Upgrade_Strategies_test.go",
     "type": "It",
     "name": "creates a TLSRoute and reports healthy passthrough integration",
@@ -2443,7 +2528,8 @@
       "slow",
       "gateway",
       "requires-gateway-api",
-      "tls-passthrough"
+      "tls-passthrough",
+      "case:upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7"
     ],
     "domainLabels": [
       "upgrade",
@@ -2516,6 +2602,7 @@
   {
     "id": "upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935",
     "generatedId": "upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935",
+    "caseLabel": "upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935",
     "file": "test/e2e/Upgrade_Strategies_test.go",
     "type": "It",
     "name": "triggers late-phase rollback after promotion failures and recovers when auth is restored",
@@ -2531,7 +2618,8 @@
       "slow",
       "failure",
       "bluegreen",
-      "rollback"
+      "rollback",
+      "case:upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935"
     ],
     "domainLabels": [
       "upgrade",
@@ -2562,6 +2650,7 @@
   {
     "id": "upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
     "generatedId": "upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
+    "caseLabel": "upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
     "coverage": [
       "lifecycle-job-owner-proof"
     ],
@@ -2580,6 +2669,7 @@
       "slow",
       "rolling",
       "recovery",
+      "case:upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
       "e2e-anchor",
       "covers:lifecycle-job-owner-proof"
     ],
@@ -2610,6 +2700,7 @@
   {
     "id": "upgrade-strategies-retries-a-failed-rolling-pre-upgrade-fade7ad8",
     "generatedId": "upgrade-strategies-retries-a-failed-rolling-pre-upgrade-fade7ad8",
+    "caseLabel": "upgrade-strategies-retries-a-failed-rolling-pre-upgrade-fade7ad8",
     "file": "test/e2e/Upgrade_Strategies_test.go",
     "type": "It",
     "name": "retries a failed rolling pre-upgrade snapshot before starting rollout",
@@ -2625,7 +2716,8 @@
       "slow",
       "rolling",
       "snapshot",
-      "recovery"
+      "recovery",
+      "case:upgrade-strategies-retries-a-failed-rolling-pre-upgrade-fade7ad8"
     ],
     "domainLabels": [
       "upgrade",
@@ -3033,6 +3125,7 @@
   {
     "id": "backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a",
     "generatedId": "backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a",
+    "caseLabel": "backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a",
     "file": "test/e2e/backup_restore_test.go",
     "type": "It",
     "name": "restores from Azure backup using OpenBaoRestore CR",
@@ -3047,7 +3140,8 @@
       "restore",
       "storage-providers",
       "nightly",
-      "slow"
+      "slow",
+      "case:backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a"
     ],
     "domainLabels": [
       "dr",
@@ -3163,6 +3257,7 @@
   {
     "id": "backup-restore-handles-transient-s3-auth-failure-with-10300347",
     "generatedId": "backup-restore-handles-transient-s3-auth-failure-with-10300347",
+    "caseLabel": "backup-restore-handles-transient-s3-auth-failure-with-10300347",
     "file": "test/e2e/backup_restore_test.go",
     "type": "It",
     "name": "handles transient S3 auth failure with backup retry after controller restart",
@@ -3178,6 +3273,7 @@
       "storage-providers",
       "nightly",
       "slow",
+      "case:backup-restore-handles-transient-s3-auth-failure-with-10300347",
       "failure-injection"
     ],
     "domainLabels": [

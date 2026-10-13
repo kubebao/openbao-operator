@@ -41,6 +41,7 @@ type options struct {
 	ManifestPath        string
 	SuiteBudgets        map[string]runtimeBudget
 	FailOnSelectedSkips bool
+	ExpectedCasesPath   string
 }
 
 type summary struct {
@@ -72,6 +73,9 @@ type summary struct {
 	SelectedSkips              []specSummary   `json:"selectedSkips,omitempty"`
 	Aggregates                 aggregates      `json:"aggregates,omitempty"`
 	BudgetWarnings             []budgetWarning `json:"budgetWarnings,omitempty"`
+	ExpectedCaseIDs            []string        `json:"expectedCaseIds,omitempty"`
+	PassedCaseIDs              []string        `json:"passedCaseIds,omitempty"`
+	SelectionErrors            []string        `json:"selectionErrors,omitempty"`
 }
 
 type specSummary struct {
@@ -148,6 +152,12 @@ func main() {
 	}
 
 	s := buildSummary(reports, opts)
+	if opts.ExpectedCasesPath != "" {
+		if err := validateSelection(&s, reports, opts); err != nil {
+			fmt.Fprintf(os.Stderr, "e2e_report: %v\n", err)
+			os.Exit(1)
+		}
+	}
 
 	if opts.JSONOut != "" {
 		if err := writeJSON(opts.JSONOut, s); err != nil {
@@ -165,6 +175,10 @@ func main() {
 	}
 
 	fmt.Print(markdown)
+	if len(s.SelectionErrors) > 0 {
+		fmt.Fprintf(os.Stderr, "e2e_report: scenario validation failed: %s\n", strings.Join(s.SelectionErrors, "; "))
+		os.Exit(1)
+	}
 	if opts.FailOnSelectedSkips && len(s.SelectedSkips) > 0 {
 		fmt.Fprintf(os.Stderr, "e2e_report: %d selected specs were skipped\n", len(s.SelectedSkips))
 		os.Exit(1)
@@ -182,6 +196,7 @@ func parseOptions() (options, error) {
 	flag.StringVar(&opts.KubernetesVersion, "kubernetes-version", "", "Kubernetes node image or version")
 	flag.StringVar(&opts.OpenBAOVersion, "openbao-version", "", "OpenBao image or version")
 	flag.StringVar(&opts.ManifestPath, "manifest", "", "optional E2E suite manifest for runtime budget warnings")
+	flag.StringVar(&opts.ExpectedCasesPath, "expected-cases", "", "JSON array of scenario IDs that must pass exactly once")
 	flag.BoolVar(
 		&opts.FailOnSelectedSkips,
 		"fail-on-selected-skips",
@@ -572,6 +587,10 @@ func formatMarkdown(s summary) string {
 	writeRow(&b, "Kubernetes", valueOrUnset(s.KubernetesVersion))
 	writeRow(&b, "OpenBao", valueOrUnset(s.OpenBAOVersion))
 	writeRow(&b, "Suite succeeded", fmt.Sprintf("%t", s.SuiteSucceeded))
+	if len(s.ExpectedCaseIDs) > 0 {
+		writeRow(&b, "Planned scenarios", fmt.Sprint(len(s.ExpectedCaseIDs)))
+		writeRow(&b, "Validated passed scenarios", fmt.Sprint(len(s.PassedCaseIDs)))
+	}
 	writeRow(&b, "Runtime", s.RunTime)
 	writeRow(&b, "Reports", fmt.Sprintf("%d", s.ReportCount))
 	writeRow(&b, "Total specs", fmt.Sprintf("%d", s.TotalSpecs))
@@ -600,6 +619,13 @@ func formatMarkdown(s summary) string {
 		writeRow(&b, "Suite nodes other", fmt.Sprintf("%d", s.SuiteNodeOther))
 	}
 	b.WriteString("\n")
+
+	if len(s.SelectionErrors) > 0 {
+		b.WriteString("\n### Scenario validation failures\n\n")
+		for _, issue := range s.SelectionErrors {
+			fmt.Fprintf(&b, "- %s\n", issue)
+		}
+	}
 
 	if len(s.SpecialSuiteFailureReasons) > 0 {
 		b.WriteString("### Suite Failure Reasons\n\n")

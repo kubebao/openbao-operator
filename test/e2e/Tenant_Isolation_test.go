@@ -183,7 +183,9 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			}
 		})
 
-		It("blocks cross-namespace provisioning attempts", func() {
+		It("blocks cross-namespace provisioning attempts", Label(
+			"case:tenant-isolation-blocks-cross-namespace-provisioning-attempts-15ee6ba1",
+		), func() {
 			// Create client impersonating the attacker
 			userCfg := *cfg
 			userCfg.Impersonate = rest.ImpersonationConfig{
@@ -209,7 +211,9 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			Expect(err.Error()).To(ContainSubstring("self-service mode"))
 		})
 
-		It("allows self-service provisioning within own namespace", func() {
+		It("allows self-service provisioning within own namespace", Label(
+			"case:tenant-isolation-allows-self-service-provisioning-within-own-67dc337d",
+		), func() {
 			// Create client impersonating the attacker
 			userCfg := *cfg
 			userCfg.Impersonate = rest.ImpersonationConfig{
@@ -291,7 +295,9 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			waitForControllerRolloutAndLeader("")
 		})
 
-		It("sets up single-tenant mode environment", func() {
+		It("sets up single-tenant mode environment", Label(
+			"case:tenant-isolation-sets-up-single-tenant-mode-environment-4b87e620",
+		), func() {
 			By("creating the single-tenant namespace")
 			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -348,7 +354,9 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			_, _ = fmt.Fprintf(GinkgoWriter, "Controller restarted in single-tenant mode for namespace %q\n", singleTenantNS)
 		})
 
-		It("creates an OpenBaoCluster without OpenBaoTenant", func() {
+		It("creates an OpenBaoCluster without OpenBaoTenant", Label(
+			"case:tenant-isolation-creates-an-openbaocluster-without-openbaotenant-ffc0817d",
+		), func() {
 			By("creating OpenBaoCluster directly (no tenant required)")
 			cluster := &openbaov1alpha1.OpenBaoCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -389,7 +397,9 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			_, _ = fmt.Fprintf(GinkgoWriter, "Created OpenBaoCluster %q in single-tenant namespace %q\n", clusterName, singleTenantNS)
 		})
 
-		It("reconciles the cluster to Available via event-driven reconciliation", func() {
+		It("reconciles the cluster to Available via event-driven reconciliation", Label(
+			"case:tenant-isolation-reconciles-the-cluster-to-available-via-ef2fac83",
+		), func() {
 			By("waiting for StatefulSet to be created")
 			Eventually(func(g Gomega) {
 				sts := &appsv1.StatefulSet{}
@@ -431,7 +441,9 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			_, _ = fmt.Fprintf(GinkgoWriter, "OpenBaoCluster %q is Available in single-tenant mode!\n", clusterName)
 		})
 
-		It("reacts to StatefulSet deletion via event-driven reconciliation", func() {
+		It("reacts to StatefulSet deletion via event-driven reconciliation", Label(
+			"case:tenant-isolation-reacts-to-statefulset-deletion-via-event-0a45a642",
+		), func() {
 			By("getting the current StatefulSet UID")
 			sts := &appsv1.StatefulSet{}
 			Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: singleTenantNS}, sts)).To(Succeed())

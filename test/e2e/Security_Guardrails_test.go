@@ -149,7 +149,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			return nil
 		}
 
-		It("disables default ServiceAccount token automount", func() {
+		It("disables default ServiceAccount token automount", Label(
+			"case:security-guardrails-disables-default-serviceaccount-token-automount-67dd5069",
+		), func() {
 			ctrl, err := getDeployment(controllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ctrl.Spec.Template.Spec.AutomountServiceAccountToken).NotTo(BeNil())
@@ -165,7 +167,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(*prov.Spec.Template.Spec.AutomountServiceAccountToken).To(BeFalse())
 		})
 
-		It("uses projected Kubernetes API token with explicit audience and TTL", func() {
+		It("uses projected Kubernetes API token with explicit audience and TTL", Label(
+			"case:security-guardrails-uses-projected-kubernetes-api-token-with-51dbf1f2",
+		), func() {
 			expectedKubeAudience := os.Getenv("OPENBAO_KUBE_API_AUDIENCE")
 
 			By("inspecting the controller projected service account tokens")
@@ -229,7 +233,10 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 		})
 
-		It("applies admission guardrails to provisioner identity", Label("rbac"), func() {
+		It("applies admission guardrails to provisioner identity", Label(
+			"case:security-guardrails-applies-admission-guardrails-to-provisioner-identity-911cb8f6",
+			"rbac",
+		), func() {
 			prov, err := getDeployment(provisionerDeployment)
 			if apierrors.IsNotFound(err) {
 				Skip("Provisioner Deployment not found; likely running in single-tenant mode")
@@ -352,7 +359,10 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("may not manage tenant RBAC in system namespaces"))
 		})
 
-		It("applies admission guardrails to provisioner Namespace mutations", Label("rbac"), func() {
+		It("applies admission guardrails to provisioner Namespace mutations", Label(
+			"case:security-guardrails-applies-admission-guardrails-to-provisioner-namespace-451d674f",
+			"rbac",
+		), func() {
 			prov, err := getDeployment(provisionerDeployment)
 			if apierrors.IsNotFound(err) {
 				Skip("Provisioner Deployment not found; likely running in single-tenant mode")
@@ -425,7 +435,10 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("applies admission guardrails to controller RBAC writes", Label("rbac"), func() {
+		It("applies admission guardrails to controller RBAC writes", Label(
+			"case:security-guardrails-applies-admission-guardrails-to-controller-rbac-7093e068",
+			"rbac",
+		), func() {
 			ctrl, err := getDeployment(controllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -514,7 +527,10 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			))
 		})
 
-		It("prevents operator identities from cluster-scoped RBAC writes", Label("rbac"), func() {
+		It("prevents operator identities from cluster-scoped RBAC writes", Label(
+			"case:security-guardrails-prevents-operator-identities-from-cluster-scoped-14024c52",
+			"rbac",
+		), func() {
 			ctrl, err := getDeployment(controllerDeployment)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -794,7 +810,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 		})
 
-		It("accepts structured configuration (protected stanzas cannot be overridden)", func() {
+		It("accepts structured configuration (protected stanzas cannot be overridden)", Label(
+			"case:security-guardrails-accepts-structured-configuration-protected-stanzas-cannot-2a18b9bd",
+		), func() {
 			uiEnabled := true
 			cluster := &openbaov1alpha1.OpenBaoCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -834,7 +852,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("enforces Hardened profile invariants", func() {
+		It("enforces Hardened profile invariants", Label(
+			"case:security-guardrails-enforces-hardened-profile-invariants-446324b0",
+		), func() {
 			cluster := &openbaov1alpha1.OpenBaoCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "invalid-hardened",
@@ -878,7 +898,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("Hardened profile requires"))
 		})
 
-		It("requires transit credential Secret read authorization", func() {
+		It("requires transit credential Secret read authorization", Label(
+			"case:security-guardrails-requires-transit-credential-secret-read-authorization-abe9d539",
+		), func() {
 			const transitSecretName = "transit-creds-authz"
 
 			secret := &corev1.Secret{
@@ -969,7 +991,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("References to system secrets"))
 		})
 
-		It("requires backup and restore credential Secret read authorization", func() {
+		It("requires backup and restore credential Secret read authorization", Label(
+			"case:security-guardrails-requires-backup-and-restore-credential-secret-aa243663",
+		), func() {
 			const (
 				backupCredentialsSecretName  = "backup-creds-authz"
 				backupTokenSecretName        = "backup-token-authz"
@@ -1130,7 +1154,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("enforces digest-pinned images for managed workloads when digest enforcement is required", func() {
+		It("enforces digest-pinned images for managed workloads when digest enforcement is required", Label(
+			"case:security-guardrails-enforces-digest-pinned-images-for-managed-a108b1a3",
+		), func() {
 			newManagedJob := func(name, image string) *batchv1.Job {
 				return &batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1192,7 +1218,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(createManagedDryRunAsController(digestJob)).To(Succeed())
 		})
 
-		It("blocks cross-namespace tenant targeting (self-service mode)", func() {
+		It("blocks cross-namespace tenant targeting (self-service mode)", Label(
+			"case:security-guardrails-blocks-cross-namespace-tenant-targeting-self-6a21b1fd",
+		), func() {
 			tenant := &openbaov1alpha1.OpenBaoTenant{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cross-ns-tenant",
@@ -1309,7 +1337,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 		})
 
-		It("prevents unauthorized deletion of the unseal Secret", func() {
+		It("prevents unauthorized deletion of the unseal Secret", Label(
+			"case:security-guardrails-prevents-unauthorized-deletion-of-the-unseal-2ea235de",
+		), func() {
 			secret := &corev1.Secret{}
 			err := admin.Get(ctx, types.NamespacedName{Name: unsealName, Namespace: tenantNamespace}, secret)
 			Expect(err).NotTo(HaveOccurred())
@@ -1321,7 +1351,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("Direct modification of OpenBao-managed resources is prohibited"))
 		})
 
-		It("prevents unauthorized deletion of the TLS CA secret", func() {
+		It("prevents unauthorized deletion of the TLS CA secret", Label(
+			"case:security-guardrails-prevents-unauthorized-deletion-of-the-tls-9e011135",
+		), func() {
 			tlsCAName := victim.Name + "-tls-ca"
 			secret := &corev1.Secret{}
 			err := admin.Get(ctx, types.NamespacedName{Name: tlsCAName, Namespace: tenantNamespace}, secret)
@@ -1335,7 +1367,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("Direct modification of OpenBao-managed resources is prohibited"))
 		})
 
-		It("prevents sidecar injection via StatefulSet updates", func() {
+		It("prevents sidecar injection via StatefulSet updates", Label(
+			"case:security-guardrails-prevents-sidecar-injection-via-statefulset-updates-145c71ee",
+		), func() {
 			err := runAsE2EGroupMember(ctx, cfg, scheme, "hacker", func(c client.Client) error {
 				return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 					sts := &appsv1.StatefulSet{}
@@ -1350,7 +1384,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("Direct modification of OpenBao-managed resources is prohibited"))
 		})
 
-		It("prevents managed Pod deletion during maintenance without cluster maintenance permission", func() {
+		It("prevents managed Pod deletion during maintenance without cluster maintenance permission", Label(
+			"case:security-guardrails-prevents-managed-pod-deletion-during-maintenance-238e18f8",
+		), func() {
 			Expect(tenantFW.SetMaintenanceEnabled(ctx, victim.Name, true)).To(Succeed())
 
 			var targetPod corev1.Pod
@@ -1379,7 +1415,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			Expect(err.Error()).To(ContainSubstring("Direct modification of OpenBao-managed resources is prohibited"))
 		})
 
-		It("allows managed Pod deletion during maintenance with cluster maintenance permission", func() {
+		It("allows managed Pod deletion during maintenance with cluster maintenance permission", Label(
+			"case:security-guardrails-allows-managed-pod-deletion-during-maintenance-80b5ee0d",
+		), func() {
 			maintenanceRole := &rbacv1.Role{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "e2e-victim-maintenance",
@@ -1505,7 +1543,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 		})
 
-		It("reports Degraded when Gateway API CRDs are missing", func() {
+		It("reports Degraded when Gateway API CRDs are missing", Label(
+			"case:security-guardrails-reports-degraded-when-gateway-api-crds-d5cb95ff",
+		), func() {
 			var httpRouteList unstructured.UnstructuredList
 			httpRouteList.SetGroupVersionKind(schema.GroupVersionKind{
 				Group:   "gateway.networking.k8s.io",
@@ -1734,7 +1774,10 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 		})
 
-		It("restricts OpenBao pod ServiceAccount pod patching to cluster pods", Label("pentest"), func() {
+		It("restricts OpenBao pod ServiceAccount pod patching to cluster pods", Label(
+			"case:security-guardrails-restricts-openbao-pod-serviceaccount-pod-patching-abbf5716",
+			"pentest",
+		), func() {
 			clusterName := "rbac-pod-mutation"
 			cluster := &openbaov1alpha1.OpenBaoCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1890,7 +1933,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			)
 		})
 
-		It("has required ValidatingAdmissionPolicy dependencies installed and correctly bound", func() {
+		It("has required ValidatingAdmissionPolicy dependencies installed and correctly bound", Label(
+			"case:security-guardrails-has-required-validatingadmissionpolicy-dependencies-installed-and-87ec7cda",
+		), func() {
 			checkCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
 

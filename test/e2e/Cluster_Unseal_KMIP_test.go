@@ -78,7 +78,9 @@ var _ = Describe("Cluster KMIP Unseal", Label("cluster", "lifecycle", "unseal", 
 		_ = f.Cleanup(cleanupCtx)
 	})
 
-	It("initializes, restarts, and scales using a PyKMIP-backed KMIP seal", func() {
+	It("initializes, restarts, and scales using a PyKMIP-backed KMIP seal", Label(
+		"case:cluster-unseal-kmip-initializes-restarts-and-scales-using-a-d2fcee95",
+	), func() {
 		serverName := fmt.Sprintf("%s.%s.svc", kmipServerName, f.Namespace)
 		endpoint := fmt.Sprintf("%s:%d", serverName, kmipServerPort)
 

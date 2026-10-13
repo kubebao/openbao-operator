@@ -57,7 +57,9 @@ var _ = Describe("Cluster PKCS#11 Unseal", Label("cluster", "lifecycle", "unseal
 		_ = f.Cleanup(cleanupCtx)
 	})
 
-	It("initializes, restarts, and scales using a SoftHSM-backed PKCS#11 seal", func() {
+	It("initializes, restarts, and scales using a SoftHSM-backed PKCS#11 seal", Label(
+		"case:cluster-unseal-pkcs11-initializes-restarts-and-scales-using-a-50e1c83b",
+	), func() {
 		By("creating the PKCS#11 credentials Secret")
 		credentials := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{

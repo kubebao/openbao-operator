@@ -1173,7 +1173,9 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 			}
 		})
 
-		It("retries a failed rolling pre-upgrade snapshot before starting rollout", func() {
+		It("retries a failed rolling pre-upgrade snapshot before starting rollout", Label(
+			"case:upgrade-strategies-retries-a-failed-rolling-pre-upgrade-fade7ad8",
+		), func() {
 			By("Triggering a rolling upgrade with pre-upgrade snapshots enabled")
 			var upgradeGeneration int64
 			Eventually(func(g Gomega) {
@@ -1357,6 +1359,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 		})
 
 		It("recovers a failed rolling upgrade after a retry request clears stale state", Label(
+			"case:upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
 			"e2e-anchor",
 			"covers:lifecycle-job-owner-proof",
 		), func() {
@@ -2481,7 +2484,9 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 			}
 		})
 
-		It("aborts before promotion when the pre-promotion hook fails", func() {
+		It("aborts before promotion when the pre-promotion hook fails", Label(
+			"case:upgrade-strategies-aborts-before-promotion-when-the-pre-230729f6",
+		), func() {
 			By("Writing a secret before the failed validation hook upgrade")
 			secretPath := "secret/bluegreen-hook-failure-test"
 			secretData := map[string]string{"foo": "bar", "version": initialVersion}
@@ -2861,7 +2866,9 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 			}
 		})
 
-		It("triggers late-phase rollback after promotion failures and recovers when auth is restored", func() {
+		It("triggers late-phase rollback after promotion failures and recovers when auth is restored", Label(
+			"case:upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935",
+		), func() {
 			By("Triggering a Blue/Green upgrade")
 			Eventually(func(g Gomega) {
 				updated := &openbaov1alpha1.OpenBaoCluster{}
@@ -3709,7 +3716,9 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				}
 			})
 
-			It("creates a TLSRoute and reports healthy passthrough integration", func() {
+			It("creates a TLSRoute and reports healthy passthrough integration", Label(
+				"case:upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
+			), func() {
 				By("waiting for passthrough Gateway integration status")
 				Eventually(func(g Gomega) {
 					updated := &openbaov1alpha1.OpenBaoCluster{}
