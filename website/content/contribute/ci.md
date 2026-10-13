@@ -15,6 +15,7 @@ verifiedBy:
   - hack/tools/ci_report/main.go
   - hack/tools/e2e_plan/selection.go
   - hack/tools/e2e_report/selection.go
+  - hack/ci/e2e-selection-paths.txt
   - test/e2e/suites.yaml
 ---
 
@@ -100,14 +101,16 @@ Without `--ci-plan`, `make e2e-ci-matrix` emits the full primary-version matrix.
 
 PR filters retain E2E anchors and exclude `lower-layer-covered` scenarios. The default security lane also excludes
 pentest scenarios unless a hardening label or manual hardening input requests them. Full runs use the full selectors.
-Path, label, and manual-input selection share the same recorded scopes. Changes to the E2E planner or manifest
-therefore activate the backup scope even when the general E2E path flag is false. Fork image-publication restrictions
-still apply.
+Path, label, and manual-input selection share the same recorded scopes. Shared planner and lane-policy paths in
+`hack/ci/e2e-selection-paths.txt` select every automatic lane family on trusted PRs. Fork image-publication
+restrictions still apply.
 
 Matrix planning first runs `make verify-e2e-manifest` to reject a stale generated catalog.
 The planner validates scenario IDs and suite `ci.lanes` against the full selectors. It rejects undeclared owners,
 overlapping owners, orphaned automatic scenarios, and empty selected lanes. The idle strategy-switch scenario belongs
 to `upgrade-bluegreen-core`. Kubernetes versions and profile coverage remain independent qualification contexts.
+Each automatic scenario must have an owner included in the full CI matrix with an automatic PR scope.
+Disabled lanes and manual scopes cannot satisfy automatic coverage requirements.
 
 CI, nightly, and release lanes run `e2e_report --expected-cases` against the planned IDs. Every planned scenario must
 pass exactly once. Missing, extra, duplicate, skipped, pending, and failed scenarios block the lane. Missing reports,

@@ -322,6 +322,13 @@ func TestScenarioOwnershipRejectsDrift(t *testing.T) {
 			m.CILanes[0].LabelFilter = "nonexistent-label"
 			m.CILanes[0].PRLabelFilter = ""
 		}, "absent from all"},
+		{"disabled automatic owner", func(m *manifest, _ *[]catalogCase) {
+			enabled := false
+			m.CILanes[0].IncludeInPRMatrix = &enabled
+		}, "full automatic CI matrix"},
+		{"manual automatic owner", func(m *manifest, _ *[]catalogCase) {
+			m.CILanes[0].PRScope = "manual"
+		}, "full automatic CI matrix"},
 		{"PR owner drift", func(m *manifest, _ *[]catalogCase) {
 			m.CILanes[0].PRLabelFilter = m.CILanes[1].LabelFilter
 		}, "outside its full owner"},
@@ -339,6 +346,20 @@ func TestScenarioOwnershipRejectsDrift(t *testing.T) {
 				t.Fatalf("ownership error = %v, want %s", err, test.want)
 			}
 		})
+	}
+}
+
+func TestPlanningRejectsExcludedAutomaticOwners(t *testing.T) {
+	m := loadRepoManifest(t)
+	enabled := false
+	m.CILanes[0].IncludeInPRMatrix = &enabled
+	matrix, err := buildGithubMatrix(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := options{CatalogPath: filepath.Join("..", "..", "..", "test", "e2e", "catalog", "cases.json")}
+	if err := planScenarios(&matrix, m, opts); err == nil || !strings.Contains(err.Error(), "full automatic CI matrix") {
+		t.Fatalf("disabled automatic lane must block planning: %v", err)
 	}
 }
 

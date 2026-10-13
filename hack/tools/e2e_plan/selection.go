@@ -10,6 +10,8 @@ import (
 	"github.com/onsi/ginkgo/v2/types"
 )
 
+const manualPolicy = "manual"
+
 type scenarioSuite struct {
 	ID    string   `yaml:"id"`
 	Files []string `yaml:"files"`
@@ -141,6 +143,7 @@ func validateScenarioOwnership(m manifest, cases []catalogCase) error {
 			return fmt.Errorf("scenario %s has no suite owner", tc.ID)
 		}
 		var selected []string
+		automaticOwner := false
 		for _, lane := range m.CILanes {
 			if prFilter := prFilters[lane.ID]; prFilter != nil && prFilter(tc.Labels) && !filters[lane.ID](tc.Labels) {
 				return fmt.Errorf("lane %s PR selector includes scenario %s outside its full owner", lane.ID, tc.ID)
@@ -152,12 +155,16 @@ func validateScenarioOwnership(m manifest, cases []catalogCase) error {
 				return fmt.Errorf("scenario %s selects undeclared lane %s (suite %s)", tc.ID, lane.ID, suite.ID)
 			}
 			selected = append(selected, lane.ID)
+			automaticOwner = automaticOwner || (includeInPRMatrix(lane) && lane.PRScope != manualPolicy)
 		}
 		if len(selected) > 1 {
 			return fmt.Errorf("scenario %s has multiple lane owners: %s", tc.ID, strings.Join(selected, ", "))
 		}
-		if len(selected) == 0 && suite.CI.PullRequest != "manual" {
+		if len(selected) == 0 && suite.CI.PullRequest != manualPolicy {
 			return fmt.Errorf("scenario %s is absent from all full lane selectors", tc.ID)
+		}
+		if !automaticOwner && suite.CI.PullRequest != manualPolicy {
+			return fmt.Errorf("scenario %s is absent from the full automatic CI matrix", tc.ID)
 		}
 	}
 	return nil

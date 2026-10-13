@@ -42,7 +42,8 @@ E2E suites are declared in `test/e2e/suites.yaml`. Update the suite owner, risk 
 
 Give each E2E scenario one unique `case:<id>` label. Keep the ID when the title, file, or lane changes.
 Declare the owning lanes in the suite's `ci.lanes` and make their full selectors select each automatic scenario once.
-The planner rejects missing IDs, undeclared or overlapping owners, and automatic scenarios that no lane selects.
+Each automatic owner must be included in the full CI matrix and use an automatic PR scope.
+The planner rejects missing IDs, undeclared or overlapping owners, and automatic scenarios without an executable owner.
 Manual platform and external-cluster scenarios retain their separate qualification requirements.
 
 Generated matrices list `expected_case_ids` for every lane. CI validates those IDs against the Ginkgo report and

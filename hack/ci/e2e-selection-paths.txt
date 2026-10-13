@@ -1,0 +1,3 @@
+^hack/tools/e2e_(manifest|plan)/
+^test/e2e/suites\.yaml$
+^hack/ci/e2e-selection-paths\.txt$

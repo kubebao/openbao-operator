@@ -168,7 +168,7 @@ jobs:
             echo "chart=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(\.github/(workflows|actions|scripts)/|hack/tools/ci_(checks|report)/|hack/dev/tool-versions\.env$|hack/ci/)'; then
+          if changed_matches_file 'hack/ci/e2e-selection-paths.txt' || changed_matches '^(\.github/(workflows|actions|scripts)/|hack/tools/ci_(checks|report)/|hack/dev/tool-versions\.env$|hack/ci/)'; then
             echo "workflow=true" >> "${GITHUB_OUTPUT}"
           else
             echo "workflow=false" >> "${GITHUB_OUTPUT}"
@@ -234,7 +234,7 @@ jobs:
             echo "fuzz=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|test/e2e/|Dockerfile(\..*)?$|hack/ci/|hack/dev/tool-versions\.env$|go\.(mod|sum)$|vendor/|Makefile|mk/)'; then
+          if changed_matches_file 'hack/ci/e2e-selection-paths.txt' || changed_matches '^(internal/|cmd/|api/|test/e2e/|Dockerfile(\..*)?$|hack/ci/|hack/dev/tool-versions\.env$|go\.(mod|sum)$|vendor/|Makefile|mk/)'; then
             echo "e2e=true" >> "${GITHUB_OUTPUT}"
           else
             echo "e2e=false" >> "${GITHUB_OUTPUT}"
@@ -246,25 +246,25 @@ jobs:
             echo "operator_upgrade_e2e=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/service/backup/|internal/service/restore/|internal/adapter/(storage|storageenv)/|cmd/bao-backup/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|backup_restore_test\.go|restore_minimal_test\.go|suites\.yaml)|hack/tools/e2e_(manifest|plan)/|go\.(mod|sum)$|vendor/|Dockerfile\.backup$|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-lifecycle-paths.txt'; then
+          if changed_matches '^(internal/service/backup/|internal/service/restore/|internal/adapter/(storage|storageenv)/|cmd/bao-backup/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|backup_restore_test\.go|restore_minimal_test\.go|suites\.yaml)|hack/tools/e2e_(manifest|plan)/|go\.(mod|sum)$|vendor/|Dockerfile\.backup$|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-lifecycle-paths.txt' || changed_matches_file 'hack/ci/e2e-selection-paths.txt'; then
             echo "e2e_backup=true" >> "${GITHUB_OUTPUT}"
           else
             echo "e2e_backup=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/service/upgrade/|cmd/bao-upgrade/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|Upgrade_Strategies_test\.go|Upgrade_Target_Drift_test\.go|Upgrade_Operation_Lock_test\.go)|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-lifecycle-paths.txt'; then
+          if changed_matches '^(internal/service/upgrade/|cmd/bao-upgrade/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|Upgrade_Strategies_test\.go|Upgrade_Target_Drift_test\.go|Upgrade_Operation_Lock_test\.go)|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-lifecycle-paths.txt' || changed_matches_file 'hack/ci/e2e-selection-paths.txt'; then
             echo "e2e_upgrade=true" >> "${GITHUB_OUTPUT}"
           else
             echo "e2e_upgrade=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/adapter/security/|internal/platform/admission/|internal/service/provisioner/|cmd/provisioner/|config/policy/|internal/controller/|cmd/controller/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|Cluster_Profile_Hardened_test\.go|Cluster_TLS_ACME_test\.go|GitOps_Contract_test\.go|hardened_signed_suite\.go)|Makefile|mk/)'; then
+          if changed_matches '^(internal/adapter/security/|internal/platform/admission/|internal/service/provisioner/|cmd/provisioner/|config/policy/|internal/controller/|cmd/controller/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|Cluster_Profile_Hardened_test\.go|Cluster_TLS_ACME_test\.go|GitOps_Contract_test\.go|hardened_signed_suite\.go)|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-selection-paths.txt'; then
             echo "e2e_hardened=true" >> "${GITHUB_OUTPUT}"
           else
             echo "e2e_hardened=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches_file 'hack/ci/e2e-seal-paths.txt'; then
+          if changed_matches_file 'hack/ci/e2e-seal-paths.txt' || changed_matches_file 'hack/ci/e2e-selection-paths.txt'; then
             echo "e2e_seal=true" >> "${GITHUB_OUTPUT}"
           else
             echo "e2e_seal=false" >> "${GITHUB_OUTPUT}"

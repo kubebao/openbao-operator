@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,7 +57,7 @@ func runRouting(t *testing.T, base, head, failure, event string) (map[string]str
 		commitFixture(t, dir)
 	}
 	headSHA := gitCommand(t, dir, "rev-parse", "HEAD")
-	for _, name := range []string{"e2e-lifecycle-paths.txt", "e2e-seal-paths.txt"} {
+	for _, name := range []string{"e2e-lifecycle-paths.txt", "e2e-seal-paths.txt", "e2e-selection-paths.txt"} {
 		data, err := os.ReadFile(filepath.Join("..", "..", "..", "hack", "ci", name))
 		if err != nil {
 			t.Fatal(err)
@@ -171,6 +172,84 @@ func TestChangeDetectionRoutesRealGitDiffs(t *testing.T) {
 			for _, key := range test.routes {
 				if outputs[key] != routingTrue {
 					t.Errorf("%s not selected", key)
+				}
+			}
+		})
+	}
+}
+
+func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	planner := filepath.Join(t.TempDir(), "e2e_plan")
+	cmd := exec.Command("go", "build", "-mod=vendor", "-o", planner, "./hack/tools/e2e_plan")
+	cmd.Dir = root
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build E2E planner: %v\n%s", err, output)
+	}
+	for _, path := range []string{
+		"hack/tools/e2e_plan/main.go",
+		"hack/tools/e2e_plan/selection.go",
+		"hack/tools/e2e_plan/selection_test.go",
+		"hack/tools/e2e_manifest/main.go",
+		"test/e2e/suites.yaml",
+		"hack/ci/e2e-selection-paths.txt",
+	} {
+		t.Run(path, func(t *testing.T) {
+			routing, err := runRouting(t, "normal", path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, key := range []string{"workflow", "e2e", "e2e_backup", "e2e_upgrade", "e2e_hardened", "e2e_seal"} {
+				if routing[key] != routingTrue {
+					t.Errorf("shared selection change %s does not select %s", path, key)
+				}
+			}
+			plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
+				prEvent("owner/repo"), routing)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.E2E.Full || plan.E2E.IncludePentest {
+				t.Fatal("shared selection paths must retain the default PR selector and pentest policy")
+			}
+			planPath := filepath.Join(t.TempDir(), "plan.json")
+			if err := writeJSON(planPath, plan); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command(planner, "--ci-plan", planPath, "--sha", "tested-sha")
+			cmd.Dir = root
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("plan shared selection change: %v\n%s", err, output)
+			}
+			var matrix struct {
+				Include []struct {
+					ID string `json:"id"`
+				} `json:"include"`
+			}
+			if err := json.Unmarshal(output, &matrix); err != nil {
+				t.Fatal(err)
+			}
+			lanes := make([]string, 0, len(matrix.Include))
+			for _, row := range matrix.Include {
+				lanes = append(lanes, row.ID)
+			}
+			want := "core,security,backup-restore,restore-tests,upgrade-rolling,upgrade-bluegreen-core," +
+				"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway,hardened,hsm"
+			if strings.Join(lanes, ",") != want {
+				t.Fatalf("shared selection change planned %v, want all 11 automatic lanes", lanes)
+			}
+			forkPlan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
+				prEvent("fork/repo"), routing)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, job := range []string{"build-artifacts", "build-e2e-images", "operator-upgrade-e2e", "e2e-matrix", "e2e"} {
+				if forkPlan.Checks[job] {
+					t.Fatalf("shared selection change must not select %s on a fork PR", job)
 				}
 			}
 		})
