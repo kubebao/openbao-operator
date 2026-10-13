@@ -12,8 +12,31 @@ on:
       - 'charts/openbao-operator/Chart.yaml'
   workflow_dispatch:
     inputs:
+      operation:
+        description: "Create the release, or remove an unpublished failed candidate."
+        required: false
+        default: create
+        type: choice
+        options:
+          - create
+          - remove-unpublished
+      expected_tag_object_sha:
+        description: "Exact annotated tag object SHA required for removal."
+        required: false
+        default: ""
+        type: string
+      expected_commit_sha:
+        description: "Exact failed release commit SHA required for removal."
+        required: false
+        default: ""
+        type: string
+      failed_run_id:
+        description: "Completed failed or cancelled Release run required for removal."
+        required: false
+        default: ""
+        type: string
       tag_target:
-        description: "Commit to tag. Use branch-head only to retry a failed draft release after a release-branch fix."
+        description: "Commit to tag. Use branch-head for an approved unpublished release retry."
         required: false
         default: release-pr-merge
         type: choice
@@ -22,6 +45,7 @@ on:
           - branch-head
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
 
@@ -31,7 +55,7 @@ concurrency:
 
 jobs:
   release-tag:
-    name: Create Release Tag And Draft Release
+    name: Manage Release Tag And Draft Release
     runs-on: ubuntu-24.04
     if: ${{ !github.event.repository.fork }}
     steps:
@@ -53,6 +77,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Import release tag signing key
+        if: github.event_name != 'workflow_dispatch' || inputs.operation != 'remove-unpublished'
         env:
           OPENBAO_OPERATOR_RELEASE_TAG_GPG_PRIVATE_KEY: ${{ secrets.OPENBAO_OPERATOR_RELEASE_TAG_GPG_PRIVATE_KEY }}
           OPENBAO_OPERATOR_RELEASE_TAG_GPG_PASSPHRASE: ${{ secrets.OPENBAO_OPERATOR_RELEASE_TAG_GPG_PASSPHRASE }}
@@ -103,6 +128,7 @@ jobs:
           } >> "${GITHUB_ENV}"
 
       - name: Create tag and draft release
+        if: github.event_name != 'workflow_dispatch' || inputs.operation != 'remove-unpublished'
         env:
           REPO: ${{ github.repository }}
           BASE_BRANCH: ${{ github.ref_name }}
@@ -111,3 +137,16 @@ jobs:
           GH_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
           OPENBAO_OPERATOR_RELEASE_TAG_GPG_PASSPHRASE: ${{ secrets.OPENBAO_OPERATOR_RELEASE_TAG_GPG_PASSPHRASE }}
         run: bash hack/ci/create-release-tag-and-draft.sh
+
+      - name: Remove failed unpublished release
+        if: github.event_name == 'workflow_dispatch' && inputs.operation == 'remove-unpublished'
+        env:
+          REPO: ${{ github.repository }}
+          EXPECTED_TAG_OBJECT_SHA: ${{ inputs.expected_tag_object_sha }}
+          EXPECTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
+          FAILED_RUN_ID: ${{ inputs.failed_run_id }}
+          GH_READ_TOKEN: ${{ github.token }}
+          GH_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -er '."."' .release-please-manifest.json)" bash hack/ci/remove-unpublished-release.sh
