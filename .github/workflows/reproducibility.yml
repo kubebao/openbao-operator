@@ -94,7 +94,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/upstream dist/report
-          artifacts_json="$(gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/artifacts")"
+          # Filter by name so unrelated artifacts cannot hide the report on a later API page.
+          artifacts_json="$(gh api "repos/${GH_REPO}/actions/runs/${RUN_ID}/artifacts?name=release-reproducibility-report")"
           ARTIFACTS_JSON="${artifacts_json}" ARTIFACT_NAME="release-reproducibility-report" python3 - <<'PY'
           import json
           import os

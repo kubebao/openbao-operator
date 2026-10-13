@@ -23,6 +23,12 @@ class Document(HTMLParser):
         self.hrefs: list[str] = []
         self.text: list[str] = []
         self.command_blocks: list[str] = []
+        self.canonical: str | None = None
+        self.is_redirect = False
+        self.sidebar_hrefs: list[str] = []
+        self.navigation_current_hrefs: list[str] = []
+        self._navigation_depth = 0
+        self._in_sidebar_navigation = False
         self._command_div_depth = 0
         self._command_code: list[str] | None = None
 
@@ -34,6 +40,21 @@ class Document(HTMLParser):
             self.hrefs.append(values["href"] or "")
 
         classes = (values.get("class") or "").split()
+        if tag == "link" and values.get("rel") == "canonical":
+            self.canonical = values.get("href")
+        if tag == "meta" and (values.get("http-equiv") or "").lower() == "refresh":
+            self.is_redirect = True
+        if tag == "nav":
+            if self._navigation_depth:
+                self._navigation_depth += 1
+            elif values.get("aria-label") == "Documentation" or "section-nav" in classes:
+                self._navigation_depth = 1
+                self._in_sidebar_navigation = values.get("aria-label") == "Documentation"
+        if tag == "a" and values.get("href") and self._navigation_depth:
+            if self._in_sidebar_navigation:
+                self.sidebar_hrefs.append(values["href"] or "")
+            if values.get("aria-current") == "page":
+                self.navigation_current_hrefs.append(values["href"] or "")
         if tag == "div":
             if self._command_div_depth > 0:
                 self._command_div_depth += 1
@@ -48,6 +69,10 @@ class Document(HTMLParser):
             self._command_code.append(data)
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "nav" and self._navigation_depth:
+            self._navigation_depth -= 1
+            if not self._navigation_depth:
+                self._in_sidebar_navigation = False
         if tag == "code" and self._command_code is not None:
             self.command_blocks.append("".join(self._command_code))
             self._command_code = None
@@ -140,6 +165,45 @@ def normalize_internal_path(current_route: str, href: str) -> tuple[str, str] | 
     return route, unquote(parsed.fragment)
 
 
+def validate_navigation(routes: dict[str, Path], documents: dict[Path, Document]) -> list[str]:
+    """Require canonical guides to be reachable from their navigation."""
+    errors: list[str] = []
+    sidebar_targets: set[str] = set()
+    global_guides: list[str] = []
+    for route, html_file in routes.items():
+        document = load_document(html_file, documents)
+        if document.is_redirect or not document.canonical:
+            continue
+        if normalize_internal_path(route, document.canonical) != (route, ""):
+            continue
+
+        is_docs = "/docs/" in route
+        is_global_guide = route.startswith(("/project/", "/contribute/")) and route.count("/") > 2
+        if is_global_guide:
+            global_guides.append(route)
+        current_targets = {
+            normalize_internal_path(route, href) for href in document.navigation_current_hrefs
+        }
+        if (is_docs and not route.endswith("/docs/")) or is_global_guide:
+            if (route, "") not in current_targets:
+                errors.append(f"missing current page in navigation: {route}")
+
+        docs_prefix = route.split("/docs/", 1)[0] + "/docs/"
+        for href in document.sidebar_hrefs:
+            target = normalize_internal_path(route, href)
+            if target is None:
+                continue
+            target_route, _ = target
+            sidebar_targets.add(target_route)
+            if is_docs and "/docs/" in target_route and not target_route.startswith(docs_prefix):
+                errors.append(f"sidebar crosses documentation versions: {route}: {href}")
+
+    for route in global_guides:
+        if route not in sidebar_targets:
+            errors.append(f"missing global guide in sidebar: {route}")
+    return errors
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print(f"usage: {Path(sys.argv[0]).name} PUBLIC_DIR", file=sys.stderr)
@@ -198,10 +262,12 @@ def main() -> int:
                 if fragment not in target_document.ids:
                     errors.append(f"missing fragment: {route}: {href}")
 
+    errors.extend(validate_navigation(routes, documents))
+
     print(
         f"Rendered HTML: {len(html_files)}; "
         f"duplicate IDs: {sum(error.startswith('duplicate id:') for error in errors)}; "
-        f"content, target, fragment, and encoding errors: "
+        f"content, target, fragment, encoding, and navigation errors: "
         f"{sum(not error.startswith('duplicate id:') for error in errors)}"
     )
     if errors:

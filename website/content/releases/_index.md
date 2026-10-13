@@ -11,14 +11,16 @@ The current manual stays focused on the current contract. Release pages preserve
 ## Latest highlighted release
 
 <div class="link-grid">
-  <a href="0.5.0/"><strong>0.5.0</strong><p>Stable v1alpha1 contracts, Kubernetes 1.36 validation, and durable lifecycle operations.</p></a>
-  <a href="https://github.com/dc-tec/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
+  <a href="0.5.2/"><strong>0.5.2</strong><p>Scheduled backups, PVC admission, restore safety, and trusted PROXY protocol sources.</p></a>
+  <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
 
 ## Archive
 
 | Release | Published | Context |
 | --- | --- | --- |
+| [0.5.2](0.5.2/) | Pending publication | Backup scheduling and compatible fixes |
+| [0.5.1](0.5.1/) | 2026-09-24 | OpenBao 2.7 preparation and lifecycle fixes |
 | [0.5.0](0.5.0/) | 2026-08-31 | Stable v1alpha1 subset and lifecycle correctness |
 | [0.4.2](0.4.2/) | 2026-07-15 | Idle upgrade-strategy switching |
 | [0.4.1](0.4.1/) | 2026-07-15 | OpenBao 2.6.0 rolling compatibility |

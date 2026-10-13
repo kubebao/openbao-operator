@@ -12,8 +12,8 @@ Notes:
 ## Summary
 
 - Files: `20`
-- Specs: `85`
-- Explicit case IDs: `37`
+- Specs: `86`
+- Explicit case IDs: `38`
 - Coverage tags: `51`
 
 ## Suites
@@ -39,7 +39,7 @@ Notes:
 | [Upgrade Strategy Switching](suites/Upgrade_Strategy_Switch_test.md) | 1 | 1 | 0 | `upgrade`, `rolling`, `bluegreen`, `slow` | `test/e2e/Upgrade_Strategy_Switch_test.go` |
 | [Upgrade Strategies: Blue/Green Drift](suites/Upgrade_Target_Drift_test.md) | 1 | 1 | 0 | `upgrade`, `bluegreen`, `slow` | `test/e2e/Upgrade_Target_Drift_test.go` |
 | [Security: Anti-Tamper Policy](suites/anti_tamper_policy_test.md) | 2 | 2 | 0 | `security`, `tamper`, `cluster`, `slow` | `test/e2e/anti_tamper_policy_test.go` |
-| [DR: Storage Providers Backup & Restore](suites/backup_restore_test.md) | 7 | 5 | 0 | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke`, `failure-injection`, `read-replicas`, `read-replicas-restore` | `test/e2e/backup_restore_test.go` |
+| [DR: Storage Providers Backup & Restore](suites/backup_restore_test.md) | 8 | 6 | 0 | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke`, `failure-injection`, `read-replicas`, `read-replicas-restore` | `test/e2e/backup_restore_test.go` |
 
 ## Coverage Tags
 

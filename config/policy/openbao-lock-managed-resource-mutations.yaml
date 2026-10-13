@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-managed-resource-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:4fe62c598a00d07ae0569c52123bf927ab9e81745655f17f79ee539e3a267031
+    openbao.org/admission-policy-fingerprint: sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -110,6 +110,12 @@ spec:
       expression: >-
         request.userInfo.username == "system:kube-scheduler" ||
         request.userInfo.username == "system:serviceaccount:kube-system:kube-scheduler"
+    # Azure Kubernetes Service runs its managed control plane, including the
+    # scheduler and the volume controllers, as the user "aksService". Only the
+    # narrowly scoped PVC binding update below accepts it.
+    - name: is_aks_control_plane
+      expression: >-
+        request.userInfo.username == "aksService"
     - name: is_storage_provisioner_serviceaccount
       expression: >-
         request.userInfo.username.matches("^system:serviceaccount:[^:]+:.*(csi|provisioner).*$")
@@ -346,6 +352,7 @@ spec:
         variables.is_pvc_request &&
         request.operation == "UPDATE" &&
         (variables.is_kube_scheduler ||
+          variables.is_aks_control_plane ||
           variables.is_kube_controller_manager ||
           variables.is_persistent_volume_binder ||
           variables.is_pvc_protection_controller ||
@@ -361,10 +368,12 @@ spec:
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
         variables.pvc_new_finalizers.all(f,
           f in variables.pvc_old_finalizers ||
-          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+          (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
         variables.pvc_old_finalizers.all(f,
           f in variables.pvc_new_finalizers ||
-          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"]) &&
+          f in ["kubernetes.io/pvc-protection", "external-provisioner.volume.kubernetes.io/finalizer"] ||
+          (variables.is_storage_provisioner_serviceaccount && f.endsWith("/csi-leak-protection"))) &&
         variables.pvc_new_annotations.all(k, v,
           !k.startsWith("openbao.org/") ||
           (k in variables.pvc_old_annotations && variables.pvc_old_annotations[k] == v)) &&

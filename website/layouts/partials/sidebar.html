@@ -12,39 +12,37 @@
   </div>
   <nav aria-label="Documentation">
     {{ range hugo.Data.navigation.primary }}
-      {{- $targetURL := printf "%s%s" $.Site.Home.RelPermalink .url -}}
+      {{- $group := . -}}
+      {{- with $.Site.GetPage (printf "/%s" .url) -}}
+      {{- $targetURL := .RelPermalink -}}
       {{- $active := hasPrefix $.RelPermalink $targetURL -}}
       <div class="nav-group{{ if $active }} is-active{{ end }}">
         <a class="nav-group-link" href="{{ $targetURL }}"{{ if eq $.RelPermalink $targetURL }} aria-current="page"{{ end }}>
-          <span>{{ .title }}</span>
+          <span>{{ $group.title }}</span>
         </a>
-        {{ if and .items $active }}
-          <div class="nav-children">
-            {{ range .items }}
-              {{- $childURL := printf "%s%s" $.Site.Home.RelPermalink .url -}}
-              <a class="{{ if eq $.RelPermalink $childURL }}is-current{{ end }}" href="{{ $childURL }}"{{ if eq $.RelPermalink $childURL }} aria-current="page"{{ end }}>{{ .title }}</a>
-            {{ end }}
-          </div>
+        {{ if and $group.items $active }}
+          {{ partial "sidebar-items.html" (dict "current" $ "site" $.Site "items" $group.items) }}
         {{ end }}
       </div>
+      {{- end -}}
     {{ end }}
     <div class="nav-divider"></div>
     {{ range hugo.Data.navigation.secondary }}
-      {{- $targetHome := $defaultSite.Home.RelPermalink -}}
-      {{- if hasPrefix .url "docs/" }}{{ $targetHome = $.Site.Home.RelPermalink }}{{ end -}}
-      {{- $targetURL := printf "%s%s" $targetHome .url -}}
+      {{- $group := . -}}
+      {{- $targetSite := $defaultSite -}}
+      {{- if hasPrefix .url "docs/" }}{{ $targetSite = $.Site }}{{ end -}}
+      {{- with $targetSite.GetPage (printf "/%s" .url) -}}
+      {{- $targetURL := .RelPermalink -}}
       {{- $active := hasPrefix $.RelPermalink $targetURL -}}
-      <div class="nav-secondary-group{{ if $active }} is-active{{ end }}">
-        <a class="nav-secondary{{ if $active }} is-current{{ end }}" href="{{ $targetURL }}"{{ if eq $.RelPermalink $targetURL }} aria-current="page"{{ end }}>{{ .title }}</a>
-        {{ if and .items $active }}
-          <div class="nav-children">
-            {{ range .items }}
-              {{- $childURL := printf "%s%s" $targetHome .url -}}
-              <a class="{{ if eq $.RelPermalink $childURL }}is-current{{ end }}" href="{{ $childURL }}"{{ if eq $.RelPermalink $childURL }} aria-current="page"{{ end }}>{{ .title }}</a>
-            {{ end }}
-          </div>
-        {{ end }}
-      </div>
+      {{ if $group.items }}
+        <details class="nav-secondary-group"{{ if $active }} open{{ end }}>
+          <summary class="nav-secondary">{{ $group.title }}</summary>
+          {{ partial "sidebar-items.html" (dict "current" $ "site" $targetSite "items" $group.items) }}
+        </details>
+      {{ else }}
+        <a class="nav-secondary{{ if $active }} is-current{{ end }}" href="{{ $targetURL }}"{{ if eq $.RelPermalink $targetURL }} aria-current="page"{{ end }}>{{ $group.title }}</a>
+      {{ end }}
+      {{- end -}}
     {{ end }}
   </nav>
 </aside>

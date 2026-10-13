@@ -105,18 +105,18 @@ func TestResolveInitContainerImage_TableDriven(t *testing.T) {
 			name:     "returns default operator-managed image when init container config is nil",
 			cluster:  &openbaov1alpha1.OpenBaoCluster{},
 			version:  "1.2.3",
-			expected: "ghcr.io/dc-tec/openbao-init:1.2.3",
+			expected: "ghcr.io/kubebao/openbao-init:1.2.3",
 		},
 		{
 			name: "returns configured image",
 			cluster: &openbaov1alpha1.OpenBaoCluster{
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
-						Image: "ghcr.io/dc-tec/openbao-init:edge",
+						Image: "ghcr.io/kubebao/openbao-init:edge",
 					},
 				},
 			},
-			expected: "ghcr.io/dc-tec/openbao-init:edge",
+			expected: "ghcr.io/kubebao/openbao-init:edge",
 		},
 	}
 
@@ -254,7 +254,7 @@ func TestVerifyOperatorImageDigest_TableDriven(t *testing.T) {
 					Profile: openbaov1alpha1.ProfileDevelopment,
 				},
 			},
-			imageRef:       "ghcr.io/dc-tec/openbao-init:edge",
+			imageRef:       "ghcr.io/kubebao/openbao-init:edge",
 			wantDigest:     "",
 			expectNilError: true,
 		},
@@ -268,7 +268,7 @@ func TestVerifyOperatorImageDigest_TableDriven(t *testing.T) {
 					},
 				},
 			},
-			imageRef:       "ghcr.io/dc-tec/openbao-init:edge",
+			imageRef:       "ghcr.io/kubebao/openbao-init:edge",
 			wantDigest:     "",
 			expectNilError: true,
 		},
@@ -282,7 +282,7 @@ func TestVerifyOperatorImageDigest_TableDriven(t *testing.T) {
 					},
 				},
 			},
-			imageRef:      "ghcr.io/dc-tec/openbao-init:edge",
+			imageRef:      "ghcr.io/kubebao/openbao-init:edge",
 			wantDigest:    "",
 			wantErrSubstr: "verify operator image",
 		},

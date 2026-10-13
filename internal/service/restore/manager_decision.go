@@ -39,6 +39,7 @@ type restoreState struct {
 	legacy         bool
 	jobState       restoreJobState
 	unknownMessage string
+	waitMessage    string
 }
 
 type restoreDecision struct {

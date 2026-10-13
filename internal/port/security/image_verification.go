@@ -16,11 +16,12 @@ const (
 	defaultGitHubOIDCIssuerRegExp = "^https://token\\.actions\\.githubusercontent\\.com$"
 
 	openBaoReleaseSubjectRegExp = "^https://github\\.com/openbao/openbao/\\.github/workflows/release(-images)?\\.yml@refs/tags/v?[0-9A-Za-z][0-9A-Za-z._+-]*$"
-	operatorSubjectRegExp       = "^https://github\\.com/dc-tec/openbao-operator/\\.github/workflows/(release\\.yml@refs/tags/.+|publish-edge\\.yml@refs/heads/main|publish-nightly\\.yml@refs/heads/main|reusable-build\\.yml@(refs/heads/main|refs/tags/.+))$"
+	operatorSubjectRegExp       = "^https://github\\.com/kubebao/openbao-operator/\\.github/workflows/(release\\.yml@refs/tags/.+|publish-edge\\.yml@refs/heads/main|publish-nightly\\.yml@refs/heads/main|reusable-build\\.yml@(refs/heads/main|refs/tags/.+))$"
+	legacyOperatorSubjectRegExp = "^https://github\\.com/dc-tec/openbao-operator/\\.github/workflows/(release\\.yml@refs/tags/.+|publish-edge\\.yml@refs/heads/main|publish-nightly\\.yml@refs/heads/main|reusable-build\\.yml@(refs/heads/main|refs/tags/.+))$"
 
-	operatorInitOfficialRepository    = "ghcr.io/dc-tec/openbao-init"
-	operatorBackupOfficialRepository  = "ghcr.io/dc-tec/openbao-backup"
-	operatorUpgradeOfficialRepository = "ghcr.io/dc-tec/openbao-upgrade"
+	operatorInitOfficialRepository    = "ghcr.io/kubebao/openbao-init"
+	operatorBackupOfficialRepository  = "ghcr.io/kubebao/openbao-backup"
+	operatorUpgradeOfficialRepository = "ghcr.io/kubebao/openbao-upgrade"
 )
 
 var openBaoOfficialRepositories = map[string]struct{}{
@@ -205,6 +206,9 @@ func defaultSubjectRegExpForImage(repository string, isOperatorImage bool) strin
 	switch repository {
 	case operatorInitOfficialRepository, operatorBackupOfficialRepository, operatorUpgradeOfficialRepository:
 		return operatorSubjectRegExp
+	case "ghcr.io/dc-tec/openbao-init", "ghcr.io/dc-tec/openbao-backup", "ghcr.io/dc-tec/openbao-upgrade":
+		// Historical artifacts retain their original repository and signing identity.
+		return legacyOperatorSubjectRegExp
 	default:
 		return ""
 	}

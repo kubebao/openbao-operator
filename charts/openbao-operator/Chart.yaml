@@ -7,10 +7,10 @@ type: application
 version: 0.5.1
 appVersion: 0.5.1
 icon: >-
-  https://raw.githubusercontent.com/dc-tec/openbao-operator/main/website/static/img/brand/logo.svg
-home: https://github.com/dc-tec/openbao-operator
+  https://raw.githubusercontent.com/kubebao/openbao-operator/main/website/static/img/brand/logo.svg
+home: https://github.com/kubebao/openbao-operator
 sources:
-  - https://github.com/dc-tec/openbao-operator
+  - https://github.com/kubebao/openbao-operator
 keywords:
   - openbao
   - vault
@@ -63,6 +63,7 @@ annotations:
       description: "kube: reuse apply responses for ownership verification"
     - kind: changed
       description: "raft: avoid redundant Autopilot configuration writes"
+  # Last published release; prepare-release-chart.sh replaces this metadata for each new release.
   artifacthub.io/images: |
     - name: openbao-operator
       image: ghcr.io/dc-tec/openbao-operator:0.5.1
@@ -128,12 +129,12 @@ annotations:
       email: roel@decort.tech
   artifacthub.io/links: |
     - name: Documentation
-      url: https://dc-tec.github.io/openbao-operator/latest/
+      url: https://docs.kubebao.org/
     - name: Source
-      url: https://github.com/dc-tec/openbao-operator
+      url: https://github.com/kubebao/openbao-operator
     - name: Issues
-      url: https://github.com/dc-tec/openbao-operator/issues
+      url: https://github.com/kubebao/openbao-operator/issues
     - name: Discussions
-      url: https://github.com/dc-tec/openbao-operator/discussions
+      url: https://github.com/kubebao/openbao-operator/discussions
     - name: OpenBao Docs
       url: https://openbao.org/docs/

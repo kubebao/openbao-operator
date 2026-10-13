@@ -41,7 +41,7 @@ type ImageVerificationConfig struct {
 
 	// Subject is the OIDC subject for keyless verification.
 	// Required for keyless verification when PublicKey is not provided.
-	// Example (GitHub Actions): https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
+	// Example (GitHub Actions): https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>
 	// The version in the subject MUST match the image tag version.
 	// +optional
 	Subject string `json:"subject,omitempty"`
@@ -200,10 +200,23 @@ type ListenerConfig struct {
 	// +optional
 	TLSDisable *bool `json:"tlsDisable,omitempty"`
 
-	// ProxyProtocolBehavior allows configuring proxy protocol (e.g. for LoadBalancers).
-	// +kubebuilder:validation:Enum=use_always;allow_any;deny_unauthorized
+	// ProxyProtocolBehavior configures PROXY protocol on the API listener.
+	// Supported values are use_always, allow_authorized, and deny_unauthorized.
+	// The legacy allow_any value remains in the schema for compatibility but is
+	// rejected by the operator. Use allow_authorized to trust selected proxies.
+	// +kubebuilder:validation:Enum=use_always;allow_any;allow_authorized;deny_unauthorized
 	// +optional
 	ProxyProtocolBehavior string `json:"proxyProtocolBehavior,omitempty"`
+
+	// ProxyProtocolAuthorizedAddrs lists trusted proxy source IP addresses or CIDRs.
+	// Required for allow_authorized and deny_unauthorized. With allow_authorized,
+	// connections from other sources use the peer IP address instead of PROXY metadata.
+	// This setting applies only to the API listener, not the metrics listener.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:items:MinLength=1
+	// +listType=set
+	// +optional
+	ProxyProtocolAuthorizedAddrs []string `json:"proxyProtocolAuthorizedAddrs,omitempty"`
 }
 
 // RaftConfig allows tuning the Raft storage backend.

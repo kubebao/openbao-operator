@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoCluster API.
 eyebrow: Reference · Generated API
 weight: 1
 verifiedBy:
-  - api/v1alpha1 at 0.5.1
-  - website/generated/api-reference.md at 0.5.1
+  - api/v1alpha1 at 0.5.2
+  - website/generated/api-reference.md at 0.5.2
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.5.1` for the `0.5.x` documentation line.
+This page is synchronized from the generated API reference at `0.5.2` for the `0.5.x` documentation line.
 {{< /callout >}}
 
 
@@ -301,7 +301,7 @@ _Appears in:_
 | `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for backup operations. When set, the backup executor will use JWT Auth<br />(projected ServiceAccount token) instead of a static token. This is the preferred authentication<br />method as tokens are automatically rotated by Kubernetes.<br />The role must be configured in OpenBao and must grant the "read" capability on<br />sys/storage/raft/snapshot. The role must bind to the backup ServiceAccount<br />(&lt;cluster-name&gt;-backup-serviceaccount) in the cluster namespace.<br />If OIDC is enabled in SelfInit and this field is empty, a default role<br />named "openbao-operator-backup" will be assumed/created. |  | Optional: \{\} <br /> |
 | `tokenSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | TokenSecretRef references a Secret containing an OpenBao API token to use<br />for backup operations when JWT Auth is not effective.<br />The Secret must exist in the same namespace as the OpenBaoCluster.<br />Cross-namespace references are not allowed for security reasons.<br />If an effective JWT role exists through JWTAuthRole or the SelfInit OIDC<br />default, this field is ignored in favor of JWT Auth. Otherwise this field<br />is required and must reference a token with permission to read<br />sys/storage/raft/snapshot. The operator does not infer or fall back to a<br />&lt;cluster&gt;-root-token Secret. |  | Optional: \{\} <br /> |
 | `retention` _[BackupRetention](#backupretention)_ | Retention defines optional backup retention policy. |  | Optional: \{\} <br /> |
-| `image` _string_ | Image is the container image to use for backup operations.<br />If not specified, OPERATOR_BACKUP_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_BACKUP_IMAGE_REPOSITORY<br />(default: "ghcr.io/dc-tec/openbao-backup") and the tag matches OPERATOR_VERSION.<br />This allows users to override the image for air-gapped environments or custom registries. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the container image to use for backup operations.<br />If not specified, OPERATOR_BACKUP_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_BACKUP_IMAGE_REPOSITORY<br />(default: "ghcr.io/kubebao/openbao-backup") and the tag matches OPERATOR_VERSION.<br />This allows users to override the image for air-gapped environments or custom registries. |  | Optional: \{\} <br /> |
 
 
 #### BackupStatus
@@ -784,7 +784,7 @@ _Appears in:_
 | `enabled` _boolean_ | Enabled controls whether image verification is enforced. |  |  |
 | `publicKey` _string_ | PublicKey is the Cosign public key content used to verify the signature.<br />Required for static key verification. If empty, keyless verification will be used<br />(requires Issuer and Subject to be set). |  | Optional: \{\} <br /> |
 | `issuer` _string_ | Issuer is the OIDC issuer for keyless verification (e.g., https://token.actions.githubusercontent.com).<br />Required for keyless verification when PublicKey is not provided.<br />For GitHub Actions keyless verification, use: https://token.actions.githubusercontent.com |  | Optional: \{\} <br /> |
-| `subject` _string_ | Subject is the OIDC subject for keyless verification.<br />Required for keyless verification when PublicKey is not provided.<br />Example (GitHub Actions): `https://github.com/dc-tec/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>`<br />The version in the subject MUST match the image tag version. |  | Optional: \{\} <br /> |
+| `subject` _string_ | Subject is the OIDC subject for keyless verification.<br />Required for keyless verification when PublicKey is not provided.<br />Example (GitHub Actions): `https://github.com/kubebao/openbao-operator/.github/workflows/release.yml@refs/tags/<VERSION>`<br />The version in the subject MUST match the image tag version. |  | Optional: \{\} <br /> |
 | `issuerRegExp` _string_ | IssuerRegExp is a regular expression for the OIDC issuer when using keyless verification.<br />Use this to allow a controlled set of issuers instead of a single exact issuer string.<br />Requires SubjectRegExp when PublicKey is not provided. |  | Optional: \{\} <br /> |
 | `subjectRegExp` _string_ | SubjectRegExp is a regular expression for the OIDC subject when using keyless verification.<br />Use this to allow a controlled set of workflow identities instead of a single exact subject.<br />Requires IssuerRegExp when PublicKey is not provided. |  | Optional: \{\} <br /> |
 | `failurePolicy` _string_ | FailurePolicy defines behavior on verification failure.<br />"Block" blocks reconciliation of the affected workload when verification fails.<br />"Warn" logs an error and emits a Kubernetes Event but proceeds. | Block | Enum: [Warn Block] <br /> |
@@ -872,7 +872,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `enabled` _boolean_ | Enabled controls whether the init container is used to render the configuration.<br />The operator requires the init container; disabling it is not supported. | true | Optional: \{\} <br /> |
-| `image` _string_ | Image is the container image to use for the init container.<br />If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_INIT_IMAGE_REPOSITORY<br />(default: "ghcr.io/dc-tec/openbao-init") and the tag matches OPERATOR_VERSION. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the container image to use for the init container.<br />If not specified, OPERATOR_INIT_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_INIT_IMAGE_REPOSITORY<br />(default: "ghcr.io/kubebao/openbao-init") and the tag matches OPERATOR_VERSION. |  | Optional: \{\} <br /> |
 
 
 #### InitialRecoveryKeysConfig
@@ -974,7 +974,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `tlsDisable` _boolean_ | TLSDisable controls TLS on the listener.<br />Note: This is typically managed by the operator based on spec.tls.enabled.<br />Hardened clusters reject tlsDisable=true. |  | Optional: \{\} <br /> |
-| `proxyProtocolBehavior` _string_ | ProxyProtocolBehavior allows configuring proxy protocol (e.g. for LoadBalancers). |  | Enum: [use_always allow_any deny_unauthorized] <br />Optional: \{\} <br /> |
+| `proxyProtocolBehavior` _string_ | ProxyProtocolBehavior configures PROXY protocol on the API listener.<br />Supported values are use_always, allow_authorized, and deny_unauthorized.<br />The legacy allow_any value remains in the schema for compatibility but is<br />rejected by the operator. Use allow_authorized to trust selected proxies. |  | Enum: [use_always allow_any allow_authorized deny_unauthorized] <br />Optional: \{\} <br /> |
+| `proxyProtocolAuthorizedAddrs` _string array_ | ProxyProtocolAuthorizedAddrs lists trusted proxy source IP addresses or CIDRs.<br />Required for allow_authorized and deny_unauthorized. With allow_authorized,<br />connections from other sources use the peer IP address instead of PROXY metadata.<br />This setting applies only to the API listener, not the metrics listener. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 
 
 #### LoggingConfig
@@ -2228,7 +2229,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `image` _string_ | Image is the container image to use for upgrade operations.<br />This image is used by Kubernetes Jobs created during upgrades (for example, blue/green<br />cluster orchestration actions). The executor runs inside the tenant namespace and<br />authenticates to OpenBao using a projected ServiceAccount token (JWT auth).<br />If not specified, OPERATOR_UPGRADE_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_UPGRADE_IMAGE_REPOSITORY<br />(default: "ghcr.io/dc-tec/openbao-upgrade") and the tag matches OPERATOR_VERSION. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the container image to use for upgrade operations.<br />This image is used by Kubernetes Jobs created during upgrades (for example, blue/green<br />cluster orchestration actions). The executor runs inside the tenant namespace and<br />authenticates to OpenBao using a projected ServiceAccount token (JWT auth).<br />If not specified, OPERATOR_UPGRADE_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_UPGRADE_IMAGE_REPOSITORY<br />(default: "ghcr.io/kubebao/openbao-upgrade") and the tag matches OPERATOR_VERSION. |  | Optional: \{\} <br /> |
 | `preUpgradeSnapshot` _boolean_ | PreUpgradeSnapshot, when true, triggers a backup before any upgrade.<br />When enabled, the upgrade manager will create a backup using the backup<br />configuration (spec.backup.target, spec.backup.image, etc.) and<br />wait for it to complete before proceeding with the upgrade.<br />If the backup fails, the upgrade will be blocked and a Degraded condition<br />will be set with Reason=PreUpgradeBackupFailed.<br />Requires spec.backup to be configured with target, image, and<br />authentication (jwtAuthRole or tokenSecretRef). |  | Optional: \{\} <br /> |
 | `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for upgrade executor Jobs. The executor authenticates with a projected<br />ServiceAccount token from &lt;cluster-name&gt;-upgrade-serviceaccount.<br />The role must be configured in OpenBao and must grant the permissions<br />required by the selected upgrade strategy, including:<br />- "read" capability on sys/health<br />- "sudo" and "update" capability on sys/step-down<br />- "read" capability on sys/storage/raft/autopilot/state<br />- for Blue/Green, raft join/configuration/remove-peer/promote/demote operations<br />The role must bind to the upgrade ServiceAccount (&lt;cluster-name&gt;-upgrade-serviceaccount),<br />which is automatically created by the operator.<br />If OIDC is enabled during initial SelfInit bootstrap and this field is<br />empty, a default role named "openbao-operator-upgrade" will be created.<br />For already-initialized clusters, configure this role explicitly or keep<br />the default role created during initial bootstrap.<br />This is the supported authentication mechanism for built-in upgrade orchestration. |  | Optional: \{\} <br /> |
 | `strategy` _[UpdateStrategyType](#updatestrategytype)_ | Strategy defines the update strategy to use. | RollingUpdate | Enum: [RollingUpdate BlueGreen] <br /> |

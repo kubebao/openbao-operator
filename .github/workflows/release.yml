@@ -1149,7 +1149,21 @@ jobs:
       - name: Build docs
         uses: ./.github/actions/docs-build
 
+      - name: Check shared site publication
+        id: site-publication
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[1-9][0-9]*($|[-+]) ]]; then
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+            echo "Patch release docs are built from the maintenance branch. Publish the shared site from main after updating the stable manual."
+          else
+            echo "publish=true" >> "${GITHUB_OUTPUT}"
+          fi
+
       - name: Publish docs site
+        if: steps.site-publication.outputs.publish == 'true'
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           COMMIT_MESSAGE: "docs: publish release ${{ needs.prepare.outputs.version }}"

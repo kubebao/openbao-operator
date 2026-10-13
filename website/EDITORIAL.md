@@ -127,6 +127,10 @@ link text descriptive and avoid duplicating navigation in page prose.
 Layouts and components must work without JavaScript for primary content and navigation. Preserve keyboard access,
 visible focus, meaningful labels, sufficient contrast, responsive tables and code blocks, and unique element IDs.
 
+Add documentation pages to `data/navigation.yaml`. Use nested `items` for child pages, such as individual API resources.
+The sidebar resolves entries against the selected documentation version and omits pages that do not exist in that
+version. `make docs-build` checks navigation coverage and rejects sidebar links that cross documentation versions.
+
 ## Keep reference deployments executable
 
 Environment-specific deployment recipes belong in a separate executable reference repository with pinned versions,

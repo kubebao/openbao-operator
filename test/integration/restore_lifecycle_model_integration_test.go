@@ -549,8 +549,7 @@ func markRestoreModelJobStatus(t rapid.TB, namespace, restoreName string, succee
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: jobName}, job); err != nil {
 		t.Fatalf("get restore job %s/%s: %v", namespace, jobName, err)
 	}
-	job.Status.Succeeded = succeeded
-	job.Status.Failed = failed
+	setRestoreJobTerminalStatus(job, succeeded, failed)
 	now := metav1.Now()
 	job.Status.StartTime = &now
 	if err := k8sClient.Status().Update(ctx, job); err != nil {

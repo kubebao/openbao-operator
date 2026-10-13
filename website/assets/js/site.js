@@ -12,8 +12,9 @@
   const sidebarStorageKey = 'openbao-docs-sidebar-collapsed';
 
   function focusableElements(container) {
-    return [...container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
-      .filter((element) => !element.hidden && element.getClientRects().length > 0);
+    return [...container.querySelectorAll('a[href], summary, button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((element) => !element.hidden && element.getClientRects().length > 0
+        && !element.closest('details:not([open]) > :not(summary)'));
   }
 
   function syncNavAccessibility(open) {

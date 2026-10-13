@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +39,7 @@ func TestApplyRestoreDecision_CommittedRecordsCreatedReceiptOnly(t *testing.T) {
 	}}, restore)
 	job.Annotations[restoreExecutionIDAnnotation] = restore.Status.Execution.OperationID
 	job.Status.Succeeded = 1
+	job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -111,6 +113,7 @@ func TestHandleRunning_TerminalReceiptFailureOrdering(t *testing.T) {
 			scheme := runtime.NewScheme()
 			require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 			require.NoError(t, batchv1.AddToScheme(scheme))
+			require.NoError(t, corev1.AddToScheme(scheme))
 
 			restore := newRunningRestoreForObservation()
 			setTestResourceVersion(restore)
@@ -124,8 +127,10 @@ func TestHandleRunning_TerminalReceiptFailureOrdering(t *testing.T) {
 			restore.Status.Execution.JobUID = job.UID
 			if tt.succeeded {
 				job.Status.Succeeded = 1
+				job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}
 			} else {
 				job.Status.Failed = 1
+				job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}
 			}
 
 			injectedErr := errors.New("injected persistence failure")
@@ -180,12 +185,13 @@ func TestHandleRunning_LegacyAdoptionRechecksJobIdentity(t *testing.T) {
 			scheme := runtime.NewScheme()
 			require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 			require.NoError(t, batchv1.AddToScheme(scheme))
+			require.NoError(t, corev1.AddToScheme(scheme))
 			restore := newRunningRestoreForObservation()
 			setTestResourceVersion(restore)
 			cluster := newRestoreObservationCluster(restore)
 			job := managedRestoreJobForRestore(&batchv1.Job{
 				ObjectMeta: metav1.ObjectMeta{Name: restoreJobName(restore), Namespace: restore.Namespace, UID: "legacy-job-uid"},
-				Status:     batchv1.JobStatus{Succeeded: 1},
+				Status:     batchv1.JobStatus{Succeeded: 1, Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
 			}, restore)
 			jobReads := 0
 			k8sClient := fake.NewClientBuilder().

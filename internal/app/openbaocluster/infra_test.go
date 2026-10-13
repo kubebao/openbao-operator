@@ -551,7 +551,7 @@ func TestInfraReconciler_VerifyInitContainerImageDigest_UsesResolvedDefaultImage
 		ImageVerification: InfraImageVerificationRuntime{
 			VerifyOperatorImage: func(_ context.Context, _ logr.Logger, _ imageverify.Verifier, _ *openbaov1alpha1.OpenBaoCluster, imageRef string) (string, error) {
 				verifiedImage = imageRef
-				return "ghcr.io/dc-tec/openbao-init@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil
+				return "ghcr.io/kubebao/openbao-init@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", nil
 			},
 		},
 	}}
@@ -560,15 +560,15 @@ func TestInfraReconciler_VerifyInitContainerImageDigest_UsesResolvedDefaultImage
 	if err != nil {
 		t.Fatalf("resolveInitContainerImage() error = %v", err)
 	}
-	if initImage != "ghcr.io/dc-tec/openbao-init:1.2.3" {
-		t.Fatalf("resolveInitContainerImage() = %q, want %q", initImage, "ghcr.io/dc-tec/openbao-init:1.2.3")
+	if initImage != "ghcr.io/kubebao/openbao-init:1.2.3" {
+		t.Fatalf("resolveInitContainerImage() = %q, want %q", initImage, "ghcr.io/kubebao/openbao-init:1.2.3")
 	}
 
 	digest, err := r.verifyInitContainerImageDigest(context.Background(), logr.Discard(), cluster, initImage)
 	if err != nil {
 		t.Fatalf("verifyInitContainerImageDigest() error = %v", err)
 	}
-	if digest != "ghcr.io/dc-tec/openbao-init@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+	if digest != "ghcr.io/kubebao/openbao-init@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("verifyInitContainerImageDigest() = %q", digest)
 	}
 	if verifiedImage != initImage {

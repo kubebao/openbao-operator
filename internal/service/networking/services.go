@@ -35,7 +35,7 @@ func (m *Manager) ensureHeadlessService(ctx context.Context, _ logr.Logger, clus
 		Spec: corev1.ServiceSpec{
 			ClusterIP:                corev1.ClusterIPNone,
 			PublishNotReadyAddresses: true,
-			Selector:                 resourceidentity.PodSelectorLabels(cluster),
+			Selector:                 servicePodSelectorLabels(cluster),
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "api",
@@ -92,7 +92,7 @@ func (m *Manager) ensureExternalService(ctx context.Context, _ logr.Logger, clus
 		}
 	}
 
-	selectorLabels := resourceidentity.PodSelectorLabels(cluster)
+	selectorLabels := servicePodSelectorLabels(cluster)
 	applyActiveServiceSelector(cluster, selectorLabels)
 
 	service := &corev1.Service{
@@ -158,6 +158,8 @@ func (m *Manager) ensureReadReplicaService(ctx context.Context, _ logr.Logger, c
 	for k, v := range serviceCfg.Annotations {
 		annotations[k] = v
 	}
+	selector := resourceidentity.ReadReplicaPodSelectorLabels(cluster)
+	selector[constants.LabelOpenBaoComponent] = constants.ComponentOpenBaoCluster
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -172,7 +174,7 @@ func (m *Manager) ensureReadReplicaService(ctx context.Context, _ logr.Logger, c
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     svcType,
-			Selector: resourceidentity.ReadReplicaPodSelectorLabels(cluster),
+			Selector: selector,
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "api",
@@ -200,7 +202,7 @@ func (m *Manager) ensureMetricsService(ctx context.Context, _ logr.Logger, clust
 	}
 
 	labels := metricsResourceLabels(cluster)
-	selector := resourceidentity.PodSelectorLabels(cluster)
+	selector := servicePodSelectorLabels(cluster)
 	if !workloadMetricsAllNodes(cluster) {
 		selector[portopenbao.LabelActive] = labelValueTrue
 	}
@@ -278,7 +280,7 @@ func (m *Manager) ensureACMEChallengeService(ctx context.Context, _ logr.Logger,
 		return nil
 	}
 
-	selectorLabels := resourceidentity.PodSelectorLabels(cluster)
+	selectorLabels := servicePodSelectorLabels(cluster)
 	applyActiveServiceSelector(cluster, selectorLabels)
 
 	service := &corev1.Service{
@@ -317,6 +319,14 @@ func (m *Manager) ensureACMEChallengeService(ctx context.Context, _ logr.Logger,
 	}
 
 	return nil
+}
+
+// Helper Jobs share the cluster identity labels but do not expose OpenBao listeners.
+// Services require the server component label.
+func servicePodSelectorLabels(cluster *openbaov1alpha1.OpenBaoCluster) map[string]string {
+	selector := resourceidentity.PodSelectorLabels(cluster)
+	selector[constants.LabelOpenBaoComponent] = constants.ComponentOpenBaoCluster
+	return selector
 }
 
 // deleteServiceIfExists deletes an operator-owned Service with the given name if it exists.

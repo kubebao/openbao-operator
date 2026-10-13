@@ -1,0 +1,37 @@
+apiVersion: openbao.org/v1alpha1
+kind: OpenBaoCluster
+metadata:
+  name: api-stability-migration
+  namespace: openbao
+spec:
+  version: 2.6.2
+  replicas: 1
+  profile: Development
+  tls:
+    enabled: true
+    mode: ACME
+    acme:
+      directoryURL: https://acme.example.com/directory
+      domains:
+        - bao.example.com
+  storage:
+    size: 10Gi
+  maintenance:
+    enabled: true
+  runtime:
+    restartAt: "2026-08-01T12:00:00Z"
+  upgrade:
+    jwtAuthRole: upgrade
+  unseal:
+    type: transit
+    transit:
+      address: https://transit.example.com
+      keyName: autounseal
+      mountPath: transit
+  backup:
+    schedule: "0 3 * * *"
+    jwtAuthRole: backup
+    target:
+      provider: s3
+      endpoint: https://objectstore.example.com
+      bucket: openbao-backups

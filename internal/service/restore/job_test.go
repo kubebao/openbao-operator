@@ -2,6 +2,7 @@ package restore
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,10 +39,48 @@ func TestBuildRestoreJob_RetainsExecutionReceipt(t *testing.T) {
 		Spec:       openbaov1alpha1.OpenBaoClusterSpec{Replicas: 3},
 	}
 
+	restoreObj.Status.Execution = newRestoreExecutionStatus(restoreObj)
+	preparedAt := metav1.NewTime(time.Date(2026, 10, 1, 8, 0, 0, 0, time.UTC))
+	restoreObj.Status.Execution.PreparedAt = &preparedAt
 	job, err := (&Manager{Platform: constants.PlatformKubernetes}).buildRestoreJob(restoreObj, cluster, "")
 	require.NoError(t, err)
 	require.Nil(t, job.Spec.TTLSecondsAfterFinished)
 	assert.Equal(t, string(restoreObj.UID), job.Annotations[restoreExecutionIDAnnotation])
+	assert.Equal(t, ptr.To(int32(0)), job.Spec.BackoffLimit, "a failed restore must not launch a retry")
+	assert.Equal(t, ptr.To(int64(2400)), job.Spec.ActiveDeadlineSeconds, "bound unschedulable and image-pull failures as well as running executors")
+	assert.Equal(t, corev1.RestartPolicyNever, job.Spec.Template.Spec.RestartPolicy,
+		"a failed restore container must not repeat snapshot submission")
+	container := job.Spec.Template.Spec.Containers[0]
+	assert.Contains(t, container.Env, corev1.EnvVar{
+		Name: constants.EnvRestorePreparationDeadline, Value: "2026-10-01T08:30:00Z",
+	}, "Job construction must not reset the persisted preparation budget")
+	assert.Equal(t, int64(9140*1024*1024), container.Resources.Requests.StorageEphemeral().Value())
+	assert.Equal(t, int64(9140*1024*1024), container.Resources.Limits.StorageEphemeral().Value())
+	assert.Contains(t, container.VolumeMounts, corev1.VolumeMount{
+		Name: "restore-scratch", MountPath: constants.PathRestoreScratch,
+	})
+	var scratch *corev1.EmptyDirVolumeSource
+	for _, volume := range job.Spec.Template.Spec.Volumes {
+		if volume.Name == "restore-scratch" {
+			scratch = volume.EmptyDir
+		}
+	}
+	require.NotNil(t, scratch)
+	assert.Empty(t, scratch.Medium, "staging must use disk, not memory")
+	assert.Equal(t, int64(9012*1024*1024), scratch.SizeLimit.Value())
+}
+
+func TestBuildRestoreJobRequiresPersistedPreparationTime(t *testing.T) {
+	for _, execution := range []*openbaov1alpha1.RestoreExecutionStatus{
+		nil, {}, {PreparedAt: &metav1.Time{}},
+	} {
+		restore := &openbaov1alpha1.OpenBaoRestore{
+			Status: openbaov1alpha1.OpenBaoRestoreStatus{Execution: execution},
+		}
+		job, err := (&Manager{}).buildRestoreJob(restore, &openbaov1alpha1.OpenBaoCluster{}, "")
+		require.ErrorContains(t, err, "persisted preparation timestamp")
+		require.Nil(t, job)
+	}
 }
 
 func TestBuildRestoreJob_PodSecurityContext_Platform(t *testing.T) {
@@ -77,6 +116,7 @@ func TestBuildRestoreJob_PodSecurityContext_Platform(t *testing.T) {
 
 	t.Run("openshift omits pinned IDs", func(t *testing.T) {
 		mgr := &Manager{Platform: constants.PlatformOpenShift}
+		restoreObj.Status.Execution = newRestoreExecutionStatus(restoreObj)
 		job, err := mgr.buildRestoreJob(restoreObj, cluster, "")
 		require.NoError(t, err)
 
@@ -93,6 +133,7 @@ func TestBuildRestoreJob_PodSecurityContext_Platform(t *testing.T) {
 
 	t.Run("kubernetes pins IDs", func(t *testing.T) {
 		mgr := &Manager{Platform: constants.PlatformKubernetes}
+		restoreObj.Status.Execution = newRestoreExecutionStatus(restoreObj)
 		job, err := mgr.buildRestoreJob(restoreObj, cluster, "")
 		require.NoError(t, err)
 
@@ -144,6 +185,7 @@ func TestBuildRestoreJob_WithRoleARNAndWorkloadIdentity(t *testing.T) {
 	}
 
 	mgr := &Manager{Platform: constants.PlatformKubernetes}
+	restoreObj.Status.Execution = newRestoreExecutionStatus(restoreObj)
 	job, err := mgr.buildRestoreJob(restoreObj, cluster, "")
 	require.NoError(t, err)
 
@@ -677,6 +719,7 @@ func TestBuildRestoreJob_IgnoresTokenSecretRefWhenJWTAuthConfigured(t *testing.T
 	}
 
 	mgr := &Manager{Platform: constants.PlatformKubernetes}
+	restore.Status.Execution = newRestoreExecutionStatus(restore)
 	job, err := mgr.buildRestoreJob(restore, cluster, "")
 	require.NoError(t, err)
 

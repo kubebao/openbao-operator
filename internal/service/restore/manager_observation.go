@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -128,14 +129,41 @@ func (m *Manager) observeRestoreJob(
 
 	observation.job = job
 	observation.state.jobState = classifyRestoreJob(job)
+	if observation.state.jobState == restoreJobSucceeded || observation.state.jobState == restoreJobFailed {
+		pending, err := m.restoreExecutorPending(ctx, job)
+		if err != nil {
+			return restoreObservation{}, err
+		}
+		if pending != "" {
+			observation.state.jobState = restoreJobRunning
+			observation.state.waitMessage = pending
+		}
+	}
 	return observation, nil
 }
 
 func classifyRestoreJob(job *batchv1.Job) restoreJobState {
+	if job == nil || job.Status.Active != 0 || (job.Status.Terminating != nil && *job.Status.Terminating != 0) {
+		return restoreJobRunning
+	}
+	var succeeded, failed bool
+	for _, condition := range job.Status.Conditions {
+		if condition.Status != corev1.ConditionTrue {
+			continue
+		}
+		switch condition.Type {
+		case batchv1.JobComplete:
+			succeeded = true
+		case batchv1.JobFailed:
+			failed = true
+		}
+	}
+	// Pod counters and interim conditions do not close a Job. Conflicting
+	// terminal conditions also cannot authorize recovery or lock release.
 	switch {
-	case job.Status.Succeeded > 0:
+	case succeeded && !failed:
 		return restoreJobSucceeded
-	case job.Status.Failed > 0:
+	case failed && !succeeded:
 		return restoreJobFailed
 	default:
 		return restoreJobRunning

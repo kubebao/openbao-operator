@@ -110,13 +110,13 @@ const (
 // Default image repositories.
 const (
 	// DefaultBackupImageRepository is the default image repository used for backup executor.
-	DefaultBackupImageRepository = "ghcr.io/dc-tec/openbao-backup"
+	DefaultBackupImageRepository = "ghcr.io/kubebao/openbao-backup"
 
 	// DefaultUpgradeImageRepository is the default image repository used for upgrade executor.
-	DefaultUpgradeImageRepository = "ghcr.io/dc-tec/openbao-upgrade"
+	DefaultUpgradeImageRepository = "ghcr.io/kubebao/openbao-upgrade"
 
 	// DefaultInitImageRepository is the default image repository used for the init (config rendering + wrapper) container.
-	DefaultInitImageRepository = "ghcr.io/dc-tec/openbao-init"
+	DefaultInitImageRepository = "ghcr.io/kubebao/openbao-init"
 )
 
 // Backup authentication method values.

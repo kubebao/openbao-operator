@@ -10,6 +10,14 @@ on:
         description: "SemVer release/prerelease tag to verify (e.g. 0.4.0, 0.4.0-rc.1)"
         required: true
         type: string
+      publisher:
+        description: "Artifact publisher: use dc-tec/openbao-operator for pre-transfer releases, including 0.5.1"
+        required: true
+        type: choice
+        default: current
+        options:
+          - current
+          - dc-tec/openbao-operator
 
 permissions:
   contents: read
@@ -138,6 +146,7 @@ jobs:
           VERSION: ${{ steps.context.outputs.tag }}
           TAG_HEAD_SHA: ${{ steps.context.outputs.tag_head_sha }}
           REPO: ${{ github.repository }}
+          PUBLISHER_REPO: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.publisher != 'current' && github.event.inputs.publisher || github.repository }}
           RELEASE_RUN_ID: ${{ steps.context.outputs.release_run_id }}
           EVIDENCE_OUT: dist/post-release-verification.json
         run: |

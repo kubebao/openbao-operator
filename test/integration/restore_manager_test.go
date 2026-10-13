@@ -117,7 +117,7 @@ func TestRestoreManager_TransitionsAndCreatesJob(t *testing.T) {
 	}
 
 	// Mark job succeeded.
-	job.Status.Succeeded = 1
+	setRestoreJobTerminalStatus(job, 1, 0)
 	if err := k8sClient.Status().Update(ctx, job); err != nil {
 		t.Fatalf("update job status: %v", err)
 	}
@@ -803,8 +803,7 @@ func createRestoreJobWithStatus(
 		t.Fatalf("get restore job %q: %v", name, err)
 	}
 
-	latest.Status.Succeeded = succeeded
-	latest.Status.Failed = failed
+	setRestoreJobTerminalStatus(latest, succeeded, failed)
 	now := metav1.Now()
 	latest.Status.StartTime = &now
 	if err := controllerClient.Status().Update(ctx, latest); err != nil {

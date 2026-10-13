@@ -1,6 +1,6 @@
-{{- if and (eq .Section "contribute") (not .IsSection) -}}
+{{- if and (in (slice "project" "contribute") .Section) (not .IsSection) -}}
   {{- $section := .CurrentSection -}}
-  <nav class="section-nav" aria-label="Contribute sections">
+  <nav class="section-nav" aria-label="{{ $section.Title }} sections">
     <a href="{{ $section.RelPermalink }}">Overview</a>
     {{- range $section.Pages.ByWeight -}}
       <a href="{{ .RelPermalink }}"{{ if eq $.RelPermalink .RelPermalink }} aria-current="page"{{ end }}>{{ .Title }}</a>

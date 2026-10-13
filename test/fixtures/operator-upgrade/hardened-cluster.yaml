@@ -10,7 +10,7 @@ spec:
   profile: Hardened
   initContainer:
     enabled: true
-    image: "ghcr.io/dc-tec/openbao-init@sha256:bfb76accd148f8f09d7a1364b9f02956959f2e3844eb9a0a2fe6d276f0a8df3b"
+    image: "ghcr.io/dc-tec/openbao-init@sha256:619b80e68cd96748651daa9a80a3131b33a596cbbc9b3701648f60e5e04a1b0b"
   selfInit:
     enabled: true
     oidc:
