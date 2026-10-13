@@ -136,6 +136,7 @@ verify-go-toolchain-sync: ## Verify go.mod and Dockerfile builders use the same 
 .PHONY: verify-release-automation
 verify-release-automation: ## Test release request validation and Artifact Hub metadata generation.
 	@bash hack/ci/test-release-automation.sh
+	@bash hack/ci/test-remove-unpublished-release.sh
 
 .PHONY: verify-spdx-normalizer
 verify-spdx-normalizer: ## Validate deterministic SPDX normalization against the SPDX 2.2 and 2.3 schemas.
@@ -326,6 +327,7 @@ helm-e2e-smoke: ## Helm chart smoke test against a Kind cluster (installs chart 
 verify-operator-upgrade-e2e: ## Verify the previous-stable Development and Hardened operator upgrade harness.
 	@bash -n hack/ci/operator-upgrade-e2e.sh
 	@OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true bash hack/ci/operator-upgrade-e2e.sh
+	@bash hack/ci/test-operator-upgrade-e2e.sh
 
 .PHONY: test-e2e-operator-upgrade
 test-e2e-operator-upgrade: ## Upgrade previous-stable Development and Hardened resources to the local candidate in Kind.

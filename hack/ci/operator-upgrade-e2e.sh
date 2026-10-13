@@ -44,9 +44,9 @@ CLUSTER_RESOURCE="openbaocluster/operator-upgrade"
 PVC_RESOURCE="persistentvolumeclaim/data-operator-upgrade-0"
 TRANSIT_CLUSTER_RESOURCE="openbaocluster/operator-upgrade-transit"
 HARDENED_CLUSTER_RESOURCE="openbaocluster/operator-upgrade-hardened"
-# The source release and its signed helper stay at their historical coordinates.
-HARDENED_INIT_IMAGE_REPOSITORY="ghcr.io/dc-tec/openbao-init"
+# Resolve the source release at the coordinates pinned in its fixture.
 DEFAULT_HARDENED_INIT_IMAGE="${OPERATOR_UPGRADE_BASELINE_INIT_IMAGE}"
+HARDENED_INIT_IMAGE_REPOSITORY="${DEFAULT_HARDENED_INIT_IMAGE%@*}"
 HARDENED_INIT_IMAGE="${OPERATOR_UPGRADE_E2E_HARDENED_INIT_IMAGE:-${DEFAULT_HARDENED_INIT_IMAGE}}"
 
 require_command() {
@@ -333,8 +333,8 @@ verify_harness() {
     echo "operator upgrade target must be a semver-compatible image tag: ${TARGET_VERSION}" >&2
     exit 1
   fi
-  if ! [[ "${HARDENED_INIT_IMAGE}" =~ ^ghcr\.io/dc-tec/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
-    echo "hardened upgrade helper must be an immutable ghcr.io/dc-tec/openbao-init digest: ${HARDENED_INIT_IMAGE}" >&2
+  if ! [[ "${HARDENED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
+    echo "hardened upgrade helper must be an immutable official openbao-init digest: ${HARDENED_INIT_IMAGE}" >&2
     exit 1
   fi
   for path in "${required_files[@]}"; do
@@ -577,10 +577,11 @@ echo "Issuing External TLS material for the Hardened profile..." >&2
 create_external_tls_secrets
 
 echo "Provisioning a signed, self-initialized Hardened cluster..." >&2
-render_hardened_fixture | \
-  inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
+# The previous operator retains its historical publisher defaults. Apply the
+# candidate helper only after the candidate operator owns the cluster.
+inject_api_server_endpoint_ips "${api_server_endpoint_ips}" < "${FIXTURE_DIR}/hardened-cluster.yaml" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
-wait_for_statefulset_init_image operator-upgrade-hardened "${HARDENED_INIT_IMAGE}"
+wait_for_statefulset_init_image operator-upgrade-hardened "${DEFAULT_HARDENED_INIT_IMAGE}"
 wait_for_hardened_cluster
 assert_resource_absent secret/operator-upgrade-hardened-root-token
 assert_resource_absent secret/operator-upgrade-hardened-unseal-key

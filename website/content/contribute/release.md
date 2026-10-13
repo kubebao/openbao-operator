@@ -128,8 +128,16 @@ After merge, the `Release Tag` workflow resolves the exact merged release PR, ve
 GPG-signed annotated SemVer tag, and creates or refreshes the matching draft GitHub Release. The tag GitHub App is the only
 automation identity that should have SemVer tag-ruleset bypass.
 
-Use the manual `branch-head` tag target only to retry a failed draft-release creation after an approved release-branch
-fix. The branch head must descend from the release PR merge and carry the same release version.
+Use the manual `branch-head` tag target to retry an unpublished release after an approved release-branch fix.
+The branch head must descend from the release PR merge and carry the same release version.
+
+To remove a failed unpublished candidate, dispatch `Release Tag` with `operation=remove-unpublished`.
+Provide its `expected_tag_object_sha`, `expected_commit_sha`, and completed `failed_run_id`.
+The workflow requires an empty draft or an already removed draft, a matching signed tag, and a failed or cancelled
+Release run whose promotion job never starts. It checks promotion jobs across all run attempts. The release App
+removes the draft and tag without changing tag protections. After merging and qualifying the fix, dispatch
+`operation=create` with `tag_target=branch-head` to create the corrected signed tag and draft.
+Corrections to a published release require a new version.
 
 ## Let the tag workflow publish
 
