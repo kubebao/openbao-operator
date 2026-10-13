@@ -90,7 +90,7 @@ verify-coverage: ## Verify production code under internal/ meets the coverage re
 		--minimum "$(COVERAGE_MIN_INTERNAL)"
 
 .PHONY: test-ci
-test-ci: manifests generate vet setup-envtest gotestsum test-e2e-support ## Run unit, integration, and E2E support tests and enforce the coverage floor.
+test-ci: manifests generate vet kustomize setup-envtest gotestsum test-e2e-support ## Run unit, integration, and E2E support tests and enforce the coverage floor.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 		GOFLAGS="$(GOFLAGS_VENDOR)" \
 		"$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" -- \
@@ -101,11 +101,11 @@ test-ci: manifests generate vet setup-envtest gotestsum test-e2e-support ## Run 
 	$(MAKE) verify-coverage COVERAGE_PROFILE="$(COVERAGE_PROFILE)" COVERAGE_MIN_INTERNAL="$(COVERAGE_MIN_INTERNAL)"
 
 .PHONY: test-integration
-test-integration: manifests generate vet setup-envtest ## Run envtest-based integration tests (envtest; requires -tags=integration).
+test-integration: manifests generate vet kustomize setup-envtest ## Run envtest-based integration tests (envtest; requires -tags=integration).
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" GOFLAGS="$(GOFLAGS_VENDOR)" go test $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration ./... | grep -vx '$(E2E_SUITE_PACKAGE)') -tags=integration -count=1 -v
 
 .PHONY: test-integration-sum
-test-integration-sum: manifests generate vet setup-envtest gotestsum ## Run envtest-based integration tests with gotestsum output and JUnit XML.
+test-integration-sum: manifests generate vet kustomize setup-envtest gotestsum ## Run envtest-based integration tests with gotestsum output and JUnit XML.
 	@mkdir -p "$(TEST_ARTIFACT_DIR)"
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" GOFLAGS="$(GOFLAGS_VENDOR)" "$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" --junitfile "$(TEST_ARTIFACT_DIR)/integration.xml" -- -tags=integration -count=1 -coverprofile "$(TEST_ARTIFACT_DIR)/integration.cover.out" $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration ./... | grep -vx '$(E2E_SUITE_PACKAGE)')
 

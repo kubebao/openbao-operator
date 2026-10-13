@@ -104,7 +104,9 @@ Labels: `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-
 
 Recorded checkpoints:
 - Writing a secret before backup
+- waiting for any earlier scheduled backup to release its operation lock
 - waiting for the S3 backup job to complete successfully
+- waiting for a new snapshot that includes the pre-backup secret
 - recording the latest S3 backup key from cluster status
 
 

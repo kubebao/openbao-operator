@@ -596,6 +596,17 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				g.Expect(err).NotTo(HaveOccurred())
 			}, framework.DefaultLongWaitTimeout, 10*time.Second).Should(Succeed(), "Failed to write pre-backup secret")
 
+			By("waiting for any earlier scheduled backup to release its operation lock")
+			var previousBackupKey string
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(drCluster), updated)).To(Succeed())
+				g.Expect(updated.Status.OperationLock).To(BeNil())
+				if updated.Status.Backup != nil {
+					previousBackupKey = updated.Status.Backup.LastBackupName
+				}
+			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+
 			Eventually(func() error {
 				return triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
@@ -604,6 +615,15 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			waitForBackupJobCreated(ctx, admin, tenantNamespace, drCluster.Name)
 			By("waiting for the S3 backup job to complete successfully")
 			waitForSuccessfulBackupJob(ctx, admin, tenantNamespace, drCluster.Name)
+
+			By("waiting for a new snapshot that includes the pre-backup secret")
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(drCluster), updated)).To(Succeed())
+				g.Expect(updated.Status.Backup).NotTo(BeNil())
+				g.Expect(updated.Status.Backup.LastBackupName).NotTo(BeEmpty())
+				g.Expect(updated.Status.Backup.LastBackupName).NotTo(Equal(previousBackupKey))
+			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 			By("recording the latest S3 backup key from cluster status")
 			recordLatestBackupKey(ctx, tenantFW, admin, tenantNamespace, drCluster.Name, &backupKey)
