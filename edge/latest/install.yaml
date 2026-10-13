@@ -9697,10 +9697,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-af1a82d0fd9a
+          value: edge-6335ca9d6c71
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:94ea78f4f7caa3369110eb159bcbdd8e695a4d304b6d6488105421df1c82b1ea
+        image: ghcr.io/kubebao/openbao-operator@sha256:f045b8e93630aad34d683778e98cf1489f0be6ef2c49fa15772a5133728a3a96
         livenessProbe:
           httpGet:
             path: /healthz
@@ -9815,8 +9815,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-af1a82d0fd9a
-        image: ghcr.io/kubebao/openbao-operator@sha256:94ea78f4f7caa3369110eb159bcbdd8e695a4d304b6d6488105421df1c82b1ea
+          value: edge-6335ca9d6c71
+        image: ghcr.io/kubebao/openbao-operator@sha256:f045b8e93630aad34d683778e98cf1489f0be6ef2c49fa15772a5133728a3a96
         livenessProbe:
           httpGet:
             path: /healthz
