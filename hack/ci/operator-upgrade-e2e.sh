@@ -661,6 +661,8 @@ echo "Upgrading the operator to candidate ${TARGET_VERSION}..." >&2
 echo "Upgrade client: $("${HELM_BIN}" version --short)" >&2
 "${HELM_BIN}" upgrade openbao-operator "${CANDIDATE_CHART}" \
   --namespace "${OPERATOR_NAMESPACE}" \
+  --reuse-values \
+  --set-string image.digest= \
   --set-string image.repository=operator-upgrade.local/openbao-operator \
   --set-string "image.tag=${TARGET_VERSION}" \
   --set-string "operatorVersion=${TARGET_VERSION}" \

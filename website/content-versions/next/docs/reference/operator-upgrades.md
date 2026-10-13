@@ -40,17 +40,21 @@ upgrading because an older executor does not provide these guarantees.
 
    ```bash
    kubectl apply -f \
-     https://github.com/dc-tec/openbao-operator/releases/download/X.Y.Z/crds.yaml
+     https://github.com/kubebao/openbao-operator/releases/download/X.Y.Z/crds.yaml
    ```
 
 3. Upgrade the chart.
 
    ```bash
    helm upgrade openbao-operator \
-     oci://ghcr.io/dc-tec/charts/openbao-operator \
+     oci://ghcr.io/kubebao/charts/openbao-operator \
      --version X.Y.Z \
      --namespace openbao-operator-system
    ```
+
+For 0.5.2, follow the [release upgrade procedure](../../../../releases/0.5.2/). With `--reuse-values`, update the manager
+repository and any image pins; the saved 0.5.1 values retain `ghcr.io/dc-tec/openbao-operator`. Historical releases
+through 0.5.1 remain in the `dc-tec` chart namespace.
 
 Helm does not upgrade CRDs stored in a chart's `crds/` directory. Applying the release bundle first prevents the new
 controller from starting against an older schema.

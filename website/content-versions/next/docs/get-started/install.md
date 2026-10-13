@@ -65,7 +65,7 @@ manifests. Use the edge Helm chart or [local Helm rendering](#render-the-local-h
 
 ## Install an edge chart
 
-Edge charts use `oci://ghcr.io/dc-tec/charts-edge/openbao-operator`. This repository is not registered in Artifact Hub.
+Edge charts use `oci://ghcr.io/kubebao/charts-edge/openbao-operator`. This repository is not registered in Artifact Hub.
 Each package contains the CRDs, RBAC, and admission policies from the candidate commit and pins the controller,
 Provisioner, and default helper images to the verified image digests. OpenBao server images remain cluster configuration.
 
@@ -77,10 +77,10 @@ if you do not need overrides.
 
    {{< command label="inspect" title="Select an edge candidate" >}}
    curl --fail --silent --show-error \
-     https://dc-tec.github.io/openbao-operator/edge/latest/metadata.json \
+     https://docs.kubebao.org/edge/latest/metadata.json \
      --output edge-metadata.json
    jq '{sha, chart, images}' edge-metadata.json
-   export EDGE_CHART=oci://ghcr.io/dc-tec/charts-edge/openbao-operator
+   export EDGE_CHART=oci://ghcr.io/kubebao/charts-edge/openbao-operator
    export EDGE_CHART_DIGEST="$(jq -er '.chart.digest' edge-metadata.json)"
    {{< /command >}}
 
@@ -92,7 +92,7 @@ if you do not need overrides.
    {{< command label="verify" title="Verify the edge chart signature" >}}
    cosign verify --new-bundle-format=true \
      --certificate-identity \
-       https://github.com/dc-tec/openbao-operator/.github/workflows/publish-edge.yml@refs/heads/main \
+       https://github.com/kubebao/openbao-operator/.github/workflows/publish-edge.yml@refs/heads/main \
      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
      "${EDGE_CHART#oci://}@${EDGE_CHART_DIGEST}"
    {{< /command >}}
@@ -149,7 +149,7 @@ metadata before applying it so you know the exact commit and image digests under
 1. Set the edge channel URL and inspect its metadata.
 
    {{< command label="inspect" title="Review the current edge build" >}}
-   export EDGE_ROOT=https://dc-tec.github.io/openbao-operator/edge/latest
+   export EDGE_ROOT=https://docs.kubebao.org/edge/latest
    curl --fail --silent --show-error "${EDGE_ROOT}/metadata.json"
    {{< /command >}}
 
@@ -201,7 +201,7 @@ Use a source deployment when you need a local change or an exact checkout that h
 1. Check out the intended commit and prepare the toolchain.
 
    {{< command label="configure" title="Prepare the source checkout" >}}
-   git clone https://github.com/dc-tec/openbao-operator.git
+   git clone https://github.com/kubebao/openbao-operator.git
    cd openbao-operator
    git checkout <commit>
    make bootstrap
