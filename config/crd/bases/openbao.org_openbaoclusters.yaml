@@ -1253,11 +1253,49 @@ spec:
                         maxLength: 63
                         minLength: 1
                         type: string
+                      roleArn:
+                        description: RoleARN selects the S3 reader role independently
+                          of the backup writer role.
+                        minLength: 1
+                        type: string
                       schedule:
                         description: Schedule uses five-field cron syntax and UTC.
                         maxLength: 128
                         minLength: 1
                         type: string
+                      serviceAccountName:
+                        description: |-
+                          ServiceAccountName selects an existing executor ServiceAccount in Namespace.
+                          The operator does not create, modify, or delete this account. It must have
+                          its own storage-reader identity; backup writer identities are not inherited.
+                        maxLength: 253
+                        pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                        type: string
+                      workloadIdentity:
+                        description: |-
+                          WorkloadIdentity supplies destination reader metadata. ServiceAccount
+                          annotations must already exist on ServiceAccountName; PodLabels apply to
+                          the executor Pod. The operator does not update the existing account.
+                        properties:
+                          podLabels:
+                            additionalProperties:
+                              type: string
+                            description: |-
+                              PodLabels are merged into the generated backup or restore Job pod template.
+                              This is typically used for provider-specific selectors such as Azure Workload Identity.
+                              Operator-managed labels take precedence if the same key is specified here.
+                            type: object
+                          serviceAccountAnnotations:
+                            additionalProperties:
+                              type: string
+                            description: |-
+                              ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.
+                              An existing restore executor ServiceAccount must already have these annotations;
+                              the operator validates them without modifying that account.
+                              This is typically used for provider-specific bindings such as GKE Workload Identity
+                              or webhook-based AWS/Azure workload identity integrations.
+                            type: object
+                        type: object
                     required:
                     - clusterTemplate
                     - namespace
@@ -1268,6 +1306,15 @@ spec:
                     - message: scheduled restore tests require OperatorManaged TLS
                         for generated target names
                       rule: self.clusterTemplate.tls.mode == 'OperatorManaged'
+                    - message: restore test cloud identities require an existing destination
+                        serviceAccountName
+                      rule: (!has(self.roleArn) && !has(self.workloadIdentity)) ||
+                        has(self.serviceAccountName)
+                    - message: restore tests require destination reader credentials
+                        or an existing reader serviceAccountName
+                      rule: has(self.serviceAccountName) || (has(self.credentialsSecretRef)
+                        && has(self.credentialsSecretRef.name) && size(self.credentialsSecretRef.name)
+                        > 0)
                   retention:
                     description: Retention defines optional backup retention policy.
                     properties:
@@ -1440,6 +1487,8 @@ spec:
                               type: string
                             description: |-
                               ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.
+                              An existing restore executor ServiceAccount must already have these annotations;
+                              the operator validates them without modifying that account.
                               This is typically used for provider-specific bindings such as GKE Workload Identity
                               or webhook-based AWS/Azure workload identity integrations.
                             type: object

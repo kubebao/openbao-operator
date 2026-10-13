@@ -195,13 +195,16 @@ func verifyBlockedCleanupHandoff(t *testing.T, namespace string) {
 	require.True(t, apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(request), request)))
 }
 
-func newClaimRequest(t *testing.T, namespace, name string) *openbaov1alpha1.OpenBaoRestore {
+func newClaimRequest(t *testing.T, namespace, name string, accounts ...string) *openbaov1alpha1.OpenBaoRestore {
 	t.Helper()
 	request := &openbaov1alpha1.OpenBaoRestore{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: openbaov1alpha1.OpenBaoRestoreSpec{Cluster: "target", Source: openbaov1alpha1.RestoreSource{
 			Key: "snapshot", Target: openbaov1alpha1.BackupTarget{Bucket: "snapshots", Endpoint: "https://storage.example.com"},
 		}},
+	}
+	if len(accounts) != 0 {
+		request.Spec.ServiceAccountName = accounts[0]
 	}
 	require.NoError(t, k8sClient.Create(ctx, request))
 	now := metav1.Now()

@@ -461,6 +461,12 @@ resources:
         classification: beta-stable
         owner: restore-authentication
         omission: self-init OIDC uses the operator-managed restore role
+      - path: spec.serviceAccountName
+        classification: additive-unfrozen
+        owner: restore-authentication
+        omission: controller creates the target-specific restore ServiceAccount
+        enforcement: [crd-schema, admission-policy, controller]
+        rationale: Existing reader accounts provide stable federation subjects without adopting their ownership.
       - path: spec.overrideOperationLock
         classification: beta-stable
         owner: lifecycle-safety

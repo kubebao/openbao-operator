@@ -184,6 +184,16 @@ type OpenBaoRestoreSpec struct {
 	// Source defines where the snapshot comes from.
 	Source RestoreSource `json:"source"`
 
+	// ServiceAccountName selects an existing executor ServiceAccount in this
+	// namespace. The operator does not create, modify, or delete this account.
+	// When omitted, it creates <cluster-name>-restore-serviceaccount.
+	// JWT authentication must authorize the selected account. Fresh targets add
+	// its subject to their generated restore role before snapshot submission.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// JWTAuthRole is the name of the JWT Auth role configured in OpenBao
 	// for restore operations. When set, the restore executor will use JWT Auth
 	// (projected ServiceAccount token) instead of a static token.
@@ -191,7 +201,8 @@ type OpenBaoRestoreSpec struct {
 	// The role must be configured in OpenBao and must grant the "update" capability on
 	// sys/storage/raft/snapshot. To support force: true, it must also grant "update" on
 	// sys/storage/raft/snapshot-force. The role must bind to the restore ServiceAccount
-	// (<cluster-name>-restore-serviceaccount) in the cluster namespace.
+	// selected by serviceAccountName, or <cluster-name>-restore-serviceaccount
+	// when serviceAccountName is omitted, in the cluster namespace.
 	//
 	// If this field is empty and the target OpenBaoCluster has OIDC enabled,
 	// the operator will default to using the "openbao-operator-restore" role.

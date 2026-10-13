@@ -37,7 +37,8 @@ func TestSourceDeletionDuringRejectedRestoreTestReleasesReservation(t *testing.T
 	cluster.Spec.Backup = &api.BackupSchedule{Schedule: "0 0 1 1 *", Image: "backup:dev", JWTAuthRole: "backup",
 		Target: api.BackupTarget{Endpoint: "https://storage.example", Bucket: "snapshots"},
 		RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: namespace,
-			ClusterTemplate: *newFreshRestoreRequest(namespace, "template").Spec.ClusterTemplate},
+			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
+			ClusterTemplate:      *newFreshRestoreRequest(namespace, "template").Spec.ClusterTemplate},
 	}
 	require.NoError(t, k8sClient.Create(ctx, cluster))
 	updateClusterStatus(t, cluster, func(status *api.OpenBaoClusterStatus) {
@@ -101,6 +102,7 @@ func TestRestoreTestReservesOneRequestAcrossRestarts(t *testing.T) {
 	cluster.Spec.Backup = &api.BackupSchedule{Schedule: "0 0 1 1 *", Image: "backup:dev", JWTAuthRole: "backup",
 		Target: api.BackupTarget{Endpoint: "https://storage.example", Bucket: "snapshots"},
 		RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: destination,
+			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
 			ClusterTemplate: api.RestoreClusterTemplate{Version: "2.7.0",
 				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}}, Storage: api.StorageConfig{Size: "1Gi"},
 				TLS:    api.TLSConfig{Enabled: true, Mode: api.TLSModeOperatorManaged, RotationPeriod: "720h"},

@@ -2,7 +2,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:ebe7129850a7d59ff5e84b5da4214e1e74c864613acd8fa0132d8605c2902ccc
+    openbao.org/admission-policy-fingerprint: sha256:697c1cdefa5a9a40a0adabc96e96009f0ac27b3fbf4d5e939ca47ca4429f5adf
   name: openbao-validate-openbaorestore
 spec:
   failurePolicy: Fail
@@ -92,6 +92,11 @@ spec:
           (has(object.spec.clusterTemplate.podMetadata.labels) && object.spec.clusterTemplate.podMetadata.labels.exists(key,
             key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
   validations:
+
+    - expression: >-
+        variables.delegated_authority || !has(object.spec.serviceAccountName) ||
+        authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccountName).check("use").allowed()
+      message: "Restore executors require use authority for their existing ServiceAccount."
 
     - expression: >-
         variables.delegated_authority || !has(object.spec.clusterTemplate) ||

@@ -34,10 +34,25 @@ cluster and exported as metrics.
 1. Prepare and approve a destination namespace. See [Prepare a recovery namespace](../prepare-namespace/).
 2. Prepare destination storage credentials and access to the original unseal key. The configured unseal provider must
    decrypt the source snapshot. Storage connection settings come from the source backup configuration; `credentialsSecretRef` selects
-   the destination credentials.
+   the destination credentials. Backup writer roles and workload identity metadata are not inherited.
+   Select destination `credentialsSecretRef` or an existing reader `serviceAccountName`, even when the backup uses ambient credentials.
 3. Give the person configuring the test permission in the destination namespace to create restores and clusters,
    perform restores, `get` the referenced Secrets, and `use` the StorageClass and any ServiceAccount. Custom images
    and workload identities need their usual delegation permissions there.
+
+For cloud workload identity, create a dedicated storage-reader ServiceAccount in the destination namespace and
+configure its federation before enabling the test. Select it with `serviceAccountName`. The account name stays the
+same across generated targets. The operator reads this account but does not create, modify, adopt, or delete it.
+Configure `roleArn` for an S3 reader role or `workloadIdentity` for reader metadata. Any requested ServiceAccount
+annotations must already exist on the account; `workloadIdentity.podLabels` applies to the executor Pod.
+
+Grant the reader only the storage permissions needed to download the snapshot. Keep upload and retention deletion
+permissions on the backup writer. Grant the configuring user `use` on the selected destination ServiceAccount and
+`usecloudidentities` in the destination when configuring cloud identity metadata.
+
+Each target has its own request-specific Role and RoleBinding. Cleanup removes those grants and leaves the reader
+ServiceAccount in place. Use a separate reader account for each trust domain; runs using the same account share its
+Kubernetes and cloud principal. Submission claims still require a Pod-bound token and the executor's original Job.
 
 ## Configure a trigger
 
@@ -50,6 +65,9 @@ restoreTest:
   namespace: recovery-tests
   credentialsSecretRef:
     name: recovery-storage
+  # For an existing reader account, including cloud workload identity:
+  # serviceAccountName: snapshot-reader
+  # roleArn: arn:aws:iam::123456789012:role/snapshot-reader
   cleanupAfterSeconds: 300
   clusterTemplate:
     version: "2.7.1"
@@ -99,6 +117,7 @@ Alert on the age of the last-success timestamp. A past pass does not show that t
 | `Running` | A test is in progress. | None. |
 | `NoCompatibleSnapshot` | No backup yet records a source identity matching the template version. Backups from older executors lack it. | Wait for a new backup, or align `clusterTemplate.version`. |
 | `InvalidSchedule` | The cron expression cannot be parsed. | Fix `schedule`. |
+| `StorageIdentityRequired` | The test has no destination reader configuration. | Configure destination `credentialsSecretRef` or an existing reader `serviceAccountName`. Cloud metadata requires `serviceAccountName`. |
 | `DestinationRejected` | Admission rejected the test request, for example a missing namespace approval or permission. A pre-check rejection consumes no run; a rejection at creation records `Failed`. | Fix the namespace or permissions. The next due run proceeds. |
 | `CleanupBlocked` | The test target's cleanup failed. No further test starts. | Resolve it as in [Resolve blocked cleanup](../new-cluster/#resolve-blocked-cleanup). |
 | `RequestMissing` | The operator could not confirm that the test request was created, for example after an API timeout. It never retries, so no further test starts and source deletion waits. | Inspect the destination, make sure no older controller is still running, then acknowledge the exact run as described below. |

@@ -17,6 +17,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/adapter/storageenv"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	"github.com/kubebao/openbao-operator/internal/service/workloadidentity"
@@ -177,7 +178,7 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 					Labels: podTemplateLabels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName:           restoreServiceAccountName(cluster),
+					ServiceAccountName:           resourceidentity.RestoreServiceAccountName(cluster, restore),
 					AutomountServiceAccountToken: ptr.To(false),
 					RestartPolicy:                corev1.RestartPolicyNever,
 					SecurityContext: func() *corev1.PodSecurityContext {

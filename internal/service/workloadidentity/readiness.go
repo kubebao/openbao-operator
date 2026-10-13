@@ -16,6 +16,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/adapter/storageenv"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/hardenedcontract"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 )
 
@@ -68,7 +69,7 @@ func EvaluateRestoreReadiness(ctx context.Context, reader client.Reader, restore
 		Operation:          OperationRestore,
 		Cluster:            cluster,
 		Namespace:          restore.Namespace,
-		ServiceAccountName: cluster.Name + constants.SuffixRestoreServiceAccount,
+		ServiceAccountName: resourceidentity.RestoreServiceAccountName(cluster, restore),
 		JWTAuthRole:        storageenv.EffectiveJWTRole(restore.Spec.JWTAuthRole, portauth.OperatorJWTBootstrapEnabled(cluster), portauth.RoleNameRestore),
 		TokenSecretRef:     restore.Spec.TokenSecretRef,
 		Target:             restore.Spec.Source.Target,
@@ -235,7 +236,7 @@ func buildAuthSummary(input Input) string {
 	title := input.operationTitle()
 	if strings.TrimSpace(input.JWTAuthRole) != "" {
 		if strings.TrimSpace(input.ServiceAccountName) != "" {
-			return fmt.Sprintf("%s auth uses JWT role %q on generated ServiceAccount %q.", title, input.JWTAuthRole, input.ServiceAccountName)
+			return fmt.Sprintf("%s auth uses JWT role %q on ServiceAccount %q.", title, input.JWTAuthRole, input.ServiceAccountName)
 		}
 		return fmt.Sprintf("%s auth uses JWT role %q.", title, input.JWTAuthRole)
 	}

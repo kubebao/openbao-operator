@@ -22,6 +22,14 @@ const targetApplicationTimeout = 10 * time.Minute
 
 func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 	template := request.Spec.ClusterTemplate.DeepCopy()
+	oidc := &api.SelfInitOIDCConfig{Enabled: true}
+	if request.Spec.ServiceAccountName != "" {
+		oidc.AdditionalSubjects = &api.SelfInitOIDCAdditionalSubjects{
+			Restore: []api.KubernetesServiceAccountSubject{
+				api.KubernetesServiceAccountSubject("system:serviceaccount:" + request.Namespace + ":" + request.Spec.ServiceAccountName),
+			},
+		}
+	}
 	return &api.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        request.Spec.Cluster,
@@ -46,7 +54,7 @@ func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 			Plugins:           template.Plugins,
 			SelfInit: &api.SelfInitConfig{
 				Enabled: true,
-				OIDC:    &api.SelfInitOIDCConfig{Enabled: true},
+				OIDC:    oidc,
 				Requests: []api.SelfInitRequest{{
 					Name:      "restore-bootstrap-check",
 					Operation: api.SelfInitOperationRead,

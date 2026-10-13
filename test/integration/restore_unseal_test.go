@@ -80,6 +80,7 @@ func TestVAP_RestoreTargetUnsealAuthority(t *testing.T) {
 			grantTenantOpenBaoWriteAccess(t, sourceNS, username)
 			grantTenantOpenBaoWriteAccess(t, destination, username)
 			grantNamespacedResourceVerbs(t, destination, username, "restore", "openbao.org", "openbaoclusters", nil, "restore")
+			grantNamespacedResourceVerbs(t, destination, username, "storage-reader", "", "serviceaccounts", []string{"snapshot-reader"}, "use")
 			actor := newImpersonatedClient(t, username)
 			request := newFreshRestoreRequest(destination, "recovery")
 			request.Spec.ClusterTemplate.Unseal = api.UnsealConfig{Type: "kmip", KMIP: &api.KMIPSealConfig{Endpoint: "hsm.example:5696", KMSKeyID: "original", ClientCert: "/certs/client.crt", ClientKey: "/certs/client.key"}}
@@ -105,8 +106,9 @@ func restoreTestSource(namespace string, template *api.RestoreClusterTemplate) *
 	source.Spec.InitContainer = nil
 	source.Spec.Backup = &api.BackupSchedule{
 		Schedule: "0 0 * * *", JWTAuthRole: "backup",
-		Target:      api.BackupTarget{Bucket: "snapshots", Endpoint: "https://storage.example"},
-		RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: namespace, ClusterTemplate: *template.DeepCopy()},
+		Target: api.BackupTarget{Bucket: "snapshots", Endpoint: "https://storage.example"},
+		RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: namespace,
+			ServiceAccountName: "snapshot-reader", ClusterTemplate: *template.DeepCopy()},
 	}
 	return source
 }

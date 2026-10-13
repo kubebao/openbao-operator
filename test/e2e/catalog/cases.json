@@ -3519,14 +3519,14 @@
   },
   {
     "id": "restore-minimal-scheduled",
-    "generatedId": "restore-minimal-verifies-one-scheduled-restore-and-removes-16b6359a",
+    "generatedId": "restore-minimal-reuses-a-reader-account-across-scheduled-38eda393",
     "caseLabel": "restore-minimal-scheduled",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
-    "name": "verifies one scheduled restore and removes the target, data volume, and child request",
+    "name": "reuses a reader account across scheduled restores and removes disposable targets",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
-      "verifies one scheduled restore and removes the target, data volume, and child request"
+      "reuses a reader account across scheduled restores and removes disposable targets"
     ],
     "labels": [
       "restore-minimal",
@@ -3544,8 +3544,11 @@
       "e2e-anchor"
     ],
     "steps": [
+      "preparing an administrator-owned reader account and separate destination credential reference",
       "refusing manual and scheduled target creation before namespace approval",
-      "approving the prepared namespace and completing the restore test"
+      "approving the prepared namespace and completing the restore test",
+      "reusing the same reader account for a second generated target after cleanup",
+      "taking a new backup with the writer before the second disposable restore"
     ],
     "focused": false,
     "pending": false,

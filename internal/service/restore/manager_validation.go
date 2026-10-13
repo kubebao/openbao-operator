@@ -11,11 +11,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/hardenedcontract"
 	"github.com/kubebao/openbao-operator/internal/platform/logging"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	"github.com/kubebao/openbao-operator/internal/service/opslifecycle"
 	"github.com/kubebao/openbao-operator/internal/service/workloadidentity"
 )
@@ -191,18 +193,35 @@ func (m *Manager) ensureRestoreResources(ctx context.Context, logger logr.Logger
 	return nil
 }
 
-// ensureRestoreServiceAccount creates the ServiceAccount for restore jobs using Server-Side Apply.
+// ensureRestoreServiceAccount validates an existing reader account or applies
+// the generated restore account.
 func (m *Manager) ensureRestoreServiceAccount(
 	ctx context.Context,
 	_ logr.Logger,
 	restore *openbaov1alpha1.OpenBaoRestore,
 	cluster *openbaov1alpha1.OpenBaoCluster,
 ) error {
+	if restore.Spec.ServiceAccountName != "" {
+		sa := &corev1.ServiceAccount{}
+		if err := m.reader.Get(ctx, client.ObjectKey{Namespace: restore.Namespace, Name: restore.Spec.ServiceAccountName}, sa); err != nil {
+			return fmt.Errorf("read existing restore ServiceAccount: %w", err)
+		}
+		if sa.DeletionTimestamp != nil {
+			return fmt.Errorf("restore ServiceAccount %s/%s is deleting", sa.Namespace, sa.Name)
+		}
+		for key, value := range workloadidentity.ServiceAccountAnnotations(restore.Spec.Source.Target) {
+			if sa.Annotations[key] != value {
+				return fmt.Errorf("restore ServiceAccount %s/%s does not have the requested workload identity annotation %s", sa.Namespace, sa.Name, key)
+			}
+		}
+		return nil
+	}
 	return EnsureRestoreServiceAccount(ctx, m.client, m.scheme, cluster, restore.Spec.Source.Target)
 }
 
 // ensureRestoreRBAC creates RBAC for the restore service account using Server-Side Apply.
 // The restore job needs permission to list pods for leader discovery.
 func (m *Manager) ensureRestoreRBAC(ctx context.Context, _ logr.Logger, request *openbaov1alpha1.OpenBaoRestore, cluster *openbaov1alpha1.OpenBaoCluster) error {
-	return EnsureRestoreRBAC(ctx, m.client, m.scheme, cluster, request.Name)
+	return ensureRestoreRBACForServiceAccount(ctx, m.client, m.scheme, cluster,
+		resourceidentity.RestoreServiceAccountName(cluster, request), request.Name)
 }

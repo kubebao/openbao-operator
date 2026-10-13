@@ -26,6 +26,69 @@ import (
 )
 
 const restoreTestSnapshotKey = "snapshot"
+const restoreTestReaderAccountName = "snapshot-reader"
+
+func TestRestoreTestDoesNotInheritBackupWriterIdentity(t *testing.T) {
+	cluster := newRestoreTestSource("source")
+	cluster.Spec.Backup.Target.RoleARN = "arn:aws:iam::123456789012:role/backup-writer"
+	cluster.Spec.Backup.Target.WorkloadIdentity = &api.WorkloadIdentityConfig{
+		ServiceAccountAnnotations: map[string]string{"azure.workload.identity/client-id": "writer"},
+		PodLabels:                 map[string]string{"azure.workload.identity/use": "true"},
+	}
+	cluster.Spec.Backup.RestoreTest.CredentialsSecretRef = &corev1.LocalObjectReference{Name: "storage-reader"}
+	c := newTestClient(t, cluster)
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+	require.NoError(t, newBackupManager(c).reconcileRestoreTest(t.Context(), logr.Discard(), cluster, time.Now()))
+	children := &api.OpenBaoRestoreList{}
+	require.NoError(t, c.List(t.Context(), children))
+	require.Len(t, children.Items, 1)
+	target := children.Items[0].Spec.Source.Target
+	require.Empty(t, target.RoleARN, "restore tests must not inherit the backup writer's role")
+	require.Nil(t, target.WorkloadIdentity, "destination credentials must not retain the writer's workload identity")
+	require.Equal(t, "storage-reader", target.CredentialsSecretRef.Name)
+	require.Equal(t, cluster.Spec.Backup.Target.Bucket, target.Bucket)
+	require.Equal(t, "arn:aws:iam::123456789012:role/backup-writer", cluster.Spec.Backup.Target.RoleARN)
+}
+
+func TestRestoreTestUsesDestinationReaderIdentity(t *testing.T) {
+	for _, identity := range []string{"S3 role", "workload identity", "existing account", "missing reader", "ambient backup"} {
+		t.Run(identity, func(t *testing.T) {
+			cluster := newRestoreTestSource("source")
+			cluster.Spec.Backup.Target.RoleARN = "writer-role"
+			config := cluster.Spec.Backup.RestoreTest
+			config.CredentialsSecretRef = nil
+			if identity == "ambient backup" {
+				cluster.Spec.Backup.Target.RoleARN = ""
+			}
+			switch identity {
+			case "S3 role":
+				config.ServiceAccountName, config.RoleARN = restoreTestReaderAccountName, "reader-role"
+			case "workload identity":
+				config.ServiceAccountName = restoreTestReaderAccountName
+				config.WorkloadIdentity = &api.WorkloadIdentityConfig{PodLabels: map[string]string{"azure.workload.identity/use": "true"}}
+			case "existing account":
+				config.ServiceAccountName = restoreTestReaderAccountName
+			}
+			c := newTestClient(t, cluster)
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+			require.NoError(t, newBackupManager(c).reconcileRestoreTest(t.Context(), logr.Discard(), cluster, time.Now()))
+			children := &api.OpenBaoRestoreList{}
+			require.NoError(t, c.List(t.Context(), children))
+			if identity == "missing reader" || identity == "ambient backup" {
+				require.Empty(t, children.Items)
+				require.Nil(t, cluster.Status.Backup.RestoreTest.Active)
+				require.Nil(t, cluster.Status.Backup.RestoreTest.LastScheduledAt)
+				require.Equal(t, "StorageIdentityRequired", cluster.Status.Backup.RestoreTest.Conditions[0].Reason)
+				return
+			}
+			require.Len(t, children.Items, 1)
+			child := &children.Items[0]
+			require.Equal(t, config.ServiceAccountName, child.Spec.ServiceAccountName)
+			require.Equal(t, config.RoleARN, child.Spec.Source.Target.RoleARN)
+			require.Equal(t, config.WorkloadIdentity, child.Spec.Source.Target.WorkloadIdentity)
+		})
+	}
+}
 
 func TestRestoreTestDue(t *testing.T) {
 	created := time.Date(2026, 10, 5, 1, 0, 0, 0, time.UTC)
@@ -339,6 +402,7 @@ func newRestoreTestSource(name string) *api.OpenBaoCluster {
 	cluster.Spec.Backup.RestoreTest = &api.RestoreTest{
 		EverySuccessfulBackups: 1,
 		Namespace:              "destination",
+		CredentialsSecretRef:   &corev1.LocalObjectReference{Name: "storage-reader"},
 		ClusterTemplate:        api.RestoreClusterTemplate{Version: "2.7.0"},
 	}
 	return cluster

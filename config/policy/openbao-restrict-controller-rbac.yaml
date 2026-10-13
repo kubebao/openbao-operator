@@ -89,7 +89,7 @@ spec:
       message: "The controller can only create/update Roles for pod discovery (and service registration label updates for the OpenBao service account)."
 
     # Rule 1: RoleBinding restriction
-    # RoleBindings must bind exactly one ServiceAccount in the same namespace to its own Role.
+    # Bind one local ServiceAccount to its own Role or a target-owned restore Role.
     - expression: >-
         !variables.is_controller ||
         request.resource.resource != "rolebindings" ||
@@ -109,10 +109,20 @@ spec:
           object.subjects[0].kind == "ServiceAccount" &&
           (!has(object.subjects[0].apiGroup) || object.subjects[0].apiGroup == "") &&
           object.subjects[0].namespace == request.namespace &&
-          object.metadata.name == object.subjects[0].name + "-rolebinding" &&
-          object.roleRef.name == object.subjects[0].name + "-role"
+          (
+            (object.metadata.name == object.subjects[0].name + "-rolebinding" &&
+             object.roleRef.name == object.subjects[0].name + "-role") ||
+            (variables.component_label == "restore" && has(object.metadata.labels) &&
+             "openbao.org/cluster" in object.metadata.labels &&
+             object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-rolebinding" &&
+             object.roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
+             has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(owner,
+               owner.apiVersion == "openbao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
+               owner.name == object.metadata.labels["openbao.org/cluster"] && owner.uid != "" &&
+               has(owner.controller) && owner.controller))
+          )
         )
-      message: "The controller can only create/update RoleBindings that bind a ServiceAccount to its own pod-discovery Role."
+      message: "The controller can only create/update RoleBindings for a ServiceAccount's pod-discovery Role or a target-owned restore Role."
 
     # Rule 2: Deletion restriction (Roles)
     - expression: >-

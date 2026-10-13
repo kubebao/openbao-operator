@@ -1773,6 +1773,9 @@ _Appears in:_
 | `namespace` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br /> |
 | `clusterTemplate` _[RestoreClusterTemplate](#restoreclustertemplate)_ |  |  |  |
 | `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef is the existing destination storage credential Secret.<br />Storage connection settings are inherited from the source backup target. |  | Optional: \{\} <br /> |
+| `serviceAccountName` _string_ | ServiceAccountName selects an existing executor ServiceAccount in Namespace.<br />The operator does not create, modify, or delete this account. It must have<br />its own storage-reader identity; backup writer identities are not inherited. |  | MaxLength: 253 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN selects the S3 reader role independently of the backup writer role. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity supplies destination reader metadata. ServiceAccount<br />annotations must already exist on ServiceAccountName; PodLabels apply to<br />the executor Pod. The operator does not update the existing account. |  | Optional: \{\} <br /> |
 | `cleanupAfterSeconds` _integer_ | CleanupAfterSeconds delays deletion after snapshot application to permit inspection. |  | Maximum: 86400 <br />Minimum: 0 <br />Optional: \{\} <br /> |
 
 
@@ -2610,10 +2613,11 @@ WorkloadIdentityConfig configures cloud workload identity metadata for backup an
 
 _Appears in:_
 - [BackupTarget](#backuptarget)
+- [RestoreTest](#restoretest)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
+| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />An existing restore executor ServiceAccount must already have these annotations;<br />the operator validates them without modifying that account.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
 | `podLabels` _object (keys:string, values:string)_ | PodLabels are merged into the generated backup or restore Job pod template.<br />This is typically used for provider-specific selectors such as Azure Workload Identity.<br />Operator-managed labels take precedence if the same key is specified here. |  | Optional: \{\} <br /> |
 
 <!-- END RESOURCE -->
@@ -2947,7 +2951,8 @@ _Appears in:_
 | `targetLifecycle` _[RestoreTargetLifecycle](#restoretargetlifecycle)_ | TargetLifecycle retains recovery targets or deletes disposable test resources. |  | Enum: [Retain Disposable] <br />Optional: \{\} <br /> |
 | `cluster` _string_ | Cluster is the name of the OpenBaoCluster to restore INTO.<br />Must be in the request namespace. ClusterTemplate requires a new name. |  | MinLength: 1 <br /> |
 | `source` _[RestoreSource](#restoresource)_ | Source defines where the snapshot comes from. |  |  |
-| `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for restore operations. When set, the restore executor will use JWT Auth<br />(projected ServiceAccount token) instead of a static token.<br />The role must be configured in OpenBao and must grant the "update" capability on<br />sys/storage/raft/snapshot. To support force: true, it must also grant "update" on<br />sys/storage/raft/snapshot-force. The role must bind to the restore ServiceAccount<br />(&lt;cluster-name&gt;-restore-serviceaccount) in the cluster namespace.<br />If this field is empty and the target OpenBaoCluster has OIDC enabled,<br />the operator will default to using the "openbao-operator-restore" role. |  | Optional: \{\} <br /> |
+| `serviceAccountName` _string_ | ServiceAccountName selects an existing executor ServiceAccount in this<br />namespace. The operator does not create, modify, or delete this account.<br />When omitted, it creates &lt;cluster-name&gt;-restore-serviceaccount.<br />JWT authentication must authorize the selected account. Fresh targets add<br />its subject to their generated restore role before snapshot submission. |  | MaxLength: 253 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
+| `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for restore operations. When set, the restore executor will use JWT Auth<br />(projected ServiceAccount token) instead of a static token.<br />The role must be configured in OpenBao and must grant the "update" capability on<br />sys/storage/raft/snapshot. To support force: true, it must also grant "update" on<br />sys/storage/raft/snapshot-force. The role must bind to the restore ServiceAccount<br />selected by serviceAccountName, or &lt;cluster-name&gt;-restore-serviceaccount<br />when serviceAccountName is omitted, in the cluster namespace.<br />If this field is empty and the target OpenBaoCluster has OIDC enabled,<br />the operator will default to using the "openbao-operator-restore" role. |  | Optional: \{\} <br /> |
 | `tokenSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | TokenSecretRef optionally references a Secret containing an OpenBao API<br />token to use for restore operations (fallback method).<br />The Secret must exist in the same namespace as the OpenBaoRestore.<br />Cross-namespace references are not allowed for security reasons.<br />The token must have permission to update sys/storage/raft/snapshot. To support<br />force: true, it must also have permission to update<br />sys/storage/raft/snapshot-force.<br />If JWTAuthRole is set, this field is ignored in favor of JWT Auth. |  | Optional: \{\} <br /> |
 | `image` _string_ | Image is the container image to use for restore operations.<br />Defaults to the same image used for backup operations if not specified.<br />If the target OpenBaoCluster has image verification enabled, the operator will verify this image and pin the restore Job to the verified digest. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `force` _boolean_ | Force uses OpenBao's force-restore endpoint. This bypasses verification that<br />the snapshot is compatible with the target cluster's Shamir or auto-unseal<br />configuration. It also skips the controller checks that require the target<br />cluster to be initialized and not upgrading.<br />Use this break-glass option only when the normal verified restore cannot run<br />and the snapshot source and target seal compatibility have been validated by<br />another trusted process. | false | Optional: \{\} <br /> |
@@ -3532,10 +3537,11 @@ WorkloadIdentityConfig configures cloud workload identity metadata for backup an
 
 _Appears in:_
 - [BackupTarget](#backuptarget)
+- [RestoreTest](#restoretest)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
+| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />An existing restore executor ServiceAccount must already have these annotations;<br />the operator validates them without modifying that account.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
 | `podLabels` _object (keys:string, values:string)_ | PodLabels are merged into the generated backup or restore Job pod template.<br />This is typically used for provider-specific selectors such as Azure Workload Identity.<br />Operator-managed labels take precedence if the same key is specified here. |  | Optional: \{\} <br /> |
 
 <!-- END RESOURCE -->

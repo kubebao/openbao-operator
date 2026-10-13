@@ -67,6 +67,10 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 	if !due {
 		return nil
 	}
+	if (config.CredentialsSecretRef == nil || config.CredentialsSecretRef.Name == "") && config.ServiceAccountName == "" {
+		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "StorageIdentityRequired",
+			"Configure destination storage-reader credentials or a reader ServiceAccount; backup writer identities are not inherited")
+	}
 	snapshot := backup.LatestSnapshot
 	if backup.LastBackupName == "" || snapshot == nil || snapshot.ClusterID == "" || snapshot.Version != config.ClusterTemplate.Version {
 		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "NoCompatibleSnapshot", "Waiting for a successful backup with a compatible source identity and version observation")
@@ -86,6 +90,7 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 			Force:               true,
 			Image:               cluster.Spec.Backup.Image,
 			CleanupAfterSeconds: config.CleanupAfterSeconds,
+			ServiceAccountName:  config.ServiceAccountName,
 			Source: api.RestoreSource{
 				Key:               backup.LastBackupName,
 				Target:            *cluster.Spec.Backup.Target.DeepCopy(),
@@ -97,6 +102,8 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 		},
 	}
 	child.Spec.Source.Target.CredentialsSecretRef = config.CredentialsSecretRef.DeepCopy()
+	child.Spec.Source.Target.RoleARN = config.RoleARN
+	child.Spec.Source.Target.WorkloadIdentity = config.WorkloadIdentity.DeepCopy()
 	// Dry-run admission checks destination tenant policy before consuming a run.
 	if err := m.client.Create(ctx, child, client.DryRunAll); err != nil {
 		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "DestinationRejected", "Destination admission rejected the restore test request; check namespace enrollment, restore-target approval, delegation, and referenced credentials")

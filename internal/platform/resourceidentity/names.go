@@ -112,3 +112,12 @@ func ServiceAccountName(cluster *openbaov1alpha1.OpenBaoCluster) string {
 	}
 	return cluster.Name + constants.SuffixServiceAccount
 }
+
+// RestoreServiceAccountName resolves the executor account without changing the
+// target workload's ServiceAccount.
+func RestoreServiceAccountName(cluster *openbaov1alpha1.OpenBaoCluster, request *openbaov1alpha1.OpenBaoRestore) string {
+	if request.Spec.ServiceAccountName != "" {
+		return request.Spec.ServiceAccountName
+	}
+	return cluster.Name + constants.SuffixRestoreServiceAccount
+}

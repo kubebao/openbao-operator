@@ -15,6 +15,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/platform/logging"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	"github.com/kubebao/openbao-operator/internal/service/opslifecycle"
 	"github.com/kubebao/openbao-operator/internal/service/workloadidentity"
 )
@@ -304,7 +305,7 @@ func (m *Manager) createRestoreJob(
 		"restore_name":      restore.Name,
 		"job":               jobName,
 	})
-	if message, ok := workloadidentity.IdentityConfigurationEventMessage(restore.Spec.Source.Target, restoreServiceAccountName(cluster)); ok {
+	if message, ok := workloadidentity.IdentityConfigurationEventMessage(restore.Spec.Source.Target, resourceidentity.RestoreServiceAccountName(cluster, restore)); ok {
 		m.emitNormalEvent(restore, ReasonRestoreIdentityConfiguration, "%s", message)
 	}
 	m.emitNormalEvent(restore, ReasonRestoreJobCreated, "Created restore Job %s", jobName)

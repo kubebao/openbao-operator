@@ -10,6 +10,8 @@ import (
 // The destination must be an administrator-prepared operator-managed namespace.
 // +kubebuilder:validation:XValidation:rule="has(self.schedule) != has(self.everySuccessfulBackups)",message="choose a schedule or everySuccessfulBackups"
 // +kubebuilder:validation:XValidation:rule="self.clusterTemplate.tls.mode == 'OperatorManaged'",message="scheduled restore tests require OperatorManaged TLS for generated target names"
+// +kubebuilder:validation:XValidation:rule="(!has(self.roleArn) && !has(self.workloadIdentity)) || has(self.serviceAccountName)",message="restore test cloud identities require an existing destination serviceAccountName"
+// +kubebuilder:validation:XValidation:rule="has(self.serviceAccountName) || (has(self.credentialsSecretRef) && has(self.credentialsSecretRef.name) && size(self.credentialsSecretRef.name) > 0)",message="restore tests require destination reader credentials or an existing reader serviceAccountName"
 type RestoreTest struct {
 	// Schedule uses five-field cron syntax and UTC.
 	// +kubebuilder:validation:MaxLength=128
@@ -31,6 +33,25 @@ type RestoreTest struct {
 	// Storage connection settings are inherited from the source backup target.
 	// +optional
 	CredentialsSecretRef *corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
+
+	// ServiceAccountName selects an existing executor ServiceAccount in Namespace.
+	// The operator does not create, modify, or delete this account. It must have
+	// its own storage-reader identity; backup writer identities are not inherited.
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// RoleARN selects the S3 reader role independently of the backup writer role.
+	// +kubebuilder:validation:MinLength=1
+	// +optional
+	RoleARN string `json:"roleArn,omitempty"`
+
+	// WorkloadIdentity supplies destination reader metadata. ServiceAccount
+	// annotations must already exist on ServiceAccountName; PodLabels apply to
+	// the executor Pod. The operator does not update the existing account.
+	// +optional
+	WorkloadIdentity *WorkloadIdentityConfig `json:"workloadIdentity,omitempty"`
 
 	// CleanupAfterSeconds delays deletion after snapshot application to permit inspection.
 	// +kubebuilder:validation:Minimum=0

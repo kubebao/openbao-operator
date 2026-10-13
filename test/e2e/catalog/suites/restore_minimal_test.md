@@ -14,7 +14,7 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 | `restore-minimal-digest` | rejects changed snapshot bytes before submission | active | _none_ | `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor` |
 | `restore-minimal-static` | restores a static-sealed snapshot with the original key and removes the disposable target | active | _none_ | `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor` |
 | `restore-minimal-retain` | retains an applied target until the administrator accepts a paused handoff | active | _none_ | `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor` |
-| `restore-minimal-scheduled` | verifies one scheduled restore and removes the target, data volume, and child request | active | _none_ | `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor` |
+| `restore-minimal-scheduled` | reuses a reader account across scheduled restores and removes disposable targets | active | _none_ | `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor` |
 
 ## `restore-minimal-cancel`
 
@@ -103,16 +103,19 @@ Labels: `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor`
 
 ## `restore-minimal-scheduled`
 
-Path: `Minimal fresh restore and scheduled restore tests > verifies one scheduled restore and removes the target, data volume, and child request`
+Path: `Minimal fresh restore and scheduled restore tests > reuses a reader account across scheduled restores and removes disposable targets`
 
 State: `active`
 
-Generated fallback ID: `restore-minimal-verifies-one-scheduled-restore-and-removes-16b6359a`
+Generated fallback ID: `restore-minimal-reuses-a-reader-account-across-scheduled-38eda393`
 
 Covers: _none_
 
 Labels: `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor`
 
 Recorded checkpoints:
+- preparing an administrator-owned reader account and separate destination credential reference
 - refusing manual and scheduled target creation before namespace approval
 - approving the prepared namespace and completing the restore test
+- reusing the same reader account for a second generated target after cleanup
+- taking a new backup with the writer before the second disposable restore

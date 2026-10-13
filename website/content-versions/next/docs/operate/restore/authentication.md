@@ -42,6 +42,11 @@ selfInit:
 The operator adds each subject only to its own generated role. Add `operator` subjects only when the recovery target
 uses a different controller ServiceAccount. Restoring into the same `OpenBaoCluster` needs no extra subjects.
 
+If an `OpenBaoRestore` selects an existing executor account with `spec.serviceAccountName`, authorize that account's
+exact subject in the restore role. A fresh target adds the selected subject to its own bootstrap restore role.
+For an existing target, prepare the role through its current administration path before submitting the request.
+The snapshot can replace that role, so any later restore must also be accepted by the restored configuration.
+
 Self-init runs once. Adding these fields to an initialized source does not update its roles; update them through an
 authenticated administration path before taking the recovery snapshot.
 

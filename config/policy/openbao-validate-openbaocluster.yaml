@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-validate-openbaocluster
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:8c799d70c1702cc209b0a3d92f848440054832a2d1e4c121bbcbcce9539b7459
+    openbao.org/admission-policy-fingerprint: sha256:d202fdab5bb9a8bca48895587e2be2053f5c7599c90591a8e826b277e177cb0b
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -481,9 +481,14 @@ spec:
       message: "Custom restore test images require destination executable delegation."
     - expression: >-
         !variables.restore_test_authorization_required ||
-        ((!has(object.spec.backup.target.roleArn) || object.spec.backup.target.roleArn == '') && !has(object.spec.backup.target.workloadIdentity)) ||
+        ((!has(object.spec.backup.restoreTest.roleArn) || object.spec.backup.restoreTest.roleArn == '') && !has(object.spec.backup.restoreTest.workloadIdentity)) ||
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
       message: "Restore test workload identities require destination cloud identity delegation."
+
+    - expression: >-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.serviceAccountName) ||
+        authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.serviceAccountName).check("use").allowed()
+      message: "Restore test executors require use authority for their existing destination ServiceAccount."
 
     - expression: >-
         !variables.restore_test_authorization_required ||

@@ -394,6 +394,8 @@ type BackupTarget struct {
 // WorkloadIdentityConfig configures cloud workload identity metadata for backup and restore workloads.
 type WorkloadIdentityConfig struct {
 	// ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.
+	// An existing restore executor ServiceAccount must already have these annotations;
+	// the operator validates them without modifying that account.
 	// This is typically used for provider-specific bindings such as GKE Workload Identity
 	// or webhook-based AWS/Azure workload identity integrations.
 	// +optional

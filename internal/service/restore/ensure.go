@@ -47,9 +47,16 @@ func EnsureRestoreServiceAccount(
 
 // EnsureRestoreRBAC creates or updates Role/RoleBinding required by restore Jobs for pod discovery.
 func EnsureRestoreRBAC(ctx context.Context, c client.Client, scheme *runtime.Scheme, cluster *openbaov1alpha1.OpenBaoCluster, requests ...string) error {
-	saName := restoreServiceAccountName(cluster)
-	roleName := saName + "-role"
-	roleBindingName := saName + "-rolebinding"
+	return ensureRestoreRBACForServiceAccount(ctx, c, scheme, cluster, restoreServiceAccountName(cluster), requests...)
+}
+
+func ensureRestoreRBACForServiceAccount(ctx context.Context, c client.Client, scheme *runtime.Scheme,
+	cluster *openbaov1alpha1.OpenBaoCluster, saName string, requests ...string,
+) error {
+	// Keep grants owned by each target; a shared reader account must not make
+	// one target overwrite another target's request-specific Role or binding.
+	roleName := restoreServiceAccountName(cluster) + "-role"
+	roleBindingName := restoreServiceAccountName(cluster) + "-rolebinding"
 	resourceLabels := restoreLabels(cluster)
 
 	role := &rbacv1.Role{

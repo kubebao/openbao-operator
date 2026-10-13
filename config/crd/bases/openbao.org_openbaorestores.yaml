@@ -1030,7 +1030,8 @@ spec:
                   The role must be configured in OpenBao and must grant the "update" capability on
                   sys/storage/raft/snapshot. To support force: true, it must also grant "update" on
                   sys/storage/raft/snapshot-force. The role must bind to the restore ServiceAccount
-                  (<cluster-name>-restore-serviceaccount) in the cluster namespace.
+                  selected by serviceAccountName, or <cluster-name>-restore-serviceaccount
+                  when serviceAccountName is omitted, in the cluster namespace.
 
                   If this field is empty and the target OpenBaoCluster has OIDC enabled,
                   the operator will default to using the "openbao-operator-restore" role.
@@ -1045,6 +1046,16 @@ spec:
                   For safety, this requires force: true. When used, the controller emits a Warning
                   event and records a Condition on the OpenBaoRestore.
                 type: boolean
+              serviceAccountName:
+                description: |-
+                  ServiceAccountName selects an existing executor ServiceAccount in this
+                  namespace. The operator does not create, modify, or delete this account.
+                  When omitted, it creates <cluster-name>-restore-serviceaccount.
+                  JWT authentication must authorize the selected account. Fresh targets add
+                  its subject to their generated restore role before snapshot submission.
+                maxLength: 253
+                pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                type: string
               source:
                 description: Source defines where the snapshot comes from.
                 properties:
@@ -1228,6 +1239,8 @@ spec:
                               type: string
                             description: |-
                               ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.
+                              An existing restore executor ServiceAccount must already have these annotations;
+                              the operator validates them without modifying that account.
                               This is typically used for provider-specific bindings such as GKE Workload Identity
                               or webhook-based AWS/Azure workload identity integrations.
                             type: object

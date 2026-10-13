@@ -10,8 +10,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -241,7 +243,17 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Ordered, L
 		}, time.Minute, time.Second).Should(BeTrue())
 	})
 
-	It("verifies one scheduled restore and removes the target, data volume, and child request", Label("case:restore-minimal-scheduled"), func() {
+	It("reuses a reader account across scheduled restores and removes disposable targets", Label("case:restore-minimal-scheduled"), func() {
+		By("preparing an administrator-owned reader account and separate destination credential reference")
+		readerAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+			Name: "snapshot-reader", Namespace: destinationFW.Namespace,
+			Annotations: map[string]string{"e2e.identity/reader": "true"},
+		}}
+		Expect(c.Create(ctx, readerAccount)).To(Succeed())
+		readerUID := readerAccount.UID
+		storage := &corev1.Secret{}
+		Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: "storage"}, storage)).To(Succeed())
+		Expect(c.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "storage-reader", Namespace: destinationFW.Namespace}, Data: storage.Data})).To(Succeed())
 		By("refusing manual and scheduled target creation before namespace approval")
 		setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, false)
 		Eventually(func() error {
@@ -249,12 +261,18 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Ordered, L
 		}, time.Minute, time.Second).Should(MatchError(ContainSubstring("openbao.org/restore-target-approved")))
 		Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
 		before := source.DeepCopy()
+		source.Spec.Backup.Target.WorkloadIdentity = &api.WorkloadIdentityConfig{
+			ServiceAccountAnnotations: map[string]string{"e2e.identity/writer": "true"},
+			PodLabels:                 map[string]string{"e2e.identity/writer": "true"},
+		}
 		source.Spec.Backup.RestoreTest = &api.RestoreTest{
 			EverySuccessfulBackups: 1,
 			Namespace:              destinationFW.Namespace,
 
 			ClusterTemplate:      *template.DeepCopy(),
-			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage"},
+			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
+			ServiceAccountName:   readerAccount.Name,
+			CleanupAfterSeconds:  30,
 		}
 		Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
 		Eventually(func(g Gomega) {
@@ -269,6 +287,21 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Ordered, L
 
 		By("approving the prepared namespace and completing the restore test")
 		setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, true)
+		Eventually(func(g Gomega) {
+			jobs := &batchv1.JobList{}
+			g.Expect(c.List(ctx, jobs, client.InNamespace(destinationFW.Namespace), client.MatchingLabels{"openbao.org/component": "restore"})).To(Succeed())
+			g.Expect(jobs.Items).NotTo(BeEmpty())
+			job := &jobs.Items[0]
+			g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(readerAccount.Name))
+			g.Expect(job.Spec.Template.Labels).NotTo(HaveKey("e2e.identity/writer"))
+			credentialSecrets := []string{}
+			for _, volume := range job.Spec.Template.Spec.Volumes {
+				if volume.Secret != nil {
+					credentialSecrets = append(credentialSecrets, volume.Secret.SecretName)
+				}
+			}
+			g.Expect(credentialSecrets).To(ContainElement("storage-reader"))
+		}, 8*time.Minute, time.Second).Should(Succeed())
 		Eventually(func(g Gomega) {
 			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
 			g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
@@ -294,6 +327,32 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Ordered, L
 			Namespace: destinationFW.Namespace,
 			Name:      "data-" + last.Name + "-0",
 		}, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
+		By("reusing the same reader account for a second generated target after cleanup")
+		firstRun := last.Name
+		Eventually(func() bool {
+			roleGone := apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: firstRun + "-restore-serviceaccount-role"}, &rbacv1.Role{}))
+			bindingGone := apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: firstRun + "-restore-serviceaccount-rolebinding"}, &rbacv1.RoleBinding{}))
+			return roleGone && bindingGone
+		}, time.Minute, time.Second).Should(BeTrue())
+		Expect(c.Get(ctx, client.ObjectKeyFromObject(readerAccount), readerAccount)).To(Succeed())
+		Expect(readerAccount.UID).To(Equal(readerUID))
+		Expect(readerAccount.OwnerReferences).To(BeEmpty())
+		Expect(readerAccount.Annotations).To(Equal(map[string]string{"e2e.identity/reader": "true"}))
+		Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+		before = source.DeepCopy()
+		source.Spec.Backup.RestoreTest.CleanupAfterSeconds = 0
+		Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
+		By("taking a new backup with the writer before the second disposable restore")
+		Expect(triggerManualBackup(ctx, c, source.Namespace, source.Name)).To(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+			g.Expect(source.Status.Backup.RestoreTest.Last.Name).NotTo(Equal(firstRun))
+			g.Expect(source.Status.Backup.RestoreTest.Last.Outcome).To(Equal(api.RestoreTestPassed))
+			g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
+		}, 12*time.Minute, 2*time.Second).Should(Succeed())
+		Expect(c.Get(ctx, client.ObjectKeyFromObject(readerAccount), readerAccount)).To(Succeed())
+		Expect(readerAccount.UID).To(Equal(readerUID))
+		Expect(readerAccount.OwnerReferences).To(BeEmpty())
 	})
 
 	It("retains an applied target until the administrator accepts a paused handoff", Label("case:restore-minimal-retain"), func() {
