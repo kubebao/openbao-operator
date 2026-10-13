@@ -143,8 +143,12 @@ verify-spdx-normalizer: ## Validate deterministic SPDX normalization against the
 	@bash hack/ci/test-normalize-spdx-json.sh
 
 .PHONY: verify-workflows
-verify-workflows: actionlint verify-release-automation ## Validate workflows and release automation.
+verify-workflows: actionlint verify-release-automation test-ci-tools ## Validate workflows, routing, and release automation.
 	@"$(ACTIONLINT)" .github/workflows/*.yml
+
+.PHONY: test-ci-tools
+test-ci-tools: ## Test CI job expectations, diff routing, timing reports, E2E plans, and PR labels.
+	@GOFLAGS="$(GOFLAGS_VENDOR)" go test -count=1 ./hack/tools/ci_checks ./hack/tools/ci_report ./hack/tools/e2e_plan ./.github/scripts
 
 .PHONY: verify-vendor
 verify-vendor: ## Verify vendor/ is synchronized with go.mod/go.sum.

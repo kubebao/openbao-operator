@@ -1,6 +1,7 @@
 package apicontract
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -63,9 +64,7 @@ func TestAPIContractWorkflowDependencies(t *testing.T) {
 	if release.Jobs["api-contract"].If != "" {
 		t.Fatal("release API contract gate must run unconditionally")
 	}
-	want := "github.event_name == 'workflow_dispatch' || " +
-		"(github.event_name == 'push' && github.ref == 'refs/heads/main') || " +
-		"needs.changes.outputs.api_contract == 'true'"
+	want := "fromJSON(needs.changes.outputs.expected_checks)['api-contract']"
 	if ci.Jobs["api-contract"].If != want {
 		t.Fatal("CI must gate contract changes, main pushes, and manual runs")
 	}
@@ -80,7 +79,7 @@ func TestAPIContractChangeRouting(t *testing.T) {
 	bin := t.TempDir()
 	// Diff input is local and deterministic; the workflow cannot fetch the network.
 	git := "#!/usr/bin/env bash\ncase \"$1\" in\n" +
-		"fetch) exit 0 ;;\ndiff) printf '%s\\n' \"${CHANGED_PATHS}\" ;;\n*) exit 1 ;;\nesac\n"
+		"fetch|cat-file) exit 0 ;;\ndiff) printf '%s\\n' \"${CHANGED_PATHS}\" ;;\n*) exit 1 ;;\nesac\n"
 	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(git), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -132,27 +131,40 @@ func TestAPIContractChangeRouting(t *testing.T) {
 func TestAPIContractResultBlocksRequiredCI(t *testing.T) {
 	w := readWorkflow(t, "ci.yml")
 	step := findStep(t, w.Jobs["ci-required"], "Validate required CI graph")
-	if step.Env["API_CONTRACT"] != "${{ needs.api-contract.result }}" {
-		t.Fatal("required result aggregation must read the API contract result")
+	if step.Env["NEEDS_JSON"] != "${{ toJSON(needs) }}" {
+		t.Fatal("required result aggregation must read the complete dependency results")
 	}
-	for _, result := range []string{"success", "failure", "cancelled"} {
+	dir := t.TempDir()
+	routingDir := filepath.Join(dir, "artifacts", "ci-routing")
+	if err := os.MkdirAll(routingDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	output, err := runCommand(t, repositoryRoot(t), nil, "go", "build", "-mod=vendor",
+		"-o", filepath.Join(routingDir, "ci_checks"), "./hack/tools/ci_checks")
+	if err != nil {
+		t.Fatalf("build required gate: %v\n%s", err, output)
+	}
+	plan := `{"version":1,"sha":"head","checks":{"changes":true,"api-contract":true}}`
+	if err := os.WriteFile(filepath.Join(routingDir, "expected-checks.json"), []byte(plan), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, result := range []string{"success", "failure", "cancelled", "skipped"} {
 		t.Run(result, func(t *testing.T) {
-			env := make([]string, 0, len(step.Env))
-			for key := range step.Env {
-				value := "success"
-				if key == "API_CONTRACT" {
-					value = result
-				}
-				env = append(env, key+"="+value)
+			needs, err := json.Marshal(map[string]map[string]string{
+				"changes": {"result": "success"}, "api-contract": {"result": result},
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
-			output, err := runCommand(t, repositoryRoot(t), env, "bash", "-ec", step.Run)
+			env := []string{"NEEDS_JSON=" + string(needs), "GITHUB_SHA=head"}
+			output, err := runCommand(t, dir, env, "bash", "-ec", step.Run)
 			if result == "success" {
 				if err != nil {
 					t.Fatalf("passing graph rejected: %v\n%s", err, output)
 				}
 				return
 			}
-			if err == nil || !strings.Contains(output, "api-contract:"+result) {
+			if err == nil || !strings.Contains(output, "api-contract: "+result) {
 				t.Fatalf("API contract %s must block CI Required: error=%v\n%s", result, err, output)
 			}
 		})

@@ -50,6 +50,7 @@ jobs:
     name: Detect Changes
     runs-on: &runner ubuntu-24.04
     outputs:
+      expected_checks: ${{ steps.plan.outputs.expected_checks }}
       manual_e2e_requested: ${{ steps.diff.outputs.manual_e2e_requested }}
       manual_full_e2e: ${{ steps.diff.outputs.manual_full_e2e }}
       manual_backup_e2e: ${{ steps.diff.outputs.manual_backup_e2e }}
@@ -135,16 +136,30 @@ jobs:
             exit 1
           fi
 
-          # Ensure base exists locally (checkout may not contain it for PRs).
-          git fetch --no-tags --prune --depth=1 origin "${base_sha}"
-
-          changed="$(git diff --name-only "${base_sha}" "${head_sha}")"
+          # A failed diff must not become an empty change list.
+          git cat-file -e "${head_sha}^{commit}"
+          if [[ "${EVENT_NAME}" == "push" && "${base_sha}" =~ ^0+$ ]]; then
+            changed="$(git ls-tree -r --name-only "${head_sha}")"
+          else
+            if ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "${base_sha}"
+              git cat-file -e "${base_sha}^{commit}"
+            fi
+            # Include both paths of a rename in routing.
+            changed="$(git diff --no-renames --name-only "${base_sha}" "${head_sha}")"
+          fi
           changed_matches() {
-            grep -qE "$1" <<< "${changed}"
+            local result=0
+            grep -qE "$1" <<< "${changed}" || result=$?
+            if (( result > 1 )); then exit "${result}"; fi
+            return "${result}"
           }
 
           changed_matches_file() {
-            grep -qE -f "$1" <<< "${changed}"
+            local result=0
+            grep -qE -f "$1" <<< "${changed}" || result=$?
+            if (( result > 1 )); then exit "${result}"; fi
+            return "${result}"
           }
 
           if changed_matches '^(charts/openbao-operator/|config/(crd|policy|rbac)/|hack/helm(chart|values)/|hack/tools/edge_chart/|hack/ci/(test-edge-chart|test-publish-edge-chart|publish-edge-chart|helm-e2e-smoke)\.sh$|hack/dev/tool-versions\.env$)'; then
@@ -153,7 +168,7 @@ jobs:
             echo "chart=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(\.github/workflows/|\.github/actions/|hack/dev/tool-versions\.env$|hack/ci/)'; then
+          if changed_matches '^(\.github/(workflows|actions|scripts)/|hack/tools/ci_(checks|report)/|hack/dev/tool-versions\.env$|hack/ci/)'; then
             echo "workflow=true" >> "${GITHUB_OUTPUT}"
           else
             echo "workflow=false" >> "${GITHUB_OUTPUT}"
@@ -254,10 +269,46 @@ jobs:
           else
             echo "e2e_seal=false" >> "${GITHUB_OUTPUT}"
           fi
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+        with:
+          cache-tools: false
+
+      - name: Record required job expectations
+        id: plan
+        env:
+          GOFLAGS: -mod=vendor
+          ROUTING_JSON: ${{ toJSON(steps.diff.outputs) }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ci-routing
+          printf '%s\n' "${ROUTING_JSON}" > artifacts/ci-routing/routing.json
+          go build -o artifacts/ci-routing/ ./hack/tools/ci_checks ./hack/tools/ci_report
+          artifacts/ci-routing/ci_checks plan \
+            --event "${GITHUB_EVENT_PATH}" --event-name "${GITHUB_EVENT_NAME}" \
+            --ref "${GITHUB_REF}" --repository "${GITHUB_REPOSITORY}" --sha "${GITHUB_SHA}" \
+            --routing artifacts/ci-routing/routing.json \
+            --plan artifacts/ci-routing/expected-checks.json --github-output "${GITHUB_OUTPUT}"
+          {
+            echo '## Required job expectations'
+            echo '```json'
+            cat artifacts/ci-routing/expected-checks.json
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload routing record and CI tools
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-routing
+          path: artifacts/ci-routing/
+          overwrite: true
+          retention-days: 7
+
   security:
     name: Security (vulncheck + Semgrep + Trivy FS)
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.security_scan == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['security']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -295,7 +346,7 @@ jobs:
   dependency-licenses:
     name: Dependency Licenses
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.security_scan == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['dependency-licenses']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -310,7 +361,7 @@ jobs:
   security-image:
     name: Security (Trivy built image ${{ matrix.image_name }})
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.security_image == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['security-image']
     runs-on: *runner
     strategy:
       fail-fast: false
@@ -355,7 +406,7 @@ jobs:
   workflow-lint:
     name: Workflow Lint
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.workflow == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['workflow-lint']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -425,7 +476,7 @@ jobs:
   lint:
     name: Lint
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_quality == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['lint']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -440,7 +491,7 @@ jobs:
   verify-fmt:
     name: Verify Formatting
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_quality == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['verify-fmt']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -455,7 +506,7 @@ jobs:
   tidy-check:
     name: Verify go.mod/go.sum
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_quality == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['tidy-check']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -470,7 +521,7 @@ jobs:
   go-toolchain-sync:
     name: Verify Go Toolchain Sync
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_toolchain == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['go-toolchain-sync']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -482,7 +533,7 @@ jobs:
   verify-vendor:
     name: Verify vendor/
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_quality == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['verify-vendor']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -499,7 +550,7 @@ jobs:
   verify-generated:
     name: Verify Generated Artifacts
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_quality == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['verify-generated']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -514,7 +565,7 @@ jobs:
   api-contract:
     name: API Contract
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.api_contract == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['api-contract']
     runs-on: *runner
     env:
       GOFLAGS: -mod=vendor
@@ -534,7 +585,7 @@ jobs:
   test-unit:
     name: Unit Tests
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_tests == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['test-unit']
     runs-on: *runner
     env:
       GOFLAGS: -mod=vendor
@@ -567,7 +618,7 @@ jobs:
   test-integration:
     name: Envtest Integration
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.go_tests == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['test-integration']
     runs-on: *runner
     env:
       GOFLAGS: -mod=vendor
@@ -595,7 +646,7 @@ jobs:
   fuzz:
     name: Fuzz Smoke
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.fuzz == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['fuzz']
     runs-on: *runner
     env:
       GOFLAGS: -mod=vendor
@@ -626,7 +677,7 @@ jobs:
   openbao-config-compat:
     name: OpenBao Config Compatibility (2.6 migration and 2.7 current)
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.config_compat == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['openbao-config-compat']
     runs-on: *runner
     timeout-minutes: 25
     steps:
@@ -647,7 +698,7 @@ jobs:
   docs:
     name: Docs Build
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.docs == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['docs']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -661,7 +712,7 @@ jobs:
   helm:
     name: Helm Chart
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.chart == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['helm']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -695,7 +746,7 @@ jobs:
     runs-on: *runner
     timeout-minutes: 20
     needs: changes
-    if: needs.changes.outputs.chart == 'true'
+    if: fromJSON(needs.changes.outputs.expected_checks)['helm-e2e-smoke']
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -722,7 +773,7 @@ jobs:
   build-artifacts:
     name: Build Artifacts
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_e2e_requested == 'true' || (((needs.changes.outputs.e2e == 'true' || needs.changes.outputs.operator_upgrade_e2e == 'true' || needs.changes.outputs.e2e_seal == 'true' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'ci:full-e2e') || contains(github.event.pull_request.labels.*.name, 'backup') || contains(github.event.pull_request.labels.*.name, 'upgrades') || contains(github.event.pull_request.labels.*.name, 'security') || contains(github.event.pull_request.labels.*.name, 'provisioner') || contains(github.event.pull_request.labels.*.name, 'admission') || contains(github.event.pull_request.labels.*.name, 'controller'))))) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository))
+    if: fromJSON(needs.changes.outputs.expected_checks)['build-artifacts']
     runs-on: *runner
     steps:
       - name: Checkout
@@ -749,7 +800,7 @@ jobs:
     name: Build E2E Images Once
     runs-on: *runner
     needs: [changes, build-artifacts]
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_e2e_requested == 'true' || (((needs.changes.outputs.e2e == 'true' || needs.changes.outputs.operator_upgrade_e2e == 'true' || needs.changes.outputs.e2e_seal == 'true' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'ci:full-e2e') || contains(github.event.pull_request.labels.*.name, 'backup') || contains(github.event.pull_request.labels.*.name, 'upgrades') || contains(github.event.pull_request.labels.*.name, 'security') || contains(github.event.pull_request.labels.*.name, 'provisioner') || contains(github.event.pull_request.labels.*.name, 'admission') || contains(github.event.pull_request.labels.*.name, 'controller'))))) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository))
+    if: fromJSON(needs.changes.outputs.expected_checks)['build-e2e-images']
     env:
       BUILD_SEAL_FIXTURES: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_full_e2e == 'true' || needs.changes.outputs.manual_seal_e2e == 'true' || needs.changes.outputs.e2e_seal == 'true' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full-e2e')) }}
     permissions:
@@ -921,7 +972,8 @@ jobs:
   operator-upgrade-e2e:
     name: Operator Upgrade E2E
     runs-on: *runner
-    needs: build-e2e-images
+    needs: [changes, build-e2e-images]
+    if: fromJSON(needs.changes.outputs.expected_checks)['operator-upgrade-e2e']
     permissions:
       contents: read
       packages: read
@@ -972,7 +1024,7 @@ jobs:
     name: Plan E2E Matrix
     runs-on: *runner
     needs: changes
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_e2e_requested == 'true' || (((needs.changes.outputs.e2e == 'true' || needs.changes.outputs.e2e_seal == 'true' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'ci:full-e2e') || contains(github.event.pull_request.labels.*.name, 'backup') || contains(github.event.pull_request.labels.*.name, 'upgrades') || contains(github.event.pull_request.labels.*.name, 'security') || contains(github.event.pull_request.labels.*.name, 'provisioner') || contains(github.event.pull_request.labels.*.name, 'admission') || contains(github.event.pull_request.labels.*.name, 'controller'))))) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository))
+    if: fromJSON(needs.changes.outputs.expected_checks)['e2e-matrix']
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
@@ -1002,7 +1054,7 @@ jobs:
 
   e2e:
     needs: [changes, e2e-matrix, build-e2e-images]
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_e2e_requested == 'true' || (((needs.changes.outputs.e2e == 'true' || needs.changes.outputs.e2e_seal == 'true' || (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'ci:full-e2e') || contains(github.event.pull_request.labels.*.name, 'backup') || contains(github.event.pull_request.labels.*.name, 'upgrades') || contains(github.event.pull_request.labels.*.name, 'security') || contains(github.event.pull_request.labels.*.name, 'provisioner') || contains(github.event.pull_request.labels.*.name, 'admission') || contains(github.event.pull_request.labels.*.name, 'controller'))))) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository))
+    if: fromJSON(needs.changes.outputs.expected_checks)['e2e']
     name: E2E (${{ matrix.name }})
     runs-on: *runner
     permissions:
@@ -1137,7 +1189,7 @@ jobs:
           sanitized_name="$(printf '%s' '${{ matrix.name }}' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
           report_dir="artifacts/e2e-reports/${sanitized_name}"
           echo "report_dir=${report_dir}" >> "${GITHUB_OUTPUT}"
-          echo "artifact_name=e2e-artifacts-${sanitized_name}" >> "${GITHUB_OUTPUT}"
+          echo "artifact_name=e2e-artifacts-${sanitized_name}-${GITHUB_RUN_ATTEMPT}" >> "${GITHUB_OUTPUT}"
 
       - name: Prepare E2E lane
         id: prepare-e2e-lane
@@ -1270,78 +1322,31 @@ jobs:
       - e2e-matrix
       - e2e
     steps:
+      - name: Require a successful routing record
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+        run: |
+          test "${CHANGES_RESULT}" = success || {
+            echo "Change detection and expectation planning must succeed." >&2
+            exit 1
+          }
+
+      - name: Download routing record and CI tools
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ci-routing
+          path: artifacts/ci-routing
+
       - name: Validate required CI graph
         env:
-          CHANGES: ${{ needs.changes.result }}
-          SECURITY: ${{ needs.security.result }}
-          SECURITY_IMAGE: ${{ needs.security-image.result }}
-          DEPENDENCY_LICENSES: ${{ needs.dependency-licenses.result }}
-          WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
-          LINT: ${{ needs.lint.result }}
-          VERIFY_FMT: ${{ needs.verify-fmt.result }}
-          TIDY_CHECK: ${{ needs.tidy-check.result }}
-          GO_TOOLCHAIN_SYNC: ${{ needs.go-toolchain-sync.result }}
-          VERIFY_VENDOR: ${{ needs.verify-vendor.result }}
-          VERIFY_GENERATED: ${{ needs.verify-generated.result }}
-          API_CONTRACT: ${{ needs.api-contract.result }}
-          TEST_UNIT: ${{ needs.test-unit.result }}
-          TEST_INTEGRATION: ${{ needs.test-integration.result }}
-          FUZZ: ${{ needs.fuzz.result }}
-          OPENBAO_CONFIG_COMPAT: ${{ needs.openbao-config-compat.result }}
-          DOCS: ${{ needs.docs.result }}
-          HELM: ${{ needs.helm.result }}
-          HELM_E2E_SMOKE: ${{ needs.helm-e2e-smoke.result }}
-          BUILD_ARTIFACTS: ${{ needs.build-artifacts.result }}
-          BUILD_E2E_IMAGES: ${{ needs.build-e2e-images.result }}
-          OPERATOR_UPGRADE_E2E: ${{ needs.operator-upgrade-e2e.result }}
-          E2E_MATRIX: ${{ needs.e2e-matrix.result }}
-          E2E: ${{ needs.e2e.result }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
           set -euo pipefail
-
-          failures=()
-          while IFS='=' read -r job result; do
-            case "${result}" in
-              success|skipped)
-                ;;
-              *)
-                failures+=("${job}:${result}")
-                ;;
-            esac
-          done <<EOF
-          changes=${CHANGES}
-          security=${SECURITY}
-          security-image=${SECURITY_IMAGE}
-          dependency-licenses=${DEPENDENCY_LICENSES}
-          workflow-lint=${WORKFLOW_LINT}
-          lint=${LINT}
-          verify-fmt=${VERIFY_FMT}
-          tidy-check=${TIDY_CHECK}
-          go-toolchain-sync=${GO_TOOLCHAIN_SYNC}
-          verify-vendor=${VERIFY_VENDOR}
-          verify-generated=${VERIFY_GENERATED}
-          api-contract=${API_CONTRACT}
-          test-unit=${TEST_UNIT}
-          test-integration=${TEST_INTEGRATION}
-          fuzz=${FUZZ}
-          openbao-config-compat=${OPENBAO_CONFIG_COMPAT}
-          docs=${DOCS}
-          helm=${HELM}
-          helm-e2e-smoke=${HELM_E2E_SMOKE}
-          build-artifacts=${BUILD_ARTIFACTS}
-          build-e2e-images=${BUILD_E2E_IMAGES}
-          operator-upgrade-e2e=${OPERATOR_UPGRADE_E2E}
-          e2e-matrix=${E2E_MATRIX}
-          e2e=${E2E}
-          EOF
-
-          if [[ "${#failures[@]}" -gt 0 ]]; then
-            printf 'Required CI graph failures:\n' >&2
-            printf '  - %s\n' "${failures[@]}" >&2
-            exit 1
-          fi
-
-          echo "Required CI graph completed successfully."
+          printf '%s\n' "${NEEDS_JSON}" > artifacts/ci-routing/needs.json
+          chmod +x artifacts/ci-routing/ci_checks
+          artifacts/ci-routing/ci_checks check \
+            --plan artifacts/ci-routing/expected-checks.json \
+            --needs artifacts/ci-routing/needs.json --sha "${GITHUB_SHA}"
 
   prepare-edge-candidate:
     name: Prepare Edge Candidate
@@ -1525,3 +1530,56 @@ jobs:
           path: dist/candidate/
           if-no-files-found: error
           retention-days: 7
+
+  ci-measurement:
+    name: CI Measurement (advisory)
+    runs-on: *runner
+    if: always()
+    needs: [ci-required, assemble-edge-candidate-bundle, devenv-contract]
+    continue-on-error: true
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Collect this attempt's run and job timings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ci-measurements
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
+            > artifacts/ci-measurements/run.json
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs?per_page=100" \
+            | jq '{jobs: [.[] | .jobs[]]}' > artifacts/ci-measurements/jobs.json
+
+      - name: Download routing record and CI tools
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ci-routing
+          path: artifacts/ci-routing
+
+      - name: Download E2E reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: e2e-artifacts-*-${{ github.run_attempt }}
+          path: artifacts/e2e-measurements
+
+      - name: Summarize CI and specification timings
+        run: |
+          set -euo pipefail
+          chmod +x artifacts/ci-routing/ci_report
+          artifacts/ci-routing/ci_report \
+            --run artifacts/ci-measurements/run.json --jobs artifacts/ci-measurements/jobs.json \
+            --plan artifacts/ci-routing/expected-checks.json --e2e-dir artifacts/e2e-measurements \
+            --json-out artifacts/ci-measurements/summary.json \
+            --markdown-out artifacts/ci-measurements/summary.md
+          cat artifacts/ci-measurements/summary.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload CI measurements
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-measurements-${{ github.run_attempt }}
+          path: artifacts/ci-measurements/
+          retention-days: 30

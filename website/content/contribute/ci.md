@@ -11,10 +11,43 @@ verifiedBy:
   - .github/workflows/ci.yml
   - .github/workflows/nightly.yml
   - .github/workflows/release.yml
+  - hack/tools/ci_checks/main.go
+  - hack/tools/ci_report/main.go
   - test/e2e/suites.yaml
 ---
 
 Pull-request CI routes checks by changed path and risk. Nightly and release workflows broaden compatibility, lifecycle, provenance, and reproducibility coverage.
+
+Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
+path-based checks. A failed diff stops routing. Initial pushes with an all-zero prior SHA classify every tracked path.
+Renames classify both the previous and current paths.
+
+The `Detect Changes` job records required job expectations in the `ci-routing` artifact. The workflow uses
+that record to select jobs. `CI Required` rejects a failed routing job, missing results, unexpected job skips, and failed
+or cancelled checks. The record identifies the tested SHA and explains exclusions for fork pull requests.
+The routing artifact remains available when only failed jobs are rerun.
+Fork pull requests still need a maintainer or local run for cluster qualification.
+
+The advisory `CI Measurement` job collects the current attempt's job and step timings after validation and edge
+qualification. Its `ci-measurements-<attempt>` artifact contains raw run and job metadata, a JSON summary, and a
+Markdown summary. E2E reports add lane counts and specification timings. The snapshot excludes the measurement job.
+Runner-minutes sum job execution time; concurrent jobs overlap. Failed-job reruns measure only that attempt.
+Successful jobs inherited from previous attempts remain visible but do not count toward its runner consumption.
+E2E artifact names include the attempt number so reports from previous attempts are excluded.
+Missing reports do not prove qualification.
+
+Run `make test-ci-tools` to test routing and reporting locally. `make verify-workflows` also runs these tests.
+To summarize saved evidence, use the jobs response from the run-attempt endpoint with all pages combined into one
+`jobs` array. The optional E2E directory contains downloaded lane artifacts with `summary.json` and `ginkgo.json`.
+
+```sh
+go run ./hack/tools/ci_report \
+  --run artifacts/ci-measurements/run.json \
+  --jobs artifacts/ci-measurements/jobs.json \
+  --e2e-dir artifacts/e2e-measurements \
+  --json-out artifacts/ci-measurements/summary.json \
+  --markdown-out artifacts/ci-measurements/summary.md
+```
 
 Docker-based jobs in `ci.yml` configure the runner's Docker daemon and the E2E image builder to use
 [Google's public Docker Hub cache](https://docs.cloud.google.com/artifact-registry/docs/pull-cached-dockerhub-images).

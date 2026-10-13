@@ -12,7 +12,7 @@ func TestBackupDependencyChangeRouting(t *testing.T) {
 	script := findStep(t, w.Jobs["changes"], "Detect chart changes").Run
 	bin := t.TempDir()
 	git := "#!/usr/bin/env bash\ncase \"$1\" in\n" +
-		"fetch) exit 0 ;;\ndiff) printf '%s\\n' \"${CHANGED_PATHS}\" ;;\n*) exit 1 ;;\nesac\n"
+		"fetch|cat-file) exit 0 ;;\ndiff) printf '%s\\n' \"${CHANGED_PATHS}\" ;;\n*) exit 1 ;;\nesac\n"
 	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(git), 0o700); err != nil {
 		t.Fatal(err)
 	}
