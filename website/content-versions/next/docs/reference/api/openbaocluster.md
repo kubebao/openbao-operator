@@ -1780,6 +1780,9 @@ _Appears in:_
 | `namespace` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br /> |
 | `clusterTemplate` _[RestoreClusterTemplate](#restoreclustertemplate)_ |  |  |  |
 | `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef is the existing destination storage credential Secret.<br />Storage connection settings are inherited from the source backup target. |  | Optional: \{\} <br /> |
+| `serviceAccountName` _string_ | ServiceAccountName selects an existing executor ServiceAccount in Namespace.<br />The operator does not create, modify, or delete this account. It must have<br />its own storage-reader identity; backup writer identities are not inherited. |  | MaxLength: 253 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN selects the S3 reader role independently of the backup writer role. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity supplies destination reader metadata. ServiceAccount<br />annotations must already exist on ServiceAccountName; PodLabels apply to<br />the executor Pod. The operator does not update the existing account. |  | Optional: \{\} <br /> |
 | `cleanupAfterSeconds` _integer_ | CleanupAfterSeconds delays deletion after snapshot application to permit inspection. |  | Maximum: 86400 <br />Minimum: 0 <br />Optional: \{\} <br /> |
 
 
@@ -2617,8 +2620,9 @@ WorkloadIdentityConfig configures cloud workload identity metadata for backup an
 
 _Appears in:_
 - [BackupTarget](#backuptarget)
+- [RestoreTest](#restoretest)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
+| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />An existing restore executor ServiceAccount must already have these annotations;<br />the operator validates them without modifying that account.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
 | `podLabels` _object (keys:string, values:string)_ | PodLabels are merged into the generated backup or restore Job pod template.<br />This is typically used for provider-specific selectors such as Azure Workload Identity.<br />Operator-managed labels take precedence if the same key is specified here. |  | Optional: \{\} <br /> |

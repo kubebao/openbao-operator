@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:7f6f40028783a267cc4c06cd0eac939a518bfec468e920690c2655cf3babec8b
+    openbao.org/admission-policy-fingerprint: sha256:c9af55789ddce38e9c2227b2b4b527abea0af9094e82a56eaa4cc2f17a5b8e69
   name: {{ include "openbao-operator.fullname" . }}-openbao-protect-restore-execution
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -33,7 +33,8 @@ spec:
     - name: helper
       expression: >-
         variables.is_restore && oldObject != null && request.userInfo.username ==
-          'system:serviceaccount:' + request.namespace + ':' + oldObject.spec.cluster + '-restore-serviceaccount'
+          'system:serviceaccount:' + request.namespace + ':' +
+          (has(oldObject.spec.serviceAccountName) ? oldObject.spec.serviceAccountName : oldObject.spec.cluster + '-restore-serviceaccount')
     - name: old_hold
       expression: >-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-hold' in oldObject.metadata.annotations ?
@@ -127,7 +128,7 @@ spec:
          oldObject.status.phase == 'Running' && oldObject.status.execution.stage == 'Created' &&
          oldObject.status.execution.operationID == oldObject.metadata.uid &&
          !has(oldObject.metadata.deletionTimestamp) &&
-         'authentication.kubernetes.io/pod-uid' in request.userInfo.extra &&
+         has(request.userInfo.extra) && 'authentication.kubernetes.io/pod-uid' in request.userInfo.extra &&
          request.userInfo.extra['authentication.kubernetes.io/pod-uid'] == [object.status.submissionClaim.podUID] &&
          object.metadata.all(k, k == "managedFields" || (k in oldObject.metadata && object.metadata[k] == oldObject.metadata[k])) &&
          oldObject.metadata.all(k, k == "managedFields" || k in object.metadata) &&
