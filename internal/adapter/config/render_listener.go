@@ -38,6 +38,9 @@ func buildListenerBlock(cluster *openbaov1alpha1.OpenBaoCluster) (*hclwrite.Bloc
 
 	if cluster.Spec.Configuration != nil && cluster.Spec.Configuration.Listener != nil {
 		listener.ProxyProtocolBehavior = stringPtr(cluster.Spec.Configuration.Listener.ProxyProtocolBehavior)
+		if len(cluster.Spec.Configuration.Listener.ProxyProtocolAuthorizedAddrs) > 0 {
+			listener.ProxyProtocolAuthorizedAddrs = &cluster.Spec.Configuration.Listener.ProxyProtocolAuthorizedAddrs
+		}
 		if cluster.Spec.Configuration.Listener.TLSDisable != nil {
 			if *cluster.Spec.Configuration.Listener.TLSDisable {
 				listener.TLSDisable = 1

@@ -38,8 +38,11 @@ spec:
       pidFile: "/var/run/openbao/openbao.pid"
     # Listener configuration
     listener:
-      # Proxy protocol behavior (use_always, allow_any, deny_unauthorized)
-      proxyProtocolBehavior: "use_always"
+      # Trust PROXY protocol metadata from selected proxy source addresses.
+      proxyProtocolBehavior: "allow_authorized"
+      # Replace this example CIDR with the load balancer's observed source addresses.
+      proxyProtocolAuthorizedAddrs:
+        - "192.0.2.10/32"
       # TLS disable (typically managed by operator based on spec.tls.enabled)
       # tlsDisable: false
     # Raft storage configuration

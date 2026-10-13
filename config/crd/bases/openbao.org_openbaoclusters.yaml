@@ -1564,12 +1564,28 @@ spec:
                       Listener allows tuning the TCP listener.
                       Note: Address and ClusterAddress are managed by the operator and cannot be changed.
                     properties:
+                      proxyProtocolAuthorizedAddrs:
+                        description: |-
+                          ProxyProtocolAuthorizedAddrs lists trusted proxy source IP addresses or CIDRs.
+                          Required for allow_authorized and deny_unauthorized. With allow_authorized,
+                          connections from other sources use the peer IP address instead of PROXY metadata.
+                          This setting applies only to the API listener, not the metrics listener.
+                        items:
+                          minLength: 1
+                          type: string
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: set
                       proxyProtocolBehavior:
-                        description: ProxyProtocolBehavior allows configuring proxy
-                          protocol (e.g. for LoadBalancers).
+                        description: |-
+                          ProxyProtocolBehavior configures PROXY protocol on the API listener.
+                          Supported values are use_always, allow_authorized, and deny_unauthorized.
+                          The legacy allow_any value remains in the schema for compatibility but is
+                          rejected by the operator. Use allow_authorized to trust selected proxies.
                         enum:
                         - use_always
                         - allow_any
+                        - allow_authorized
                         - deny_unauthorized
                         type: string
                       tlsDisable:

@@ -138,6 +138,9 @@ func RenderHCL(cluster *openbaov1alpha1.OpenBaoCluster, infra InfrastructureDeta
 		return nil, err
 	}
 
+	if err := validateListenerProxyProtocol(cluster); err != nil {
+		return nil, err
+	}
 	if err := validateConfigVersionCompatibility(cluster); err != nil {
 		return nil, err
 	}

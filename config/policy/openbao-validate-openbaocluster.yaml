@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-validate-openbaocluster
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:adaa05dbbddde9dded957721499e49337a1eb2ed5a7c682a1340354e27730d8d
+    openbao.org/admission-policy-fingerprint: sha256:8c799d70c1702cc209b0a3d92f848440054832a2d1e4c121bbcbcce9539b7459
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -19,6 +19,11 @@ spec:
           has(oldObject.metadata.deletionTimestamp) && object.spec == oldObject.spec &&
           request.userInfo.username in ['system:kube-controller-manager', 'system:serviceaccount:kube-system:generic-garbage-collector'])
   variables:
+    - name: has_listener_proxy_authorization
+      expression: >-
+        has(object.spec.configuration) && has(object.spec.configuration.listener) &&
+        has(object.spec.configuration.listener.proxyProtocolBehavior) &&
+        object.spec.configuration.listener.proxyProtocolBehavior in ['allow_authorized', 'deny_unauthorized']
     - name: has_listener_tls_policy
       expression: >-
         has(object.spec.configuration) && has(object.spec.configuration.listener) &&
@@ -663,6 +668,16 @@ spec:
         !has(object.spec.configuration.listener.tlsDisable) ||
         object.spec.configuration.listener.tlsDisable != true
       message: Hardened profile does not allow spec.configuration.listener.tlsDisable=true.
+    - expression: >-
+        !variables.has_listener_proxy_authorization ||
+        (has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) &&
+         size(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) > 0)
+      message: "spec.configuration.listener.proxyProtocolAuthorizedAddrs is required for allow_authorized and deny_unauthorized."
+    - expression: >-
+        !has(object.spec.configuration) || !has(object.spec.configuration.listener) ||
+        !has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) ||
+        object.spec.configuration.listener.proxyProtocolAuthorizedAddrs.all(addr, isIP(addr) || isCIDR(addr))
+      message: "spec.configuration.listener.proxyProtocolAuthorizedAddrs entries must be IP addresses or CIDRs."
     - expression: >-
         !variables.has_listener_tls_policy ||
         (object.spec.tls.enabled &&

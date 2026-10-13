@@ -25,7 +25,8 @@ type hclListenerTCP struct {
 	TLSMaxVersion             *string   `hcl:"tls_max_version"`
 	TLSKeyExchangePreferences *[]string `hcl:"tls_key_exchange_preferences"`
 
-	ProxyProtocolBehavior *string `hcl:"proxy_protocol_behavior"`
+	ProxyProtocolBehavior        *string   `hcl:"proxy_protocol_behavior"`
+	ProxyProtocolAuthorizedAddrs *[]string `hcl:"proxy_protocol_authorized_addrs"`
 
 	TLSCertFile                 *string   `hcl:"tls_cert_file"`
 	TLSKeyFile                  *string   `hcl:"tls_key_file"`
