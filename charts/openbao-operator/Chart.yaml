@@ -27,7 +27,7 @@ annotations:
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
   artifacthub.io/prerelease: "false"
-  artifacthub.io/containsSecurityUpdates: 'false'
+  artifacthub.io/containsSecurityUpdates: 'true'
   artifacthub.io/changes: |
     - kind: fixed
       description: "release: backport compatible fixes for 0.5.2"
