@@ -1563,12 +1563,28 @@ spec:
                       Listener allows tuning the TCP listener.
                       Note: Address and ClusterAddress are managed by the operator and cannot be changed.
                     properties:
+                      proxyProtocolAuthorizedAddrs:
+                        description: |-
+                          ProxyProtocolAuthorizedAddrs lists trusted proxy source IP addresses or CIDRs.
+                          Required for allow_authorized and deny_unauthorized. With allow_authorized,
+                          connections from other sources use the peer IP address instead of PROXY metadata.
+                          This setting applies only to the API listener, not the metrics listener.
+                        items:
+                          minLength: 1
+                          type: string
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: set
                       proxyProtocolBehavior:
-                        description: ProxyProtocolBehavior allows configuring proxy
-                          protocol (e.g. for LoadBalancers).
+                        description: |-
+                          ProxyProtocolBehavior configures PROXY protocol on the API listener.
+                          Supported values are use_always, allow_authorized, and deny_unauthorized.
+                          The legacy allow_any value remains in the schema for compatibility but is
+                          rejected by the operator. Use allow_authorized to trust selected proxies.
                         enum:
                         - use_always
                         - allow_any
+                        - allow_authorized
                         - deny_unauthorized
                         type: string
                       tlsDisable:
@@ -9697,10 +9713,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261012-e87117fcc5ea
+          value: nightly-20261013-3abf96fd6c74
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:d65dbd920bcd4b4d4dd5740584744fe8fcd2b1513b51ccef454ad146b12165af
+        image: ghcr.io/kubebao/openbao-operator@sha256:75ef967f7edc2eeb6d52de3cab1cc7a01ba4d8f2cf0ffb8375b02b2333ebef9e
         livenessProbe:
           httpGet:
             path: /healthz
@@ -9815,8 +9831,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261012-e87117fcc5ea
-        image: ghcr.io/kubebao/openbao-operator@sha256:d65dbd920bcd4b4d4dd5740584744fe8fcd2b1513b51ccef454ad146b12165af
+          value: nightly-20261013-3abf96fd6c74
+        image: ghcr.io/kubebao/openbao-operator@sha256:75ef967f7edc2eeb6d52de3cab1cc7a01ba4d8f2cf0ffb8375b02b2333ebef9e
         livenessProbe:
           httpGet:
             path: /healthz
@@ -11653,7 +11669,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:adaa05dbbddde9dded957721499e49337a1eb2ed5a7c682a1340354e27730d8d
+    openbao.org/admission-policy-fingerprint: sha256:8c799d70c1702cc209b0a3d92f848440054832a2d1e4c121bbcbcce9539b7459
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -11852,6 +11868,18 @@ spec:
       || !has(object.spec.configuration.listener.tlsDisable) || object.spec.configuration.listener.tlsDisable
       != true'
     message: Hardened profile does not allow spec.configuration.listener.tlsDisable=true.
+  - expression: |-
+      !variables.has_listener_proxy_authorization || (has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) &&
+
+       size(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) > 0)
+    message: spec.configuration.listener.proxyProtocolAuthorizedAddrs is required
+      for allow_authorized and deny_unauthorized.
+  - expression: '!has(object.spec.configuration) || !has(object.spec.configuration.listener)
+      || !has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) ||
+      object.spec.configuration.listener.proxyProtocolAuthorizedAddrs.all(addr, isIP(addr)
+      || isCIDR(addr))'
+    message: spec.configuration.listener.proxyProtocolAuthorizedAddrs entries must
+      be IP addresses or CIDRs.
   - expression: |-
       !variables.has_listener_tls_policy || (object.spec.tls.enabled &&
 
@@ -12302,6 +12330,10 @@ spec:
     message: spec.version cannot be reduced below status.upgrade.targetVersion after
       rolling progress has started.
   variables:
+  - expression: has(object.spec.configuration) && has(object.spec.configuration.listener)
+      && has(object.spec.configuration.listener.proxyProtocolBehavior) && object.spec.configuration.listener.proxyProtocolBehavior
+      in ['allow_authorized', 'deny_unauthorized']
+    name: has_listener_proxy_authorization
   - expression: |-
       has(object.spec.configuration) && has(object.spec.configuration.listener) && (has(object.spec.configuration.listener.tlsMinVersion) ||
 
