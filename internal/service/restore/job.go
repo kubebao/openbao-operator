@@ -221,7 +221,7 @@ func buildRestoreEnvVars(
 		clientConfig = clientConfigs[0]
 	}
 
-	provider := storageenv.EffectiveProvider(restore.Spec.Source.Target.Provider)
+	destination := storageenv.ResolveDestination(restore.Spec.Source.Target)
 
 	envVars := []corev1.EnvVar{
 		// Set executor mode to restore
@@ -250,15 +250,15 @@ func buildRestoreEnvVars(
 		// The executor will use RESTORE_* values when available.
 		{
 			Name:  constants.EnvBackupProvider,
-			Value: provider,
+			Value: destination.Provider,
 		},
 		{
 			Name:  constants.EnvBackupEndpoint,
-			Value: restore.Spec.Source.Target.Endpoint,
+			Value: destination.Endpoint,
 		},
 		{
 			Name:  constants.EnvBackupBucket,
-			Value: restore.Spec.Source.Target.Bucket,
+			Value: destination.Bucket,
 		},
 		// Restore-specific overrides (used by runRestore function)
 		{
@@ -267,11 +267,11 @@ func buildRestoreEnvVars(
 		},
 		{
 			Name:  constants.EnvRestoreBucket,
-			Value: restore.Spec.Source.Target.Bucket,
+			Value: destination.Bucket,
 		},
 		{
 			Name:  constants.EnvRestoreEndpoint,
-			Value: restore.Spec.Source.Target.Endpoint,
+			Value: destination.Endpoint,
 		},
 		{
 			Name:  constants.EnvRestoreForce,
@@ -281,7 +281,7 @@ func buildRestoreEnvVars(
 
 	envVars = storageenv.AppendProviderEnvVars(envVars, restore.Spec.Source.Target)
 	envVars = storageenv.AppendRestoreProviderEnvVars(envVars, restore.Spec.Source.Target)
-	if provider == constants.StorageProviderS3 && restore.Spec.Source.Target.RoleARN != "" {
+	if destination.Provider == constants.StorageProviderS3 && restore.Spec.Source.Target.RoleARN != "" {
 		envVars = append(envVars,
 			corev1.EnvVar{Name: constants.EnvAWSRoleARN, Value: restore.Spec.Source.Target.RoleARN},
 			corev1.EnvVar{Name: constants.EnvAWSWebIdentityTokenFile, Value: restoreAWSIdentityTokenFile},

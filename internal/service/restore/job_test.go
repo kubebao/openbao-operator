@@ -501,7 +501,7 @@ func TestBuildRestoreEnvVars_GCS_NoProject(t *testing.T) {
 	assert.Equal(t, constants.StorageProviderGCS, envMap[constants.EnvBackupProvider])
 }
 
-func TestBuildRestoreEnvVars_Azure(t *testing.T) {
+func TestBuildRestoreJob_AzureDestinationAndWorkloadIdentity(t *testing.T) {
 	restore := &openbaov1alpha1.OpenBaoRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-restore",
@@ -514,14 +514,19 @@ func TestBuildRestoreEnvVars_Azure(t *testing.T) {
 				Target: openbaov1alpha1.BackupTarget{
 					Provider: "azure",
 					Endpoint: "https://myaccount.blob.core.windows.net",
-					Bucket:   "test-container",
+					Bucket:   "legacy-bucket",
 					Azure: &openbaov1alpha1.AzureTargetConfig{
 						StorageAccount: "myaccount",
 						Container:      "test-container",
 					},
+					WorkloadIdentity: &openbaov1alpha1.WorkloadIdentityConfig{
+						PodLabels: map[string]string{"azure.workload.identity/use": "true"},
+					},
 				},
 			},
-			JWTAuthRole: "restore-role",
+			JWTAuthRole:        "restore-role",
+			ServiceAccountName: "existing-blob-reader",
+			Image:              "example.com/restore-executor:v1",
 		},
 	}
 
@@ -535,7 +540,12 @@ func TestBuildRestoreEnvVars_Azure(t *testing.T) {
 		},
 	}
 
-	envVars := buildRestoreEnvVars(restore, cluster)
+	restore.Status.Execution = newRestoreExecutionStatus(restore)
+	job, err := (&Manager{}).buildRestoreJob(restore, cluster, "")
+	require.NoError(t, err)
+	assert.Equal(t, "existing-blob-reader", job.Spec.Template.Spec.ServiceAccountName)
+	assert.Equal(t, "true", job.Spec.Template.Labels["azure.workload.identity/use"])
+	envVars := job.Spec.Template.Spec.Containers[0].Env
 
 	envMap := make(map[string]string)
 	for _, env := range envVars {
@@ -546,6 +556,8 @@ func TestBuildRestoreEnvVars_Azure(t *testing.T) {
 	assert.Equal(t, constants.StorageProviderAzure, envMap[constants.EnvBackupProvider])
 	assert.Equal(t, "https://myaccount.blob.core.windows.net", envMap[constants.EnvBackupEndpoint])
 	assert.Equal(t, "test-container", envMap[constants.EnvBackupBucket])
+	assert.Equal(t, "test-container", envMap[constants.EnvRestoreBucket])
+	assert.Equal(t, envMap[constants.EnvBackupEndpoint], envMap[constants.EnvRestoreEndpoint])
 
 	// Verify Azure-specific env vars
 	assert.Equal(t, "myaccount", envMap[constants.EnvBackupAzureStorageAccount])

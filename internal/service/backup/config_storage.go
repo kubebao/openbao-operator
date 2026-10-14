@@ -13,10 +13,7 @@ import (
 
 // loadStorageConfig loads backup storage endpoint, bucket, and path configuration.
 func loadStorageConfig(cfg *ExecutorConfig) error {
-	cfg.BackupProvider = strings.TrimSpace(os.Getenv(constants.EnvBackupProvider))
-	if cfg.BackupProvider == "" {
-		cfg.BackupProvider = constants.StorageProviderS3
-	}
+	cfg.BackupProvider = blobstore.EffectiveProvider(strings.TrimSpace(os.Getenv(constants.EnvBackupProvider)))
 
 	cfg.BackupEndpoint = strings.TrimSpace(os.Getenv(constants.EnvBackupEndpoint))
 	cfg.BackupBucket = strings.TrimSpace(os.Getenv(constants.EnvBackupBucket))
@@ -41,10 +38,10 @@ func loadStorageConfig(cfg *ExecutorConfig) error {
 }
 
 func loadS3StorageConfig(cfg *ExecutorConfig) error {
-	cfg.BackupRegion = strings.TrimSpace(os.Getenv(constants.EnvBackupRegion))
-	if cfg.BackupRegion == "" {
-		cfg.BackupRegion = constants.DefaultS3Region
-	}
+	cfg.BackupRegion = blobstore.ResolveDestination(blobstore.Destination{
+		Provider: cfg.BackupProvider,
+		Region:   strings.TrimSpace(os.Getenv(constants.EnvBackupRegion)),
+	}, "").Region
 
 	usePathStyleStr := strings.TrimSpace(os.Getenv(constants.EnvBackupUsePathStyle))
 	if usePathStyleStr != "" {

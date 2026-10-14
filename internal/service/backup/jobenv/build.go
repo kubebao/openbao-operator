@@ -33,23 +33,23 @@ func BuildEnvVars(cluster *openbaov1alpha1.OpenBaoCluster, opts Options, tokenFi
 		statefulSetName = cluster.Name
 	}
 
-	provider := storageenv.EffectiveProvider(backupCfg.Target.Provider)
+	destination := storageenv.ResolveDestination(backupCfg.Target)
 
 	env := []corev1.EnvVar{
 		{Name: constants.EnvClusterNamespace, Value: cluster.Namespace},
 		{Name: constants.EnvClusterName, Value: cluster.Name},
 		{Name: constants.EnvStatefulSetName, Value: statefulSetName},
 		{Name: constants.EnvClusterReplicas, Value: fmt.Sprintf("%d", cluster.Spec.Replicas)},
-		{Name: constants.EnvBackupProvider, Value: provider},
-		{Name: constants.EnvBackupEndpoint, Value: backupCfg.Target.Endpoint},
-		{Name: constants.EnvBackupBucket, Value: backupCfg.Target.Bucket},
+		{Name: constants.EnvBackupProvider, Value: destination.Provider},
+		{Name: constants.EnvBackupEndpoint, Value: destination.Endpoint},
+		{Name: constants.EnvBackupBucket, Value: destination.Bucket},
 		{Name: constants.EnvBackupPathPrefix, Value: backupCfg.Target.PathPrefix},
 	}
 
 	env = storageenv.AppendProviderEnvVars(env, backupCfg.Target)
 
 	// AWS Role ARN for Web Identity (IRSA)
-	if provider == constants.StorageProviderS3 && backupCfg.Target.RoleARN != "" {
+	if destination.Provider == constants.StorageProviderS3 && backupCfg.Target.RoleARN != "" {
 		env = append(env, corev1.EnvVar{Name: constants.EnvAWSRoleARN, Value: backupCfg.Target.RoleARN})
 		env = append(env, corev1.EnvVar{Name: constants.EnvAWSWebIdentityTokenFile, Value: tokenFilePath})
 	}

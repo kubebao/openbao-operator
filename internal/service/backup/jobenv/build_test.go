@@ -238,5 +238,8 @@ func TestBuildEnvVars_ProviderSpecificBranches(t *testing.T) {
 		if got[constants.EnvBackupAzureContainer] != "container-a" {
 			t.Fatalf("container=%q, want container-a", got[constants.EnvBackupAzureContainer])
 		}
+		if got[constants.EnvBackupBucket] != "container-a" {
+			t.Fatalf("bucket=%q, want effective container-a", got[constants.EnvBackupBucket])
+		}
 	})
 }

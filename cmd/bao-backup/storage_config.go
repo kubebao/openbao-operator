@@ -16,26 +16,28 @@ func buildStorageConfig(cfg *backupconfig.ExecutorConfig) (storage.Config, error
 		return storage.Config{}, fmt.Errorf("storage configuration is required")
 	}
 
-	provider := cfg.BackupProvider
-	if provider == "" {
-		provider = constants.StorageProviderS3
-	}
+	destination := blobstore.ResolveDestination(blobstore.Destination{
+		Provider: cfg.BackupProvider,
+		Endpoint: cfg.BackupEndpoint,
+		Bucket:   cfg.BackupBucket,
+		Region:   cfg.BackupRegion,
+	}, cfg.AzureContainer)
 
 	storageConfig := storage.Config{
-		Provider:                 storage.ProviderType(provider),
-		Bucket:                   cfg.BackupBucket,
-		Endpoint:                 cfg.BackupEndpoint,
+		Provider:                 storage.ProviderType(destination.Provider),
+		Bucket:                   destination.Bucket,
+		Endpoint:                 destination.Endpoint,
 		ValidateEndpointRequests: true,
 	}
 
-	switch provider {
+	switch destination.Provider {
 	case constants.StorageProviderS3:
-		storageConfig.Region = cfg.BackupRegion
+		storageConfig.Region = destination.Region
 		if cfg.StorageCredentials != nil {
 			storageConfig.Credentials = cfg.StorageCredentials
 		} else {
 			storageConfig.Credentials = &blobstore.Credentials{
-				Region: cfg.BackupRegion,
+				Region: destination.Region,
 			}
 		}
 		storageConfig.S3 = &storage.S3Options{
@@ -68,10 +70,6 @@ func buildStorageConfig(cfg *backupconfig.ExecutorConfig) (storage.Config, error
 			UseManagedIdentity: cfg.AzureAccountKey == "" && cfg.AzureConnectionString == "",
 			InsecureSkipVerify: cfg.InsecureSkipVerify,
 		}
-		if cfg.AzureContainer != "" {
-			storageConfig.Bucket = cfg.AzureContainer
-		}
-
 	default:
 		return storage.Config{}, fmt.Errorf("unknown storage provider: %q", cfg.BackupProvider)
 	}

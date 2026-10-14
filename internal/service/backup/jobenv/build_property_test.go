@@ -85,7 +85,12 @@ func assertCommonEnvVars(
 	assertEnvValue(t, got, constants.EnvClusterReplicas, fmt.Sprintf("%d", cluster.Spec.Replicas))
 	assertEnvValue(t, got, constants.EnvBackupProvider, effectiveProvider(cluster.Spec.Backup.Target.Provider))
 	assertEnvValue(t, got, constants.EnvBackupEndpoint, cluster.Spec.Backup.Target.Endpoint)
-	assertEnvValue(t, got, constants.EnvBackupBucket, cluster.Spec.Backup.Target.Bucket)
+	bucket := cluster.Spec.Backup.Target.Bucket
+	if effectiveProvider(cluster.Spec.Backup.Target.Provider) == constants.StorageProviderAzure &&
+		cluster.Spec.Backup.Target.Azure != nil && cluster.Spec.Backup.Target.Azure.Container != "" {
+		bucket = cluster.Spec.Backup.Target.Azure.Container
+	}
+	assertEnvValue(t, got, constants.EnvBackupBucket, bucket)
 	assertEnvValue(t, got, constants.EnvBackupPathPrefix, cluster.Spec.Backup.Target.PathPrefix)
 }
 

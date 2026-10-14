@@ -1151,7 +1151,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 						Target: openbaov1alpha1.BackupTarget{
 							Provider:   constants.StorageProviderAzure,
 							Endpoint:   azuriteEndpoint,
-							Bucket:     azuriteContainer,
+							Bucket:     "unused-legacy-container", // azure.container selects the actual destination.
 							PathPrefix: "clusters",
 							Azure: &openbaov1alpha1.AzureTargetConfig{
 								StorageAccount: azuriteAccount,
@@ -1250,7 +1250,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 						Target: openbaov1alpha1.BackupTarget{
 							Provider:   constants.StorageProviderAzure,
 							Endpoint:   azuriteEndpoint,
-							Bucket:     azuriteContainer,
+							Bucket:     "unused-legacy-container", // Preserve the Azure container alias for restores.
 							PathPrefix: "clusters",
 							Azure: &openbaov1alpha1.AzureTargetConfig{
 								StorageAccount: azuriteAccount,

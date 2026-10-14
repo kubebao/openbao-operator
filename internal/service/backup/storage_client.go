@@ -10,7 +10,7 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/adapter/storage"
-	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/adapter/storageenv"
 	"github.com/kubebao/openbao-operator/internal/port/blobstore"
 )
 
@@ -22,15 +22,12 @@ func (m *Manager) openBackupStorageClient(ctx context.Context, cluster *openbaov
 	}
 
 	target := cluster.Spec.Backup.Target
-	provider := storage.ProviderType(target.Provider)
-	if provider == "" {
-		provider = storage.ProviderS3
-	}
+	destination := storageenv.ResolveDestination(target)
 
 	storageConfig := storage.Config{
-		Provider:                 provider,
-		Bucket:                   target.Bucket,
-		Endpoint:                 target.Endpoint,
+		Provider:                 storage.ProviderType(destination.Provider),
+		Bucket:                   destination.Bucket,
+		Endpoint:                 destination.Endpoint,
 		EnsureExists:             ensureExists,
 		ValidateEndpointRequests: true,
 	}
@@ -40,7 +37,7 @@ func (m *Manager) openBackupStorageClient(ctx context.Context, cluster *openbaov
 		return nil, err
 	}
 
-	switch provider {
+	switch storageConfig.Provider {
 	case storage.ProviderS3:
 		configureS3StorageConfig(&storageConfig, target, credsSecret, ensureExists)
 	case storage.ProviderGCS:
@@ -77,10 +74,7 @@ func (m *Manager) loadBackupCredentialsSecret(ctx context.Context, cluster *open
 }
 
 func configureS3StorageConfig(storageConfig *storage.Config, target openbaov1alpha1.BackupTarget, credsSecret *corev1.Secret, ensureExists bool) {
-	region := target.Region
-	if region == "" {
-		region = constants.DefaultS3Region
-	}
+	region := storageenv.ResolveDestination(target).Region
 
 	credentials := &blobstore.Credentials{Region: region}
 	if credsSecret != nil {
@@ -143,9 +137,6 @@ func configureAzureStorageConfig(storageConfig *storage.Config, target openbaov1
 	}
 	if target.Azure != nil {
 		azureOptions.StorageAccount = target.Azure.StorageAccount
-		if target.Azure.Container != "" {
-			storageConfig.Bucket = target.Azure.Container
-		}
 	}
 	if credsSecret != nil {
 		if v, ok := credsSecret.Data["accountKey"]; ok {

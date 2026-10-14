@@ -8,14 +8,13 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
+	"github.com/kubebao/openbao-operator/internal/port/blobstore"
 )
 
 const (
 	storageProviderS3    = "s3"
 	storageProviderGCS   = "gcs"
 	storageProviderAzure = "azure"
-
-	defaultS3Region = "us-east-1"
 
 	envBackupInsecureSkipVerify  = "BACKUP_INSECURE_SKIP_VERIFY"
 	envBackupRegion              = "BACKUP_REGION"
@@ -32,10 +31,21 @@ const (
 
 // EffectiveProvider normalizes an empty provider to the default.
 func EffectiveProvider(provider string) string {
-	if provider == "" {
-		return storageProviderS3
+	return blobstore.EffectiveProvider(provider)
+}
+
+// ResolveDestination maps an API target to its effective storage destination.
+func ResolveDestination(target openbaov1alpha1.BackupTarget) blobstore.Destination {
+	azureContainer := ""
+	if target.Azure != nil {
+		azureContainer = target.Azure.Container
 	}
-	return provider
+	return blobstore.ResolveDestination(blobstore.Destination{
+		Provider: target.Provider,
+		Endpoint: target.Endpoint,
+		Bucket:   target.Bucket,
+		Region:   target.Region,
+	}, azureContainer)
 }
 
 // EffectiveJWTRole returns the configured role or a default when OIDC is enabled.
@@ -45,6 +55,7 @@ func EffectiveJWTRole(configuredRole string, oidcEnabled bool, defaultRole strin
 
 // AppendProviderEnvVars appends provider-specific BACKUP_* env vars.
 func AppendProviderEnvVars(envVars []corev1.EnvVar, target openbaov1alpha1.BackupTarget) []corev1.EnvVar {
+	destination := ResolveDestination(target)
 	if target.InsecureSkipVerify {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  envBackupInsecureSkipVerify,
@@ -52,13 +63,9 @@ func AppendProviderEnvVars(envVars []corev1.EnvVar, target openbaov1alpha1.Backu
 		})
 	}
 
-	switch EffectiveProvider(target.Provider) {
+	switch destination.Provider {
 	case storageProviderS3:
-		region := target.Region
-		if region == "" {
-			region = defaultS3Region
-		}
-		envVars = append(envVars, corev1.EnvVar{Name: envBackupRegion, Value: region})
+		envVars = append(envVars, corev1.EnvVar{Name: envBackupRegion, Value: destination.Region})
 		envVars = append(envVars, corev1.EnvVar{Name: envBackupUsePathStyle, Value: fmt.Sprintf("%t", target.UsePathStyle)})
 	case storageProviderGCS:
 		if target.GCS != nil && target.GCS.Project != "" {
@@ -80,17 +87,14 @@ func AppendProviderEnvVars(envVars []corev1.EnvVar, target openbaov1alpha1.Backu
 
 // AppendRestoreProviderEnvVars appends restore-only provider env vars.
 func AppendRestoreProviderEnvVars(envVars []corev1.EnvVar, target openbaov1alpha1.BackupTarget) []corev1.EnvVar {
-	if EffectiveProvider(target.Provider) != storageProviderS3 {
+	destination := ResolveDestination(target)
+	if destination.Provider != storageProviderS3 {
 		return envVars
 	}
 
-	region := target.Region
-	if region == "" {
-		region = defaultS3Region
-	}
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  constants.EnvRestoreRegion,
-		Value: region,
+		Value: destination.Region,
 	})
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  constants.EnvRestoreUsePathStyle,

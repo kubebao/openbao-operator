@@ -573,6 +573,11 @@ func TestBuildBackupJob_WithRoleARN(t *testing.T) {
 
 func TestBuildBackupJob_WithWorkloadIdentityPodLabels(t *testing.T) {
 	cluster := newTestClusterWithBackup("test-cluster", "default")
+	cluster.Spec.Backup.Target.Provider = constants.StorageProviderAzure
+	cluster.Spec.Backup.Target.Bucket = "legacy-bucket"
+	cluster.Spec.Backup.Target.Azure = &openbaov1alpha1.AzureTargetConfig{
+		StorageAccount: "account", Container: "selected-container",
+	}
 	cluster.Spec.Backup.Target.WorkloadIdentity = &openbaov1alpha1.WorkloadIdentityConfig{
 		PodLabels: map[string]string{
 			"azure.workload.identity/use": "true",
@@ -599,6 +604,13 @@ func TestBuildBackupJob_WithWorkloadIdentityPodLabels(t *testing.T) {
 	if _, exists := job.Labels["azure.workload.identity/use"]; exists {
 		t.Fatalf("job labels should not include workload identity pod labels")
 	}
+	assert.Equal(t, "test-cluster-backup-serviceaccount", job.Spec.Template.Spec.ServiceAccountName)
+	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name: constants.EnvBackupBucket, Value: "selected-container",
+	})
+	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name: constants.EnvBackupAzureContainer, Value: "selected-container",
+	})
 }
 
 func TestBuildBackupJob_WithTokenSecret(t *testing.T) {
