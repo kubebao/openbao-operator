@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise post-release publisher routing without contacting GitHub or GHCR."""
+"""Exercise post-release publisher routing and cleanup without GitHub or GHCR."""
 
 import hashlib
 import json
@@ -17,11 +17,13 @@ HEAD = "a" * 40
 IMAGES = ["openbao-operator", "openbao-init", "openbao-backup", "openbao-upgrade"]
 
 MOCK = r'''#!/usr/bin/env python3
+import fnmatch
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 
 command = Path(sys.argv[0]).name
@@ -82,14 +84,13 @@ if command == "gh":
             shutil.copy(path, option("--dir"))
     elif args[:2] == ["pr", "list"]:
         assert option("--repo") == repository, args
-        if option("--state") == "merged":
-            print(json.dumps([{
-                "number": 42,
-                "title": "chore(main): release " + version,
-                "url": "https://github.com/" + repository + "/pull/42",
-                "mergeCommit": {"oid": head},
-                "labels": [],
-            }]))
+        prs = json.loads((fixture / (option("--state") + "-prs.json")).read_text())
+        if "--base" in args:
+            prs = [pr for pr in prs if pr.get("baseRefName") == option("--base")]
+        if "--jq" in args:
+            subprocess.run(["jq", "-r", option("--jq")], input=json.dumps(prs), text=True, check=True)
+        else:
+            print(json.dumps(prs))
     else:
         raise AssertionError(args)
 elif command == "git":
@@ -99,6 +100,10 @@ elif command == "git":
         print(head + "\trefs/tags/" + version)
     else:
         assert args[1] == "--heads", args
+        for branch in json.loads((fixture / "remote-heads.json").read_text()):
+            ref = "refs/heads/" + branch
+            if any(fnmatch.fnmatchcase(ref, pattern) or fnmatch.fnmatchcase(branch, pattern) for pattern in args[3:]):
+                print(head + "\t" + ref)
 elif command == "cosign":
     expected = "https://github.com/" + publisher + "/.github/workflows/release.yml@refs/tags/" + version
     if option("--certificate-identity") != expected:
@@ -143,7 +148,7 @@ class PostReleasePublisherTests(unittest.TestCase):
         for name in ["gh", "git", "cosign", "docker", "helm"]:
             (self.bin / name).symlink_to(mock)
 
-    def fixture(self, version, publisher):
+    def fixture(self, version, publisher, base="main"):
         names = [
             "install.yaml", "crds.yaml", "checksums.txt.bundle",
             "checksums.txt.sigstore.json", "checksums.intoto.jsonl",
@@ -187,6 +192,17 @@ class PostReleasePublisherTests(unittest.TestCase):
         )
         self.version = version
         self.publisher = publisher
+        self.merged_prs = [{
+            "number": 42,
+            "title": "chore(" + base + "): release " + version,
+            "url": "https://github.com/" + REPOSITORY + "/pull/42",
+            "baseRefName": base,
+            "headRefName": "release-please--branches--" + base,
+            "mergeCommit": {"oid": HEAD},
+            "labels": [],
+        }]
+        self.open_prs = []
+        self.remote_heads = []
 
     def environment(self):
         environment = os.environ.copy()
@@ -212,6 +228,12 @@ class PostReleasePublisherTests(unittest.TestCase):
 
     def verify(self, publisher_override=None):
         (self.assets / "provenance-index.json").write_text(json.dumps(self.provenance), encoding="utf-8")
+        for name, value in [
+            ("merged-prs.json", self.merged_prs),
+            ("open-prs.json", self.open_prs),
+            ("remote-heads.json", self.remote_heads),
+        ]:
+            (self.directory / name).write_text(json.dumps(value), encoding="utf-8")
         environment = self.environment()
         if publisher_override is not None:
             environment["PUBLISHER_REPO"] = publisher_override
@@ -254,6 +276,8 @@ class PostReleasePublisherTests(unittest.TestCase):
             evidence["chart"]["ref"],
             "ghcr.io/" + self.publisher.split("/")[0] + "/charts/openbao-operator:" + self.version,
         )
+        self.assertEqual(evidence["release_pr"]["base_ref"], self.merged_prs[0]["baseRefName"])
+        self.assertEqual(evidence["release_pr"]["head_ref"], self.merged_prs[0]["headRefName"])
         commands = [json.loads(line) for line in (self.directory / "commands.jsonl").read_text().splitlines()]
         self.assertEqual(sum(command[:3] == ["gh", "attestation", "verify"] for command in commands), 6)
         self.assertEqual(sum(command[0] == "cosign" for command in commands), 6)
@@ -269,6 +293,69 @@ class PostReleasePublisherTests(unittest.TestCase):
     def test_new_release_defaults_to_current_publisher(self):
         self.fixture("0.6.0", REPOSITORY)
         self.assert_success(self.verify())
+
+    def test_maintenance_release_ignores_other_release_lines(self):
+        self.fixture("0.5.2", REPOSITORY, base="release-0.5")
+        # A branch-head retry has a descendant tag target, not the release PR merge.
+        self.merged_prs[0]["mergeCommit"]["oid"] = "b" * 40
+        self.open_prs = [{
+            "number": 766,
+            "title": "chore(main): release 0.6.0",
+            "baseRefName": "main",
+            "headRefName": "release-please--branches--main",
+            "url": "https://github.com/" + REPOSITORY + "/pull/766",
+        }]
+        self.remote_heads = ["main", "release-please--branches--main"]
+        self.assert_success(self.verify())
+
+    def test_open_release_pr_on_verified_line_is_rejected(self):
+        for base in ["main", "release-0.5"]:
+            with self.subTest(base=base):
+                self.fixture("0.5.2", REPOSITORY, base=base)
+                self.open_prs = [dict(self.merged_prs[0])]
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("unexpected open release-please PRs remain", result.stderr)
+                self.assertFalse((self.directory / "evidence.json").exists())
+
+    def test_stale_release_branch_on_verified_line_is_rejected(self):
+        for base in ["main", "release-0.5"]:
+            with self.subTest(base=base):
+                self.fixture("0.5.2", REPOSITORY, base=base)
+                self.remote_heads = [self.merged_prs[0]["headRefName"]]
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("stale release-please branches remain", result.stderr)
+                self.assertFalse((self.directory / "evidence.json").exists())
+
+    def test_pending_label_on_merged_release_pr_is_rejected(self):
+        for label in ["autorelease: pending", "autorelease:pending"]:
+            with self.subTest(label=label):
+                self.fixture("0.5.2", REPOSITORY, base="release-0.5")
+                self.merged_prs[0]["labels"] = [{"name": label}]
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("still has release-please pending label", result.stderr)
+                self.assertFalse((self.directory / "evidence.json").exists())
+
+    def test_release_pr_selection_remains_unambiguous(self):
+        self.fixture("0.5.2", REPOSITORY, base="release-0.5")
+        self.merged_prs[0]["mergeCommit"]["oid"] = "b" * 40
+        self.merged_prs.append({**self.merged_prs[0], "number": 43})
+        result = self.verify()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("expected exactly one merged release PR", result.stderr)
+        self.assertFalse((self.directory / "evidence.json").exists())
+
+    def test_missing_or_unexpected_release_branch_metadata_is_rejected(self):
+        for field, value in [("baseRefName", ""), ("headRefName", None), ("headRefName", "unrelated")]:
+            with self.subTest(field=field, value=value):
+                self.fixture("0.5.2", REPOSITORY, base="release-0.5")
+                self.merged_prs[0][field] = value
+                result = self.verify()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("invalid release-please branch metadata", result.stderr)
+                self.assertFalse((self.directory / "evidence.json").exists())
 
     def test_registry_attestation_rejects_wrong_publisher_without_api_fallback(self):
         self.fixture("0.5.1", "dc-tec/openbao-operator")

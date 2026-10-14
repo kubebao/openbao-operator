@@ -10,6 +10,7 @@ usage: VERSION=X.Y.Z [REPO=kubebao/openbao-operator] hack/ci/verify-post-release
 
 Verifies the post-release invariants that should hold after the Release workflow
 has published a stable or prerelease release.
+Release-please cleanup checks apply to the merged release PR's base branch.
 
 Environment:
   VERSION       Required release version, for example 0.3.0.
@@ -317,34 +318,14 @@ REPO="${PUBLISHER_REPO}" \
   VERIFY_CHART=true \
   bash "${ROOT_DIR}/hack/ci/verify-release-artifact-attestations.sh"
 
-info "checking for open release-please PRs"
-open_release_prs="$(
-  gh pr list \
-    --repo "${REPO}" \
-    --state open \
-    --json number,title,headRefName,url \
-    --jq '.[] | select(.headRefName | startswith("release-please--branches--")) | "#\(.number) \(.title) [\(.headRefName)] \(.url)"'
-)"
-if [[ -n "${open_release_prs}" ]]; then
-  echo "${open_release_prs}" >&2
-  fail "unexpected open release-please PRs remain"
-fi
-
-info "checking for stale release-please branches"
-stale_branches="$(git ls-remote --heads "${GIT_REMOTE}" 'release-please--branches--*')"
-if [[ -n "${stale_branches}" ]]; then
-  echo "${stale_branches}" >&2
-  fail "stale release-please branches remain"
-fi
-
-info "checking release-please pending label cleanup"
+info "resolving the merged release PR for ${VERSION}"
 release_pr_candidates="$(
   gh pr list \
     --repo "${REPO}" \
     --state merged \
     --search "${VERSION} in:title" \
     --limit 50 \
-    --json number,title,url,mergeCommit,labels
+    --json number,title,url,baseRefName,headRefName,mergeCommit,labels
 )"
 release_pr_json="$(
   jq \
@@ -368,6 +349,34 @@ fi
 
 release_pr_number="$(jq -r '.[0].number' <<<"${release_pr_json}")"
 release_pr_url="$(jq -r '.[0].url' <<<"${release_pr_json}")"
+release_pr_base="$(jq -r '.[0].baseRefName // empty' <<<"${release_pr_json}")"
+release_pr_head="$(jq -r '.[0].headRefName // empty' <<<"${release_pr_json}")"
+if [[ -z "${release_pr_base}" || "${release_pr_head}" != "release-please--branches--${release_pr_base}" ]]; then
+  fail "release PR ${release_pr_url} has invalid release-please branch metadata"
+fi
+
+info "checking for open release-please PRs on ${release_pr_base}"
+open_release_prs="$(
+  gh pr list \
+    --repo "${REPO}" \
+    --state open \
+    --base "${release_pr_base}" \
+    --json number,title,headRefName,url \
+    --jq '.[] | select(.headRefName | startswith("release-please--branches--")) | "#\(.number) \(.title) [\(.headRefName)] \(.url)"'
+)"
+if [[ -n "${open_release_prs}" ]]; then
+  echo "${open_release_prs}" >&2
+  fail "unexpected open release-please PRs remain on ${release_pr_base}"
+fi
+
+info "checking for the stale release-please branch ${release_pr_head}"
+stale_branches="$(git ls-remote --heads "${GIT_REMOTE}" "refs/heads/${release_pr_head}")"
+if [[ -n "${stale_branches}" ]]; then
+  echo "${stale_branches}" >&2
+  fail "stale release-please branches remain on ${release_pr_base}"
+fi
+
+info "checking release-please pending label cleanup"
 pending_release_labels="$(
   jq -r '.[]?.labels[]?.name | select(. == "autorelease: pending" or . == "autorelease:pending")' \
     <<<"${release_pr_json}"
@@ -394,6 +403,8 @@ if [[ -n "${EVIDENCE_OUT}" ]]; then
     --arg release_url "${release_url}" \
     --arg release_pr_number "${release_pr_number}" \
     --arg release_pr_url "${release_pr_url}" \
+    --arg release_pr_base "${release_pr_base}" \
+    --arg release_pr_head "${release_pr_head}" \
     --arg identity "${identity}" \
     --arg chart_ref "${chart_ref}" \
     --arg chart_digest "${chart_digest}" \
@@ -425,7 +436,9 @@ if [[ -n "${EVIDENCE_OUT}" ]]; then
       },
       release_pr: {
         number: ($release_pr_number | tonumber),
-        url: $release_pr_url
+        url: $release_pr_url,
+        base_ref: $release_pr_base,
+        head_ref: $release_pr_head
       },
       identity_constraints: {
         certificate_identity: $identity,
