@@ -81,7 +81,31 @@ func loadS3StorageConfig(cfg *ExecutorConfig) error {
 		return fmt.Errorf("failed to load storage credentials: %w", err)
 	}
 	cfg.StorageCredentials = creds
+	region, err := loadStorageRegion(backupCredentialsPath())
+	if err != nil {
+		return fmt.Errorf("failed to load storage region: %w", err)
+	}
+	cfg.StorageRegion = region
 	return nil
+}
+
+func loadStorageRegion(credsPath string) (string, error) {
+	cleanCredsPath, err := validatePath("/", credsPath)
+	if err != nil {
+		return "", fmt.Errorf("invalid credentials path: %w", err)
+	}
+	regionPath, err := validatePath(cleanCredsPath, filepath.Join(cleanCredsPath, blobstore.SecretKeyRegion))
+	if err != nil {
+		return "", fmt.Errorf("invalid region path: %w", err)
+	}
+	data, err := os.ReadFile(regionPath) // #nosec G304 -- Path validated under the credentials directory.
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read storage region: %w", err)
+	}
+	return strings.TrimSpace(string(data)), nil
 }
 
 func loadGCSStorageConfig(cfg *ExecutorConfig) error {
@@ -190,16 +214,11 @@ func loadStorageCredentials(credsPath string) (*blobstore.Credentials, error) {
 		creds.SessionToken = strings.TrimSpace(string(data))
 	}
 
-	regionPath := filepath.Join(cleanCredsPath, "region")
-	validatedRegionPath, err := validatePath(cleanCredsPath, regionPath)
+	region, err := loadStorageRegion(cleanCredsPath)
 	if err != nil {
-		return nil, fmt.Errorf("invalid region path: %w", err)
+		return nil, err
 	}
-	if data, err := os.ReadFile(validatedRegionPath); err == nil { // #nosec G304 -- Path validated under base directory
-		creds.Region = strings.TrimSpace(string(data))
-	} else {
-		creds.Region = constants.DefaultS3Region
-	}
+	creds.Region = region
 
 	caCertPath := filepath.Join(cleanCredsPath, "caCert")
 	validatedCACertPath, err := validatePath(cleanCredsPath, caCertPath)

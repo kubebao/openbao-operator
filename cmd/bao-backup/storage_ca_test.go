@@ -47,6 +47,7 @@ func TestStorageCustomCA_MountedFilesToSDKRequest(t *testing.T) {
 					assert.Contains(t, r.URL.Path, "snapshot")
 					if strings.HasPrefix(provider, "s3") {
 						assert.Contains(t, r.Header.Get("Authorization"), "AWS4-HMAC-SHA256")
+						assert.Contains(t, r.Header.Get("Authorization"), "/eu-central-1/s3/aws4_request")
 					} else if provider == "azure" {
 						assert.Contains(t, r.Header.Get("Authorization"), "SharedKey")
 					}
@@ -63,6 +64,9 @@ func TestStorageCustomCA_MountedFilesToSDKRequest(t *testing.T) {
 				})
 				server, caCert := newStorageCATestServer(t, handler)
 				credsPath := t.TempDir()
+				if strings.HasPrefix(provider, "s3") {
+					require.NoError(t, os.WriteFile(filepath.Join(credsPath, "region"), []byte("eu-central-1"), 0o600))
+				}
 				if trust != "absent" {
 					if trust == "wrong" {
 						_, caCert = newStorageCATestServer(t, http.NotFoundHandler())
@@ -74,7 +78,7 @@ func TestStorageCustomCA_MountedFilesToSDKRequest(t *testing.T) {
 				require.NoError(t, err)
 				require.False(t, cfg.InsecureSkipVerify)
 				if provider == "s3-ambient" {
-					require.Nil(t, cfg.StorageCredentials, "CA-only trust must retain ambient credential discovery")
+					require.Nil(t, cfg.StorageCredentials, "CA and region metadata must retain ambient credential discovery")
 				}
 				if trust == "absent" {
 					require.Empty(t, cfg.StorageCACert)
@@ -88,6 +92,9 @@ func TestStorageCustomCA_MountedFilesToSDKRequest(t *testing.T) {
 				require.Equal(t, cfg.StorageCACert, restoreCfg.StorageCACert)
 				storageCfg, err := buildStorageConfig(&restoreCfg)
 				require.NoError(t, err)
+				if strings.HasPrefix(provider, "s3") {
+					require.Equal(t, "eu-central-1", storageCfg.Region)
+				}
 				// The loopback HTTPS fixture is isolated to this test; production
 				// configuration still enables request-time endpoint validation.
 				require.True(t, storageCfg.ValidateEndpointRequests)

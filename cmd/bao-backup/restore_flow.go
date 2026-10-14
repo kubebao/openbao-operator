@@ -151,14 +151,6 @@ func buildRestoreExecutorConfig(
 		}
 	}
 
-	if restoreCfg.StorageCredentials == nil {
-		restoreCfg.StorageCredentials = &blobstore.Credentials{
-			Region: settings.region,
-		}
-	} else if restoreCfg.StorageCredentials.Region == "" {
-		restoreCfg.StorageCredentials.Region = settings.region
-	}
-
 	return restoreCfg
 }
 

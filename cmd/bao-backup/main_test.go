@@ -303,6 +303,7 @@ func TestBuildStorageConfig(t *testing.T) {
 		got, err := buildStorageConfig(cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "custom-region", got.Credentials.Region)
+		assert.Equal(t, "custom-region", got.Region, "the signer must receive the credential region")
 		assert.True(t, got.S3.InsecureSkipVerify)
 	})
 

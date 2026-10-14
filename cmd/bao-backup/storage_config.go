@@ -32,16 +32,21 @@ func buildStorageConfig(cfg *backupconfig.ExecutorConfig) (storage.Config, error
 
 	switch destination.Provider {
 	case constants.StorageProviderS3:
-		storageConfig.Region = destination.Region
+		credentialRegion := strings.TrimSpace(cfg.StorageRegion)
+		if credentialRegion == "" && cfg.StorageCredentials != nil {
+			credentialRegion = cfg.StorageCredentials.Region
+		}
+		storageConfig.Region = blobstore.EffectiveS3Region(destination.Region, credentialRegion)
 		if cfg.StorageCredentials != nil {
 			credentials := *cfg.StorageCredentials
+			credentials.Region = storageConfig.Region
 			if len(cfg.StorageCACert) > 0 {
 				credentials.CACert = cfg.StorageCACert
 			}
 			storageConfig.Credentials = &credentials
 		} else {
 			storageConfig.Credentials = &blobstore.Credentials{
-				Region: destination.Region,
+				Region: storageConfig.Region,
 				CACert: cfg.StorageCACert,
 			}
 		}

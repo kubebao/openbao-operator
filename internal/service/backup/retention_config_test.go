@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,7 +20,12 @@ func TestRetentionLoaderRequiresNoOpenBaoCredentials(t *testing.T) {
 			t.Setenv(constants.EnvBackupBucket, "snapshots")
 			t.Setenv(constants.EnvBackupPathPrefix, "backups")
 			t.Setenv(constants.EnvBackupAzureStorageAccount, "account")
-			t.Setenv(constants.EnvBackupCredentialsPath, t.TempDir())
+			credentialsPath := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(credentialsPath, "caCert"), []byte("storage-ca"), 0o600))
+			if provider == constants.StorageProviderS3 {
+				require.NoError(t, os.WriteFile(filepath.Join(credentialsPath, "region"), []byte("eu-central-1"), 0o600))
+			}
+			t.Setenv(constants.EnvBackupCredentialsPath, credentialsPath)
 			t.Setenv(constants.EnvBackupAuthMethod, "")
 			t.Setenv(constants.EnvBackupJWTAuthRole, "")
 			t.Setenv(constants.EnvBackupTokenPath, "/absent")
@@ -35,6 +42,11 @@ func TestRetentionLoaderRequiresNoOpenBaoCredentials(t *testing.T) {
 			require.Equal(t, deadline, cfg.Deadline, "an expired deadline is never extended")
 			require.Empty(t, cfg.Storage.AuthMethod)
 			require.Empty(t, cfg.Storage.OpenBaoToken)
+			require.Equal(t, []byte("storage-ca"), cfg.Storage.StorageCACert)
+			if provider == constants.StorageProviderS3 {
+				require.Equal(t, "eu-central-1", cfg.Storage.StorageRegion)
+				require.Nil(t, cfg.Storage.StorageCredentials, "storage metadata retains ambient credentials")
+			}
 			t.Setenv(EnvRetentionPrefix, "backups/test/another/")
 			_, err = LoadRetentionExecutorConfig()
 			require.ErrorContains(t, err, "cluster boundary")

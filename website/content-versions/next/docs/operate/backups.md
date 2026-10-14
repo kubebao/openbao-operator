@@ -97,6 +97,11 @@ roots. The bundle is separate from the OpenBao API CA. Keep `insecureSkipVerify`
 The Secret can contain only `caCert` when authentication uses workload identity or the provider credential chain.
 Adding storage trust does not select static credentials; retain the required role or workload-identity configuration.
 
+For S3, a nonempty `region` entry in the storage Secret takes precedence over the target region for backup, restore,
+and controller-side storage operations. An absent or blank entry uses the configured target region, then `us-east-1`
+when no region is configured. A region-only Secret does not select static authentication; the provider credential
+chain still applies.
+
 For platform workload identity, set `target.workloadIdentity.serviceAccountAnnotations` and, when required,
 `target.workloadIdentity.podLabels`. For S3 web identity, the effective `target.s3.roleArn` or compatibility
 `target.roleArn` projects an STS token and configures the

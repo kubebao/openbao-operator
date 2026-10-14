@@ -76,7 +76,7 @@ func (m *Manager) loadBackupCredentialsSecret(ctx context.Context, cluster *open
 func configureS3StorageConfig(storageConfig *storage.Config, target openbaov1alpha1.BackupTarget, credsSecret *corev1.Secret, ensureExists bool) {
 	region := storageenv.ResolveDestination(target).Region
 
-	credentials := &blobstore.Credentials{Region: region}
+	credentials := &blobstore.Credentials{}
 	if credsSecret != nil {
 		if v, ok := credsSecret.Data[blobstore.SecretKeyAccessKeyID]; ok {
 			credentials.AccessKeyID = strings.TrimSpace(string(v))
@@ -95,7 +95,8 @@ func configureS3StorageConfig(storageConfig *storage.Config, target openbaov1alp
 		}
 	}
 
-	storageConfig.Region = credentials.Region
+	storageConfig.Region = blobstore.EffectiveS3Region(region, credentials.Region)
+	credentials.Region = storageConfig.Region
 	storageConfig.Credentials = credentials
 	storageConfig.S3 = &storage.S3Options{
 		UsePathStyle:       target.EffectiveS3UsePathStyle(),

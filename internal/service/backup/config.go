@@ -27,6 +27,8 @@ type ExecutorConfig struct {
 	// S3-specific configuration
 	BackupUsePathStyle bool
 	BackupRegion       string
+	// StorageRegion is the mounted S3 credential region override, before defaults.
+	StorageRegion string
 
 	// GCS-specific configuration
 	GCSProject string
