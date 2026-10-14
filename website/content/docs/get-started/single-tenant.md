@@ -44,8 +44,8 @@ Use Helm for a released 0.5.x installation.
 
    {{< command label="apply" title="Install a single-tenant operator" >}}
    helm upgrade --install openbao-operator \
-     oci://ghcr.io/dc-tec/charts/openbao-operator \
-     --version 0.5.1 \
+     oci://ghcr.io/kubebao/charts/openbao-operator \
+     --version 0.5.2 \
      --namespace openbao-operator-system \
      --create-namespace \
      --set tenancy.mode=single \
@@ -83,7 +83,7 @@ that namespace.
 2. Obtain the operator source for the version you intend to install.
 
    {{< command label="configure" title="Clone a pinned operator release" >}}
-   git clone --branch 0.5.1 --depth 1 \
+   git clone --branch 0.5.2 --depth 1 \
      https://github.com/kubebao/openbao-operator.git
    cd openbao-operator
    {{< /command >}}

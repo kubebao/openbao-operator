@@ -25,10 +25,14 @@ The operator requires Kubernetes 1.33 or newer. The rows below describe the curr
 
 ## OpenBao versions
 
+The [0.5.2 release](../../../releases/0.5.2/) passed nine release E2E lanes on each of Kubernetes 1.34.3, 1.35.1,
+and 1.36.1. Its operator upgrade check covers the transition from 0.5.1 in the Development and Hardened profiles.
+These results apply to the released 0.5.2 artifacts; validate the exact deployment in staging.
+
 | Version | Validation | Production note |
 | --- | --- | --- |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
-| 2.6.3 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, and restore qualification | Operator 0.5.1 validation target; validate the exact environment in staging |
+| 2.6.3 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, and restore qualification | Operator 0.5.2 validation target; validate the exact environment in staging |
 | 2.6.2 | OpenBao Operator 0.5.0 release target; rolling-upgrade source for local 2.6.3 qualification | Use the latest qualified security patch |
 | Other 2.6.x | Not individually release-gated | Validate the exact patch in staging |
 | 2.5.x | Config compatibility and rolling-upgrade source coverage | Validate the transition in staging |

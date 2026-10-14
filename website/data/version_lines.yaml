@@ -1,14 +1,14 @@
 "0.5.x":
   label: "0.5.x"
-  release: "0.5.1"
+  release: "0.5.2"
   state: "Current stable"
   showNotice: false
-  sourceRef: "0.5.1"
-  fallbackSourceRef: "94b18f2e3a2dde49550adad43d095220d4dac945"
+  sourceRef: "0.5.2"
+  fallbackSourceRef: "7130da6b9397a45480c1d003e613e0aab1ae346e"
   editRef: "main"
   contentRoot: "website/content"
   editable: true
-  notice: "Current stable documentation for the 0.5 minor line through OpenBao Operator 0.5.1."
+  notice: "Current stable documentation for the 0.5 minor line through OpenBao Operator 0.5.2."
 "0.4.x":
   label: "0.4.x"
   release: "0.4.2"

@@ -2,6 +2,13 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.5.2](https://github.com/kubebao/openbao-operator/compare/0.5.1...0.5.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **release:** backport compatible fixes for 0.5.2 ([#809](https://github.com/kubebao/openbao-operator/issues/809)) ([0dd7035](https://github.com/kubebao/openbao-operator/commit/0dd70358de5ced96cf9cae95ba4cf4fd4ad7a1cd))
+
 ## [0.5.1](https://github.com/dc-tec/openbao-operator/compare/0.5.0...0.5.1) (2026-09-23)
 
 

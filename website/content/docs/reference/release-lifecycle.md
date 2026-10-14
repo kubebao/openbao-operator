@@ -32,7 +32,7 @@ Documentation is versioned by minor release, not by patch:
 
 | Route | Contract |
 | --- | --- |
-| Unprefixed | Current stable 0.5.x line through 0.5.1 |
+| Unprefixed | Current stable 0.5.x line through 0.5.2 |
 | `/latest/` | Compatibility redirect to the current stable home |
 | `/0.4.x/` | Previous stable 0.4.x line through 0.4.2 |
 | `/next/` | Unreleased behavior on `main`; evaluation only |

@@ -38,7 +38,7 @@ configuration and resource identity aligned before the workload is applied.
 
 | Service | Primary responsibility |
 | --- | --- |
-| Certificates | Create or observe TLS material; request in-pod reload before OpenBao 2.7 |
+| Certificates | Create or observe TLS material and signal in-pod reload when active leaf content changes |
 | Bootstrap and configuration | Render `config.hcl`, self-init requests, seal prerequisites, ACME cache storage, and managed audit-file storage |
 | Networking | Reconcile Services, Ingress or Gateway resources, backend trust, and NetworkPolicies |
 | Identity | Reconcile the workload ServiceAccount and namespaced RBAC |
@@ -57,15 +57,12 @@ The services share three contracts:
 
 | Mode | Certificate owner | Certificate service behavior |
 | --- | --- | --- |
-| `OperatorManaged` | Operator | Create and rotate the CA and server Secrets |
-| `External` | User or external controller | Wait for the required Secrets and validate them when their content changes |
+| `OperatorManaged` | Operator | Create and rotate the CA and server Secrets; signal reload after leaf content changes |
+| `External` | User or external controller | Wait for the required Secrets, validate them, and signal reload after their content changes |
 | `ACME` | OpenBao | Do not create or watch certificate Secrets; OpenBao and the rendered listener configuration own issuance and cache lifecycle |
 
-Certificate changes do not require a StatefulSet rollout. With OpenBao 2.7.0 or later, the operator enables
-`tls_auto_reload` on the API listener and the optional metrics-only listener. OpenBao polls the mounted certificate and
-key files every 10 seconds. Earlier versions use the in-pod wrapper to poll `tls.crt` every 10 seconds and send
-`SIGHUP` when its content changes. For those versions, the certificate service also records the active certificate
-hash on ready Pods. Kubernetes must project a changed Secret into the Pod before either watcher can reload it.
+Certificate changes do not require a StatefulSet rollout. The certificate service computes the active certificate hash
+and signals the ready workload to reload only when the hash changes.
 
 {{< callout type="note" title="ACME is outside the certificate service" >}}
 The certificate service returns without action in ACME mode. Listener rendering and cache prerequisites belong to the
