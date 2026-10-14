@@ -164,9 +164,10 @@ func waitForBackupJobCreated(ctx context.Context, c client.Client, namespace, cl
 
 		var jobs batchv1.JobList
 		err := c.List(ctx, &jobs, client.InNamespace(namespace), client.MatchingLabels{
-			constants.LabelAppManagedBy:     constants.LabelValueAppManagedByOpenBaoOperator,
-			constants.LabelOpenBaoComponent: "backup",
-			constants.LabelOpenBaoCluster:   clusterName,
+			constants.LabelAppManagedBy:      constants.LabelValueAppManagedByOpenBaoOperator,
+			constants.LabelOpenBaoComponent:  "backup",
+			constants.LabelOpenBaoBackupType: constants.BackupTypeScheduled,
+			constants.LabelOpenBaoCluster:    clusterName,
 		})
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(jobs.Items).ToNot(BeEmpty())
@@ -214,9 +215,10 @@ func waitForSuccessfulBackupJob(ctx context.Context, c client.Client, namespace,
 	Eventually(func(g Gomega) {
 		var jobs batchv1.JobList
 		err := c.List(ctx, &jobs, client.InNamespace(namespace), client.MatchingLabels{
-			constants.LabelAppManagedBy:     constants.LabelValueAppManagedByOpenBaoOperator,
-			constants.LabelOpenBaoComponent: "backup",
-			constants.LabelOpenBaoCluster:   clusterName,
+			constants.LabelAppManagedBy:      constants.LabelValueAppManagedByOpenBaoOperator,
+			constants.LabelOpenBaoComponent:  "backup",
+			constants.LabelOpenBaoBackupType: constants.BackupTypeScheduled,
+			constants.LabelOpenBaoCluster:    clusterName,
 		})
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -1237,6 +1239,42 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 
 			By("recording the latest Azure backup key from cluster status")
 			recordLatestBackupKey(ctx, tenantFW, admin, tenantNamespace, drCluster.Name, &backupKey)
+		})
+
+		It("applies Azure retention in a separate storage workload", Label("e2e-anchor", "case:dr-azure-retention"), func() {
+			By("waiting for the first backup and retention to release the operation lock")
+			Eventually(func(g Gomega) {
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(drCluster), drCluster)).To(Succeed())
+				g.Expect(drCluster.Status.OperationLock).To(BeNil())
+			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			previousKey := drCluster.Status.Backup.LastBackupName
+			By("retaining one snapshot and creating another verified backup")
+			before := drCluster.DeepCopy()
+			drCluster.Spec.Backup.Retention.MaxCount = 1
+			Expect(admin.Patch(ctx, drCluster, client.MergeFrom(before))).To(Succeed())
+			Expect(triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)).To(Succeed())
+			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(drCluster), drCluster)).To(Succeed())
+				g.Expect(drCluster.Status.Backup.LastBackupName).NotTo(Equal(previousKey))
+				g.Expect(drCluster.Status.Backup.Retention).NotTo(BeNil())
+				result := drCluster.Status.Backup.Retention.Last
+				g.Expect(result).NotTo(BeNil())
+				g.Expect(result.Key).To(Equal(drCluster.Status.Backup.LastBackupName))
+				g.Expect(result.Outcome).To(Equal(openbaov1alpha1.BackupRetentionSucceeded))
+				g.Expect(result.DeletedByCount).To(BeNumerically(">=", 1))
+				g.Expect(drCluster.Status.Backup.Retention.Active).To(BeNil())
+				g.Expect(drCluster.Status.OperationLock).To(BeNil())
+			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			backupKey = drCluster.Status.Backup.LastBackupName
+			By("checking that the worker retains storage identity without OpenBao authentication")
+			job := &batchv1.Job{}
+			Expect(admin.Get(ctx, client.ObjectKey{Namespace: tenantNamespace, Name: drCluster.Status.Backup.Retention.Last.Name}, job)).To(Succeed())
+			Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(drCluster.Name + constants.SuffixBackupServiceAccount))
+			Expect(job.Spec.Template.Labels[constants.LabelOpenBaoBackupType]).To(Equal("retention"))
+			for _, volume := range job.Spec.Template.Spec.Volumes {
+				Expect(volume.Name).To(Equal("backup-credentials"))
+			}
 		})
 
 		It("restores from Azure backup using OpenBaoRestore CR", func() {

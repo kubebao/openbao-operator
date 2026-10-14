@@ -145,7 +145,7 @@ func BuildJob(cluster *openbaov1alpha1.OpenBaoCluster, opts JobOptions) (*batchv
 			Name:        opts.JobName,
 			Namespace:   cluster.Namespace,
 			Labels:      jobLabels,
-			Annotations: map[string]string{},
+			Annotations: map[string]string{annotationBackupGeneration: fmt.Sprint(cluster.Generation)},
 		},
 		Spec: batchv1.JobSpec{
 			BackoffLimit:            &backoffLimit,

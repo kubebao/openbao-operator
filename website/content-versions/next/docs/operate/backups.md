@@ -12,7 +12,8 @@ verifiedBy:
   - internal/service/backup/manager_effects.go
   - test/integration/backup_manager_test.go
   - internal/service/backup/manager_trigger.go
-  - internal/service/backup/manager_retention.go
+  - internal/service/backup/retention_lifecycle.go
+  - cmd/bao-backup/retention_flow.go
   - internal/service/workloadidentity/readiness.go
   - internal/service/backup/manager_trigger_test.go
 ---
@@ -163,9 +164,30 @@ Retention only manages scheduled and manual snapshots stored directly under the 
 and blue-green phase snapshots, nested objects, and any other files in that prefix untouched. Remove those by hand or
 with storage lifecycle rules.
 
-{{< callout type="note" title="Retention currently needs a credentials Secret" >}}
-Controller-side retention runs only when `target.credentialsSecretRef` is configured. It is skipped for an effective S3 role,
-workload identity, and other provider-default identity paths. Apply storage-native lifecycle rules for those paths.
+Retention runs in a separate Job with the successful backup's writer ServiceAccount and storage credentials.
+This supports credential Secrets, S3 web identity, and GCS or Azure workload identity. The storage identity needs
+permission to list and delete snapshots in addition to the permissions needed to upload and verify them.
+
+The operator records snapshot success before it reserves retention. It holds the backup operation lock during
+retention, which can delay the next backup or upgrade. New restore-test reservations wait for retention; an existing
+restore test's snapshot remains protected. The worker has an absolute four-minute deadline, and the Job has a
+five-minute active deadline. A delayed start does not extend the worker deadline. There is one Create attempt per
+successful source Job; retention failure does not change the snapshot result. The next successful backup can retry.
+
+Check `status.backup.retention.active`, `status.backup.retention.last`, and the `RetentionSucceeded` condition under
+`status.backup.retention.conditions`. `Succeeded`, `Failed`, and `Skipped` refer to cleanup, independently of
+`status.backup.lastBackupName`. A failed batch can have partial effects; unknown partial deletions are not counted
+as successful deletions. The worker uses the successful backup's frozen target and configuration generation.
+A configuration change before submission skips that attempt. A submitted worker finishes with its frozen plan.
+
+{{< callout type="warning" title="Uncertain retention execution requires inspection" >}}
+A missing or replaced submitted Job, missing Pod evidence, or a container whose termination cannot be observed
+keeps the retention reservation active. A deadline or Kubernetes deletion does not prove that execution stopped.
+This blocks new backups and restore-test reservations and keeps the source cluster's deletion finalizer.
+Inspect executor termination and object-storage activity before an administrator records a failed or skipped last
+outcome for the active `sourceJobUID` and clears `active` through the status subresource. Preserve the source Job UID
+in the last outcome to prevent replay of that attempt. This disposition accepts any remaining process or provider uncertainty. Update custom backup images to an executor that
+supports `EXECUTOR_MODE=retention`; unsupported executors report a separate retention failure.
 {{< /callout >}}
 
 Enable `spec.upgrade.preUpgradeSnapshot: true` to require a snapshot before either upgrade strategy. Blue-green also

@@ -155,6 +155,9 @@ func ApplyRetention(
 		// Use batch delete for efficiency
 		if err := storageClient.DeleteBatch(ctx, keysToDelete); err != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("failed to delete backups: %w", err))
+			// DeleteBatch does not identify partial successes. Do not count planned
+			// deletions as confirmed deletions when any part of the batch fails.
+			result.DeletedByCount, result.DeletedByAge = 0, 0
 			// Log but don't fail - retention errors shouldn't fail the backup
 			logger.Error(err, "Failed to delete some backups during retention",
 				"keysAttempted", len(keysToDelete))

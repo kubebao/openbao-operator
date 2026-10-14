@@ -82,26 +82,8 @@ func (c *ExecutorConfig) Validate() error {
 	if c.ClusterReplicas <= 0 {
 		return fmt.Errorf("cluster replicas must be greater than 0")
 	}
-	if c.BackupBucket == "" {
-		return fmt.Errorf("backup bucket is required")
-	}
-
-	// Provider-specific validation
-	switch c.BackupProvider {
-	case constants.StorageProviderS3, "":
-		// S3 requires endpoint and region
-		if c.BackupEndpoint == "" {
-			return fmt.Errorf("backup endpoint is required for S3 provider")
-		}
-	case constants.StorageProviderGCS:
-		// GCS doesn't require endpoint (uses default googleapis.com)
-	case constants.StorageProviderAzure:
-		// Azure requires storage account
-		if c.AzureStorageAccount == "" && c.AzureConnectionString == "" {
-			return fmt.Errorf("azure storage account or connection string is required")
-		}
-	default:
-		return fmt.Errorf("invalid backup provider: %q", c.BackupProvider)
+	if err := validateStorageConfiguration(c); err != nil {
+		return err
 	}
 
 	switch c.AuthMethod {
@@ -124,6 +106,32 @@ func (c *ExecutorConfig) Validate() error {
 	default:
 		return fmt.Errorf("invalid auth method: %q", c.AuthMethod)
 	}
+	return nil
+}
+
+func validateStorageConfiguration(c *ExecutorConfig) error {
+	if c.BackupBucket == "" {
+		return fmt.Errorf("backup bucket is required")
+	}
+
+	// Provider-specific validation
+	switch c.BackupProvider {
+	case constants.StorageProviderS3, "":
+		// S3 requires endpoint and region
+		if c.BackupEndpoint == "" {
+			return fmt.Errorf("backup endpoint is required for S3 provider")
+		}
+	case constants.StorageProviderGCS:
+		// GCS doesn't require endpoint (uses default googleapis.com)
+	case constants.StorageProviderAzure:
+		// Azure requires storage account
+		if c.AzureStorageAccount == "" && c.AzureConnectionString == "" {
+			return fmt.Errorf("azure storage account or connection string is required")
+		}
+	default:
+		return fmt.Errorf("invalid backup provider: %q", c.BackupProvider)
+	}
+
 	return nil
 }
 

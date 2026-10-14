@@ -6643,6 +6643,207 @@ spec:
                         format: date-time
                         type: string
                     type: object
+                  retention:
+                    description: Retention stores the active cleanup workload and
+                      its last independent outcome.
+                    properties:
+                      active:
+                        description: Active pins the retention plan until its workload
+                          has stopped.
+                        properties:
+                          deadlineAt:
+                            description: DeadlineAt is the absolute worker deadline,
+                              including time spent awaiting submission.
+                            format: date-time
+                            type: string
+                          generation:
+                            description: Generation pins the source configuration
+                              used by the backup Job.
+                            format: int64
+                            type: integer
+                          key:
+                            description: Key protects the last successful snapshot
+                              throughout retention.
+                            type: string
+                          name:
+                            description: Name is the deterministic retention Job name.
+                            type: string
+                          policy:
+                            description: Policy is the frozen retention policy.
+                            properties:
+                              maxAge:
+                                description: |-
+                                  MaxAge is the maximum age of backups to retain, e.g., "168h" for 7 days.
+                                  Backups older than this are deleted after successful new backup upload.
+                                type: string
+                              maxCount:
+                                description: MaxCount is the maximum number of backups
+                                  to retain (0 = unlimited).
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            type: object
+                          prefix:
+                            description: Prefix confines deletion to scheduled snapshots
+                              directly under this cluster prefix.
+                            type: string
+                          restoreTestKey:
+                            description: RestoreTestKey protects a previously reserved
+                              restore-test snapshot.
+                            type: string
+                          sourceJobName:
+                            description: SourceJobName identifies the successful scheduled
+                              backup Job.
+                            type: string
+                          sourceJobUID:
+                            description: SourceJobUID pins the successful backup Job.
+                            type: string
+                          startedAt:
+                            description: StartedAt records reservation time.
+                            format: date-time
+                            type: string
+                          submittedAt:
+                            description: SubmittedAt records the single permitted
+                              Create attempt before the API call.
+                            format: date-time
+                            type: string
+                          uid:
+                            description: UID binds the observed Job. Absence after
+                              submission is uncertain, not permission to retry.
+                            type: string
+                        required:
+                        - deadlineAt
+                        - generation
+                        - key
+                        - name
+                        - policy
+                        - prefix
+                        - sourceJobName
+                        - sourceJobUID
+                        - startedAt
+                        type: object
+                      conditions:
+                        description: Conditions report retention progress independently
+                          of snapshot success.
+                        items:
+                          description: Condition contains details for one aspect of
+                            the current state of this API Resource.
+                          properties:
+                            lastTransitionTime:
+                              description: |-
+                                lastTransitionTime is the last time the condition transitioned from one status to another.
+                                This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                              format: date-time
+                              type: string
+                            message:
+                              description: |-
+                                message is a human readable message indicating details about the transition.
+                                This may be an empty string.
+                              maxLength: 32768
+                              type: string
+                            observedGeneration:
+                              description: |-
+                                observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                with respect to the current state of the instance.
+                              format: int64
+                              minimum: 0
+                              type: integer
+                            reason:
+                              description: |-
+                                reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                Producers of specific condition types may define expected values and meanings for this field,
+                                and whether the values are considered a guaranteed API.
+                                The value should be a CamelCase string.
+                                This field may not be empty.
+                              maxLength: 1024
+                              minLength: 1
+                              pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                              type: string
+                            status:
+                              description: status of the condition, one of True, False,
+                                Unknown.
+                              enum:
+                              - "True"
+                              - "False"
+                              - Unknown
+                              type: string
+                            type:
+                              description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                              maxLength: 316
+                              pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                              type: string
+                          required:
+                          - lastTransitionTime
+                          - message
+                          - reason
+                          - status
+                          - type
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - type
+                        x-kubernetes-list-type: map
+                      last:
+                        description: Last records the last finished or skipped retention
+                          attempt.
+                        properties:
+                          deletedByAge:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          deletedByCount:
+                            description: |-
+                              DeletedByCount and DeletedByAge count confirmed successful batch deletions.
+                              A failed batch can have partial effects; its unknown partial count is not reported as success.
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          finishedAt:
+                            format: date-time
+                            type: string
+                          key:
+                            description: Key identifies the successful snapshot that
+                              triggered this attempt.
+                            type: string
+                          message:
+                            type: string
+                          name:
+                            type: string
+                          outcome:
+                            description: BackupRetentionOutcome separates cleanup
+                              results from snapshot results.
+                            enum:
+                            - Succeeded
+                            - Failed
+                            - Skipped
+                            type: string
+                          reason:
+                            description: Reason is a stable reason code. Message describes
+                              the outcome and next action.
+                            type: string
+                          sourceJobUID:
+                            description: |-
+                              UID is a type that holds unique ID values, including UUIDs.  Because we
+                              don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                              intent and helps make sure that UIDs and names do not get conflated.
+                            type: string
+                          startedAt:
+                            format: date-time
+                            type: string
+                        required:
+                        - deletedByAge
+                        - deletedByCount
+                        - finishedAt
+                        - key
+                        - message
+                        - name
+                        - outcome
+                        - reason
+                        - sourceJobUID
+                        - startedAt
+                        type: object
+                    type: object
                   successfulBackups:
                     description: SuccessfulBackups counts newly observed successful
                       backup Jobs.

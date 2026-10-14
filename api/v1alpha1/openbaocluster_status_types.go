@@ -299,6 +299,10 @@ type UpgradeRequestStatus struct {
 
 // BackupStatus tracks the state of backups for a cluster.
 type BackupStatus struct {
+	// Retention stores the active cleanup workload and its last independent outcome.
+	// +optional
+	Retention *BackupRetentionStatus `json:"retention,omitempty"`
+
 	// SuccessfulBackups counts newly observed successful backup Jobs.
 	// +optional
 	SuccessfulBackups int64 `json:"successfulBackups,omitempty"`

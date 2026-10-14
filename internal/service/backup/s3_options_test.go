@@ -3,7 +3,6 @@ package backup
 import (
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -59,15 +58,6 @@ func TestControllerStorageReads_UseEffectiveS3Role(t *testing.T) {
 			cluster.Spec.Backup.Target.S3 = &api.S3TargetConfig{RoleARN: ptr.To(role)}
 			cluster.Spec.Backup.Target.CredentialsSecretRef = &corev1.LocalObjectReference{Name: "storage-creds"}
 			require.Equal(t, role == "", shouldReadBackupSizeFromObjectStorage(cluster))
-			// Invalid retention configuration is reached only when controller-side
-			// credential use is permitted; projected role identity skips this path.
-			cluster.Spec.Backup.Retention = &api.BackupRetention{MaxAge: "invalid"}
-			err := (&Manager{}).applyRetention(t.Context(), logr.Discard(), cluster, NewMetrics(cluster.Namespace, cluster.Name))
-			if role == "" {
-				require.ErrorContains(t, err, "parse retention maxAge")
-			} else {
-				require.NoError(t, err)
-			}
 		})
 	}
 }

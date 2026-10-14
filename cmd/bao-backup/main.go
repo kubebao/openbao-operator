@@ -26,13 +26,15 @@ func main() {
 	var err error
 
 	switch mode {
+	case "retention":
+		err = runRetention(ctx)
 	case "restore":
 		err = runRestore(ctx)
 	case "backup", "":
 		// Default to backup mode for backward compatibility
 		err = run(ctx)
 	default:
-		_, _ = fmt.Fprintf(os.Stderr, "unknown EXECUTOR_MODE: %s (expected 'backup' or 'restore')\n", mode)
+		_, _ = fmt.Fprintf(os.Stderr, "unknown EXECUTOR_MODE: %s (expected 'backup', 'restore', or 'retention')\n", mode)
 		os.Exit(exitConfigError)
 	}
 

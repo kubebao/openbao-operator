@@ -269,12 +269,102 @@ BackupRetention defines retention policy for backups.
 
 
 _Appears in:_
+- [BackupRetentionRun](#backupretentionrun)
 - [BackupSchedule](#backupschedule)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `maxCount` _integer_ | MaxCount is the maximum number of backups to retain (0 = unlimited). |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `maxAge` _string_ | MaxAge is the maximum age of backups to retain, e.g., "168h" for 7 days.<br />Backups older than this are deleted after successful new backup upload. |  | Optional: \{\} <br /> |
+
+
+#### BackupRetentionOutcome
+
+_Underlying type:_ _string_
+
+BackupRetentionOutcome separates cleanup results from snapshot results.
+
+_Validation:_
+- Enum: [Succeeded Failed Skipped]
+
+_Appears in:_
+- [BackupRetentionResult](#backupretentionresult)
+
+| Field | Description |
+| --- | --- |
+| `Succeeded` |  |
+| `Failed` |  |
+| `Skipped` |  |
+
+
+#### BackupRetentionResult
+
+
+
+BackupRetentionResult is the last independently observed cleanup outcome.
+
+
+
+_Appears in:_
+- [BackupRetentionStatus](#backupretentionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sourceJobUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ |  |  |  |
+| `name` _string_ |  |  |  |
+| `key` _string_ | Key identifies the successful snapshot that triggered this attempt. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  |  |
+| `finishedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  |  |
+| `outcome` _[BackupRetentionOutcome](#backupretentionoutcome)_ |  |  | Enum: [Succeeded Failed Skipped] <br /> |
+| `reason` _string_ | Reason is a stable reason code. Message describes the outcome and next action. |  |  |
+| `message` _string_ |  |  |  |
+| `deletedByCount` _integer_ | DeletedByCount and DeletedByAge count confirmed successful batch deletions.<br />A failed batch can have partial effects; its unknown partial count is not reported as success. |  | Minimum: 0 <br /> |
+| `deletedByAge` _integer_ |  |  | Minimum: 0 <br /> |
+
+
+#### BackupRetentionRun
+
+
+
+BackupRetentionRun records the immutable deletion boundary and workload identity.
+
+
+
+_Appears in:_
+- [BackupRetentionStatus](#backupretentionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the deterministic retention Job name. |  |  |
+| `uid` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | UID binds the observed Job. Absence after submission is uncertain, not permission to retry. |  | Optional: \{\} <br /> |
+| `sourceJobName` _string_ | SourceJobName identifies the successful scheduled backup Job. |  |  |
+| `sourceJobUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | SourceJobUID pins the successful backup Job. |  |  |
+| `generation` _integer_ | Generation pins the source configuration used by the backup Job. |  |  |
+| `key` _string_ | Key protects the last successful snapshot throughout retention. |  |  |
+| `prefix` _string_ | Prefix confines deletion to scheduled snapshots directly under this cluster prefix. |  |  |
+| `restoreTestKey` _string_ | RestoreTestKey protects a previously reserved restore-test snapshot. |  | Optional: \{\} <br /> |
+| `policy` _[BackupRetention](#backupretention)_ | Policy is the frozen retention policy. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartedAt records reservation time. |  |  |
+| `deadlineAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | DeadlineAt is the absolute worker deadline, including time spent awaiting submission. |  |  |
+| `submittedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | SubmittedAt records the single permitted Create attempt before the API call. |  | Optional: \{\} <br /> |
+
+
+#### BackupRetentionStatus
+
+
+
+BackupRetentionStatus holds one active workload and one last result.
+
+
+
+_Appears in:_
+- [BackupStatus](#backupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `active` _[BackupRetentionRun](#backupretentionrun)_ | Active pins the retention plan until its workload has stopped. |  | Optional: \{\} <br /> |
+| `last` _[BackupRetentionResult](#backupretentionresult)_ | Last records the last finished or skipped retention attempt. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions report retention progress independently of snapshot success. |  | Optional: \{\} <br /> |
 
 
 #### BackupSchedule
@@ -332,6 +422,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `retention` _[BackupRetentionStatus](#backupretentionstatus)_ | Retention stores the active cleanup workload and its last independent outcome. |  | Optional: \{\} <br /> |
 | `successfulBackups` _integer_ | SuccessfulBackups counts newly observed successful backup Jobs. |  | Optional: \{\} <br /> |
 | `latestSnapshot` _[BackupSnapshotSummary](#backupsnapshotsummary)_ | LatestSnapshot contains the latest executor's source observation. |  | Optional: \{\} <br /> |
 | `restoreTest` _[RestoreTestStatus](#restoreteststatus)_ | RestoreTest stores one active run and one last result. |  | Optional: \{\} <br /> |

@@ -112,9 +112,11 @@ func (p reconcilerPlan) orderedFor(cluster *openbaov1alpha1.OpenBaoCluster) []su
 		}
 		return policyReadinessReconciler{inner: rec, policy: policy}
 	}
-	backupOwnsLock := cluster != nil &&
+	retentionRunning := cluster != nil && cluster.Status.Backup != nil && cluster.Status.Backup.Retention != nil &&
+		cluster.Status.Backup.Retention.Active != nil
+	backupOwnsLock := retentionRunning || (cluster != nil &&
 		cluster.Status.OperationLock != nil &&
-		cluster.Status.OperationLock.Operation == openbaov1alpha1.ClusterOperationBackup
+		cluster.Status.OperationLock.Operation == openbaov1alpha1.ClusterOperationBackup)
 
 	if backupOwnsLock && p.backupReconciler != nil {
 		reconcilers = append(reconcilers, withPolicy(p.backupReconciler, portauth.PolicyNameBackup))
@@ -136,7 +138,9 @@ type policyReadinessReconciler struct {
 func (r policyReadinessReconciler) Reconcile(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (upgrademanager.ReconcileResult, error) {
 	// Check before each reconciler: a preceding operation can release its lock
 	// during this pass. Running operations can still observe Jobs and finish.
-	if cluster.Status.OperationLock == nil {
+	retentionRunning := r.policy == portauth.PolicyNameBackup && cluster.Status.Backup != nil &&
+		cluster.Status.Backup.Retention != nil && cluster.Status.Backup.Retention.Active != nil
+	if cluster.Status.OperationLock == nil && !retentionRunning {
 		if err := configuration.RequirePolicyReady(cluster, r.policy); err != nil {
 			return upgrademanager.ReconcileResult{}, err
 		}

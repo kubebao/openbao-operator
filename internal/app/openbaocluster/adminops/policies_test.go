@@ -74,3 +74,23 @@ func TestUnapprovedUpgradeDoesNotBlockBackup(t *testing.T) {
 		})
 	}
 }
+
+func TestActiveRetentionObservesWithoutOpenBaoPolicyOrOperationLock(t *testing.T) {
+	cluster := &openbaov1alpha1.OpenBaoCluster{}
+	cluster.Spec.ReconcilePolicies = true
+	cluster.Spec.Backup = &openbaov1alpha1.BackupSchedule{}
+	cluster.Status.Workload = &openbaov1alpha1.WorkloadControllerStatus{
+		PolicyReconciliation: &openbaov1alpha1.PolicyReconciliationStatus{Revisions: map[string]string{portauth.PolicyNameBackup: "stale"}},
+	}
+	cluster.Status.Backup = &openbaov1alpha1.BackupStatus{Retention: &openbaov1alpha1.BackupRetentionStatus{
+		Active: &openbaov1alpha1.BackupRetentionRun{Name: "retention"},
+	}}
+	var calls []string
+	plan := reconcilerPlan{backupReconciler: recordingSubReconciler{name: "retention", calls: &calls}}
+	_, err := plan.orderedFor(cluster)[0].Reconcile(t.Context(), logr.Discard(), cluster)
+	require.NoError(t, err)
+	require.Equal(t, []string{"retention"}, calls)
+	cluster.Status.Backup.Retention.Active = nil
+	_, err = plan.orderedFor(cluster)[0].Reconcile(t.Context(), logr.Discard(), cluster)
+	require.Error(t, err, "ordinary backup remains gated by its stale policy")
+}

@@ -186,7 +186,7 @@ func NewRuntimeApplications(config RuntimeApplicationsConfig) *Applications {
 				return observer, nil
 			},
 		},
-		DeletionDependencies: DeletionDependencies{Client: config.Kubernetes.Client},
+		DeletionDependencies: DeletionDependencies{Client: config.Kubernetes.Client, APIReader: config.Kubernetes.APIReader},
 		StatusIntegration: StatusIntegrationDependencies{
 			Client:            config.Kubernetes.Client,
 			APIReader:         config.Kubernetes.APIReader,

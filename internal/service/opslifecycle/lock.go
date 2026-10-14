@@ -95,6 +95,13 @@ func AcquireWithReaderResult(
 
 	result := AcquireResult{}
 	err := mutateOperationLockStatus(ctx, reader, c, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.UID != cluster.UID {
+			return fmt.Errorf("cluster UID changed before operation lock acquisition")
+		}
+		if backup := obj.Status.Backup; backup != nil && backup.Retention != nil && backup.Retention.Active != nil {
+			return &HeldError{Operation: openbaov1alpha1.ClusterOperationBackup, Holder: "backup-retention",
+				Message: fmt.Sprintf("retention Job %s has not terminated", backup.Retention.Active.Name)}
+		}
 		now := metav1.Now()
 		current := obj.Status.OperationLock
 		result = AcquireResult{}
@@ -148,6 +155,9 @@ func ReleaseWithReader(
 	}
 
 	return mutateOperationLockStatus(ctx, reader, c, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.UID != cluster.UID {
+			return fmt.Errorf("cluster UID changed before operation lock release")
+		}
 		current := obj.Status.OperationLock
 		switch {
 		case current == nil:

@@ -16,13 +16,23 @@ import (
 
 // Dependencies contains external collaborators required for deletion orchestration.
 type Dependencies struct {
-	Client           client.Client
+	Client client.Client
+	// APIReader supplies uncached execution custody and status observations.
+	APIReader        client.Reader
 	RetentionSecrets []string
 }
 
 // Handle applies the deletion policy for an OpenBaoCluster.
 func Handle(ctx context.Context, logger logr.Logger, deps Dependencies, cluster *openbaov1alpha1.OpenBaoCluster) error {
-	if err := backup.CancelRestoreTest(ctx, deps.Client, deps.Client, adminopsstatus.NewMutator(deps.Client, deps.Client), cluster); err != nil {
+	reader := deps.APIReader
+	if reader == nil {
+		reader = deps.Client
+	}
+	mutator := adminopsstatus.NewMutator(reader, deps.Client)
+	if err := backup.CancelRetention(ctx, deps.Client, reader, mutator, cluster); err != nil {
+		return err
+	}
+	if err := backup.CancelRestoreTest(ctx, reader, deps.Client, mutator, cluster); err != nil {
 		return err
 	}
 

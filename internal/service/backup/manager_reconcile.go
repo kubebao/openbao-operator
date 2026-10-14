@@ -21,6 +21,17 @@ func (m *Manager) Reconcile(ctx context.Context, logger logr.Logger, cluster *op
 	metrics := NewMetrics(cluster.Namespace, cluster.Name)
 	now := time.Now().UTC()
 
+	if retentionActive(cluster) {
+		result, err := m.reconcileRetention(ctx, logger, cluster, now)
+		if err != nil {
+			return result, err
+		}
+		if err := m.reconcileRestoreTest(ctx, logger, cluster, now); err != nil {
+			return result, err
+		}
+		return result, nil
+	}
+
 	if backupOperationLock.IsHeldBy(cluster.Status.OperationLock) {
 		if err := m.ensureBackupStatus(ctx, cluster); err != nil {
 			return recon.Result{}, err
@@ -77,7 +88,7 @@ func (m *Manager) ensureBackupStatus(ctx context.Context, cluster *openbaov1alph
 }
 
 func (m *Manager) releaseBackupLock(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, contextNote string) error {
-	if err := opslifecycle.ReleaseWithReader(ctx, m.reader, m.client, cluster, backupOperationLock); err != nil && !opslifecycle.IsLockHeld(err) {
+	if err := opslifecycle.ReleaseWithReader(ctx, retentionGuardReader{Reader: m.reader, uid: cluster.UID}, m.client, cluster, backupOperationLock); err != nil && !opslifecycle.IsLockHeld(err) {
 		logger.Error(err, "Failed to release backup operation lock", "context", contextNote)
 		return fmt.Errorf("failed to release backup operation lock %s: %w", contextNote, err)
 	} else if err == nil {

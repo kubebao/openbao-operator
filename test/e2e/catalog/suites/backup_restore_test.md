@@ -8,6 +8,7 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 
 | Case ID | Spec | State | Covers | Labels |
 | --- | --- | --- | --- | --- |
+| `dr-azure-retention` | applies Azure retention in a separate storage workload | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor` |
 | `dr-azure-provider-backup-smoke` | executes a manual backup to Azure | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke` |
 | `backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a` | restores from Azure backup using OpenBaoRestore CR | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow` |
 | `dr-gcs-provider-backup-smoke` | executes a manual backup to GCS | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke` |
@@ -16,6 +17,24 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 | `dr-s3-restore-cr` | restores from S3 backup using OpenBaoRestore CR | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `read-replicas`, `read-replicas-restore` |
 | `dr-s3-restore-controller-restart` | retains the restore hold after controller restart while running | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `failure-injection` |
 | `dr-s3-initial-schedule` | starts the first scheduled S3 backup | active | _none_ | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor` |
+
+## `dr-azure-retention`
+
+Path: `DR: Storage Providers Backup & Restore > Azure Backup & Restore with Azurite > applies Azure retention in a separate storage workload`
+
+State: `active`
+
+Generated fallback ID: `backup-restore-applies-azure-retention-in-a-separate-5bbff6a1`
+
+Covers: _none_
+
+Labels: `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`
+
+Recorded checkpoints:
+- waiting for the first backup and retention to release the operation lock
+- retaining one snapshot and creating another verified backup
+- checking that the worker retains storage identity without OpenBao authentication
+
 
 ## `dr-azure-provider-backup-smoke`
 

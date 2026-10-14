@@ -387,58 +387,36 @@ func TestReconcile_OwnedBackupWithoutJobPreservesManualTrigger(t *testing.T) {
 	}
 }
 
-func TestReconcile_AppliesRetentionOnceForNewSuccessfulJob(t *testing.T) {
-	cluster := newTestClusterWithBackup("async-retention", "default")
-	cluster.Status.Initialized = true
-	cluster.Status.CurrentVersion = cluster.Spec.Version
-	cluster.Spec.Backup.Retention = &openbaov1alpha1.BackupRetention{MaxCount: 1}
-	cluster.Spec.Backup.JWTAuthRole = "backup-role"
-	cluster.Spec.Backup.Target.CredentialsSecretRef = &corev1.LocalObjectReference{Name: "backup-creds"}
-	nextScheduled := metav1.NewTime(time.Now().UTC().Add(24 * time.Hour))
-	cluster.Status.Backup.NextScheduledBackup = &nextScheduled
-
-	completedAt := time.Now().UTC().Add(-time.Minute)
-	job := newBackupJobForCluster(cluster, "async-retention-complete", completedAt)
-	job.Annotations["openbao.org/backup-key"] = "backups/default/async-retention/complete.snap"
-	job.Status = batchv1.JobStatus{Succeeded: 1}
-	credentials := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "backup-creds", Namespace: cluster.Namespace},
-		Data: map[string][]byte{
-			blobstore.SecretKeyAccessKeyID:     []byte("test-ak"),
-			blobstore.SecretKeySecretAccessKey: []byte("test-sk"),
-		},
-	}
-
-	k8sClient := newTestClient(t, cluster, job, credentials)
-	manager := newBackupManager(k8sClient)
-	store := &fakeBlobStore{objects: []blobstore.ObjectInfo{
-		{Key: job.Annotations["openbao.org/backup-key"], LastModified: completedAt},
-	}}
-	originalOpenBlobStoreFn := openBlobStoreFn
-	openBlobStoreFn = func(context.Context, storage.Config) (blobstore.BlobStore, error) {
-		return store, nil
-	}
-	defer func() { openBlobStoreFn = originalOpenBlobStoreFn }()
-
-	for reconcile := 1; reconcile <= 2; reconcile++ {
+func TestReconcile_ReservesRetentionOnceForNewSuccessfulJob(t *testing.T) {
+	cluster, job := newRetentionSource(t)
+	cluster.Status.Backup.LastBackupName = ""
+	job.CreationTimestamp = metav1.NewTime(time.Now().UTC().Add(-time.Minute))
+	c := newTestClient(t, cluster, job)
+	for i := 0; i < 2; i++ {
 		current := &openbaov1alpha1.OpenBaoCluster{}
-		if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), current); err != nil {
-			t.Fatalf("Get() before reconcile %d error = %v", reconcile, err)
+		if err := c.Get(t.Context(), client.ObjectKeyFromObject(cluster), current); err != nil {
+			t.Fatal(err)
 		}
-		if _, err := manager.Reconcile(context.Background(), logr.Discard(), current); err != nil {
-			t.Fatalf("Reconcile() call %d error = %v", reconcile, err)
+		if _, err := newBackupManager(c).Reconcile(t.Context(), logr.Discard(), current); err != nil {
+			t.Fatal(err)
 		}
-	}
-
-	if store.listCount != 1 {
-		t.Fatalf("retention list calls = %d, want 1", store.listCount)
 	}
 	updated := &openbaov1alpha1.OpenBaoCluster{}
-	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(cluster), updated); err != nil {
-		t.Fatalf("Get() cluster error = %v", err)
+	if err := c.Get(t.Context(), client.ObjectKeyFromObject(cluster), updated); err != nil {
+		t.Fatal(err)
 	}
-	if updated.Status.Backup == nil || updated.Status.Backup.LastBackupName != job.Annotations["openbao.org/backup-key"] {
-		t.Fatalf("backup status = %#v, want completed Job result", updated.Status.Backup)
+	if updated.Status.Backup.LastBackupName != job.Annotations["openbao.org/backup-key"] || updated.Status.Backup.SuccessfulBackups != 1 {
+		t.Fatalf("snapshot result = %#v, want one successful snapshot", updated.Status.Backup)
+	}
+	if updated.Status.Backup.Retention == nil || updated.Status.Backup.Retention.Active == nil {
+		t.Fatal("expected durable independent retention reservation")
+	}
+	jobs := &batchv1.JobList{}
+	if err := c.List(t.Context(), jobs, client.MatchingLabels{constants.LabelOpenBaoBackupType: retentionType}); err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs.Items) != 1 {
+		t.Fatalf("retention Jobs = %d, want one", len(jobs.Items))
 	}
 }
 

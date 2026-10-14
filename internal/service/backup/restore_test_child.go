@@ -60,6 +60,14 @@ func readRestoreTestChild(ctx context.Context, reader client.Reader, cluster *ap
 func CancelRestoreTest(ctx context.Context, reader client.Reader, c client.Client,
 	mutate adminops.StatusMutator, cluster *api.OpenBaoCluster,
 ) error {
+	live := &api.OpenBaoCluster{}
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(cluster), live); err != nil {
+		return fmt.Errorf("read restore test before source cleanup: %w", err)
+	}
+	if live.UID != cluster.UID {
+		return fmt.Errorf("source UID changed before restore test cancellation")
+	}
+	cluster = live
 	if cluster.Status.Backup == nil || cluster.Status.Backup.RestoreTest == nil || cluster.Status.Backup.RestoreTest.Active == nil {
 		return nil
 	}

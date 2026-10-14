@@ -2904,6 +2904,47 @@
     "suiteTitle": ""
   },
   {
+    "id": "dr-azure-retention",
+    "generatedId": "backup-restore-applies-azure-retention-in-a-separate-5bbff6a1",
+    "caseLabel": "dr-azure-retention",
+    "file": "test/e2e/backup_restore_test.go",
+    "type": "It",
+    "name": "applies Azure retention in a separate storage workload",
+    "path": [
+      "DR: Storage Providers Backup \u0026 Restore",
+      "Azure Backup \u0026 Restore with Azurite",
+      "applies Azure retention in a separate storage workload"
+    ],
+    "labels": [
+      "dr",
+      "backup",
+      "restore",
+      "storage-providers",
+      "nightly",
+      "slow",
+      "e2e-anchor",
+      "case:dr-azure-retention"
+    ],
+    "domainLabels": [
+      "dr",
+      "backup",
+      "restore",
+      "storage-providers",
+      "nightly",
+      "slow",
+      "e2e-anchor"
+    ],
+    "steps": [
+      "waiting for the first backup and retention to release the operation lock",
+      "retaining one snapshot and creating another verified backup",
+      "checking that the worker retains storage identity without OpenBao authentication"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "dr-azure-provider-backup-smoke",
     "generatedId": "backup-restore-executes-a-manual-backup-to-azure-e51c2b76",
     "caseLabel": "dr-azure-provider-backup-smoke",

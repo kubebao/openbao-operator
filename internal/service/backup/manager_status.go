@@ -24,6 +24,7 @@ func (m *Manager) patchStatusSSA(ctx context.Context, cluster *openbaov1alpha1.O
 		obj.Status.Backup = cluster.Status.Backup.DeepCopy()
 		if currentBackup != nil && obj.Status.Backup != nil {
 			obj.Status.Backup.RestoreTest = currentBackup.RestoreTest.DeepCopy()
+			obj.Status.Backup.Retention = currentBackup.Retention.DeepCopy()
 		}
 		return nil
 	}, adminops.ForceOwnershipOnConflict)

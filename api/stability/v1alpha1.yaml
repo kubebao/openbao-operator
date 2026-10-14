@@ -325,6 +325,21 @@ resources:
       - path: status.backup
         classification: informational
         owner: backup-status
+      - path: status.backup.retention
+        classification: stable-automation
+        owner: backup-status
+        rationale: Bounded cleanup reservation and outcome are independent of snapshot success.
+      - path: status.backup.retention.active
+        classification: informational
+        rationale: Pins the cleanup workload and frozen plan; automation should use the outcome and condition.
+      - path: status.backup.retention.last.message
+        classification: informational
+      - path: status.backup.retention.conditions
+        classification: stable-automation
+        stableValues:
+          - RetentionSucceeded
+      - path: status.backup.retention.conditions[].message
+        classification: informational
       - path: status.backup.lastBackupTime
         classification: stable-automation
         rationale: This is the replacement for deprecated status.lastBackupTime.

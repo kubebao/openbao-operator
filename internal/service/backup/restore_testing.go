@@ -57,7 +57,7 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 	if status.Active != nil {
 		return m.observeRestoreTest(ctx, cluster, expected, now)
 	}
-	if config == nil {
+	if config == nil || retentionActive(cluster) {
 		return nil
 	}
 	due, err := restoreTestDue(config, status, backup.SuccessfulBackups, cluster.CreationTimestamp.Time, now)
@@ -235,6 +235,9 @@ func (m *Manager) patchRestoreTestStatus(ctx context.Context, cluster *api.OpenB
 	reserving := cluster.Status.Backup.RestoreTest.Active != nil &&
 		(expected.RestoreTest == nil || expected.RestoreTest.Active == nil)
 	return m.adminOpsMutator(ctx, cluster, func(current *api.OpenBaoCluster) error {
+		if reserving && retentionActive(current) {
+			return fmt.Errorf("retention is active; restore test cannot reserve a new request")
+		}
 		if reserving && current.DeletionTimestamp != nil {
 			return fmt.Errorf("source is deleting; restore test cannot reserve a new request")
 		}

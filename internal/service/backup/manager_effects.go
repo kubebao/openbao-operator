@@ -39,7 +39,7 @@ func (m *Manager) applyBackupDecision(
 	case backupDecisionObserve:
 		return m.applyObserveBackup(ctx, logger, cluster, metrics, observation)
 	case backupDecisionFinalize:
-		return m.applyFinalizeBackup(ctx, logger, cluster, metrics, observation)
+		return m.applyFinalizeBackup(ctx, logger, cluster, observation)
 	default:
 		return recon.Result{}, fmt.Errorf("unsupported backup decision %d", decision.kind)
 	}
@@ -206,7 +206,6 @@ func (m *Manager) applyFinalizeBackup(
 	ctx context.Context,
 	logger logr.Logger,
 	cluster *openbaov1alpha1.OpenBaoCluster,
-	metrics *Metrics,
 	observation backupObservation,
 ) (recon.Result, error) {
 	if observation.ownsLock && observation.manualTriggerToken != "" && observation.jobs.mostRecentTerminal != nil {
@@ -223,8 +222,15 @@ func (m *Manager) applyFinalizeBackup(
 			return recon.Result{}, fmt.Errorf("failed to process backup Job: %w", err)
 		}
 	}
-	if jobResult.successfulCompletion && jobResult.statusUpdated {
-		m.applyRetentionAfterSuccess(ctx, logger, cluster, metrics)
+	// Snapshot status can survive a lost read-back or a controller restart before
+	// retention is reserved. The source Job identity, not statusUpdated, deduplicates cleanup.
+	if jobResult.successfulCompletion && observation.jobs.mostRecentTerminal != nil {
+		if err := m.reserveRetention(ctx, cluster, observation.jobs.mostRecentTerminal, observation.now); err != nil {
+			return retentionPollResult(), err
+		}
+		if retentionActive(cluster) {
+			return m.reconcileRetention(ctx, logger, cluster, observation.now)
+		}
 	}
 
 	if observation.ownsLock {
@@ -244,27 +250,13 @@ func (m *Manager) applyFinalizeBackup(
 	return recon.Result{RequeueAfter: observation.scheduledTime.Sub(observation.now)}, nil
 }
 
-func (m *Manager) applyRetentionAfterSuccess(
-	ctx context.Context,
-	logger logr.Logger,
-	cluster *openbaov1alpha1.OpenBaoCluster,
-	metrics *Metrics,
-) {
-	if cluster.Spec.Backup == nil || cluster.Spec.Backup.Retention == nil {
-		return
-	}
-	if err := m.applyRetention(ctx, logger, cluster, metrics); err != nil {
-		logger.Error(err, "Failed to apply retention policy")
-	}
-}
-
 func (m *Manager) acquireBackupLock(
 	ctx context.Context,
 	logger logr.Logger,
 	cluster *openbaov1alpha1.OpenBaoCluster,
 	jobName string,
 ) (*recon.Result, error) {
-	if err := opslifecycle.AcquireWithReader(ctx, m.reader, m.client, cluster, backupOperationLock, opslifecycle.AcquireOptions{
+	if err := opslifecycle.AcquireWithReader(ctx, retentionGuardReader{Reader: m.reader, uid: cluster.UID}, m.client, cluster, backupOperationLock, opslifecycle.AcquireOptions{
 		Message: fmt.Sprintf("backup job %s", jobName),
 	}); err != nil {
 		if opslifecycle.IsLockHeld(err) {
