@@ -58,7 +58,13 @@ Existing top-level S3 manifests remain supported. The <code>s3</code> block is a
 account name. Omit it to use <code>https://&lt;storageAccount>.blob.core.windows.net</code>, including when private DNS resolves
 that hostname to a private endpoint. For Azurite, include the account path, for example
 <code>http://azurite.azure.svc.cluster.local:10000/devstoreaccount1</code>. A credential Secret&rsquo;s <code>connectionString</code> supplies
-its own endpoint and takes precedence over <code>target.endpoint</code>.</p><p>For platform workload identity, set <code>target.workloadIdentity.serviceAccountAnnotations</code> and, when required,
+its own endpoint and takes precedence over <code>target.endpoint</code>.</p><p>For a storage endpoint signed by a private certificate authority, add its PEM certificate bundle under <code>caCert</code> in
+the referenced storage Secret. S3, GCS, and Azure backup and restore executors add this bundle to the system trust
+roots. The bundle is separate from the OpenBao API CA. Keep <code>insecureSkipVerify</code> disabled.</p><p>The Secret can contain only <code>caCert</code> when authentication uses workload identity or the provider credential chain.
+Adding storage trust does not select static credentials; retain the required role or workload-identity configuration.</p><p>For S3, a nonempty <code>region</code> entry in the storage Secret takes precedence over the target region for backup, restore,
+and controller-side storage operations. An absent or blank entry uses the configured target region, then <code>us-east-1</code>
+when no region is configured. A region-only Secret does not select static authentication; the provider credential
+chain still applies.</p><p>For platform workload identity, set <code>target.workloadIdentity.serviceAccountAnnotations</code> and, when required,
 <code>target.workloadIdentity.podLabels</code>. For S3 web identity, the effective <code>target.s3.roleArn</code> or compatibility
 <code>target.roleArn</code> projects an STS token and configures the
 Job explicitly.</p><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>Storage identity is separate from unseal identity</p><div class=callout-body>Backup Jobs use their own ServiceAccount. A cloud identity attached to the OpenBao workload is not inherited by the
