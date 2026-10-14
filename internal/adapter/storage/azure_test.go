@@ -74,7 +74,7 @@ func TestOpenAzureContainer_Validation(t *testing.T) {
 				Container:          "test-container",
 				StorageAccount:     "devstoreaccount1",
 				AccountKey:         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==", // Azurite default key
-				Endpoint:           "http://127.0.0.1:10000",
+				Endpoint:           "http://127.0.0.1:10000/devstoreaccount1",
 				InsecureSkipVerify: true,
 				EnsureExists:       false,
 			},

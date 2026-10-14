@@ -28,7 +28,8 @@ type AzureClientConfig struct {
 	StorageAccount string
 	// Container is the blob container name.
 	Container string
-	// Endpoint is an optional custom endpoint (useful for Azurite).
+	// Endpoint is an optional complete Blob service URL.
+	// Azurite URLs must include the storage account path, for example http://azurite:10000/devstoreaccount1.
 	Endpoint string
 	// AccountKey is the storage account access key (optional if using managed identity).
 	AccountKey string
@@ -84,13 +85,7 @@ func OpenAzureContainer(ctx context.Context, cfg AzureClientConfig) (blobstore.B
 		// Use shared key credential
 		var serviceURL string
 		if cfg.Endpoint != "" {
-			// For Azurite with IP-style URLs, append account name to endpoint path
-			// Format: http://host:port/account-name (per Microsoft Azurite docs)
-			if cfg.StorageAccount != "" {
-				serviceURL = fmt.Sprintf("%s/%s", cfg.Endpoint, cfg.StorageAccount)
-			} else {
-				serviceURL = cfg.Endpoint
-			}
+			serviceURL = cfg.Endpoint
 		} else {
 			serviceURL = fmt.Sprintf("https://%s.blob.core.windows.net", cfg.StorageAccount)
 		}
@@ -112,9 +107,7 @@ func OpenAzureContainer(ctx context.Context, cfg AzureClientConfig) (blobstore.B
 		}
 		var serviceURL string
 		if cfg.Endpoint != "" {
-			// For Azurite with IP-style URLs, append account name to endpoint path
-			// Format: http://host:port/account-name (per Microsoft Azurite docs)
-			serviceURL = fmt.Sprintf("%s/%s", cfg.Endpoint, cfg.StorageAccount)
+			serviceURL = cfg.Endpoint
 		} else {
 			serviceURL = fmt.Sprintf("https://%s.blob.core.windows.net", cfg.StorageAccount)
 		}

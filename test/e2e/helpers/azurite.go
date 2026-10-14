@@ -184,6 +184,7 @@ func EnsureAzurite(ctx context.Context, c client.Client, cfg AzuriteConfig) erro
 // CreateAzuriteContainer creates a blob container in the Azurite emulator by running a Pod inside the cluster.
 // This is necessary because Azurite starts empty and OpenBao's backup job expects the container to exist.
 // Uses the default devstoreaccount1 account that Azurite provides.
+// The endpoint must be the complete Blob service URL, including /devstoreaccount1.
 // This function uses Azure CLI in a Pod to handle authentication properly.
 func CreateAzuriteContainer(
 	ctx context.Context,
@@ -216,9 +217,6 @@ func CreateAzuriteContainer(
 	if err != nil {
 		return fmt.Errorf("failed to generate pod suffix: %w", err)
 	}
-
-	// Use account name, key, and endpoint directly (more reliable than connection string)
-	// For Azurite, BlobEndpoint should include the account name in the path
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -274,7 +272,7 @@ set -e
 # Format per Microsoft docs:
 # DefaultEndpointsProtocol=http;AccountName=<account>;AccountKey=<key>;BlobEndpoint=<endpoint>
 # For IP-style URLs, BlobEndpoint should be: http://<host>:<port>/<account-name>
-CONN_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=%s;BlobEndpoint=%s/devstoreaccount1;"
+CONN_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=%s;BlobEndpoint=%s;"
 
 # Check if container exists to make this operation idempotent
 EXISTS=$(az storage container exists \

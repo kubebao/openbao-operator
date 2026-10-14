@@ -48,7 +48,7 @@ type Config struct {
 	// Endpoint is the storage service endpoint URL (optional for most providers).
 	// For S3: Custom endpoint for MinIO/S3-compatible stores.
 	// For GCS: Custom endpoint for fake-gcs-server testing.
-	// For Azure: Custom endpoint for Azurite testing.
+	// For Azure: Complete Blob service URL, including the account path when using Azurite.
 	Endpoint string
 
 	// Region is required for S3, ignored for others.

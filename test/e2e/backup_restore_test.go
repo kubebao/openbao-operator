@@ -52,7 +52,7 @@ const (
 	// Azurite constants
 	azuriteName      = "azurite"
 	azuriteNamespace = "azure"
-	azuriteEndpoint  = "http://azurite.azure.svc.cluster.local:10000"
+	azuriteEndpoint  = "http://azurite.azure.svc.cluster.local:10000/devstoreaccount1"
 	azuriteAccount   = "devstoreaccount1"
 	azuriteKey       = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 	azuriteContainer = "openbao-backups"

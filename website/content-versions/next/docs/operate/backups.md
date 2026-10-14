@@ -73,6 +73,12 @@ The deadline survives reconciliation and controller restarts. Check `status.back
 | GCS | `bucket`; optional `gcs.project` and endpoint | `credentials.json` |
 | Azure | `bucket`, `azure.storageAccount`; optional `azure.container` and endpoint | `accountKey` or `connectionString` |
 
+For Azure, `target.endpoint` is the complete Blob service URL. The operator uses it without adding the storage
+account name. Omit it to use `https://<storageAccount>.blob.core.windows.net`, including when private DNS resolves
+that hostname to a private endpoint. For Azurite, include the account path, for example
+`http://azurite.azure.svc.cluster.local:10000/devstoreaccount1`. A credential Secret's `connectionString` supplies
+its own endpoint and takes precedence over `target.endpoint`.
+
 For platform workload identity, set `target.workloadIdentity.serviceAccountAnnotations` and, when required,
 `target.workloadIdentity.podLabels`. For S3 web identity, `target.roleArn` also projects an STS token and configures the
 Job explicitly.
