@@ -1,0 +1,88 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	serverconfig "SERVERCONFIG"
+)
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "usage: parser <prepared-matrix.json> <report.json>")
+		os.Exit(2)
+	}
+	data, err := os.ReadFile(os.Args[1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	var matrix preparedMatrix
+	if err := json.Unmarshal(data, &matrix); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if len(matrix.Cases) == 0 {
+		fmt.Fprintln(os.Stderr, "empty compatibility matrix")
+		os.Exit(1)
+	}
+	type result struct {
+		File              string   `json:"file"`
+		ExpectedRejection bool     `json:"expected_rejection"`
+		ParserDiagnostics []string `json:"parser_diagnostics,omitempty"`
+		ContractProblems  []string `json:"contract_problems,omitempty"`
+		Error             string   `json:"error,omitempty"`
+	}
+	results := make([]result, 0, len(matrix.Cases))
+	failures, rejections := 0, 0
+	for _, test := range matrix.Cases {
+		r := result{File: test.File, ExpectedRejection: test.WantFailure}
+		content, err := os.ReadFile(test.File)
+		if err == nil {
+			parsed, parseErr := serverconfig.ParseConfig(string(content), test.File)
+			var diagnostics []string
+			if parseErr != nil {
+				diagnostics = append(diagnostics, parseErr.Error())
+			} else {
+				for _, problem := range parsed.Validate(test.File) {
+					diagnostics = append(diagnostics, fmt.Sprint(problem))
+				}
+			}
+			r.ParserDiagnostics = diagnostics
+			r.ContractProblems = test.Problems
+			err = checkResult(test, parsed, diagnostics)
+		}
+		if err != nil {
+			r.Error = err.Error()
+			failures++
+			fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", test.File, err)
+		}
+		if test.WantFailure {
+			rejections++
+		}
+		results = append(results, r)
+	}
+	report, err := os.Create(os.Args[2])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := json.NewEncoder(report).Encode(struct {
+		Version string   `json:"version"`
+		Commit  string   `json:"commit"`
+		Role    string   `json:"role"`
+		Results []result `json:"results"`
+	}{matrix.Version, matrix.Commit, matrix.Role, results}); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := report.Close(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("%s [%s]: %d cases, %d positive, %d negative, %d failures\n", matrix.Version, matrix.Role, len(results), len(results)-rejections, rejections, failures)
+	if failures != 0 {
+		os.Exit(1)
+	}
+}

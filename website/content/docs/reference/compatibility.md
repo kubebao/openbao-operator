@@ -35,9 +35,13 @@ These results apply to the released 0.5.2 artifacts; validate the exact deployme
 | 2.6.3 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, and restore qualification | Operator 0.5.2 validation target; validate the exact environment in staging |
 | 2.6.2 | OpenBao Operator 0.5.0 release target; rolling-upgrade source for local 2.6.3 qualification | Use the latest qualified security patch |
 | Other 2.6.x | Not individually release-gated | Validate the exact patch in staging |
-| 2.5.x | Config compatibility and rolling-upgrade source coverage | Validate the transition in staging |
-| 2.4.x | Config compatibility | Upgrade before a new production rollout |
+| 2.5.x | Historical rolling-upgrade source coverage; outside the default config gate | Upgrade to a maintained release |
+| 2.4.x | Outside the default config gate | Upgrade before a new production rollout |
 | 2.3.x | Not validated | Out of support scope |
+
+The configuration compatibility gate checks OpenBao 2.6.4 as a migration target and 2.7.1 as the current release.
+These labels describe operator validation. The [upstream support policy](https://openbao.org/community/policies/support/)
+provides best-effort support centered on the latest release and does not promise a two-minor maintenance window.
 
 {{< callout type="warning" title="OpenBao 2.6 BlueGreen limitation" >}}
 OpenBao 2.6.0 changed its internal request-forwarding gRPC service name.

@@ -50,6 +50,41 @@ make test-e2e-ci \
 
 Continue with [CI routing]({{< relref "/contribute/ci.md" >}}).
 
+## OpenBao configuration compatibility
+
+Run `make verify-openbao-config-compat` with Docker available. The version matrix and fixture expectations live in
+`hack/ci/openbao-config-compat/manifest.json`. Each selected release uses its own upstream parser module and SDK.
+The default matrix uses 2.6.4 for migration compatibility and 2.7.1 as the current release. OpenBao 2.4 and 2.5 are
+outside this default gate.
+The check calls both `ParseConfig` and `Validate`, verifies parsed block counts and selected effective values, and
+rejects paths absent from the upstream parser or Raft backend inventory.
+
+New configuration output needs a golden fixture and a manifest entry. The check fails if a golden file is unlisted
+or a declared operator configuration path has no fixture. Every golden fixture must have a positive case in the
+default matrix. Set version bounds and expected diagnostic fragments for version-specific features.
+The contract also checks removed built-in seals for a matching KMS plugin declaration.
+A negative case passes only when it detects the declared problem. An unrelated failure or an unexpectedly accepted
+configuration fails the check.
+
+```sh
+make verify-openbao-config-compat
+make report-openbao-config-schema-drift
+# Check one release while retaining the complete fixture contract.
+bash hack/ci/openbao-config-compat.sh 2.7.1
+```
+
+Each run writes a new directory under `dist/test/openbao-config-compat/` and prints its path.
+Set `COMPAT_REPORT_DIR` to select another output directory. Reports retain the upstream commit, version role,
+parser diagnostics, and contract problems separately.
+Nightly reports compare every selected release using qualified parser and profile paths, Raft configuration map
+accesses, and `retry_join` JSON fields. Provider-defined seal options and audit/API payloads remain outside that
+source inventory. Upstream options that the operator does not expose are informational, not compatibility failures.
+
+This gate proves configuration recognition and the declared parsed-value assertions. It does not qualify provider
+credentials, plugin execution, API request effects, TLS negotiation, or certificate reload behavior. Use
+`make test-tls-key-exchange-openbao` for the released-server Raft and listener TLS contract. Use the focused TLS,
+initialization, and unseal E2E suites for their lifecycle and provider contracts.
+
 ## Diagnose performance findings
 
 Inspect the scenario artifacts before changing a performance baseline. Warmup scenario errors remain failures in the summary,

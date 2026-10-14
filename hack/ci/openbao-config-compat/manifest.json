@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "versions": [
+    "2.6.4",
+    "2.7.1"
+  ],
+  "fixtures": {
+    "render_hcl_acme_ca_root.hcl": {
+      "assertions": {
+        "Listeners.0.TLSACMECARoot": "/etc/acme/ca.crt"
+      }
+    },
+    "render_hcl_acme_mode.hcl": {},
+    "render_hcl_acme_mode_default_domain.hcl": {},
+    "render_hcl_acme_mode_no_email.hcl": {},
+    "render_hcl_all_config_options.hcl": {},
+    "render_hcl_audit_plugins_telemetry.hcl": {
+      "min_version": "2.5.0",
+      "unsupported_contains": [
+        "plugin"
+      ]
+    },
+    "render_hcl_auto_join.hcl": {},
+    "render_hcl_awskms_all_options.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_awskms_seal.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_azure_keyvault_seal.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_azure_keyvault_seal_workload_identity.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_azurekeyvault_all_options.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_core_stanzas.hcl": {},
+    "render_hcl_gcp_cloudkms_seal.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_http_audit_headers.hcl": {
+      "assertions": {
+        "Audits.0.Options.headers": "{\"Authorization\":[\"Bearer token\"],\"X-Audit\":[\"one\",\"two\"]}"
+      }
+    },
+    "render_hcl_kmip_all_options.hcl": {},
+    "render_hcl_kmip_seal.hcl": {},
+    "render_hcl_kms_plugin_seal.hcl": {
+      "min_version": "2.6.0",
+      "unsupported_contains": [
+        "plugin",
+        "kms"
+      ],
+      "assertions": {
+        "Plugins.0.Command": "openbao-kms-corp"
+      }
+    },
+    "render_hcl_metrics_only_listener.hcl": {
+      "min_version": "2.5.0",
+      "unsupported_contains": [
+        "metrics_only",
+        "disallow_metrics"
+      ],
+      "assertions": {
+        "Listeners.0.Telemetry.DisallowMetrics": "true",
+        "Listeners.1.Telemetry.MetricsOnly": "true"
+      }
+    },
+    "render_hcl_ocikms_all_options.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_ocikms_seal.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_pkcs11_all_options.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_pkcs11_seal.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
+    "render_hcl_plugin_command_inferred.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "plugin",
+        "version",
+        "binary_name",
+        "sha256sum",
+        "tls_auto_reload"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s",
+        "Plugins.0.Command": "test-kms-plugin"
+      }
+    },
+    "render_hcl_plugin_oci_inferred.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "plugin",
+        "version",
+        "binary_name",
+        "sha256sum",
+        "tls_auto_reload"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s",
+        "Plugins.0.Version": "v1.0.0"
+      }
+    },
+    "render_hcl_proxy_protocol_authorized.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "tls_auto_reload",
+        "tls_key_exchange_preferences",
+        "metrics_only",
+        "disallow_metrics"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s"
+      }
+    },
+    "render_hcl_proxy_protocol_deny_unauthorized.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "tls_auto_reload",
+        "tls_key_exchange_preferences",
+        "metrics_only",
+        "disallow_metrics"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s"
+      }
+    },
+    "render_hcl_proxy_protocol_use_always.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "tls_auto_reload",
+        "tls_key_exchange_preferences",
+        "metrics_only",
+        "disallow_metrics"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s"
+      }
+    },
+    "render_hcl_raft_non_voter.hcl": {
+      "assertions": {
+        "Storage.Config.performance_multiplier": "3",
+        "Storage.Config.retry_join_as_non_voter": "true"
+      }
+    },
+    "render_hcl_static_seal_custom.hcl": {},
+    "render_hcl_static_seal_default.hcl": {},
+    "render_hcl_structured_config.hcl": {
+      "min_version": "2.5.0",
+      "unsupported_contains": [
+        "plugin_"
+      ]
+    },
+    "render_hcl_telemetry_all_options.hcl": {
+      "assertions": {
+        "Telemetry.MetricsPrefix": "compat",
+        "Telemetry.LeaseMetricsEpsilon": "1h0m0s",
+        "Telemetry.StatsiteAddr": "127.0.0.1:8125"
+      }
+    },
+    "render_hcl_tls_hybrid_pq_metrics.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "tls_auto_reload",
+        "tls_key_exchange_preferences",
+        "metrics_only",
+        "disallow_metrics"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s",
+        "Listeners.0.TLSKeyExchangePreferences.0": "X25519MLKEM768"
+      }
+    },
+    "render_hcl_tls_native_reload_metrics.hcl": {
+      "min_version": "2.7.0",
+      "unsupported_contains": [
+        "tls_auto_reload",
+        "tls_key_exchange_preferences",
+        "metrics_only",
+        "disallow_metrics"
+      ],
+      "assertions": {
+        "Listeners.0.TLSAutoReload": "true",
+        "Listeners.0.TLSAutoReloadInterval": "10s"
+      }
+    },
+    "render_hcl_transit_all_options.hcl": {},
+    "render_hcl_transit_seal.hcl": {},
+    "render_self_init_backup_upgrade_policies.hcl": {},
+    "render_self_init_initial_recovery_keys.hcl": {},
+    "render_self_init_no_backup_upgrade.hcl": {},
+    "render_self_init_profile_controls.hcl": {
+      "min_version": "2.6.0",
+      "unsupported_contains": [
+        "headers",
+        "when"
+      ],
+      "assertions": {
+        "Initialization.1.Requests.0.When": "false",
+        "Initialization.0.Requests.0.Headers.0.X-OpenBao-Trace.0": "trace-1",
+        "Initialization.0.Requests.0.When.2.expression": "true",
+        "Initialization.0.Requests.0.AllowFailure": "true"
+      }
+    },
+    "render_self_init_requests.hcl": {},
+    "render_self_init_restore_policy.hcl": {},
+    "render_self_init_target_controller.hcl": {},
+    "render_self_init_token_secret_ref.hcl": {},
+    "render_self_init_with_bootstrap.hcl": {}
+  },
+  "negative_cases": [
+    {
+      "file": "hack/ci/openbao-config-compat/testdata/unknown_root.hcl",
+      "contains": [
+        "operator_compat_typo"
+      ]
+    },
+    {
+      "file": "hack/ci/openbao-config-compat/testdata/unknown_listener.hcl",
+      "contains": [
+        "tls_auto_relaod"
+      ]
+    },
+    {
+      "file": "hack/ci/openbao-config-compat/testdata/unknown_raft.hcl",
+      "contains": [
+        "retry_join_as_non_voterr"
+      ]
+    },
+    {
+      "file": "hack/ci/openbao-config-compat/testdata/unknown_retry_join.hcl",
+      "contains": [
+        "auto_joinn"
+      ]
+    },
+    {
+      "file": "hack/ci/openbao-config-compat/testdata/invalid_plugin_download.hcl",
+      "contains": [
+        "plugin_download_behavior"
+      ]
+    },
+    {
+      "file": "hack/ci/openbao-config-compat/testdata/unknown_block.hcl",
+      "contains": [
+        "operator_compat_typo"
+      ]
+    }
+  ],
+  "version_roles": {
+    "2.6.4": "migration-compatibility",
+    "2.7.1": "current-release"
+  }
+}

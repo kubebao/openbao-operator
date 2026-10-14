@@ -24,6 +24,8 @@ type workflowJob struct {
 
 type workflowStep struct {
 	Name            string            `yaml:"name"`
+	Uses            string            `yaml:"uses"`
+	With            map[string]string `yaml:"with"`
 	Run             string            `yaml:"run"`
 	Env             map[string]string `yaml:"env"`
 	ContinueOnError bool              `yaml:"continue-on-error"`

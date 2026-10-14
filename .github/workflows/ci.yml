@@ -136,9 +136,9 @@ jobs:
           fi
 
           # Ensure base exists locally (checkout may not contain it for PRs).
-          git fetch --no-tags --prune --depth=1 origin "${base_sha}" || true
+          git fetch --no-tags --prune --depth=1 origin "${base_sha}"
 
-          changed="$(git diff --name-only "${base_sha}" "${head_sha}" || true)"
+          changed="$(git diff --name-only "${base_sha}" "${head_sha}")"
           changed_matches() {
             grep -qE "$1" <<< "${changed}"
           }
@@ -195,7 +195,7 @@ jobs:
             echo "go_tests=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(api/|internal/adapter/config/|internal/service/infra/|internal/app/openbaocluster/|internal/controller/openbaocluster/|go\.(mod|sum)$|Makefile|mk/)'; then
+          if changed_matches '^(api/|internal/adapter/config/|internal/port/openbao/|internal/service/infra/|internal/app/openbaocluster/|internal/controller/openbaocluster/|go\.(mod|sum)$|vendor/|Makefile$|mk/|hack/ci/openbao-config-compat(\.sh$|/)|hack/tools/(openbao_config_compat|openbao_config_schema|openbao_operator_schema_drift|internal/configschema)/|test/manifests/apicontract/config_compat_workflows_test\.go$|\.github/(workflows/(ci|nightly)\.yml$|actions/(run-openbao-config-compat|setup-repo-tools)/))'; then
             echo "config_compat=true" >> "${GITHUB_OUTPUT}"
           else
             echo "config_compat=false" >> "${GITHUB_OUTPUT}"
@@ -624,7 +624,7 @@ jobs:
           retention-days: 7
 
   openbao-config-compat:
-    name: OpenBao Config Compatibility (OpenBao 2.4 through 2.7)
+    name: OpenBao Config Compatibility (2.6 migration and 2.7 current)
     needs: changes
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.config_compat == 'true'
     runs-on: *runner
@@ -643,8 +643,6 @@ jobs:
 
       - name: Run OpenBao config compatibility
         uses: ./.github/actions/run-openbao-config-compat
-        with:
-          versions: 2.4.4 2.5.5 2.6.4 2.7.1
 
   docs:
     name: Docs Build

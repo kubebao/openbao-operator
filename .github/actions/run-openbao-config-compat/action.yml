@@ -5,19 +5,11 @@ inputs:
   versions:
     description: Space-delimited OpenBao versions to validate.
     required: false
-    default: 2.4.4 2.5.5 2.6.4 2.7.1
+    default: ""
   report-schema-drift:
     description: Whether to report upstream OpenBao schema drift across the version range.
     required: false
     default: "false"
-  operator-schema-drift-image-tag:
-    description: Optional OpenBao image tag to use for operator-vs-upstream schema drift reporting.
-    required: false
-    default: ""
-  operator-schema-drift-goflags:
-    description: GOFLAGS value to use for the operator schema drift tool.
-    required: false
-    default: -mod=mod
 
 runs:
   using: composite
@@ -32,12 +24,11 @@ runs:
         read -r -a versions <<< "${VERSIONS}"
         bash hack/ci/openbao-config-compat.sh "${versions[@]}"
 
-    - name: Report operator-vs-upstream config schema drift (informational)
-      if: inputs.operator-schema-drift-image-tag != ''
-      shell: bash
-      env:
-        GOFLAGS: ${{ inputs.operator-schema-drift-goflags }}
-        OPERATOR_SCHEMA_DRIFT_IMAGE_TAG: ${{ inputs.operator-schema-drift-image-tag }}
-      run: |
-        set -euo pipefail
-        go run ./hack/tools/openbao_operator_schema_drift --openbao-image-tag "${OPERATOR_SCHEMA_DRIFT_IMAGE_TAG}"
+    - name: Upload configuration compatibility evidence
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: openbao-config-compatibility
+        path: dist/test/openbao-config-compat/
+        if-no-files-found: warn
+        retention-days: 7

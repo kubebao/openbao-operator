@@ -6,29 +6,19 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/hack/tools/internal/configschema"
 	"github.com/kubebao/openbao-operator/internal/adapter/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-type rootSpec struct {
-	Prefix string
-	Dir    string
-	Type   string
-}
 
 func isHexSHA40(s string) bool {
 	if len(s) != 40 {
@@ -58,6 +48,7 @@ func isSafeDockerTag(s string) bool {
 func main() {
 	var openbaoImageTag string
 	var openbaoGitSHA string
+	var upstreamModDir string
 	var maxList int
 	var verbose bool
 
@@ -66,8 +57,9 @@ func main() {
 	const openbaoGitSHAUsage = "OpenBao git SHA (40 hex) to use instead of resolving " +
 		"from Docker image"
 
-	flag.StringVar(&openbaoImageTag, "openbao-image-tag", "2.6.4", openbaoImageTagUsage)
+	flag.StringVar(&openbaoImageTag, "openbao-image-tag", "", openbaoImageTagUsage)
 	flag.StringVar(&openbaoGitSHA, "openbao-git-sha", "", openbaoGitSHAUsage)
+	flag.StringVar(&upstreamModDir, "upstream-module-dir", "", "Use an already materialized upstream module")
 	flag.IntVar(&maxList, "max-list", 60, "Max number of keys to print per section (0 = unlimited)")
 	flag.BoolVar(&verbose, "v", false, "Verbose output (prints extra keys and sets)")
 	flag.Parse()
@@ -77,8 +69,27 @@ func main() {
 		os.Exit(2)
 	}
 
+	if openbaoImageTag == "" {
+		data, err := os.ReadFile("hack/ci/openbao-config-compat/manifest.json")
+		var matrix struct {
+			Versions []string `json:"versions"`
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := json.Unmarshal(data, &matrix); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if len(matrix.Versions) == 0 {
+			fmt.Fprintln(os.Stderr, "empty version matrix")
+			os.Exit(1)
+		}
+		openbaoImageTag = matrix.Versions[len(matrix.Versions)-1]
+	}
 	upstreamSHA := strings.TrimSpace(openbaoGitSHA)
-	if upstreamSHA == "" {
+	if upstreamSHA == "" && upstreamModDir == "" {
 		if !isSafeDockerTag(openbaoImageTag) {
 			fmt.Fprintf(os.Stderr, "error: invalid -openbao-image-tag %q\n", openbaoImageTag)
 			os.Exit(2)
@@ -90,86 +101,37 @@ func main() {
 		}
 		upstreamSHA = sha
 	}
-	if !isHexSHA40(upstreamSHA) {
+	if upstreamSHA != "" && !isHexSHA40(upstreamSHA) {
 		fmt.Fprintf(os.Stderr, "error: invalid -openbao-git-sha %q (expected 40 hex)\n", upstreamSHA)
 		os.Exit(2)
 	}
 
-	upstreamModDir, err := materializeUpstreamModuleDir(upstreamSHA)
+	var err error
+	if upstreamModDir == "" {
+		upstreamModDir, err = materializeUpstreamModuleDir(upstreamSHA)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+	upstreamSet, err := configschema.Upstream(upstreamModDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: fetch upstream openbao module at %s: %v\n", upstreamSHA, err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	upstreamConfigDir, err := findUpstreamConfigDir(upstreamModDir)
+	operatorSet, err := configschema.Operator(".")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: locate upstream config package: %v\n", err)
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	upstreamServerDir, err := findUpstreamServerDir(upstreamModDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: locate upstream server package: %v\n", err)
-		os.Exit(1)
+	upstreamKeys := make(map[string]struct{}, len(upstreamSet))
+	for key := range upstreamSet {
+		upstreamKeys[key] = struct{}{}
 	}
-
-	upstreamRoots := []rootSpec{
-		// Core server config fields.
-		{Prefix: "", Dir: upstreamServerDir, Type: "Config"},
-
-		// Shared config fields (logging, telemetry block, etc).
-		{Prefix: "", Dir: upstreamConfigDir, Type: "SharedConfig"},
-
-		// Stanzas parsed manually (listener, audit). We still extract their hcl tag keys from structs.
-		{Prefix: "listener", Dir: upstreamConfigDir, Type: "Listener"},
-		{Prefix: "audit", Dir: upstreamServerDir, Type: "AuditDevice"},
+	operatorSchemaKeys := make(map[string]struct{}, len(operatorSet))
+	for key := range operatorSet {
+		operatorSchemaKeys[key] = struct{}{}
 	}
-
-	operatorRoots := []rootSpec{
-		{Prefix: "", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclCoreAttributes"},
-		{Prefix: "", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclUserConfigurationAttributes"},
-
-		{Prefix: "listener", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclListenerTCP"},
-		{Prefix: "storage", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclStorageRaft"},
-		{Prefix: "storage.retry_join", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclRetryJoin"},
-
-		{Prefix: "telemetry", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclTelemetry"},
-		{Prefix: "audit", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclAuditDevice"},
-		{Prefix: "plugin", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclPlugin"},
-
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealStatic"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealTransit"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealAWSKMS"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealAzureKeyVault"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealGCPCloudKMS"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealKMIP"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealOCIKMS"},
-		{Prefix: "seal", Dir: filepath.Join("internal", "adapter", "config"), Type: "hclSealPKCS11"},
-	}
-
-	upstreamKeys, err := extractKeySet(upstreamRoots)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: extract upstream key set: %v\n", err)
-		os.Exit(1)
-	}
-
-	operatorSchemaKeys, err := extractKeySet(operatorRoots)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: extract operator schema key set: %v\n", err)
-		os.Exit(1)
-	}
-	// Stanza roots (blocks) that are rendered explicitly by the operator.
-	operatorSchemaKeys["listener"] = struct{}{}
-	operatorSchemaKeys["storage"] = struct{}{}
-	operatorSchemaKeys["storage.retry_join"] = struct{}{}
-	operatorSchemaKeys["seal"] = struct{}{}
-	operatorSchemaKeys["audit"] = struct{}{}
-	operatorSchemaKeys["plugin"] = struct{}{}
-	operatorSchemaKeys["telemetry"] = struct{}{}
-	// Operator renders audit.options as a cty object, but it's not part of the gohcl struct.
-	operatorSchemaKeys["audit.options"] = struct{}{}
-	// Operator always renders this empty block today (labelled), but has no typed fields.
-	operatorSchemaKeys["service_registration"] = struct{}{}
-
 	defaultGeneratedKeys, err := extractDefaultGeneratedKeySet()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: extract default generated key set: %v\n", err)
@@ -179,26 +141,33 @@ func main() {
 	missingTyped := setDifference(upstreamKeys, operatorSchemaKeys)
 	missingDefault := setDifference(upstreamKeys, defaultGeneratedKeys)
 	operatorExtras := setDifference(operatorSchemaKeys, upstreamKeys)
+	for key := range operatorExtras {
+		if configschema.Opaque(key) {
+			delete(operatorExtras, key)
+		}
+	}
 
-	fmt.Printf("==> OpenBao config schema coverage report\n")
+	fmt.Printf("==> OpenBao config schema inventory\n")
 	fmt.Printf("    Upstream: openbao/openbao:%s (%s)\n", openbaoImageTag, upstreamSHA)
 	fmt.Printf("\n")
 
+	fmt.Printf("Scope: parser tags, stanza roots, profile fields, Raft map reads, and retry_join JSON fields.\n")
+	fmt.Printf("Seal options and audit/request payloads require provider or API qualification.\n")
 	fmt.Printf("Upstream keys (extractable): %d\n", len(upstreamKeys))
 	fmt.Printf("Operator explicit keys:      %d\n", len(operatorSchemaKeys))
-	fmt.Printf("Operator default keys:       %d\n", len(defaultGeneratedKeys))
+	fmt.Printf("Operator default output paths:       %d\n", len(defaultGeneratedKeys))
 	fmt.Printf("\n")
 
-	fmt.Printf("Upstream keys not explicitly supported by operator typed schema: %d\n", len(missingTyped))
-	printKeyList("Missing (typed schema)", missingTyped, maxList)
+	fmt.Printf("Upstream paths absent from operator typed declarations: %d\n", len(missingTyped))
+	printKeyList("Absent (typed declarations)", missingTyped, maxList)
 	fmt.Printf("\n")
 
-	fmt.Printf("Upstream keys not covered by operator default config generation: %d\n", len(missingDefault))
-	printKeyList("Missing (default generation)", missingDefault, maxList)
+	fmt.Printf("Upstream paths not emitted by default: %d\n", len(missingDefault))
+	printKeyList("Absent (default output)", missingDefault, maxList)
 	fmt.Printf("\n")
 
-	fmt.Printf("Operator keys not present in upstream extracted schema: %d\n", len(operatorExtras))
-	printKeyList("Extra (operator vs upstream schema)", operatorExtras, maxList)
+	fmt.Printf("Operator declarations absent from this upstream inventory: %d\n", len(operatorExtras))
+	printKeyList("Version-specific or unextracted operator paths", operatorExtras, maxList)
 
 	if verbose {
 		fmt.Printf("\n-- Upstream keys (full)\n")
@@ -287,187 +256,6 @@ func collectKeysFromHCLBody(out map[string]struct{}, prefix string, body *hclwri
 		out[join(prefix, blockName)] = struct{}{}
 		collectKeysFromHCLBody(out, join(prefix, blockName), block.Body())
 	}
-}
-
-func extractKeySet(roots []rootSpec) (map[string]struct{}, error) {
-	keys := make(map[string]struct{})
-	cache := map[string]*pkgIndex{}
-
-	for _, root := range roots {
-		index, ok := cache[root.Dir]
-		if !ok {
-			idx, err := indexPackageDir(root.Dir)
-			if err != nil {
-				return nil, err
-			}
-			index = idx
-			cache[root.Dir] = idx
-		}
-
-		st, ok := index.structs[root.Type]
-		if !ok {
-			return nil, fmt.Errorf("type %q not found in %s", root.Type, root.Dir)
-		}
-		collectKeysFromStruct(keys, index, join(root.Prefix, ""), st, map[string]bool{})
-	}
-
-	return keys, nil
-}
-
-type pkgIndex struct {
-	structs map[string]*ast.StructType
-	aliases map[string]ast.Expr
-}
-
-func indexPackageDir(dir string) (*pkgIndex, error) {
-	fset := token.NewFileSet()
-	//nolint:staticcheck // Schema inspection includes source files excluded by build constraints.
-	pkgs, err := parser.ParseDir(fset, dir, func(info fs.FileInfo) bool {
-		name := info.Name()
-		if strings.HasSuffix(name, "_test.go") {
-			return false
-		}
-		return strings.HasSuffix(name, ".go")
-	}, 0)
-	if err != nil {
-		return nil, fmt.Errorf("parse dir %s: %w", dir, err)
-	}
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no go packages found in %s", dir)
-	}
-
-	var firstFiles map[string]*ast.File
-	for _, p := range pkgs {
-		firstFiles = p.Files
-		break
-	}
-	if len(firstFiles) == 0 {
-		return nil, fmt.Errorf("no go files found in %s", dir)
-	}
-
-	idx := &pkgIndex{
-		structs: map[string]*ast.StructType{},
-		aliases: map[string]ast.Expr{},
-	}
-	for _, f := range firstFiles {
-		for _, decl := range f.Decls {
-			gen, ok := decl.(*ast.GenDecl)
-			if !ok || gen.Tok != token.TYPE {
-				continue
-			}
-			for _, spec := range gen.Specs {
-				ts, ok := spec.(*ast.TypeSpec)
-				if !ok {
-					continue
-				}
-				switch t := ts.Type.(type) {
-				case *ast.StructType:
-					idx.structs[ts.Name.Name] = t
-				default:
-					idx.aliases[ts.Name.Name] = ts.Type
-				}
-			}
-		}
-	}
-	return idx, nil
-}
-
-func collectKeysFromStruct(
-	out map[string]struct{},
-	idx *pkgIndex,
-	prefix string,
-	st *ast.StructType,
-	visiting map[string]bool,
-) {
-	if st == nil || st.Fields == nil {
-		return
-	}
-
-	for _, field := range st.Fields.List {
-		hclName, opts, ok := parseHCLTag(field.Tag)
-		if !ok {
-			continue
-		}
-		if hclName == "" || hclName == "-" {
-			continue
-		}
-		if opts["label"] {
-			continue
-		}
-		if opts["unusedKeyPositions"] || opts["unusedKeys"] || opts["decodedFields"] {
-			continue
-		}
-
-		full := join(prefix, hclName)
-		out[full] = struct{}{}
-
-		child, childName := resolveStructType(idx, field.Type)
-		if child == nil {
-			continue
-		}
-		if childName != "" {
-			if visiting[childName] {
-				continue
-			}
-			visiting[childName] = true
-			collectKeysFromStruct(out, idx, full, child, visiting)
-			delete(visiting, childName)
-		} else {
-			collectKeysFromStruct(out, idx, full, child, visiting)
-		}
-	}
-}
-
-func resolveStructType(idx *pkgIndex, expr ast.Expr) (*ast.StructType, string) {
-	switch t := expr.(type) {
-	case *ast.StarExpr:
-		return resolveStructType(idx, t.X)
-	case *ast.Ident:
-		if st, ok := idx.structs[t.Name]; ok {
-			return st, t.Name
-		}
-		alias, ok := idx.aliases[t.Name]
-		if !ok {
-			return nil, ""
-		}
-		return resolveStructType(idx, alias)
-	case *ast.StructType:
-		return t, ""
-	default:
-		return nil, ""
-	}
-}
-
-func parseHCLTag(basicLit *ast.BasicLit) (name string, opts map[string]bool, ok bool) {
-	if basicLit == nil || basicLit.Kind != token.STRING {
-		return "", nil, false
-	}
-	raw, err := strconv.Unquote(basicLit.Value)
-	if err != nil {
-		// Fall back to trimming raw delimiters; should be rare, but keeps the tool robust.
-		raw = strings.Trim(basicLit.Value, "`\"")
-	}
-	tag := reflectStructTag(raw)
-	hclTag, ok := tag.Lookup("hcl")
-	if !ok {
-		return "", nil, false
-	}
-	parts := strings.Split(hclTag, ",")
-	name = strings.TrimSpace(parts[0])
-	opts = map[string]bool{}
-	for _, p := range parts[1:] {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		// "alias:Foo" -> "alias"
-		key := p
-		if colon := strings.IndexByte(p, ':'); colon >= 0 {
-			key = p[:colon]
-		}
-		opts[key] = true
-	}
-	return name, opts, true
 }
 
 func join(prefix, name string) string {
@@ -596,11 +384,11 @@ func writeGitHubSummary(
 	path = filepath.Clean(path)
 
 	var buf bytes.Buffer
-	buf.WriteString("### OpenBao operator schema drift\n\n")
+	buf.WriteString("### OpenBao operator schema inventory\n\n")
 	fmt.Fprintf(&buf, "- Upstream: `openbao/openbao:%s` (`%s`)\n", openbaoImageTag, upstreamSHA)
 	fmt.Fprintf(&buf, "- Upstream extractable keys: `%d`\n", len(upstreamKeys))
 	fmt.Fprintf(&buf, "- Operator explicit keys: `%d`\n", len(operatorSchemaKeys))
-	fmt.Fprintf(&buf, "- Operator default keys: `%d`\n", len(defaultKeys))
+	fmt.Fprintf(&buf, "- Operator default output paths: `%d`\n", len(defaultKeys))
 	fmt.Fprintf(&buf, "- Missing vs typed schema: `%d`\n", len(missingTyped))
 	fmt.Fprintf(&buf, "- Missing vs default generation: `%d`\n", len(missingDefault))
 	fmt.Fprintf(&buf, "- Operator extras vs upstream: `%d`\n", len(extras))
@@ -621,8 +409,8 @@ func writeGitHubSummary(
 		}
 	}
 
-	writeList("Missing (typed schema)", missingTyped)
-	writeList("Missing (default generation)", missingDefault)
+	writeList("Absent (typed declarations)", missingTyped)
+	writeList("Absent (default output)", missingDefault)
 	writeList("Extra (operator vs upstream)", extras)
 
 	// #nosec G304 -- path is provided by GitHub Actions via env var; this is CI tooling.
@@ -638,49 +426,4 @@ func writeGitHubSummary(
 	if _, err := f.Write(buf.Bytes()); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to write %s: %v\n", path, err)
 	}
-}
-
-// reflectStructTag is a tiny subset of reflect.StructTag to avoid importing reflect
-// (and to keep behavior predictable for our parsing needs).
-type reflectStructTag string
-
-func (tag reflectStructTag) Lookup(key string) (string, bool) {
-	s := string(tag)
-	for s != "" {
-		s = strings.TrimLeft(s, " ")
-		if s == "" {
-			break
-		}
-		i := strings.IndexByte(s, ':')
-		if i <= 0 {
-			break
-		}
-		name := s[:i]
-		s = s[i+1:]
-		if !strings.HasPrefix(s, "\"") {
-			break
-		}
-		s = s[1:]
-		j := 0
-		for j < len(s) {
-			if s[j] == '"' {
-				// tag values can contain escaped quotes
-				if j > 0 && s[j-1] == '\\' {
-					j++
-					continue
-				}
-				break
-			}
-			j++
-		}
-		if j >= len(s) {
-			break
-		}
-		value := s[:j]
-		s = s[j+1:]
-		if name == key {
-			return value, true
-		}
-	}
-	return "", false
 }

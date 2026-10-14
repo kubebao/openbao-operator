@@ -53,7 +53,7 @@ fmt: ## Run go fmt against code.
 
 .PHONY: verify-fmt
 verify-fmt: ## Verify all Go code is gofmt'd (does not modify files).
-	@unformatted="$$(find . \( -path ./.devenv -o -path ./vendor \) -prune -o -name '*.go' -print0 | xargs -0 gofmt -l)"; \
+	@unformatted="$$(find . \( -path ./.git -o -path ./.devenv -o -path ./vendor \) -prune -o -name '*.go' -print0 | xargs -0 gofmt -l)"; \
 	if [ -n "$$unformatted" ]; then \
 		echo "The following files are not gofmt'd:"; \
 		echo "$$unformatted"; \
@@ -193,16 +193,16 @@ api-reference: crd-ref-docs ## Generate CRD API reference docs from api/v1alpha1
 	@CRD_REF_DOCS_BIN="$(CRD_REF_DOCS)" bash hack/docs/generate-api-reference.sh
 
 .PHONY: verify-openbao-config-compat
-verify-openbao-config-compat: ## Validate generated HCL fixtures against upstream OpenBao config parser (semantic).
-	@bash hack/ci/openbao-config-compat.sh 2.4.4 2.5.5 2.6.4 2.7.1
+verify-openbao-config-compat: ## Validate versioned HCL contracts, decoded values, and expected rejections.
+	@bash hack/ci/openbao-config-compat.sh
 
 .PHONY: report-openbao-config-schema-drift
-report-openbao-config-schema-drift: ## Report upstream OpenBao config schema drift across the supported range (non-failing).
-	@REPORT_SCHEMA_DRIFT=true bash hack/ci/openbao-config-compat.sh 2.4.4 2.5.5 2.6.4 2.7.1
+report-openbao-config-schema-drift: ## Validate config compatibility and report upstream schema drift across the matrix.
+	@REPORT_SCHEMA_DRIFT=true bash hack/ci/openbao-config-compat.sh
 
 .PHONY: report-openbao-operator-schema-drift
-report-openbao-operator-schema-drift: ## Report operator-vs-upstream OpenBao config schema drift (non-failing).
-	@GOFLAGS="-mod=mod" go run ./hack/tools/openbao_operator_schema_drift --openbao-image-tag 2.6.4
+report-openbao-operator-schema-drift: ## Validate config compatibility and report operator-vs-upstream schema drift.
+	@REPORT_SCHEMA_DRIFT=true bash hack/ci/openbao-config-compat.sh
 
 .PHONY: report-ast
 report-ast: generate-ast-rules ast-grep ## Run ast-grep rules in report mode (non-failing; warnings only).

@@ -419,6 +419,8 @@ func TestRenderHCLWithHTTPAuditHeaders(t *testing.T) {
 		t.Fatalf("RenderHCL() error = %v", err)
 	}
 
+	compareGolden(t, "render_hcl_http_audit_headers", got)
+
 	rendered := string(got)
 	want := `headers = "{\"X-Audit\":[\"one\",\"two\"],\"Authorization\":[\"Bearer token\"]}"`
 	if !strings.Contains(rendered, want) {
@@ -614,6 +616,8 @@ func TestRenderHCLWithAllNodeMetricsListener(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderHCL() error = %v", err)
 	}
+
+	compareGolden(t, "render_hcl_metrics_only_listener", got)
 
 	gotText := string(got)
 	for _, want := range []string{
@@ -828,6 +832,8 @@ func TestRenderSelfInitHCLWithProfileRequestControls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderSelfInitHCL() error = %v", err)
 	}
+
+	compareGolden(t, "render_self_init_profile_controls", got)
 
 	rendered := string(got)
 	for _, want := range []string{
@@ -1917,6 +1923,8 @@ func TestRenderHCL_KMSPluginSeal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderHCL() error = %v", err)
 	}
+
+	compareGolden(t, "render_hcl_kms_plugin_seal", got)
 
 	rendered := string(got)
 	for _, want := range []string{

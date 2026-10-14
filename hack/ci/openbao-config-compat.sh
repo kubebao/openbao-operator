@@ -3,37 +3,43 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "error: docker is required" >&2
-  exit 1
-fi
-
-if ! command -v go >/dev/null 2>&1; then
-  echo "error: go is required" >&2
-  exit 1
-fi
-
-VERSIONS=("$@")
-if [ ${#VERSIONS[@]} -eq 0 ]; then
-  VERSIONS=("2.4.4" "2.5.5" "2.6.4" "2.7.1")
-fi
-
-FILES=( "$ROOT_DIR"/internal/adapter/config/testdata/*.hcl )
-if [ ${#FILES[@]} -eq 0 ]; then
-  echo "error: no HCL fixtures found under internal/adapter/config/testdata" >&2
-  exit 1
-fi
+for command in docker go git; do
+  if ! command -v "$command" >/dev/null 2>&1; then
+    echo "error: $command is required" >&2
+    exit 1
+  fi
+done
 
 REPORT_SCHEMA_DRIFT="${REPORT_SCHEMA_DRIFT:-false}"
 TMPMODULE_GOFLAGS="${TMPMODULE_GOFLAGS:--mod=mod}"
 REPO_GOFLAGS="${REPO_GOFLAGS:--mod=vendor}"
-schema_tmp=""
-if [ "${REPORT_SCHEMA_DRIFT}" = "true" ]; then
-  schema_tmp="$(mktemp -d)"
-  trap 'rm -rf "$schema_tmp"' EXIT
+REPORT_DIR="${COMPAT_REPORT_DIR:-${ROOT_DIR}/dist/test/openbao-config-compat}"
+mkdir -p "$REPORT_DIR"
+REPORT_DIR="$(cd "$REPORT_DIR" && pwd)"
+REPORT_DIR="$(mktemp -d "$REPORT_DIR/run-XXXXXX")"
+echo "Compatibility reports: $REPORT_DIR"
+work_root="$(mktemp -d)"
+trap 'rm -rf "$work_root"' EXIT
+schema_tmp="$work_root/schema"
+mkdir -p "$schema_tmp"
+(
+  cd "$ROOT_DIR"
+  GOFLAGS="$REPO_GOFLAGS" go build -o "$work_root/prepare" ./hack/tools/openbao_config_compat
+  if [ "$REPORT_SCHEMA_DRIFT" = true ]; then
+    GOFLAGS="$REPO_GOFLAGS" go build -o "$work_root/operator-schema" ./hack/tools/openbao_operator_schema_drift
+  fi
+)
+VERSIONS=("$@")
+if [ ${#VERSIONS[@]} -eq 0 ]; then
+  read -r -a VERSIONS <<< "$("$work_root/prepare" -root "$ROOT_DIR" -list-versions)"
+fi
+if [ ${#VERSIONS[@]} -eq 0 ]; then
+  echo "error: empty version matrix" >&2
+  exit 1
 fi
 
 for version in "${VERSIONS[@]}"; do
+  "$work_root/prepare" -version "$version" -validate-version
   echo "==> OpenBao config compatibility: $version"
 
   sha="$(docker run --rm "openbao/openbao:${version}" version | sed -n 's/.*(\([0-9a-f]\{40\}\)).*/\1/p')"
@@ -43,8 +49,8 @@ for version in "${VERSIONS[@]}"; do
   fi
   echo "    SHA: ${sha}"
 
-  tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  tmpdir="$work_root/parser-$version"
+  mkdir -p "$tmpdir"
 
   module_path="github.com/openbao/openbao"
   parser_path="command/server"
@@ -62,42 +68,9 @@ for version in "${VERSIONS[@]}"; do
     harness_module="${module_path}/operator-config-compat"
   fi
 
-  cat > "${tmpdir}/main.go" <<GO
-package main
-
-import (
-	"fmt"
-	"os"
-
-	serverconfig "${module_path}/${parser_path}"
-)
-
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: openbao-config-compat <file1.hcl> [file2.hcl...]")
-		os.Exit(2)
-	}
-
-	var failed bool
-	for _, path := range os.Args[1:] {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "read %s: %v\n", path, err)
-			failed = true
-			continue
-		}
-		if _, err := serverconfig.ParseConfig(string(b), path); err != nil {
-			fmt.Fprintf(os.Stderr, "parse %s: %v\n", path, err)
-			failed = true
-			continue
-		}
-	}
-
-	if failed {
-		os.Exit(1)
-	}
-}
-GO
+  sed "s|SERVERCONFIG|${module_path}/${parser_path}|" \
+    "$ROOT_DIR/hack/tools/openbao_config_compat/harness.go.tmpl" > "$tmpdir/main.go"
+  cp "$ROOT_DIR/hack/tools/openbao_config_compat/contract.go" "$tmpdir/contract.go"
 
   (
     cd "${tmpdir}"
@@ -148,28 +121,37 @@ GO
       cat "${go_get_log}" >&2
       exit 1
     fi
-    GOFLAGS="${TMPMODULE_GOFLAGS}" go mod tidy >/dev/null 2>&1
-    GOFLAGS="${TMPMODULE_GOFLAGS}" go run . "${FILES[@]}"
-
-    if [ "${REPORT_SCHEMA_DRIFT}" = "true" ]; then
-      moddir="$(GOFLAGS="${TMPMODULE_GOFLAGS}" go list -m -f '{{.Dir}}' "${module_path}")"
+    if ! GOFLAGS="${TMPMODULE_GOFLAGS}" go mod tidy >"${tmpdir}/go-tidy.log" 2>&1; then
+      cat "${tmpdir}/go-tidy.log" >&2
+      exit 1
+    fi
+    moddir="$(GOFLAGS="${TMPMODULE_GOFLAGS}" go list -m -f '{{.Dir}}' "${module_path}")"
+    "$work_root/prepare" -root "$ROOT_DIR" -version "$version" \
+      -upstream-commit "$sha" \
+      -upstream-module-dir "$moddir" -output "$tmpdir/cases.json" \
+      -schema-output "$schema_tmp/keys-$version.txt"
+    GOFLAGS="${TMPMODULE_GOFLAGS}" go run . "$tmpdir/cases.json" "$REPORT_DIR/cases-$version.json" \
+      | tee "$REPORT_DIR/summary-$version.txt"
+    if [ "$REPORT_SCHEMA_DRIFT" = true ]; then
       (
-        cd "${ROOT_DIR}"
-        GOFLAGS="${REPO_GOFLAGS}" go run ./hack/tools/openbao_config_schema -file "${moddir}/${parser_path}/config.go"
-      ) > "${schema_tmp}/keys-${version}.txt"
+        cd "$ROOT_DIR"
+        "$work_root/operator-schema" -upstream-module-dir "$moddir" \
+          -openbao-image-tag "$version" -openbao-git-sha "$sha" -max-list 0
+      ) | tee "$REPORT_DIR/operator-schema-$version.txt"
+      cp "$schema_tmp/keys-$version.txt" "$REPORT_DIR/schema-keys-$version.txt"
+    fi
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+      printf '\n- ' >> "$GITHUB_STEP_SUMMARY"
+      cat "$REPORT_DIR/summary-$version.txt" >> "$GITHUB_STEP_SUMMARY"
     fi
   )
 
-  rm -rf "${tmpdir}"
-  if [ "${REPORT_SCHEMA_DRIFT}" != "true" ]; then
-    trap - EXIT
-  fi
 done
 
 if [ "${REPORT_SCHEMA_DRIFT}" = "true" ]; then
   echo
   echo "==> OpenBao config schema drift report"
-  echo "    Source: upstream server/config.go (hcl struct tags; version-specific package layout)"
+  echo "    Source: qualified parser/profile paths, Raft map reads, and retry_join JSON fields"
   echo
 
   any=false
@@ -180,12 +162,12 @@ if [ "${REPORT_SCHEMA_DRIFT}" = "true" ]; then
     cur_file="${schema_tmp}/keys-${cur}.txt"
 
     if [ ! -f "${prev_file}" ] || [ ! -f "${cur_file}" ]; then
-      echo "warning: missing schema snapshots for ${prev} -> ${cur}" >&2
-      continue
+      echo "error: missing schema snapshots for ${prev} -> ${cur}" >&2
+      exit 1
     fi
 
-    added="$(comm -13 "${prev_file}" "${cur_file}" || true)"
-    removed="$(comm -23 "${prev_file}" "${cur_file}" || true)"
+    added="$(LC_ALL=C comm -13 "${prev_file}" "${cur_file}")"
+    removed="$(LC_ALL=C comm -23 "${prev_file}" "${cur_file}")"
 
     if [ -n "${added}" ] || [ -n "${removed}" ]; then
       any=true
@@ -203,7 +185,7 @@ if [ "${REPORT_SCHEMA_DRIFT}" = "true" ]; then
   done
 
   if [ "${any}" = "false" ]; then
-    echo "No config schema changes detected across: ${VERSIONS[*]}"
+    echo "No changes in extracted configuration paths across: ${VERSIONS[*]}"
   fi
 
   if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
