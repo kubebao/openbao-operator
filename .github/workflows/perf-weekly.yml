@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload scenario performance artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-weekly-kind-v1.34.3-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/perf/
@@ -88,7 +88,7 @@ jobs:
           cache: true
 
       - name: Download scenario artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: perf-weekly-kind-v1.34.3-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/perf
@@ -143,7 +143,7 @@ jobs:
 
       - name: Upload merged performance report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-weekly-summary-kind-v1.34.3-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/perf/
@@ -160,7 +160,7 @@ jobs:
     if: ${{ always() && github.event_name == 'schedule' && (needs.verify-perf.result == 'failure' || needs.summarize-perf.result == 'failure') }}
     steps:
       - name: Download merged performance report
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: perf-weekly-summary-kind-v1.34.3-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/perf
