@@ -34,10 +34,15 @@ func buildStorageConfig(cfg *backupconfig.ExecutorConfig) (storage.Config, error
 	case constants.StorageProviderS3:
 		storageConfig.Region = destination.Region
 		if cfg.StorageCredentials != nil {
-			storageConfig.Credentials = cfg.StorageCredentials
+			credentials := *cfg.StorageCredentials
+			if len(cfg.StorageCACert) > 0 {
+				credentials.CACert = cfg.StorageCACert
+			}
+			storageConfig.Credentials = &credentials
 		} else {
 			storageConfig.Credentials = &blobstore.Credentials{
 				Region: destination.Region,
+				CACert: cfg.StorageCACert,
 			}
 		}
 		storageConfig.S3 = &storage.S3Options{
@@ -56,6 +61,7 @@ func buildStorageConfig(cfg *backupconfig.ExecutorConfig) (storage.Config, error
 			CredentialsJSON:    cfg.GCSCredentialsJSON,
 			UseEmulator:        cfg.GCSUseEmulator,
 			InsecureSkipVerify: cfg.InsecureSkipVerify,
+			CACert:             cfg.StorageCACert,
 		}
 		if !cfg.InsecureSkipVerify && cfg.GCSUseEmulator &&
 			strings.HasPrefix(strings.ToLower(cfg.BackupEndpoint), "http://") {
@@ -69,6 +75,7 @@ func buildStorageConfig(cfg *backupconfig.ExecutorConfig) (storage.Config, error
 			ConnectionString:   cfg.AzureConnectionString,
 			UseManagedIdentity: cfg.AzureAccountKey == "" && cfg.AzureConnectionString == "",
 			InsecureSkipVerify: cfg.InsecureSkipVerify,
+			CACert:             cfg.StorageCACert,
 		}
 	default:
 		return storage.Config{}, fmt.Errorf("unknown storage provider: %q", cfg.BackupProvider)

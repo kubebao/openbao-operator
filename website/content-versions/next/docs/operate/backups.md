@@ -90,6 +90,13 @@ that hostname to a private endpoint. For Azurite, include the account path, for 
 `http://azurite.azure.svc.cluster.local:10000/devstoreaccount1`. A credential Secret's `connectionString` supplies
 its own endpoint and takes precedence over `target.endpoint`.
 
+For a storage endpoint signed by a private certificate authority, add its PEM certificate bundle under `caCert` in
+the referenced storage Secret. S3, GCS, and Azure backup and restore executors add this bundle to the system trust
+roots. The bundle is separate from the OpenBao API CA. Keep `insecureSkipVerify` disabled.
+
+The Secret can contain only `caCert` when authentication uses workload identity or the provider credential chain.
+Adding storage trust does not select static credentials; retain the required role or workload-identity configuration.
+
 For platform workload identity, set `target.workloadIdentity.serviceAccountAnnotations` and, when required,
 `target.workloadIdentity.podLabels`. For S3 web identity, the effective `target.s3.roleArn` or compatibility
 `target.roleArn` projects an STS token and configures the

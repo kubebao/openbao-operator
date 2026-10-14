@@ -24,6 +24,11 @@ func loadStorageConfig(cfg *ExecutorConfig) error {
 	cfg.BackupPathPrefix = strings.TrimSpace(os.Getenv(constants.EnvBackupPathPrefix))
 	cfg.BackupFilenamePrefix = strings.TrimSpace(os.Getenv(constants.EnvBackupFilenamePrefix))
 	cfg.BackupKey = strings.TrimSpace(os.Getenv(constants.EnvBackupKey))
+	caCert, err := loadStorageCACert(backupCredentialsPath())
+	if err != nil {
+		return fmt.Errorf("failed to load storage CA certificate: %w", err)
+	}
+	cfg.StorageCACert = caCert
 
 	switch cfg.BackupProvider {
 	case constants.StorageProviderS3:
@@ -35,6 +40,25 @@ func loadStorageConfig(cfg *ExecutorConfig) error {
 	default:
 		return nil
 	}
+}
+
+func loadStorageCACert(credsPath string) ([]byte, error) {
+	cleanCredsPath, err := validatePath("/", credsPath)
+	if err != nil {
+		return nil, fmt.Errorf("invalid credentials path: %w", err)
+	}
+	caCertPath, err := validatePath(cleanCredsPath, filepath.Join(cleanCredsPath, blobstore.SecretKeyCACert))
+	if err != nil {
+		return nil, fmt.Errorf("invalid CA certificate path: %w", err)
+	}
+	data, err := os.ReadFile(caCertPath) // #nosec G304 -- Path validated under the credentials directory.
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read storage CA certificate: %w", err)
+	}
+	return data, nil
 }
 
 func loadS3StorageConfig(cfg *ExecutorConfig) error {

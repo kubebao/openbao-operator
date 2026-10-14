@@ -52,6 +52,8 @@ type ExecutorConfig struct {
 
 	// Storage credentials (provider-agnostic)
 	StorageCredentials *blobstore.Credentials
+	// StorageCACert adds storage endpoint trust independently of authentication.
+	StorageCACert []byte
 
 	// GCS-specific credentials
 	GCSCredentialsJSON []byte
