@@ -228,7 +228,7 @@ func BuildBackupJobVolumeMounts(cluster *openbaov1alpha1.OpenBaoCluster, tlsTrus
 		})
 	}
 
-	if cluster.Spec.Backup.Target.RoleARN != "" {
+	if cluster.Spec.Backup.Target.EffectiveS3RoleARN() != "" {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      awsWebIdentityVolumeName,
 			MountPath: awsWebIdentityMountPath,
@@ -287,7 +287,7 @@ func BuildBackupJobVolumes(cluster *openbaov1alpha1.OpenBaoCluster, tlsTrust por
 		})
 	}
 
-	if cluster.Spec.Backup.Target.RoleARN != "" {
+	if cluster.Spec.Backup.Target.EffectiveS3RoleARN() != "" {
 		volumes = append(volumes, corev1.Volume{
 			Name: awsWebIdentityVolumeName,
 			VolumeSource: corev1.VolumeSource{

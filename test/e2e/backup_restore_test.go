@@ -448,11 +448,13 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 						Image:    backupExecutorImage,
 						// JWTAuthRole not set - operator will auto-create backup role when OIDC is enabled
 						Target: openbaov1alpha1.BackupTarget{
-							Provider:     constants.StorageProviderS3,
-							Endpoint:     rustfsEndpoint,
-							Bucket:       rustfsBucket,
-							PathPrefix:   "clusters",
-							UsePathStyle: true,
+							Provider:   constants.StorageProviderS3,
+							Endpoint:   rustfsEndpoint,
+							Bucket:     rustfsBucket,
+							PathPrefix: "clusters",
+							S3: &openbaov1alpha1.S3TargetConfig{
+								Region: ptr.To("us-east-1"), UsePathStyle: ptr.To(true),
+							},
 							CredentialsSecretRef: &corev1.LocalObjectReference{
 								Name: credentialsSecret.Name,
 							},
@@ -672,10 +674,12 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 					Cluster: drCluster.Name,
 					Source: openbaov1alpha1.RestoreSource{
 						Target: openbaov1alpha1.BackupTarget{
-							Provider:     constants.StorageProviderS3,
-							Endpoint:     rustfsEndpoint,
-							Bucket:       rustfsBucket,
-							UsePathStyle: true,
+							Provider: constants.StorageProviderS3,
+							Endpoint: rustfsEndpoint,
+							Bucket:   rustfsBucket,
+							S3: &openbaov1alpha1.S3TargetConfig{
+								Region: ptr.To("us-east-1"), UsePathStyle: ptr.To(true),
+							},
 							CredentialsSecretRef: &corev1.LocalObjectReference{
 								Name: credentialsSecret.Name,
 							},

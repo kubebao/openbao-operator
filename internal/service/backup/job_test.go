@@ -534,7 +534,7 @@ func TestBuildBackupJob_WithRoleARN(t *testing.T) {
 
 	hasTokenMount := false
 	for _, mount := range container.VolumeMounts {
-		if mount.Name == "aws-iam-token" {
+		if mount.Name == awsWebIdentityVolumeName {
 			hasTokenMount = true
 			if mount.MountPath != "/var/run/secrets/aws" {
 				t.Errorf("buildBackupJob() aws token mount path = %v, want /var/run/secrets/aws", mount.MountPath)
@@ -547,7 +547,7 @@ func TestBuildBackupJob_WithRoleARN(t *testing.T) {
 
 	hasTokenVolume := false
 	for _, vol := range job.Spec.Template.Spec.Volumes {
-		if vol.Name != "aws-iam-token" {
+		if vol.Name != awsWebIdentityVolumeName {
 			continue
 		}
 		hasTokenVolume = true

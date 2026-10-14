@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -17,6 +18,29 @@ func envMap(envVars []corev1.EnvVar) map[string]string {
 		values[envVar.Name] = envVar.Value
 	}
 	return values
+}
+
+func TestProviderEnvVars_NestedS3Options(t *testing.T) {
+	for _, region := range []string{"eu-central-1", ""} {
+		t.Run("region="+region, func(t *testing.T) {
+			target := openbaov1alpha1.BackupTarget{Region: "eu-west-1", UsePathStyle: true,
+				S3: &openbaov1alpha1.S3TargetConfig{Region: ptr.To(region), UsePathStyle: ptr.To(false)},
+			}
+			wantRegion := region
+			if wantRegion == "" {
+				wantRegion = constants.DefaultS3Region
+			}
+			backup := envMap(AppendProviderEnvVars(nil, target))
+			restore := envMap(AppendRestoreProviderEnvVars(nil, target))
+			if backup[constants.EnvBackupRegion] != wantRegion || restore[constants.EnvRestoreRegion] != wantRegion {
+				t.Fatalf("backup/restore regions = %q/%q, want %q", backup[constants.EnvBackupRegion],
+					restore[constants.EnvRestoreRegion], wantRegion)
+			}
+			if backup[constants.EnvBackupUsePathStyle] != "false" || restore[constants.EnvRestoreUsePathStyle] != "false" {
+				t.Fatal("nested false must override legacy true in backup and restore environments")
+			}
+		})
+	}
 }
 
 func TestEffectiveJWTRole(t *testing.T) {

@@ -76,7 +76,7 @@ By default, OpenBao verifies that the snapshot is compatible with the target clu
 configuration. The target must also be initialized and must not have `Upgrading=True`.
 
 For Hardened targets, configure explicit, port-scoped `spec.network.egressRules` on the target cluster and set
-`credentialsSecretRef`, workload-identity metadata, or S3 `roleArn` on the restore source.
+`credentialsSecretRef`, workload-identity metadata, or S3 `s3.roleArn` on the restore source.
 
 | Requirement | Value |
 | --- | --- |
@@ -132,7 +132,8 @@ spec:
       provider: s3
       endpoint: https://s3.amazonaws.com
       bucket: openbao-backups
-      region: us-east-1
+      s3:
+        region: us-east-1
       credentialsSecretRef:
         name: s3-restore-credentials
     key: clusters/security/prod-cluster/last-good.snap
@@ -140,8 +141,13 @@ spec:
 {{< /command >}}
 
 The target shape is shared with backups. GCS uses `provider: gcs`, `bucket`, optional `gcs.project`, and a
-`credentials.json` Secret. Azure uses `provider: azure`, `bucket`, `azure.storageAccount`, optional
-`azure.container`, and an `accountKey` or `connectionString` Secret.
+`credentials.json` Secret. Azure uses `provider: azure`, `bucket` as its container, `azure.storageAccount`, and an
+`accountKey` or `connectionString` Secret. The existing `azure.container` compatibility alias takes precedence
+when nonempty; `bucket` remains required.
+
+S3 uses `source.target.s3` for `region`, `usePathStyle`, and `roleArn`. Configured nested fields override the
+top-level compatibility fields independently, including `false` addressing and an empty role override.
+Omitted nested fields retain the top-level values and defaults. See [storage target configuration](../backups/).
 
 Apply the request once:
 

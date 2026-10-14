@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:d202fdab5bb9a8bca48895587e2be2053f5c7599c90591a8e826b277e177cb0b
+    openbao.org/admission-policy-fingerprint: sha256:73a46b7b9737a882b1163807593929ecaa475775423a6c02345df96e1e51a130
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -324,13 +324,17 @@ spec:
                 key.startsWith("azure.workload.identity/") ||
                 key == "aadpodidbinding"))
           ))
+    - name: effective_backup_s3_role_arn
+      expression: >-
+        !has(object.spec.backup) ? "" :
+        (has(object.spec.backup.target.s3) && has(object.spec.backup.target.s3.roleArn)
+          ? object.spec.backup.target.s3.roleArn.trim()
+          : (has(object.spec.backup.target.roleArn) ? object.spec.backup.target.roleArn.trim() : ""))
     - name: has_backup_cloud_identity_metadata
       expression: >-
         has(object.spec.backup) &&
         (
-          (variables.backup_target_uses_s3 &&
-            has(object.spec.backup.target.roleArn) &&
-            object.spec.backup.target.roleArn.trim() != "") ||
+          (variables.backup_target_uses_s3 && variables.effective_backup_s3_role_arn != "") ||
           (has(object.spec.backup.target.workloadIdentity) &&
             (
               (has(object.spec.backup.target.workloadIdentity.serviceAccountAnnotations) &&
@@ -727,9 +731,7 @@ spec:
         object.spec.profile != "Hardened" ||
         !variables.has_backup ||
         (has(object.spec.backup.target.credentialsSecretRef) && object.spec.backup.target.credentialsSecretRef.name.trim() != "") ||
-        (variables.backup_target_uses_s3 &&
-          has(object.spec.backup.target.roleArn) &&
-          object.spec.backup.target.roleArn.trim() != "") ||
+        (variables.backup_target_uses_s3 && variables.effective_backup_s3_role_arn != "") ||
         (has(object.spec.backup.target.workloadIdentity) &&
           (
             (has(object.spec.backup.target.workloadIdentity.serviceAccountAnnotations) &&
@@ -737,7 +739,7 @@ spec:
             (has(object.spec.backup.target.workloadIdentity.podLabels) &&
               size(object.spec.backup.target.workloadIdentity.podLabels) > 0)
           ))
-      message: Hardened profile does not allow backup storage to rely on ambient credentials; configure target.credentialsSecretRef, target.workloadIdentity, or target.roleArn for S3 targets.
+      message: Hardened profile does not allow backup storage to rely on ambient credentials; configure target.credentialsSecretRef, target.workloadIdentity, or target.s3.roleArn (target.roleArn for compatibility) for S3 targets.
     - expression: >-
         !has(object.spec.profile) ||
         object.spec.profile != "Hardened" ||
@@ -898,7 +900,7 @@ spec:
         (object.spec.backup.schedule != "" &&
           ((has(object.spec.backup.jwtAuthRole) && object.spec.backup.jwtAuthRole != "") || has(object.spec.backup.tokenSecretRef) || ((!has(object.spec.backup.jwtAuthRole) || object.spec.backup.jwtAuthRole == "") && has(object.spec.selfInit) && object.spec.selfInit.enabled == true && has(object.spec.selfInit.oidc) && object.spec.selfInit.oidc.enabled == true)) &&
           object.spec.backup.schedule.matches("^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$"))
-      message: spec.backup requires schedule, OpenBao auth (jwtAuthRole or tokenSecretRef, or self-init OIDC bootstrap enabled when jwtAuthRole is empty/unset for auto-creation of "openbao-operator-backup" role), and a 5-field cron expression. Hardened profile requires explicit storage credentials via target.credentialsSecretRef, target.workloadIdentity, or target.roleArn for S3 targets.
+      message: spec.backup requires schedule, OpenBao auth (jwtAuthRole or tokenSecretRef, or self-init OIDC bootstrap enabled when jwtAuthRole is empty/unset for auto-creation of "openbao-operator-backup" role), and a 5-field cron expression. Hardened profile requires explicit storage credentials via target.credentialsSecretRef, target.workloadIdentity, or target.s3.roleArn (target.roleArn for compatibility) for S3 targets.
     - expression: >-
         !variables.upgrade_strategy_changed ||
         (object.spec.version == oldObject.spec.version &&

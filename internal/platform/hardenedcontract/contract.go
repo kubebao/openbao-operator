@@ -105,7 +105,7 @@ func EvaluateStorageTarget(operation string, target openbaov1alpha1.BackupTarget
 			RuleStorageExplicitIdentity,
 			fmt.Sprintf(
 				"Hardened profile does not allow %s storage to rely on ambient credentials; configure "+
-					"target.credentialsSecretRef, target.workloadIdentity, or target.roleArn for S3 targets.",
+					"target.credentialsSecretRef, target.workloadIdentity, or target.s3.roleArn (target.roleArn for compatibility) for S3 targets.",
 				strings.ToLower(title),
 			),
 		)
@@ -117,7 +117,7 @@ func HasExplicitStorageIdentity(target openbaov1alpha1.BackupTarget) bool {
 	if target.CredentialsSecretRef != nil && strings.TrimSpace(target.CredentialsSecretRef.Name) != "" {
 		return true
 	}
-	if storageTargetUsesS3(target) && strings.TrimSpace(target.RoleARN) != "" {
+	if storageTargetUsesS3(target) && strings.TrimSpace(target.EffectiveS3RoleARN()) != "" {
 		return true
 	}
 	if target.WorkloadIdentity == nil {

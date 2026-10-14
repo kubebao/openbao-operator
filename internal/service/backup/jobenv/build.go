@@ -49,8 +49,8 @@ func BuildEnvVars(cluster *openbaov1alpha1.OpenBaoCluster, opts Options, tokenFi
 	env = storageenv.AppendProviderEnvVars(env, backupCfg.Target)
 
 	// AWS Role ARN for Web Identity (IRSA)
-	if destination.Provider == constants.StorageProviderS3 && backupCfg.Target.RoleARN != "" {
-		env = append(env, corev1.EnvVar{Name: constants.EnvAWSRoleARN, Value: backupCfg.Target.RoleARN})
+	if destination.Provider == constants.StorageProviderS3 && backupCfg.Target.EffectiveS3RoleARN() != "" {
+		env = append(env, corev1.EnvVar{Name: constants.EnvAWSRoleARN, Value: backupCfg.Target.EffectiveS3RoleARN()})
 		env = append(env, corev1.EnvVar{Name: constants.EnvAWSWebIdentityTokenFile, Value: tokenFilePath})
 	}
 

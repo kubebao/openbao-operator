@@ -176,7 +176,7 @@ var rules = []Rule{
 		ID:     RuleStorageExplicitIdentity,
 		Layers: []EnforcementLayer{LayerAdmissionPolicy, LayerRuntimeReadiness},
 		AdmissionMessage: "Hardened profile does not allow backup storage to rely on ambient credentials; configure " +
-			"target.credentialsSecretRef, target.workloadIdentity, or target.roleArn for S3 targets.",
+			"target.credentialsSecretRef, target.workloadIdentity, or target.s3.roleArn (target.roleArn for compatibility) for S3 targets.",
 	},
 	{
 		ID:               RuleServiceMonitorTLSVerification,

@@ -290,6 +290,7 @@ type BackupRetention struct {
 // +kubebuilder:validation:XValidation:rule="self.provider != 's3' || (has(self.endpoint) && size(self.endpoint) > 0)",message="backup target endpoint is required when provider is s3"
 // +kubebuilder:validation:XValidation:rule="self.provider == 'gcs' || !has(self.gcs)",message="backup target gcs options are only supported when provider is gcs"
 // +kubebuilder:validation:XValidation:rule="self.provider == 'azure' || !has(self.azure)",message="backup target azure options are only supported when provider is azure"
+// +kubebuilder:validation:XValidation:rule="self.provider == 's3' || !has(self.s3)",message="backup target s3 options are only supported when provider is s3"
 // +kubebuilder:validation:XValidation:rule="self.provider == 's3' || !has(self.roleArn) || size(self.roleArn) == 0",message="backup target roleArn is only supported when provider is s3"
 type BackupTarget struct {
 	// Provider selects the storage backend. Defaults to "s3" for backward compatibility.
@@ -303,7 +304,8 @@ type BackupTarget struct {
 	// For Azure: Optional (derived from StorageAccount if not specified).
 	// +optional
 	Endpoint string `json:"endpoint,omitempty"`
-	// Bucket is the bucket or container name.
+	// Bucket is the bucket or container name for every provider. For Azure, a
+	// nonempty azure.container compatibility alias takes precedence.
 	// +kubebuilder:validation:MinLength=1
 	Bucket string `json:"bucket"`
 	// PathPrefix is an optional prefix within the bucket for this cluster's snapshots.
@@ -317,7 +319,7 @@ type BackupTarget struct {
 	// For GCS: Expected key is "credentials.json" containing a service account JSON key.
 	// For Azure: Expected keys are "accountKey" or "connectionString".
 	// Hardened clusters require an explicit storage identity path: credentialsSecretRef,
-	// workloadIdentity metadata, or roleArn for S3 targets. Omitting those paths relies
+	// workloadIdentity metadata, or the effective S3 roleArn. Omitting those paths relies
 	// on ambient/default credentials and is rejected for Hardened clusters.
 	// +optional
 	CredentialsSecretRef *corev1.LocalObjectReference `json:"credentialsSecretRef,omitempty"`
@@ -325,7 +327,7 @@ type BackupTarget struct {
 	// Use this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.
 	// When omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.
 	// Hardened clusters reject that ambient/default path unless credentialsSecretRef is set,
-	// workloadIdentity metadata is present, or an S3 target uses roleArn.
+	// workloadIdentity metadata is present, or an S3 target uses the effective roleArn.
 	// +optional
 	WorkloadIdentity *WorkloadIdentityConfig `json:"workloadIdentity,omitempty"`
 	// PartSize is the size of each part in multipart uploads (in bytes).
@@ -346,10 +348,17 @@ type BackupTarget struct {
 
 	// --- S3-specific configuration (only used when Provider=s3) ---
 
+	// S3 groups S3-specific configuration. Each configured field takes precedence
+	// over its top-level compatibility field. Omitted fields use the top-level value.
+	// Only used when Provider is "s3".
+	// +optional
+	S3 *S3TargetConfig `json:"s3,omitempty"`
+
 	// Region is the AWS region to use for S3-compatible clients.
 	// For AWS, this should match the bucket region (for example, "eu-west-1").
 	// For many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.
 	// Only used when Provider is "s3".
+	// Compatibility field: use s3.region for new configurations.
 	// +optional
 	// +kubebuilder:default=us-east-1
 	Region string `json:"region,omitempty"`
@@ -361,13 +370,15 @@ type BackupTarget struct {
 	// or provider-managed default credentials instead. For Hardened S3 targets, roleArn is
 	// one accepted explicit identity path. It does not satisfy Hardened identity requirements
 	// for GCS or Azure.
+	// Compatibility field: use s3.roleArn for new configurations.
 	// +optional
 	RoleARN string `json:"roleArn,omitempty"`
-	// UsePathStyle controls whether to use path-style addressing (bucket.s3.amazonaws.com/object)
+	// UsePathStyle controls whether to use path-style addressing (s3.amazonaws.com/bucket/object)
 	// or virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).
 	// Set to true for MinIO and S3-compatible stores that require path-style.
 	// Set to false for AWS S3 (default, as AWS is deprecating path-style).
 	// Only used when Provider is "s3".
+	// Compatibility field: use s3.usePathStyle for new configurations.
 	// +optional
 	// +kubebuilder:default=false
 	UsePathStyle bool `json:"usePathStyle,omitempty"`
@@ -389,6 +400,27 @@ type BackupTarget struct {
 	// Hardened clusters reject insecureSkipVerify.
 	// +optional
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+}
+
+// S3TargetConfig holds S3-specific configuration. Omitted fields use their
+// top-level BackupTarget compatibility values; this block has no defaults.
+type S3TargetConfig struct {
+	// Region is the AWS region for S3-compatible requests. It overrides region
+	// when configured. An empty value uses the default region, us-east-1.
+	// +optional
+	Region *string `json:"region,omitempty"`
+
+	// UsePathStyle selects path-style addressing. A configured false value
+	// overrides a true top-level usePathStyle value.
+	// +optional
+	UsePathStyle *bool `json:"usePathStyle,omitempty"`
+
+	// RoleARN selects the IAM role assumed with the projected ServiceAccount
+	// token. It overrides roleArn when configured. An empty value disables the
+	// top-level roleArn path; other configured credentials still apply.
+	// A nonempty value is an explicit storage identity for the Hardened profile.
+	// +optional
+	RoleARN *string `json:"roleArn,omitempty"`
 }
 
 // WorkloadIdentityConfig configures cloud workload identity metadata for backup and restore workloads.
@@ -421,7 +453,8 @@ type AzureTargetConfig struct {
 	// Required when using Azure provider.
 	// +kubebuilder:validation:MinLength=1
 	StorageAccount string `json:"storageAccount,omitempty"`
-	// Container is the blob container name. If empty, uses the Bucket field value.
+	// Container is a compatibility alias for Bucket. A nonempty value takes
+	// precedence over Bucket. Use Bucket alone for new configurations.
 	// +optional
 	Container string `json:"container,omitempty"`
 }

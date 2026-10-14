@@ -247,7 +247,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `storageAccount` _string_ | StorageAccount is the Azure storage account name.<br />Required when using Azure provider. |  | MinLength: 1 <br /> |
-| `container` _string_ | Container is the blob container name. If empty, uses the Bucket field value. |  | Optional: \{\} <br /> |
+| `container` _string_ | Container is a compatibility alias for Bucket. A nonempty value takes<br />precedence over Bucket. Use Bucket alone for new configurations. |  | Optional: \{\} <br /> |
 
 
 #### BackendTLSConfig
@@ -372,15 +372,16 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `provider` _string_ | Provider selects the storage backend. Defaults to "s3" for backward compatibility. | s3 | Enum: [s3 gcs azure] <br />Optional: \{\} <br /> |
 | `endpoint` _string_ | Endpoint is the HTTP(S) endpoint for the object storage service.<br />For S3: Required (e.g., "https://s3.amazonaws.com" or MinIO endpoint).<br />For GCS: Optional (defaults to googleapis.com).<br />For Azure: Optional (derived from StorageAccount if not specified). |  | Optional: \{\} <br /> |
-| `bucket` _string_ | Bucket is the bucket or container name. |  | MinLength: 1 <br /> |
+| `bucket` _string_ | Bucket is the bucket or container name for every provider. For Azure, a<br />nonempty azure.container compatibility alias takes precedence. |  | MinLength: 1 <br /> |
 | `pathPrefix` _string_ | PathPrefix is an optional prefix within the bucket for this cluster's snapshots. |  | Optional: \{\} <br /> |
-| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef optionally references a Secret containing credentials for the object store.<br />The Secret must exist in the same namespace as the owning OpenBao resource.<br />Cross-namespace references are not allowed for security reasons.<br />For S3: Expected keys are "accessKeyId" and "secretAccessKey" (optional: "sessionToken", "region", "caCert").<br />For GCS: Expected key is "credentials.json" containing a service account JSON key.<br />For Azure: Expected keys are "accountKey" or "connectionString".<br />Hardened clusters require an explicit storage identity path: credentialsSecretRef,<br />workloadIdentity metadata, or roleArn for S3 targets. Omitting those paths relies<br />on ambient/default credentials and is rejected for Hardened clusters. |  | Optional: \{\} <br /> |
-| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity optionally applies provider-specific metadata required by cloud workload identity integrations.<br />Use this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.<br />When omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.<br />Hardened clusters reject that ambient/default path unless credentialsSecretRef is set,<br />workloadIdentity metadata is present, or an S3 target uses roleArn. |  | Optional: \{\} <br /> |
+| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef optionally references a Secret containing credentials for the object store.<br />The Secret must exist in the same namespace as the owning OpenBao resource.<br />Cross-namespace references are not allowed for security reasons.<br />For S3: Expected keys are "accessKeyId" and "secretAccessKey" (optional: "sessionToken", "region", "caCert").<br />For GCS: Expected key is "credentials.json" containing a service account JSON key.<br />For Azure: Expected keys are "accountKey" or "connectionString".<br />Hardened clusters require an explicit storage identity path: credentialsSecretRef,<br />workloadIdentity metadata, or the effective S3 roleArn. Omitting those paths relies<br />on ambient/default credentials and is rejected for Hardened clusters. |  | Optional: \{\} <br /> |
+| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity optionally applies provider-specific metadata required by cloud workload identity integrations.<br />Use this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.<br />When omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.<br />Hardened clusters reject that ambient/default path unless credentialsSecretRef is set,<br />workloadIdentity metadata is present, or an S3 target uses the effective roleArn. |  | Optional: \{\} <br /> |
 | `partSize` _integer_ | PartSize is the size of each part in multipart uploads (in bytes).<br />Defaults to 10MB (10485760 bytes). Larger values may improve performance for large snapshots<br />on fast networks, while smaller values may be better for slow or unreliable networks. | 10485760 | Minimum: 5.24288e+06 <br />Optional: \{\} <br /> |
 | `concurrency` _integer_ | Concurrency is the number of concurrent parts to upload during multipart uploads.<br />Defaults to 3. Higher values may improve throughput on fast networks but increase<br />memory usage and may overwhelm slower storage backends. | 3 | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `region` _string_ | Region is the AWS region to use for S3-compatible clients.<br />For AWS, this should match the bucket region (for example, "eu-west-1").<br />For many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.<br />Only used when Provider is "s3". | us-east-1 | Optional: \{\} <br /> |
-| `roleArn` _string_ | RoleARN is the IAM role ARN (or S3-compatible equivalent) to assume via Web Identity.<br />When set, backup and restore Jobs mount a projected ServiceAccount token and set the<br />AWS Web Identity environment variables explicitly.<br />Only used when Provider is "s3".<br />Outside Hardened S3 targets, leave this empty when relying on ambient workload identity<br />or provider-managed default credentials instead. For Hardened S3 targets, roleArn is<br />one accepted explicit identity path. It does not satisfy Hardened identity requirements<br />for GCS or Azure. |  | Optional: \{\} <br /> |
-| `usePathStyle` _boolean_ | UsePathStyle controls whether to use path-style addressing (bucket.s3.amazonaws.com/object)<br />or virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).<br />Set to true for MinIO and S3-compatible stores that require path-style.<br />Set to false for AWS S3 (default, as AWS is deprecating path-style).<br />Only used when Provider is "s3". | false | Optional: \{\} <br /> |
+| `s3` _[S3TargetConfig](#s3targetconfig)_ | S3 groups S3-specific configuration. Each configured field takes precedence<br />over its top-level compatibility field. Omitted fields use the top-level value.<br />Only used when Provider is "s3". |  | Optional: \{\} <br /> |
+| `region` _string_ | Region is the AWS region to use for S3-compatible clients.<br />For AWS, this should match the bucket region (for example, "eu-west-1").<br />For many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.<br />Only used when Provider is "s3".<br />Compatibility field: use s3.region for new configurations. | us-east-1 | Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN is the IAM role ARN (or S3-compatible equivalent) to assume via Web Identity.<br />When set, backup and restore Jobs mount a projected ServiceAccount token and set the<br />AWS Web Identity environment variables explicitly.<br />Only used when Provider is "s3".<br />Outside Hardened S3 targets, leave this empty when relying on ambient workload identity<br />or provider-managed default credentials instead. For Hardened S3 targets, roleArn is<br />one accepted explicit identity path. It does not satisfy Hardened identity requirements<br />for GCS or Azure.<br />Compatibility field: use s3.roleArn for new configurations. |  | Optional: \{\} <br /> |
+| `usePathStyle` _boolean_ | UsePathStyle controls whether to use path-style addressing (s3.amazonaws.com/bucket/object)<br />or virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).<br />Set to true for MinIO and S3-compatible stores that require path-style.<br />Set to false for AWS S3 (default, as AWS is deprecating path-style).<br />Only used when Provider is "s3".<br />Compatibility field: use s3.usePathStyle for new configurations. | false | Optional: \{\} <br /> |
 | `gcs` _[GCSTargetConfig](#gcstargetconfig)_ | GCS contains Google Cloud Storage specific configuration.<br />Only used when Provider is "gcs". |  | Optional: \{\} <br /> |
 | `azure` _[AzureTargetConfig](#azuretargetconfig)_ | Azure contains Azure Blob Storage specific configuration.<br />Only used when Provider is "azure". |  | Optional: \{\} <br /> |
 | `insecureSkipVerify` _boolean_ | InsecureSkipVerify allows skipping TLS verification (useful for MinIO/LocalStack/Azurite with self-signed certs).<br />This applies to all providers that support TLS.<br />Hardened clusters reject insecureSkipVerify. |  | Optional: \{\} <br /> |
@@ -1901,6 +1902,25 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `restartAt` _string_ | RestartAt triggers a rolling restart when changed.<br />The operator propagates this value as a Pod template annotation; any change<br />results in a new StatefulSet revision and a controlled restart.<br />Recommended value is an RFC3339 timestamp string. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### S3TargetConfig
+
+
+
+S3TargetConfig holds S3-specific configuration. Omitted fields use their
+top-level BackupTarget compatibility values; this block has no defaults.
+
+
+
+_Appears in:_
+- [BackupTarget](#backuptarget)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `region` _string_ | Region is the AWS region for S3-compatible requests. It overrides region<br />when configured. An empty value uses the default region, us-east-1. |  | Optional: \{\} <br /> |
+| `usePathStyle` _boolean_ | UsePathStyle selects path-style addressing. A configured false value<br />overrides a true top-level usePathStyle value. |  | Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN selects the IAM role assumed with the projected ServiceAccount<br />token. It overrides roleArn when configured. An empty value disables the<br />top-level roleArn path; other configured credentials still apply.<br />A nonempty value is an explicit storage identity for the Hardened profile. |  | Optional: \{\} <br /> |
 
 
 #### SelfInitAuditDevice

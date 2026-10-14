@@ -17,7 +17,7 @@ func (m *Manager) applyRetention(ctx context.Context, logger logr.Logger, cluste
 		return nil
 	}
 
-	if cluster.Spec.Backup.Target.RoleARN != "" {
+	if cluster.Spec.Backup.Target.EffectiveS3RoleARN() != "" {
 		logger.Info("Skipping retention for workload identity backup target",
 			"cluster_namespace", cluster.Namespace,
 			"cluster_name", cluster.Name)

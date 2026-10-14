@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:697c1cdefa5a9a40a0adabc96e96009f0ac27b3fbf4d5e939ca47ca4429f5adf
+    openbao.org/admission-policy-fingerprint: sha256:4031663c07f1bd884a1a2fd386168fbec7221b0450355b753a2d2643439870bf
   name: {{ include "openbao-operator.fullname" . }}-openbao-validate-openbaorestore
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -71,11 +71,14 @@ spec:
     - name: restore_authorized
       expression: >-
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("restore").allowed()
+    - name: effective_restore_s3_role_arn
+      expression: >-
+        has(object.spec.source.target.s3) && has(object.spec.source.target.s3.roleArn)
+          ? object.spec.source.target.s3.roleArn.trim()
+          : (has(object.spec.source.target.roleArn) ? object.spec.source.target.roleArn.trim() : "")
     - name: has_restore_cloud_identity_metadata
       expression: >-
-        (variables.restore_target_uses_s3 &&
-          has(object.spec.source.target.roleArn) &&
-          object.spec.source.target.roleArn.trim() != "") ||
+        (variables.restore_target_uses_s3 && variables.effective_restore_s3_role_arn != "") ||
         (has(object.spec.source.target.workloadIdentity) &&
           (
             (has(object.spec.source.target.workloadIdentity.serviceAccountAnnotations) &&

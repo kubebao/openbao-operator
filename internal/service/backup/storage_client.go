@@ -98,7 +98,7 @@ func configureS3StorageConfig(storageConfig *storage.Config, target openbaov1alp
 	storageConfig.Region = credentials.Region
 	storageConfig.Credentials = credentials
 	storageConfig.S3 = &storage.S3Options{
-		UsePathStyle:       target.UsePathStyle,
+		UsePathStyle:       target.EffectiveS3UsePathStyle(),
 		InsecureSkipVerify: target.InsecureSkipVerify,
 		EnsureExists:       ensureExists,
 	}

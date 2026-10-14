@@ -317,7 +317,7 @@ func TestHandlePreUpgradeSnapshot_VerifiesDefaultBackupExecutorImageForHardenedC
 				Target: openbaov1alpha1.BackupTarget{
 					Endpoint: "http://test-endpoint",
 					Bucket:   "test-bucket",
-					RoleARN:  "arn:aws:iam::123456789012:role/openbao-backup",
+					S3:       &openbaov1alpha1.S3TargetConfig{RoleARN: ptr.To("nested-snapshot-role")},
 				},
 			},
 			Network: &openbaov1alpha1.NetworkConfig{
@@ -359,6 +359,9 @@ func TestHandlePreUpgradeSnapshot_VerifiesDefaultBackupExecutorImageForHardenedC
 	require.Len(t, jobList.Items, 1)
 	require.Len(t, jobList.Items[0].Spec.Template.Spec.Containers, 1)
 	assert.Equal(t, verifier.digest, jobList.Items[0].Spec.Template.Spec.Containers[0].Image)
+	assert.Contains(t, jobList.Items[0].Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name: constants.EnvAWSRoleARN, Value: "nested-snapshot-role",
+	})
 }
 
 func TestHandlePreUpgradeSnapshot_CreateAlreadyExists(t *testing.T) {

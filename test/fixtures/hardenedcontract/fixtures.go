@@ -67,6 +67,23 @@ func Fixtures() []Fixture {
 	return []Fixture{
 		{Name: "valid-baseline"},
 		{
+			Name: "backup-nested-s3-identity",
+			Configure: func(cluster *openbaov1alpha1.OpenBaoCluster) {
+				configureBackup(cluster)
+				cluster.Spec.Backup.Target.RoleARN = ""
+				cluster.Spec.Backup.Target.S3 = &openbaov1alpha1.S3TargetConfig{RoleARN: ptr.To("nested-role")}
+			},
+		},
+		{
+			Name:          "backup-suppressed-legacy-s3-identity",
+			AdmissionRule: hardenedcontract.RuleStorageExplicitIdentity,
+			RuntimeRule:   hardenedcontract.RuleStorageExplicitIdentity,
+			Configure: func(cluster *openbaov1alpha1.OpenBaoCluster) {
+				configureBackup(cluster)
+				cluster.Spec.Backup.Target.S3 = &openbaov1alpha1.S3TargetConfig{RoleARN: ptr.To("")}
+			},
+		},
+		{
 			Name:          "tls-disabled",
 			AdmissionRule: hardenedcontract.RuleHardenedBaseline,
 			RuntimeRule:   hardenedcontract.RuleRuntimeTLSEnabled,

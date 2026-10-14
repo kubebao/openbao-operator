@@ -1131,8 +1131,9 @@ spec:
                           Only used when Provider is "azure".
                         properties:
                           container:
-                            description: Container is the blob container name. If
-                              empty, uses the Bucket field value.
+                            description: |-
+                              Container is a compatibility alias for Bucket. A nonempty value takes
+                              precedence over Bucket. Use Bucket alone for new configurations.
                             type: string
                           storageAccount:
                             description: |-
@@ -1142,7 +1143,9 @@ spec:
                             type: string
                         type: object
                       bucket:
-                        description: Bucket is the bucket or container name.
+                        description: |-
+                          Bucket is the bucket or container name for every provider. For Azure, a
+                          nonempty azure.container compatibility alias takes precedence.
                         minLength: 1
                         type: string
                       concurrency:
@@ -1165,7 +1168,7 @@ spec:
                           For GCS: Expected key is "credentials.json" containing a service account JSON key.
                           For Azure: Expected keys are "accountKey" or "connectionString".
                           Hardened clusters require an explicit storage identity path: credentialsSecretRef,
-                          workloadIdentity metadata, or roleArn for S3 targets. Omitting those paths relies
+                          workloadIdentity metadata, or the effective S3 roleArn. Omitting those paths relies
                           on ambient/default credentials and is rejected for Hardened clusters.
                         properties:
                           name:
@@ -1232,6 +1235,7 @@ spec:
                           For AWS, this should match the bucket region (for example, "eu-west-1").
                           For many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.
                           Only used when Provider is "s3".
+                          Compatibility field: use s3.region for new configurations.
                         type: string
                       roleArn:
                         description: |-
@@ -1243,15 +1247,41 @@ spec:
                           or provider-managed default credentials instead. For Hardened S3 targets, roleArn is
                           one accepted explicit identity path. It does not satisfy Hardened identity requirements
                           for GCS or Azure.
+                          Compatibility field: use s3.roleArn for new configurations.
                         type: string
+                      s3:
+                        description: |-
+                          S3 groups S3-specific configuration. Each configured field takes precedence
+                          over its top-level compatibility field. Omitted fields use the top-level value.
+                          Only used when Provider is "s3".
+                        properties:
+                          region:
+                            description: |-
+                              Region is the AWS region for S3-compatible requests. It overrides region
+                              when configured. An empty value uses the default region, us-east-1.
+                            type: string
+                          roleArn:
+                            description: |-
+                              RoleARN selects the IAM role assumed with the projected ServiceAccount
+                              token. It overrides roleArn when configured. An empty value disables the
+                              top-level roleArn path; other configured credentials still apply.
+                              A nonempty value is an explicit storage identity for the Hardened profile.
+                            type: string
+                          usePathStyle:
+                            description: |-
+                              UsePathStyle selects path-style addressing. A configured false value
+                              overrides a true top-level usePathStyle value.
+                            type: boolean
+                        type: object
                       usePathStyle:
                         default: false
                         description: |-
-                          UsePathStyle controls whether to use path-style addressing (bucket.s3.amazonaws.com/object)
+                          UsePathStyle controls whether to use path-style addressing (s3.amazonaws.com/bucket/object)
                           or virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).
                           Set to true for MinIO and S3-compatible stores that require path-style.
                           Set to false for AWS S3 (default, as AWS is deprecating path-style).
                           Only used when Provider is "s3".
+                          Compatibility field: use s3.usePathStyle for new configurations.
                         type: boolean
                       workloadIdentity:
                         description: |-
@@ -1259,7 +1289,7 @@ spec:
                           Use this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.
                           When omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.
                           Hardened clusters reject that ambient/default path unless credentialsSecretRef is set,
-                          workloadIdentity metadata is present, or an S3 target uses roleArn.
+                          workloadIdentity metadata is present, or an S3 target uses the effective roleArn.
                         properties:
                           podLabels:
                             additionalProperties:
@@ -1294,6 +1324,9 @@ spec:
                     - message: backup target azure options are only supported when
                         provider is azure
                       rule: self.provider == 'azure' || !has(self.azure)
+                    - message: backup target s3 options are only supported when provider
+                        is s3
+                      rule: self.provider == 's3' || !has(self.s3)
                     - message: backup target roleArn is only supported when provider
                         is s3
                       rule: self.provider == 's3' || !has(self.roleArn) || size(self.roleArn)

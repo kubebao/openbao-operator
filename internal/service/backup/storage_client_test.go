@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/adapter/storage"
@@ -30,6 +31,13 @@ func TestOpenBackupStorageClientDestinationMatchesJobEnv(t *testing.T) {
 				Provider: "s3", Bucket: "snapshots", Region: "eu-west-1", UsePathStyle: true,
 			},
 			wantBucket: "snapshots", wantRegion: "eu-west-1",
+		},
+		{
+			name: "nested S3", target: openbaov1alpha1.BackupTarget{
+				Provider: "s3", Bucket: "snapshots", Region: "us-east-1", UsePathStyle: true,
+				S3: &openbaov1alpha1.S3TargetConfig{Region: ptr.To("eu-central-1"), UsePathStyle: ptr.To(false)},
+			},
+			wantBucket: "snapshots", wantRegion: "eu-central-1",
 		},
 		{
 			name: "GCS", target: openbaov1alpha1.BackupTarget{
@@ -83,7 +91,7 @@ func TestOpenBackupStorageClientDestinationMatchesJobEnv(t *testing.T) {
 			assert.True(t, captured.ValidateEndpointRequests)
 			if captured.S3 != nil {
 				assert.False(t, captured.S3.EnsureExists)
-				assert.Equal(t, tt.target.UsePathStyle, captured.S3.UsePathStyle)
+				assert.Equal(t, tt.target.EffectiveS3UsePathStyle(), captured.S3.UsePathStyle)
 			}
 		})
 	}

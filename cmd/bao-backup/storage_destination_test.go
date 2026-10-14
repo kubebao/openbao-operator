@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -32,6 +33,22 @@ func TestStorageDestinationRoundTripFromBackupJob(t *testing.T) {
 				RoleARN: "arn:aws:iam::123456789012:role/backup",
 			},
 			wantBucket: "snapshots", wantRegion: "eu-west-1",
+		},
+		{
+			name: "nested S3", target: openbaov1alpha1.BackupTarget{
+				Provider: "s3", Bucket: "snapshots", Region: "us-east-1", UsePathStyle: true, RoleARN: "legacy-role",
+				S3: &openbaov1alpha1.S3TargetConfig{
+					Region: ptr.To("eu-west-1"), UsePathStyle: ptr.To(false), RoleARN: ptr.To("nested-role"),
+				},
+			},
+			wantBucket: "snapshots", wantRegion: "eu-west-1",
+		},
+		{
+			name: "suppressed S3 role", target: openbaov1alpha1.BackupTarget{
+				Provider: "s3", Bucket: "snapshots", RoleARN: "legacy-role",
+				S3: &openbaov1alpha1.S3TargetConfig{RoleARN: ptr.To("")},
+			},
+			wantBucket: "snapshots", wantRegion: constants.DefaultS3Region,
 		},
 		{
 			name: "GCS", target: openbaov1alpha1.BackupTarget{
@@ -79,7 +96,7 @@ func TestStorageDestinationRoundTripFromBackupJob(t *testing.T) {
 			assert.True(t, got.ValidateEndpointRequests)
 			assert.False(t, got.EnsureExists)
 			if got.S3 != nil {
-				assert.Equal(t, tt.target.UsePathStyle, got.S3.UsePathStyle)
+				assert.Equal(t, tt.target.EffectiveS3UsePathStyle(), got.S3.UsePathStyle)
 				assert.True(t, got.S3.EnsureExists, "preserve the executor's existing S3 creation behavior")
 			}
 			if got.GCS != nil {
@@ -90,9 +107,12 @@ func TestStorageDestinationRoundTripFromBackupJob(t *testing.T) {
 				assert.True(t, got.Azure.UseManagedIdentity)
 				assert.Equal(t, tt.target.Azure.Container, cfg.AzureContainer, "retain the legacy alias environment")
 			}
-			if tt.target.RoleARN != "" {
-				assert.Equal(t, tt.target.RoleARN, os.Getenv(constants.EnvAWSRoleARN))
+			if tt.target.EffectiveS3RoleARN() != "" {
+				assert.Equal(t, tt.target.EffectiveS3RoleARN(), os.Getenv(constants.EnvAWSRoleARN))
 				assert.NotEmpty(t, os.Getenv(constants.EnvAWSWebIdentityTokenFile))
+			} else {
+				assert.Empty(t, os.Getenv(constants.EnvAWSRoleARN))
+				assert.Empty(t, os.Getenv(constants.EnvAWSWebIdentityTokenFile))
 			}
 		})
 	}
@@ -105,6 +125,7 @@ func setStorageDestinationTestEnv(t *testing.T, env []corev1.EnvVar) {
 		constants.EnvBackupInsecureSkipVerify, constants.EnvBackupGCSProject,
 		constants.EnvBackupAzureStorageAccount, constants.EnvBackupAzureContainer,
 		constants.EnvBackupJWTAuthRole, constants.EnvBackupPartSize, constants.EnvBackupConcurrency,
+		constants.EnvAWSRoleARN, constants.EnvAWSWebIdentityTokenFile,
 	} {
 		t.Setenv(name, "")
 	}

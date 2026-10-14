@@ -28,6 +28,7 @@ const (
 	validationRelaxed   = "validation-relaxed"
 	validationTightened = "validation-tightened"
 	trueValue           = "true"
+	currentAPIVersion   = "v1alpha1"
 )
 
 type options struct {
@@ -538,6 +539,13 @@ func compareNode(oldNode, newNode schemaNode) []change {
 				newNode,
 				"fresh-target rules are guarded by optional fields absent from the released restore API",
 			))
+		case isOptionalS3TargetValidation(newNode, added, removed):
+			changes = append(changes, newChange(
+				impactCompatible,
+				"cel-optional-feature-validation",
+				newNode,
+				"S3 discriminator validation is guarded by an optional field absent from the released storage API",
+			))
 		case len(added) > 0 && len(removed) == 0:
 			changes = append(changes, newChange(
 				impactReview,
@@ -564,12 +572,32 @@ func compareNode(oldNode, newNode schemaNode) []change {
 	return changes
 }
 
+// isOptionalS3TargetValidation recognizes only the reviewed discriminator rule
+// for the new optional S3 block. Released targets without that block remain valid.
+func isOptionalS3TargetValidation(node schemaNode, added, removed []string) bool {
+	if node.Version != currentAPIVersion || len(added) != 1 || len(removed) != 0 {
+		return false
+	}
+	clusterTarget := node.CRD == "openbaoclusters.openbao.org" && node.Kind == "OpenBaoCluster" &&
+		node.Path == "spec.backup.target"
+	restoreTarget := node.CRD == "openbaorestores.openbao.org" && node.Kind == "OpenBaoRestore" &&
+		node.Path == "spec.source.target"
+	if !clusterTarget && !restoreTarget {
+		return false
+	}
+	allowed := celRuleSet([]celRule{{
+		Rule:    "self.provider == 's3' || !has(self.s3)",
+		Message: "backup target s3 options are only supported when provider is s3",
+	}})
+	return allowed[added[0]]
+}
+
 // isTLSRotationPeriodDiagnosticFix recognizes only the presence guard verified by
 // TestCRD_OpenBaoCluster_TLSRotationPeriod. Missing fields are rejected both before
 // and after the change; other TLS modes and supplied values retain their behavior.
 func isTLSRotationPeriodDiagnosticFix(node schemaNode, added, removed []string) bool {
 	if node.CRD != "openbaoclusters.openbao.org" || node.Kind != "OpenBaoCluster" ||
-		node.Version != "v1alpha1" || node.Path != "spec" || len(added) != 1 || len(removed) != 1 {
+		node.Version != currentAPIVersion || node.Path != "spec" || len(added) != 1 || len(removed) != 1 {
 		return false
 	}
 
@@ -588,7 +616,7 @@ func isTLSRotationPeriodDiagnosticFix(node schemaNode, added, removed []string) 
 // TestCRD_FreshRestoreOptions verifies legacy requests and the new constraints.
 func isFreshRestoreValidation(node schemaNode, added, removed []string) bool {
 	if node.CRD != "openbaorestores.openbao.org" || node.Kind != "OpenBaoRestore" ||
-		node.Version != "v1alpha1" || node.Path != "spec" || len(added) == 0 || len(removed) != 0 {
+		node.Version != currentAPIVersion || node.Path != "spec" || len(added) == 0 || len(removed) != 0 {
 		return false
 	}
 

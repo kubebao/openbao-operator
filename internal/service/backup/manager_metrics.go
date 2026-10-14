@@ -260,7 +260,7 @@ func backupJobKey(job *batchv1.Job) string {
 func shouldReadBackupSizeFromObjectStorage(cluster *openbaov1alpha1.OpenBaoCluster) bool {
 	return cluster != nil &&
 		cluster.Spec.Backup != nil &&
-		cluster.Spec.Backup.Target.RoleARN == "" &&
+		cluster.Spec.Backup.Target.EffectiveS3RoleARN() == "" &&
 		cluster.Spec.Backup.Target.CredentialsSecretRef != nil &&
 		cluster.Spec.Backup.Target.CredentialsSecretRef.Name != ""
 }

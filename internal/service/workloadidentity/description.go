@@ -108,10 +108,10 @@ func explicitStorageIdentityMessage(provider string, target openbaov1alpha1.Back
 	fragments := make([]string, 0, 3)
 	saSuffix := generatedServiceAccountSuffix(serviceAccountName)
 
-	if provider == constants.StorageProviderS3 && strings.TrimSpace(target.RoleARN) != "" {
+	if provider == constants.StorageProviderS3 && strings.TrimSpace(target.EffectiveS3RoleARN()) != "" {
 		fragments = append(fragments, fmt.Sprintf(
 			"S3 storage auth uses roleArn %q with a projected ServiceAccount token%s",
-			strings.TrimSpace(target.RoleARN),
+			strings.TrimSpace(target.EffectiveS3RoleARN()),
 			saSuffix,
 		))
 	}

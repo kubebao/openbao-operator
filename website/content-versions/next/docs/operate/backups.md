@@ -31,7 +31,7 @@ Prepare two independent identities:
 
 1. An OpenBao identity that can read `sys/storage/raft/snapshot`. Prefer a JWT role bound to the generated
    `<cluster>-backup-serviceaccount`; use `tokenSecretRef` only as a compatibility path.
-2. An object-storage identity. Use `credentialsSecretRef`, workload-identity metadata, or S3 `roleArn`.
+2. An object-storage identity. Use `credentialsSecretRef`, workload-identity metadata, or S3 `s3.roleArn`.
 
 When self-init OIDC bootstrap is enabled, an empty `jwtAuthRole` resolves to `openbao-operator-backup` and the operator
 creates the policy and role during initial bootstrap. Otherwise, configure `jwtAuthRole` or `tokenSecretRef` explicitly.
@@ -51,7 +51,8 @@ spec:
       provider: s3
       endpoint: https://s3.amazonaws.com
       bucket: openbao-backups
-      region: us-east-1
+      s3:
+        region: us-east-1
       pathPrefix: clusters
       credentialsSecretRef:
         name: s3-backup-credentials
@@ -69,9 +70,18 @@ The deadline survives reconciliation and controller restarts. Check `status.back
 
 | Provider | Required target fields | Secret keys |
 | --- | --- | --- |
-| S3 | `endpoint`, `bucket`; `region` defaults to `us-east-1` | `accessKeyId`, `secretAccessKey`; optional `sessionToken`, `region`, `caCert` |
+| S3 | `endpoint`, `bucket`; `s3.region` defaults through the compatibility field to `us-east-1` | `accessKeyId`, `secretAccessKey`; optional `sessionToken`, `region`, `caCert` |
 | GCS | `bucket`; optional `gcs.project` and endpoint | `credentials.json` |
-| Azure | `bucket`, `azure.storageAccount`; optional `azure.container` and endpoint | `accountKey` or `connectionString` |
+| Azure | `bucket`, `azure.storageAccount`; optional endpoint | `accountKey` or `connectionString` |
+
+`bucket` is required for every provider. Azure uses it as the container name. The existing `azure.container` field
+remains a compatibility alias; a nonempty value takes precedence over `bucket`. Use `bucket` alone in new manifests.
+
+For S3, group `region`, `usePathStyle`, and `roleArn` under `target.s3`. Each configured nested field overrides its
+top-level compatibility field. Omitted nested fields use the top-level value, including its existing CRD default.
+The nested block has no defaults: `s3: {}` preserves the compatibility values, `s3.usePathStyle: false` overrides
+top-level `true`, and `s3.roleArn: ""` disables the top-level role path. An empty `s3.region` uses `us-east-1`.
+Existing top-level S3 manifests remain supported. The `s3` block is accepted only for `provider: s3`.
 
 For Azure, `target.endpoint` is the complete Blob service URL. The operator uses it without adding the storage
 account name. Omit it to use `https://<storageAccount>.blob.core.windows.net`, including when private DNS resolves
@@ -80,7 +90,8 @@ that hostname to a private endpoint. For Azurite, include the account path, for 
 its own endpoint and takes precedence over `target.endpoint`.
 
 For platform workload identity, set `target.workloadIdentity.serviceAccountAnnotations` and, when required,
-`target.workloadIdentity.podLabels`. For S3 web identity, `target.roleArn` also projects an STS token and configures the
+`target.workloadIdentity.podLabels`. For S3 web identity, the effective `target.s3.roleArn` or compatibility
+`target.roleArn` projects an STS token and configures the
 Job explicitly.
 
 {{< callout type="warning" title="Storage identity is separate from unseal identity" >}}
@@ -108,7 +119,7 @@ credential.
 The identity that changes the `OpenBaoCluster` needs:
 
 - `get` on each referenced Secret
-- `usecloudidentities` on the cluster when it sets `roleArn` or workload-identity metadata
+- `usecloudidentities` on the cluster when it sets an effective S3 role or workload-identity metadata
 - `usecustomexecutables` on the cluster when it overrides `spec.backup.image` (`usehelperimages` remains a compatibility alias)
 
 Admission rejects loopback and link-local storage endpoints. Hardened clusters also reject insecure TLS and ambient
@@ -153,7 +164,7 @@ and blue-green phase snapshots, nested objects, and any other files in that pref
 with storage lifecycle rules.
 
 {{< callout type="note" title="Retention currently needs a credentials Secret" >}}
-Controller-side retention runs only when `target.credentialsSecretRef` is configured. It is skipped for `roleArn`,
+Controller-side retention runs only when `target.credentialsSecretRef` is configured. It is skipped for an effective S3 role,
 workload identity, and other provider-default identity paths. Apply storage-native lifecycle rules for those paths.
 {{< /callout >}}
 

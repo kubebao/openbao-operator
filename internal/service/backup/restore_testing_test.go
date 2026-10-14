@@ -31,6 +31,9 @@ const restoreTestReaderAccountName = "snapshot-reader"
 func TestRestoreTestDoesNotInheritBackupWriterIdentity(t *testing.T) {
 	cluster := newRestoreTestSource("source")
 	cluster.Spec.Backup.Target.RoleARN = "arn:aws:iam::123456789012:role/backup-writer"
+	cluster.Spec.Backup.Target.S3 = &api.S3TargetConfig{
+		Region: ptr.To("eu-west-1"), UsePathStyle: ptr.To(false), RoleARN: ptr.To("nested-writer"),
+	}
 	cluster.Spec.Backup.Target.WorkloadIdentity = &api.WorkloadIdentityConfig{
 		ServiceAccountAnnotations: map[string]string{"azure.workload.identity/client-id": "writer"},
 		PodLabels:                 map[string]string{"azure.workload.identity/use": "true"},
@@ -44,10 +47,15 @@ func TestRestoreTestDoesNotInheritBackupWriterIdentity(t *testing.T) {
 	require.Len(t, children.Items, 1)
 	target := children.Items[0].Spec.Source.Target
 	require.Empty(t, target.RoleARN, "restore tests must not inherit the backup writer's role")
+	require.Nil(t, target.S3.RoleARN, "restore tests must not inherit the nested writer role")
+	require.Empty(t, target.EffectiveS3RoleARN())
+	require.Equal(t, "eu-west-1", target.EffectiveS3Region())
+	require.False(t, target.EffectiveS3UsePathStyle())
 	require.Nil(t, target.WorkloadIdentity, "destination credentials must not retain the writer's workload identity")
 	require.Equal(t, "storage-reader", target.CredentialsSecretRef.Name)
 	require.Equal(t, cluster.Spec.Backup.Target.Bucket, target.Bucket)
 	require.Equal(t, "arn:aws:iam::123456789012:role/backup-writer", cluster.Spec.Backup.Target.RoleARN)
+	require.Equal(t, "nested-writer", *cluster.Spec.Backup.Target.S3.RoleARN)
 }
 
 func TestRestoreTestPreservesPluginConfiguration(t *testing.T) {
@@ -79,10 +87,12 @@ func TestRestoreTestUsesDestinationReaderIdentity(t *testing.T) {
 		t.Run(identity, func(t *testing.T) {
 			cluster := newRestoreTestSource("source")
 			cluster.Spec.Backup.Target.RoleARN = "writer-role"
+			cluster.Spec.Backup.Target.S3 = &api.S3TargetConfig{RoleARN: ptr.To("nested-writer")}
 			config := cluster.Spec.Backup.RestoreTest
 			config.CredentialsSecretRef = nil
 			if identity == "ambient backup" {
 				cluster.Spec.Backup.Target.RoleARN = ""
+				cluster.Spec.Backup.Target.S3.RoleARN = nil
 			}
 			switch identity {
 			case "S3 role":
@@ -109,6 +119,8 @@ func TestRestoreTestUsesDestinationReaderIdentity(t *testing.T) {
 			child := &children.Items[0]
 			require.Equal(t, config.ServiceAccountName, child.Spec.ServiceAccountName)
 			require.Equal(t, config.RoleARN, child.Spec.Source.Target.RoleARN)
+			require.Equal(t, config.RoleARN, child.Spec.Source.Target.EffectiveS3RoleARN())
+			require.Nil(t, child.Spec.Source.Target.S3.RoleARN)
 			require.Equal(t, config.WorkloadIdentity, child.Spec.Source.Target.WorkloadIdentity)
 		})
 	}

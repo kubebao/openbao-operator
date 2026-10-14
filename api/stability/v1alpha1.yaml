@@ -86,6 +86,17 @@ resources:
         omission: backup executor uses 10485760-byte upload parts
       - path: spec.backup.target.provider
         omission: provider is s3
+      - path: spec.backup.target.s3
+        classification: additive-unfrozen
+        owner: backup
+        omission: use the existing top-level S3 compatibility fields
+        rationale: Optional provider grouping preserves the released wire shape and per-field legacy defaults.
+      - path: spec.backup.target.s3.region
+        omission: use target.region; an empty configured value uses us-east-1
+      - path: spec.backup.target.s3.usePathStyle
+        omission: use target.usePathStyle; configured false overrides true
+      - path: spec.backup.target.s3.roleArn
+        omission: use target.roleArn; an empty configured value disables that role
       - path: spec.breakGlassAck
         classification: beta-stable
         owner: lifecycle-safety
@@ -478,6 +489,17 @@ resources:
         rationale: Shares the validated BackupTarget contract with scheduled backups.
       - path: spec.source.target.provider
         omission: provider is s3
+      - path: spec.source.target.s3
+        classification: additive-unfrozen
+        owner: restore
+        omission: use the existing top-level S3 compatibility fields
+        rationale: Shares presence-aware S3 options with backups while retaining immutable restore requests.
+      - path: spec.source.target.s3.region
+        omission: use target.region; an empty configured value uses us-east-1
+      - path: spec.source.target.s3.usePathStyle
+        omission: use target.usePathStyle; configured false overrides true
+      - path: spec.source.target.s3.roleArn
+        omission: use target.roleArn; an empty configured value disables that role
       - path: spec.tokenSecretRef
         classification: beta-stable
         owner: restore-authentication

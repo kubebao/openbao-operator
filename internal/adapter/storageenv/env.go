@@ -39,7 +39,7 @@ func ResolveDestination(target openbaov1alpha1.BackupTarget) blobstore.Destinati
 		Provider: target.Provider,
 		Endpoint: target.Endpoint,
 		Bucket:   target.Bucket,
-		Region:   target.Region,
+		Region:   target.EffectiveS3Region(),
 	}, azureContainer)
 }
 
@@ -61,7 +61,7 @@ func AppendProviderEnvVars(envVars []corev1.EnvVar, target openbaov1alpha1.Backu
 	switch destination.Provider {
 	case storageProviderS3:
 		envVars = append(envVars, corev1.EnvVar{Name: envBackupRegion, Value: destination.Region})
-		envVars = append(envVars, corev1.EnvVar{Name: envBackupUsePathStyle, Value: fmt.Sprintf("%t", target.UsePathStyle)})
+		envVars = append(envVars, corev1.EnvVar{Name: envBackupUsePathStyle, Value: fmt.Sprintf("%t", target.EffectiveS3UsePathStyle())})
 	case storageProviderGCS:
 		if target.GCS != nil && target.GCS.Project != "" {
 			envVars = append(envVars, corev1.EnvVar{Name: envBackupGCSProject, Value: target.GCS.Project})
@@ -93,7 +93,7 @@ func AppendRestoreProviderEnvVars(envVars []corev1.EnvVar, target openbaov1alpha
 	})
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  constants.EnvRestoreUsePathStyle,
-		Value: fmt.Sprintf("%t", target.UsePathStyle),
+		Value: fmt.Sprintf("%t", target.EffectiveS3UsePathStyle()),
 	})
 	return envVars
 }

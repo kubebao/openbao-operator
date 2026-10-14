@@ -46,6 +46,10 @@ same across generated targets. The operator reads this account but does not crea
 Configure `roleArn` for an S3 reader role or `workloadIdentity` for reader metadata. Any requested ServiceAccount
 annotations must already exist on the account; `workloadIdentity.podLabels` applies to the executor Pod.
 
+Tests inherit storage connection settings, including `target.s3.region` and `target.s3.usePathStyle`. They remove
+both the top-level and nested backup writer roles before applying the independent `restoreTest.roleArn` reader
+selection. A nested writer role cannot override the reader selection or survive when the reader uses another identity.
+
 Grant the reader only the storage permissions needed to download the snapshot. Keep upload and retention deletion
 permissions on the backup writer. Grant the configuring user `use` on the selected destination ServiceAccount and
 `usecloudidentities` in the destination when configuring cloud identity metadata.

@@ -337,3 +337,44 @@ func TestFreshRestoreValidationRequiresExactReviewedRule(t *testing.T) {
 		t.Fatal("exception must be confined to the reviewed resource")
 	}
 }
+
+func TestOptionalS3TargetValidationRequiresExactReviewedRule(t *testing.T) {
+	rule := celRule{Rule: "self.provider == 's3' || !has(self.s3)",
+		Message: "backup target s3 options are only supported when provider is s3"}
+	for _, tc := range []struct{ crd, kind, path string }{
+		{"openbaoclusters.openbao.org", "OpenBaoCluster", "spec.backup.target"},
+		{"openbaorestores.openbao.org", "OpenBaoRestore", "spec.source.target"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			before := schemaNode{CRD: tc.crd, Kind: tc.kind, Version: "v1alpha1", Path: tc.path, Type: "object"}
+			after := before
+			after.CEL = []celRule{rule}
+			changes := compareSnapshots([]schemaNode{before}, []schemaNode{after})
+			assertChange(t, changes, impactCompatible, "cel-optional-feature-validation", tc.path)
+			for _, variation := range []string{"restriction", "metadata", "path", "kind", "version", "removal"} {
+				t.Run(variation, func(t *testing.T) {
+					oldNode, newNode := before, after
+					newNode.CEL = append([]celRule(nil), after.CEL...)
+					switch variation {
+					case "restriction":
+						newNode.CEL[0].Rule += " && self.bucket != ''"
+					case "metadata":
+						newNode.CEL[0].Message = "different rule"
+					case "path":
+						oldNode.Path, newNode.Path = "spec.other", "spec.other"
+					case "kind":
+						oldNode.Kind, newNode.Kind = "Other", "Other"
+					case "version":
+						oldNode.Version, newNode.Version = "v1", "v1"
+					case "removal":
+						oldNode.CEL = []celRule{{Rule: "self.bucket != ''"}}
+					}
+					changes := compareSnapshots([]schemaNode{oldNode}, []schemaNode{newNode})
+					if !hasBlockingChanges(changes) {
+						t.Fatal("only the reviewed optional-field guard may bypass semantic review")
+					}
+				})
+			}
+		})
+	}
+}

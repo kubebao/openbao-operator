@@ -281,9 +281,9 @@ func buildRestoreEnvVars(
 
 	envVars = storageenv.AppendProviderEnvVars(envVars, restore.Spec.Source.Target)
 	envVars = storageenv.AppendRestoreProviderEnvVars(envVars, restore.Spec.Source.Target)
-	if destination.Provider == constants.StorageProviderS3 && restore.Spec.Source.Target.RoleARN != "" {
+	if destination.Provider == constants.StorageProviderS3 && restore.Spec.Source.Target.EffectiveS3RoleARN() != "" {
 		envVars = append(envVars,
-			corev1.EnvVar{Name: constants.EnvAWSRoleARN, Value: restore.Spec.Source.Target.RoleARN},
+			corev1.EnvVar{Name: constants.EnvAWSRoleARN, Value: restore.Spec.Source.Target.EffectiveS3RoleARN()},
 			corev1.EnvVar{Name: constants.EnvAWSWebIdentityTokenFile, Value: restoreAWSIdentityTokenFile},
 		)
 	}
@@ -385,7 +385,7 @@ func buildRestoreVolumes(restore *openbaov1alpha1.OpenBaoRestore, cluster *openb
 			},
 		})
 	}
-	if restore.Spec.Source.Target.RoleARN != "" {
+	if restore.Spec.Source.Target.EffectiveS3RoleARN() != "" {
 		expirationSeconds := int64(3600)
 		volumes = append(volumes, corev1.Volume{
 			Name: restoreAWSIdentityVolume,
@@ -447,7 +447,7 @@ func buildRestoreVolumeMounts(restore *openbaov1alpha1.OpenBaoRestore, cluster *
 			ReadOnly:  true,
 		})
 	}
-	if restore.Spec.Source.Target.RoleARN != "" {
+	if restore.Spec.Source.Target.EffectiveS3RoleARN() != "" {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      restoreAWSIdentityVolume,
 			MountPath: restoreAWSIdentityMountPath,

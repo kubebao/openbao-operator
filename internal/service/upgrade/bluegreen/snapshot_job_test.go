@@ -218,7 +218,7 @@ func TestEnsurePreUpgradeSnapshotJob_VerifiesDefaultBackupExecutorImageForHarden
 				Target: openbaov1alpha1.BackupTarget{
 					Endpoint: "http://test-endpoint",
 					Bucket:   "test-bucket",
-					RoleARN:  "arn:aws:iam::123456789012:role/openbao-backup",
+					S3:       &openbaov1alpha1.S3TargetConfig{RoleARN: ptr.To("nested-snapshot-role")},
 				},
 			},
 			Network: &openbaov1alpha1.NetworkConfig{
@@ -254,6 +254,9 @@ func TestEnsurePreUpgradeSnapshotJob_VerifiesDefaultBackupExecutorImageForHarden
 	require.NoError(t, err)
 	require.Len(t, job.Spec.Template.Spec.Containers, 1)
 	assert.Equal(t, operatorVerifier.digest, job.Spec.Template.Spec.Containers[0].Image)
+	assert.Contains(t, job.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{
+		Name: constants.EnvAWSRoleARN, Value: "nested-snapshot-role",
+	})
 }
 
 func TestHandlePhaseIdle_BlocksOnFailedSnapshot(t *testing.T) {

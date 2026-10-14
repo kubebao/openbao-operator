@@ -103,6 +103,10 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 	}
 	child.Spec.Source.Target.CredentialsSecretRef = config.CredentialsSecretRef.DeepCopy()
 	child.Spec.Source.Target.RoleARN = config.RoleARN
+	if child.Spec.Source.Target.S3 != nil {
+		// A copied writer override must not hide the independent reader selection.
+		child.Spec.Source.Target.S3.RoleARN = nil
+	}
 	child.Spec.Source.Target.WorkloadIdentity = config.WorkloadIdentity.DeepCopy()
 	// Dry-run admission checks destination tenant policy before consuming a run.
 	if err := m.client.Create(ctx, child, client.DryRunAll); err != nil {
