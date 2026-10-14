@@ -17,6 +17,9 @@ verifiedBy:
 Use self-init to apply one-time bootstrap requests and revoke the bootstrap root token. Before enabling it, define a
 complete human login path and the recovery procedure for that path.
 
+Self-initialization request `headers` and `when` require OpenBao 2.6.0 or newer. The operator rejects these
+fields for older versions because those servers can ignore them, including a condition that prevents a request.
+
 ## Choose the initialization path
 
 | Path | Use it when | Root-token behavior |
@@ -130,7 +133,8 @@ support those request fields:
     enabled: true
 {{< /command >}}
 
-`when` can also be a JSON boolean. These controls remain one-time bootstrap inputs; they do not make the operator an
+`when` can also be a JSON boolean. Admission rejects enabled requests that use either control with a `spec.version`
+older than 2.6.0. These controls remain one-time bootstrap inputs; they do not make the operator an
 owner of OpenBao workflow definitions.
 
 ## Configure operator JWT authentication

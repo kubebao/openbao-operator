@@ -81,11 +81,13 @@ type SelfInitRequest struct {
 	// +kubebuilder:validation:MinLength=1
 	Path string `json:"path"`
 	// Headers contains additional HTTP headers to send with this self-init request.
+	// Requires OpenBao 2.6.0 or newer.
 	// Header names must not be empty. Values are rendered into OpenBao's profile-engine
 	// `headers` request field as map[string][]string.
 	// +optional
 	Headers map[string][]string `json:"headers,omitempty"`
 	// When controls whether OpenBao executes this request.
+	// Requires OpenBao 2.6.0 or newer.
 	// Omit it to execute the request. Set it to a JSON boolean for static gating
 	// or to an OpenBao profile value object for dynamic evaluation, for example
 	// {"eval_source":"cel","eval_type":"bool","expression":"true"}.

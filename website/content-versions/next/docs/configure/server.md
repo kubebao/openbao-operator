@@ -7,6 +7,7 @@ verifiedBy:
   - api/v1alpha1/openbaocluster_configuration_types.go
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/adapter/config/builder.go
+  - internal/adapter/config/plugin_compatibility.go
   - internal/adapter/config/listener_tls.go
   - internal/adapter/config/render_listener.go
   - test/e2e/tlskeyexchange/tls_test.go
@@ -213,6 +214,7 @@ spec:
 Plugin requirements:
 
 - `image` and `command` are mutually exclusive; one is required.
+- Declarative plugins require OpenBao 2.5.0 or newer. KMS plugins require 2.6.0 or newer.
 - Plugin download settings require OpenBao 2.5.0 or newer.
 - `downloadBehavior: fail` stops startup after a failed download; `continue` logs the failure and continues.
 - `args` and `env` are used only when `autoRegister` is enabled.
@@ -222,6 +224,12 @@ Plugin requirements:
 - An identity selecting a plugin `image` or `command` needs delegated `usecustomexecutables` authority on the cluster.
 - A plugin with `type: kms` can back `spec.unseal.type: kms` on OpenBao 2.6.0 and later. Its name must match
   `spec.unseal.kms.pluginName`; see [Configure unseal](../unseal/#configure-a-plugin-backed-kms-seal).
+
+During an upgrade, declarations must work with both `spec.version` and `status.currentVersion`, when recorded.
+For a 2.6-to-2.7 upgrade, retain `version`, `binaryName`, and `sha256sum` until `status.currentVersion` reaches 2.7.0
+or newer. Keep `image` as an untagged repository and set its tag through `version` during that transition.
+New 2.7 clusters and completed upgrades can use the supported metadata inference rules and image references with
+embedded tags or digests.
 
 ## Understand Raft Autopilot defaults
 

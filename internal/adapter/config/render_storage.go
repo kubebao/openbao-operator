@@ -52,7 +52,6 @@ func buildStorageBlock(cluster *openbaov1alpha1.OpenBaoCluster, infra Infrastruc
 
 	if infra.RetryJoinAsNonVoter || infra.TargetRevisionForJoin != "" {
 		storageAttrs.RetryJoinAsNonVoter = boolPtrValue(true)
-		storageAttrs.ElectionTimeout = stringPtr("30s")
 	}
 
 	retryJoinAttrs := hclRetryJoin{

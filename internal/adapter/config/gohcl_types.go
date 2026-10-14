@@ -53,8 +53,7 @@ type hclStorageRaft struct {
 	NodeID                string `hcl:"node_id"`
 	PerformanceMultiplier *int32 `hcl:"performance_multiplier"`
 
-	RetryJoinAsNonVoter *bool   `hcl:"retry_join_as_non_voter"`
-	ElectionTimeout     *string `hcl:"election_timeout"`
+	RetryJoinAsNonVoter *bool `hcl:"retry_join_as_non_voter"`
 }
 
 type hclRetryJoin struct {

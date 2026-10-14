@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	platformsemver "github.com/kubebao/openbao-operator/internal/platform/semver"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 	"github.com/zclconf/go-cty/cty"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -33,6 +34,9 @@ func RenderSelfInitHCL(cluster *openbaov1alpha1.OpenBaoCluster, bootstrapConfig 
 		return nil, err
 	}
 	if err := validateInitialRecoveryKeysConfiguration(cluster); err != nil {
+		return nil, err
+	}
+	if err := validateSelfInitRequestVersion(cluster); err != nil {
 		return nil, err
 	}
 
@@ -87,6 +91,25 @@ func RenderSelfInitHCL(cluster *openbaov1alpha1.OpenBaoCluster, bootstrapConfig 
 	}
 
 	return file.Bytes(), nil
+}
+
+func validateSelfInitRequestVersion(cluster *openbaov1alpha1.OpenBaoCluster) error {
+	if cluster.Spec.SelfInit == nil || !cluster.Spec.SelfInit.Enabled {
+		return nil
+	}
+	for _, request := range cluster.Spec.SelfInit.Requests {
+		if len(request.Headers) == 0 && request.When == nil {
+			continue
+		}
+		supported, err := platformsemver.AtLeast(cluster.Spec.Version, 2, 6, 0)
+		if err != nil {
+			return fmt.Errorf("validate self-init request version: %w", err)
+		}
+		if !supported {
+			return fmt.Errorf("self-init request %q: headers and when require OpenBao >= 2.6.0", request.Name)
+		}
+	}
+	return nil
 }
 
 func initialRecoveryKeysConfig(cluster *openbaov1alpha1.OpenBaoCluster) *openbaov1alpha1.InitialRecoveryKeysConfig {

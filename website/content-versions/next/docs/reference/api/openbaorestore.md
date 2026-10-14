@@ -457,6 +457,8 @@ _Appears in:_
 
 
 Plugin defines a declarative plugin configuration.
+Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+During upgrades, declarations must also meet the recorded running version's requirements.
 See: https://openbao.org/docs/configuration/plugins/
 
 
@@ -469,7 +471,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `type` _string_ | Type is the plugin type (e.g., "secret", "auth"). |  | MinLength: 1 <br /> |
 | `name` _string_ | Name is the name of the plugin. |  | MinLength: 1 <br /> |
-| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Before OpenBao 2.7.0, use an untagged repository and set Version separately.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
 | `command` _string_ | Command is the command name of a manually downloaded plugin.<br />Required if Image is not set. Conflicts with Image. |  | Optional: \{\} <br /> |
 | `version` _string_ | Version is the plugin version and, when Image has no tag, the image tag.<br />OpenBao 2.7 and later can infer it from the image tag. Command-based KMS<br />plugins on OpenBao 2.7 and later do not require a version. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `binaryName` _string_ | BinaryName is the name of the plugin binary file within the OCI image.<br />OpenBao 2.7 and later can infer it from the image ENTRYPOINT or CMD. |  | MinLength: 1 <br />Optional: \{\} <br /> |

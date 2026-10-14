@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-validate-openbaocluster
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:73a46b7b9737a882b1163807593929ecaa475775423a6c02345df96e1e51a130
+    openbao.org/admission-policy-fingerprint: sha256:ae757476316e68f16ac52a6452cb2880e8c0fb90b9c1108d31f87eb61cc82dae
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -38,6 +38,11 @@ spec:
       expression: >-
         has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
         has(object.spec.unseal.azureKeyVault.authMethod)
+    - name: has_self_init_request_controls
+      expression: >-
+        has(object.spec.selfInit) && object.spec.selfInit.enabled == true &&
+        has(object.spec.selfInit.requests) && object.spec.selfInit.requests.exists(r,
+          (has(r.headers) && size(r.headers) > 0) || has(r.when))
     - name: has_backup
       expression: has(object.spec.backup)
     - name: backup_target_provider
@@ -236,6 +241,13 @@ spec:
           (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] > 6) ||
           (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] == 6 &&
            (variables.current_version_parts[2] > 0 || variables.current_version_prerelease == ""))))
+    - name: self_init_request_controls_version_supported
+      expression: >-
+        variables.spec_version_valid &&
+        (variables.spec_version_parts[0] > 2 ||
+         (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] > 6) ||
+         (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] == 6 &&
+          (variables.spec_version_parts[2] > 0 || variables.spec_version_prerelease == "")))
     - name: rolling_target_version_normalized
       expression: >-
         oldObject != null && has(oldObject.status) && has(oldObject.status.upgrade) && has(oldObject.status.upgrade.targetVersion) && oldObject.status.upgrade.targetVersion != "" ? (oldObject.status.upgrade.targetVersion.startsWith("v") ? oldObject.status.upgrade.targetVersion.substring(1) : oldObject.status.upgrade.targetVersion) : ""
@@ -860,6 +872,9 @@ spec:
         object.spec.selfInit.enabled == false ||
         (has(object.spec.selfInit.requests) && size(object.spec.selfInit.requests) > 0)
       message: spec.selfInit.requests is required and must not be empty when spec.selfInit.enabled is true.
+    - expression: >-
+        !variables.has_self_init_request_controls || variables.self_init_request_controls_version_supported
+      message: "spec.selfInit.requests headers and when require OpenBao >= 2.6.0."
     - expression: >-
         !has(object.spec.selfInit) ||
         object.spec.selfInit.enabled == false ||

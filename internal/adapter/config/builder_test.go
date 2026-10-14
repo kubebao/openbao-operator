@@ -16,6 +16,8 @@ import (
 
 const (
 	testOpenBaoVersion250          = "2.5.0"
+	testOpenBaoVersion264          = "2.6.4"
+	testOpenBaoVersion271          = "2.7.1"
 	testOpenBaoImage250            = "openbao/openbao:2.5.0"
 	testMetricsListenerVersionHint = "requires OpenBao >= 2.5.0"
 )
@@ -337,6 +339,7 @@ func TestRenderHCLIncludesLeaderTLSServerNameForAutoJoin(t *testing.T) {
 
 func TestRenderHCLWithAuditPluginsTelemetry(t *testing.T) {
 	cluster := newMinimalCluster("gitops-contract", "default")
+	cluster.Spec.Version = "2.5.5"
 	maxCardinality := int32(2000)
 	cluster.Spec.Audit = []openbaov1alpha1.AuditDevice{
 		{
@@ -798,13 +801,15 @@ func TestRenderHCLWithSelfInitRequests(t *testing.T) {
 
 func TestRenderSelfInitHCLWithProfileRequestControls(t *testing.T) {
 	cluster := newMinimalCluster("selfinit-profile-controls", "default")
+	cluster.Spec.Version = testOpenBaoVersion264
 	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{
 		Enabled: true,
 		Requests: []openbaov1alpha1.SelfInitRequest{
 			{
-				Name:      "conditional-health",
-				Operation: openbaov1alpha1.SelfInitOperationRead,
-				Path:      "sys/health",
+				Name:         "conditional-health",
+				AllowFailure: true,
+				Operation:    openbaov1alpha1.SelfInitOperationRead,
+				Path:         "sys/health",
 				Headers: map[string][]string{
 					"X-OpenBao-Trace": {"trace-1", "trace-2"},
 				},
@@ -885,6 +890,7 @@ func TestRenderSelfInitHCLRejectsInvalidProfileRequestControls(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cluster := newMinimalCluster("selfinit-profile-invalid", "default")
+			cluster.Spec.Version = testOpenBaoVersion264
 			cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{
 				Enabled:  true,
 				Requests: []openbaov1alpha1.SelfInitRequest{tt.request},
@@ -1874,8 +1880,8 @@ func TestRenderHCL_PKCS11Seal(t *testing.T) {
 
 func TestRenderHCL_KMSPluginSeal(t *testing.T) {
 	cluster := newMinimalCluster("kms-plugin-seal", "default")
-	cluster.Spec.Version = "2.6.0-beta20260622"
-	cluster.Spec.Image = "openbao/openbao:2.6.0-beta20260622"
+	cluster.Spec.Version = testOpenBaoVersion264
+	cluster.Spec.Image = "openbao/openbao:2.6.4"
 	cluster.Spec.Plugins = []openbaov1alpha1.Plugin{
 		{
 			Type:       "kms",
@@ -1969,6 +1975,7 @@ func TestRenderHCL_KMSPluginSealValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cluster := newMinimalCluster("kms-plugin-seal-invalid", "default")
+			cluster.Spec.Version = testOpenBaoVersion264
 			cluster.Spec.Plugins = []openbaov1alpha1.Plugin{
 				{
 					Type:       "kms",

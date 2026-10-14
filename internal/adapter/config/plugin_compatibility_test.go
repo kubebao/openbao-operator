@@ -67,3 +67,98 @@ func TestRenderRemovedBuiltinSeal(t *testing.T) {
 	require.Contains(t, string(got), `plugin "kms" "awskms"`)
 	require.Contains(t, string(got), `kms_key_id = "test-key"`)
 }
+
+func TestRenderPluginVersionFloors(t *testing.T) {
+	tests := []struct {
+		name, target, current, kind, wantError string
+	}{
+		{"auth before declarative plugins", "2.4.4", "", "auth", ">= 2.5.0"},
+		{"secret at minimum", "2.5.0", "", "secret", ""},
+		{"database at minimum", "v2.5.0+build.1", "", "database", ""},
+		{"declarative prerelease", "2.5.0-rc.1", "", "auth", ">= 2.5.0"},
+		{"KMS before minimum", "2.5.5", "", "kms", ">= 2.6.0"},
+		{"KMS prerelease", "2.6.0-rc.1", "", "kms", ">= 2.6.0"},
+		{"KMS at minimum", "2.6.0", "", "kms", ""},
+		{"KMS leading v and metadata", "v2.6.4+build.1", "", "kms", ""},
+		{"KMS future minor prerelease", "2.7.0-rc.1", "", "kms", ""},
+		{"declarative upgrade incomplete", testOpenBaoVersion264, "2.4.4", "secret", ">= 2.5.0"},
+		{"KMS upgrade incomplete", testOpenBaoVersion264, "2.5.5", "kms", ">= 2.6.0"},
+		{"KMS upgrade complete", testOpenBaoVersion264, testOpenBaoVersion264, "kms", ""},
+		{"invalid running version", testOpenBaoVersion271, "invalid", "kms", "invalid semantic version"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster := newMinimalCluster("plugin-version", "default")
+			cluster.Spec.Version, cluster.Status.CurrentVersion = tt.target, tt.current
+			cluster.Spec.Plugins = []openbaov1alpha1.Plugin{{Type: tt.kind, Name: "example", Command: "plugin",
+				Version: "v1.0.0", BinaryName: "plugin", SHA256Sum: strings.Repeat("a", 64)}}
+			_, err := RenderHCL(cluster, testInfrastructureDetails(cluster))
+			if tt.wantError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestRenderPluginMetadataDuringUpgrade(t *testing.T) {
+	for _, source := range []string{"command", "image"} {
+		for _, omitted := range []string{"", "version", "binaryName", "sha256sum"} {
+			for _, current := range []string{testOpenBaoVersion264, "2.7.0-rc.1", testOpenBaoVersion271, ""} {
+				t.Run(source+"/omit-"+omitted+"/current-"+current, func(t *testing.T) {
+					cluster := newMinimalCluster("plugin-upgrade", "default")
+					cluster.Spec.Version, cluster.Status.CurrentVersion = testOpenBaoVersion271, current
+					plugin := openbaov1alpha1.Plugin{Type: "kms", Name: "example", Version: "v1.0.0",
+						BinaryName: "plugin", SHA256Sum: strings.Repeat("a", 64)}
+					if source == "command" {
+						plugin.Command = "plugin"
+					} else {
+						plugin.Image = "registry.example.test/plugin"
+						if omitted != "" {
+							plugin.Image += ":v1.0.0@sha256:" + strings.Repeat("b", 64)
+						}
+					}
+					switch omitted {
+					case "version":
+						plugin.Version = ""
+					case "binaryName":
+						plugin.BinaryName = ""
+					case "sha256sum":
+						plugin.SHA256Sum = ""
+					}
+					cluster.Spec.Plugins = []openbaov1alpha1.Plugin{plugin}
+					_, err := RenderHCL(cluster, testInfrastructureDetails(cluster))
+					if omitted != "" && (current == testOpenBaoVersion264 || current == "2.7.0-rc.1") {
+						require.ErrorContains(t, err, "required before OpenBao 2.7.0")
+						require.ErrorContains(t, err, current)
+					} else {
+						require.NoError(t, err)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestRenderPluginImageReferencesDuringUpgrade(t *testing.T) {
+	for _, image := range []string{
+		"registry.example.test:5000/plugin", "registry.example.test/plugin:v1.0.0",
+		"registry.example.test/plugin:v1.0.0@sha256:" + strings.Repeat("a", 64),
+	} {
+		for _, current := range []string{testOpenBaoVersion264, testOpenBaoVersion271, ""} {
+			t.Run(image+"/current-"+current, func(t *testing.T) {
+				cluster := newMinimalCluster("plugin-image-upgrade", "default")
+				cluster.Spec.Version, cluster.Status.CurrentVersion = testOpenBaoVersion271, current
+				cluster.Spec.Plugins = []openbaov1alpha1.Plugin{{Type: "kms", Name: "example", Image: image,
+					Version: "v1.0.0", BinaryName: "plugin", SHA256Sum: strings.Repeat("b", 64)}}
+				_, err := RenderHCL(cluster, testInfrastructureDetails(cluster))
+				if current == testOpenBaoVersion264 && !strings.Contains(image, ":5000/") {
+					require.ErrorContains(t, err, "use an untagged repository and set version separately")
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
+	}
+}

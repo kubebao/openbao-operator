@@ -527,6 +527,8 @@ type SocketAuditOptions struct {
 }
 
 // Plugin defines a declarative plugin configuration.
+// Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+// During upgrades, declarations must also meet the recorded running version's requirements.
 // See: https://openbao.org/docs/configuration/plugins/
 type Plugin struct {
 	// Type is the plugin type (e.g., "secret", "auth").
@@ -536,6 +538,7 @@ type Plugin struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Image is the OCI image URL including registry and repository.
+	// Before OpenBao 2.7.0, use an untagged repository and set Version separately.
 	// Required if Command is not set. Conflicts with Command.
 	// +optional
 	Image string `json:"image,omitempty"`

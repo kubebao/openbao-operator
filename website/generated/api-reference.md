@@ -1490,6 +1490,8 @@ _Appears in:_
 
 
 Plugin defines a declarative plugin configuration.
+Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+During upgrades, declarations must also meet the recorded running version's requirements.
 See: https://openbao.org/docs/configuration/plugins/
 
 
@@ -1502,7 +1504,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `type` _string_ | Type is the plugin type (e.g., "secret", "auth"). |  | MinLength: 1 <br /> |
 | `name` _string_ | Name is the name of the plugin. |  | MinLength: 1 <br /> |
-| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Before OpenBao 2.7.0, use an untagged repository and set Version separately.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
 | `command` _string_ | Command is the command name of a manually downloaded plugin.<br />Required if Image is not set. Conflicts with Image. |  | Optional: \{\} <br /> |
 | `version` _string_ | Version is the plugin version and, when Image has no tag, the image tag.<br />OpenBao 2.7 and later can infer it from the image tag. Command-based KMS<br />plugins on OpenBao 2.7 and later do not require a version. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `binaryName` _string_ | BinaryName is the name of the plugin binary file within the OCI image.<br />OpenBao 2.7 and later can infer it from the image ENTRYPOINT or CMD. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -2166,8 +2168,8 @@ _Appears in:_
 | `name` _string_ | Name is a unique identifier for this request (used as the block name).<br />Must match regex ^[A-Za-z_][A-Za-z0-9_-]*$ |  | MaxLength: 64 <br />MinLength: 1 <br />Pattern: `^[A-Za-z_][A-Za-z0-9_-]*$` <br /> |
 | `operation` _[SelfInitOperation](#selfinitoperation)_ | Operation is the API operation type: create, read, update, delete, or list. |  | Enum: [create read update delete list patch] <br /> |
 | `path` _string_ | Path is the API path to call (e.g., "sys/audit/stdout", "auth/kubernetes/config"). |  | MinLength: 1 <br /> |
-| `headers` _object (keys:string, values:string array)_ | Headers contains additional HTTP headers to send with this self-init request.<br />Header names must not be empty. Values are rendered into OpenBao's profile-engine<br />`headers` request field as map[string][]string. |  | Optional: \{\} <br /> |
-| `when` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#json-v1-apiextensions-k8s-io)_ | When controls whether OpenBao executes this request.<br />Omit it to execute the request. Set it to a JSON boolean for static gating<br />or to an OpenBao profile value object for dynamic evaluation, for example<br />\{"eval_source":"cel","eval_type":"bool","expression":"true"\}. |  | Optional: \{\} <br /> |
+| `headers` _object (keys:string, values:string array)_ | Headers contains additional HTTP headers to send with this self-init request.<br />Requires OpenBao 2.6.0 or newer.<br />Header names must not be empty. Values are rendered into OpenBao's profile-engine<br />`headers` request field as map[string][]string. |  | Optional: \{\} <br /> |
+| `when` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#json-v1-apiextensions-k8s-io)_ | When controls whether OpenBao executes this request.<br />Requires OpenBao 2.6.0 or newer.<br />Omit it to execute the request. Set it to a JSON boolean for static gating<br />or to an OpenBao profile value object for dynamic evaluation, for example<br />\{"eval_source":"cel","eval_type":"bool","expression":"true"\}. |  | Optional: \{\} <br /> |
 | `auditDevice` _[SelfInitAuditDevice](#selfinitauditdevice)_ | AuditDevice configures an audit device when Path starts with "sys/audit/".<br />This provides structured configuration for audit devices instead of raw JSON.<br />Only used when Path matches the pattern "sys/audit/*". |  | Optional: \{\} <br /> |
 | `authMethod` _[SelfInitAuthMethod](#selfinitauthmethod)_ | AuthMethod configures an auth method when Path starts with "sys/auth/".<br />This provides structured configuration for enabling auth methods.<br />Only used when Path matches the pattern "sys/auth/*". |  | Optional: \{\} <br /> |
 | `secretEngine` _[SelfInitSecretEngine](#selfinitsecretengine)_ | SecretEngine configures a secret engine when Path starts with "sys/mounts/".<br />This provides structured configuration for enabling secret engines.<br />Only used when Path matches the pattern "sys/mounts/*". |  | Optional: \{\} <br /> |
@@ -3196,6 +3198,8 @@ _Appears in:_
 
 
 Plugin defines a declarative plugin configuration.
+Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+During upgrades, declarations must also meet the recorded running version's requirements.
 See: https://openbao.org/docs/configuration/plugins/
 
 
@@ -3208,7 +3212,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `type` _string_ | Type is the plugin type (e.g., "secret", "auth"). |  | MinLength: 1 <br /> |
 | `name` _string_ | Name is the name of the plugin. |  | MinLength: 1 <br /> |
-| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Before OpenBao 2.7.0, use an untagged repository and set Version separately.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
 | `command` _string_ | Command is the command name of a manually downloaded plugin.<br />Required if Image is not set. Conflicts with Image. |  | Optional: \{\} <br /> |
 | `version` _string_ | Version is the plugin version and, when Image has no tag, the image tag.<br />OpenBao 2.7 and later can infer it from the image tag. Command-based KMS<br />plugins on OpenBao 2.7 and later do not require a version. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `binaryName` _string_ | BinaryName is the name of the plugin binary file within the OCI image.<br />OpenBao 2.7 and later can infer it from the image ENTRYPOINT or CMD. |  | MinLength: 1 <br />Optional: \{\} <br /> |
