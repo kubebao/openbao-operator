@@ -58,6 +58,11 @@ Kubernetes and cloud principal. Submission claims still require a Pod-bound toke
 
 Add `restoreTest` beneath `spec.backup`. Use either `everySuccessfulBackups` or a five-field UTC cron `schedule`.
 
+For any KMS seal plugin distributed as an OCI image, set
+`spec.backup.restoreTest.clusterTemplate.configuration.plugin.autoDownload: true`. The operator copies these settings
+to the generated restore request and target. The template does not inherit plugin settings from the source cluster.
+See [Configure target plugin downloads](../new-cluster/#create-the-request) for registry and preinstalled-binary requirements.
+
 ```yaml
 restoreTest:
   everySuccessfulBackups: 7

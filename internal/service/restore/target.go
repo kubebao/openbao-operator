@@ -22,6 +22,10 @@ const targetApplicationTimeout = 10 * time.Minute
 
 func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 	template := request.Spec.ClusterTemplate.DeepCopy()
+	var configuration *api.OpenBaoConfiguration
+	if template.Configuration != nil {
+		configuration = &api.OpenBaoConfiguration{Plugin: template.Configuration.Plugin}
+	}
 	oidc := &api.SelfInitOIDCConfig{Enabled: true}
 	if request.Spec.ServiceAccountName != "" {
 		oidc.AdditionalSubjects = &api.SelfInitOIDCAdditionalSubjects{
@@ -52,6 +56,7 @@ func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 			ServiceAccount:    template.ServiceAccount,
 			PodMetadata:       template.PodMetadata,
 			Plugins:           template.Plugins,
+			Configuration:     configuration,
 			SelfInit: &api.SelfInitConfig{
 				Enabled: true,
 				OIDC:    oidc,

@@ -286,6 +286,43 @@ spec:
                           RestoreClusterTemplate is the supported fresh recovery target profile.
                           Administrators must prepare the destination namespace network boundary.
                         properties:
+                          configuration:
+                            description: Configuration configures KMS plugin behavior
+                              for the target server.
+                            properties:
+                              plugin:
+                                description: |-
+                                  Plugin controls downloads, registration, and file ownership for Plugins.
+                                  Set autoDownload to true to download declared OCI plugins on startup.
+                                properties:
+                                  autoDownload:
+                                    description: AutoDownload controls automatic plugin
+                                      downloads from OCI registries.
+                                    type: boolean
+                                  autoRegister:
+                                    description: AutoRegister controls automatic plugin
+                                      registration.
+                                    type: boolean
+                                  downloadBehavior:
+                                    description: |-
+                                      DownloadBehavior controls whether OpenBao startup fails or continues when
+                                      declarative OCI plugin downloads fail. Valid values are "fail" and
+                                      "continue"; OpenBao defaults to "fail" when unset.
+                                    enum:
+                                    - fail
+                                    - continue
+                                    type: string
+                                  filePermissions:
+                                    description: FilePermissions are the file permissions
+                                      for plugin files (e.g., "0755").
+                                    type: string
+                                  fileUID:
+                                    description: FileUID is the UID to use for plugin
+                                      files.
+                                    format: int64
+                                    type: integer
+                                type: object
+                            type: object
                           image:
                             description: Image defaults to the version-derived image.
                             type: string

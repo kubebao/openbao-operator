@@ -70,6 +70,27 @@ with an administrator-created `OpenBaoRestore`; the operator does not discover r
 
 ## Create the request
 
+For KMS plugins distributed as OCI images, set `spec.clusterTemplate.configuration.plugin.autoDownload: true`.
+This applies to AWS, Azure, GCP, OCI, PKCS#11, and custom KMS plugins. Declaring `plugins` alone does not download
+their binaries: [OpenBao defaults automatic downloads to false](https://openbao.org/docs/configuration/plugins/#plugin_auto_download).
+The target needs registry access and a compatible seal key. Images with preinstalled plugin binaries can use
+`command` declarations and leave automatic downloads disabled.
+
+Add this fragment beside `clusterTemplate.plugins` when the target downloads its plugins:
+
+```yaml
+spec:
+  clusterTemplate:
+    configuration:
+      plugin:
+        autoDownload: true
+```
+
+The plugin settings use the same fields as `OpenBaoCluster.spec.configuration.plugin`. Other server configuration
+fields are not exposed by the restore template.
+
+For a Transit target, apply this request after replacing the source identity and storage settings:
+
 ```yaml
 apiVersion: openbao.org/v1alpha1
 kind: OpenBaoRestore

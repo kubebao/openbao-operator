@@ -143,6 +143,7 @@ generate_line() {
           gsub(/\[OpenBaoRestoreSpec\]\(#openbaorestorespec\)/, "[OpenBaoRestoreSpec](../openbaorestore/#openbaorestorespec)", line)
         }
         if (resource == "openbaorestore") {
+          gsub(/\[OpenBaoConfiguration\]\(#openbaoconfiguration\)/, "[OpenBaoConfiguration](../openbaocluster/#openbaoconfiguration)", line)
           gsub(/\[ReadReplicaTemplateConfig\]\(#readreplicatemplateconfig\)/, "[ReadReplicaTemplateConfig](../openbaocluster/#readreplicatemplateconfig)", line)
           gsub(/\[BackupSchedule\]\(#backupschedule\)/, "[BackupSchedule](../openbaocluster/#backupschedule)", line)
           gsub(/\[OpenBaoClusterSpec\]\(#openbaoclusterspec\)/, "[OpenBaoClusterSpec](../openbaocluster/#openbaoclusterspec)", line)

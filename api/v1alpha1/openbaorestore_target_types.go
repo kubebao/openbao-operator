@@ -67,6 +67,10 @@ type RestoreClusterTemplate struct {
 	// +optional
 	Plugins []Plugin `json:"plugins,omitempty"`
 
+	// Configuration configures KMS plugin behavior for the target server.
+	// +optional
+	Configuration *RestoreTargetConfiguration `json:"configuration,omitempty"`
+
 	// +optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
@@ -76,6 +80,14 @@ type RestoreClusterTemplate struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=2
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}
+
+// RestoreTargetConfiguration exposes server settings needed by KMS seal plugins.
+type RestoreTargetConfiguration struct {
+	// Plugin controls downloads, registration, and file ownership for Plugins.
+	// Set autoDownload to true to download declared OCI plugins on startup.
+	// +optional
+	Plugin *PluginConfig `json:"plugin,omitempty"`
 }
 
 // RestoreTargetStatus records the single creation attempt and original identities.

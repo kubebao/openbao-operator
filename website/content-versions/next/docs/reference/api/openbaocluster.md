@@ -1436,6 +1436,7 @@ PluginConfig allows configuring plugin behavior.
 
 _Appears in:_
 - [OpenBaoConfiguration](#openbaoconfiguration)
+- [RestoreTargetConfiguration](#restoretargetconfiguration)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -1737,6 +1738,7 @@ _Appears in:_
 | `serviceAccount` _[ServiceAccountConfig](#serviceaccountconfig)_ | ServiceAccount configures credentials supplied through workload identity. |  | Optional: \{\} <br /> |
 | `podMetadata` _[PodMetadataConfig](#podmetadataconfig)_ | PodMetadata supplies provider-specific workload identity metadata. |  | Optional: \{\} <br /> |
 | `plugins` _[Plugin](#plugin) array_ | Plugins declares KMS seal plugins required by Unseal. OpenBao 2.7 requires<br />plugins for AWS, Azure, GCP, OCI, and PKCS#11 seals. |  | Optional: \{\} <br /> |
+| `configuration` _[RestoreTargetConfiguration](#restoretargetconfiguration)_ | Configuration configures KMS plugin behavior for the target server. |  | Optional: \{\} <br /> |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ |  |  | Optional: \{\} <br /> |
 | `initContainer` _[InitContainerConfig](#initcontainerconfig)_ |  |  | Optional: \{\} <br /> |
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ |  |  | MaxItems: 2 <br />Optional: \{\} <br /> |
@@ -1759,6 +1761,22 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for restore operations. When set, and when spec.selfInit.oidc.enabled is true,<br />the operator bootstraps a restore policy and JWT role bound to the restore ServiceAccount<br />(&lt;cluster-name&gt;-restore-serviceaccount).<br />If OIDC is enabled in SelfInit and this field is empty, a default role<br />named "openbao-operator-restore" will be assumed/created.<br />The role must grant "update" capability on sys/storage/raft/snapshot and<br />sys/storage/raft/snapshot-force. The force endpoint supports explicitly<br />requested break-glass restores. |  | Optional: \{\} <br /> |
+
+
+#### RestoreTargetConfiguration
+
+
+
+RestoreTargetConfiguration exposes server settings needed by KMS seal plugins.
+
+
+
+_Appears in:_
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `plugin` _[PluginConfig](#pluginconfig)_ | Plugin controls downloads, registration, and file ownership for Plugins.<br />Set autoDownload to true to download declared OCI plugins on startup. |  | Optional: \{\} <br /> |
 
 
 #### RestoreTest

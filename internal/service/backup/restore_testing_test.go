@@ -50,6 +50,30 @@ func TestRestoreTestDoesNotInheritBackupWriterIdentity(t *testing.T) {
 	require.Equal(t, "arn:aws:iam::123456789012:role/backup-writer", cluster.Spec.Backup.Target.RoleARN)
 }
 
+func TestRestoreTestPreservesPluginConfiguration(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("auto-download-%t", enabled), func(t *testing.T) {
+			cluster := newRestoreTestSource("source")
+			template := &cluster.Spec.Backup.RestoreTest.ClusterTemplate
+			template.Configuration = &api.RestoreTargetConfiguration{
+				Plugin: &api.PluginConfig{AutoDownload: ptr.To(enabled)},
+			}
+			template.Plugins = []api.Plugin{{Type: "kms", Name: "custom-kms", Image: "registry.example.com/kms:v1.0.0"}}
+			c := newTestClient(t, cluster)
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+			require.NoError(t, newBackupManager(c).reconcileRestoreTest(t.Context(), logr.Discard(), cluster, time.Now()))
+			children := &api.OpenBaoRestoreList{}
+			require.NoError(t, c.List(t.Context(), children))
+			require.Len(t, children.Items, 1)
+			child := &children.Items[0]
+			require.Equal(t, template.Configuration, child.Spec.ClusterTemplate.Configuration)
+			require.Equal(t, template.Plugins, child.Spec.ClusterTemplate.Plugins)
+			*child.Spec.ClusterTemplate.Configuration.Plugin.AutoDownload = !enabled
+			require.Equal(t, enabled, *template.Configuration.Plugin.AutoDownload)
+		})
+	}
+}
+
 func TestRestoreTestUsesDestinationReaderIdentity(t *testing.T) {
 	for _, identity := range []string{"S3 role", "workload identity", "existing account", "missing reader", "ambient backup"} {
 		t.Run(identity, func(t *testing.T) {

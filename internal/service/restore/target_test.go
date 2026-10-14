@@ -3,10 +3,13 @@ package restore
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,12 +17,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/service/configuration"
 )
 
 const existingTarget = "preexisting"
@@ -73,6 +78,62 @@ func TestFreshTargetSingleCreationAttempt(t *testing.T) {
 				require.Equal(t, api.RestorePhaseFailed, request.Status.Phase)
 			} else {
 				require.Equal(t, types.UID("created-uid"), request.Status.Target.UID)
+			}
+		})
+	}
+}
+
+func TestFreshTargetPluginConfiguration(t *testing.T) {
+	for _, name := range []string{"awskms", "azurekeyvault", "gcpckms", "ocikms", "pkcs11", "custom-kms"} {
+		t.Run(name, func(t *testing.T) {
+			for _, tc := range []struct {
+				name          string
+				configuration *api.RestoreTargetConfiguration
+			}{
+				{name: "omitted"},
+				{name: "empty", configuration: &api.RestoreTargetConfiguration{}},
+				{name: "enabled", configuration: &api.RestoreTargetConfiguration{
+					Plugin: &api.PluginConfig{AutoDownload: ptr.To(true)},
+				}},
+				{name: "disabled", configuration: &api.RestoreTargetConfiguration{
+					Plugin: &api.PluginConfig{AutoDownload: ptr.To(false)},
+				}},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					_, request := freshTargetFixture(t)
+					template := request.Spec.ClusterTemplate
+					template.Configuration = tc.configuration
+					template.Unseal = api.UnsealConfig{Type: "kms", KMS: &api.KMSPluginSealConfig{
+						PluginName: name, Config: map[string]string{"key_id": "snapshot-key"},
+					}}
+					template.Plugins = []api.Plugin{{Type: "kms", Name: name,
+						Image: "registry.example.com/kms:v1.0.0@sha256:" + strings.Repeat("a", 64),
+					}}
+
+					target := projectRestoreTarget(request)
+					if tc.configuration == nil {
+						require.Nil(t, target.Spec.Configuration)
+					} else {
+						require.NotNil(t, target.Spec.Configuration)
+						require.Equal(t, tc.configuration.Plugin, target.Spec.Configuration.Plugin)
+					}
+					got, err := configuration.Render(target, configuration.RenderOptions{})
+					require.NoError(t, err)
+					file, diagnostics := hclsyntax.ParseConfig([]byte(got), "config.hcl", hcl.InitialPos)
+					require.False(t, diagnostics.HasErrors(), diagnostics.Error())
+					attr := file.Body.(*hclsyntax.Body).Attributes["plugin_auto_download"]
+					if tc.configuration == nil || tc.configuration.Plugin == nil {
+						require.Nil(t, attr, "omitted settings must retain OpenBao defaults")
+						return
+					}
+					require.NotNil(t, attr)
+					value, diagnostics := attr.Expr.Value(nil)
+					require.False(t, diagnostics.HasErrors(), diagnostics.Error())
+					require.Equal(t, *tc.configuration.Plugin.AutoDownload, value.True())
+					*target.Spec.Configuration.Plugin.AutoDownload = !value.True()
+					require.Equal(t, value.True(), *template.Configuration.Plugin.AutoDownload,
+						"target configuration must not mutate the immutable template")
+				})
 			}
 		})
 	}
