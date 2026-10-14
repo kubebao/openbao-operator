@@ -13,9 +13,9 @@ func TestConfigCompatibilityChangeRouting(t *testing.T) {
 	paths := []string{
 		"hack/ci/openbao-config-compat.sh", "hack/ci/openbao-config-compat/manifest.json",
 		"hack/ci/openbao-config-compat/testdata/unknown_raft.hcl",
-		"hack/tools/openbao_config_compat/contract.go", "hack/tools/openbao_config_compat/harness.go.tmpl",
-		"hack/tools/openbao_config_schema/main.go", "hack/tools/openbao_operator_schema_drift/main.go",
-		"hack/tools/internal/configschema/schema.go", "internal/adapter/config/render_storage.go",
+		"hack/tools/openbao/config_compat/contract.go", "hack/tools/openbao/config_compat/harness.go.tmpl",
+		"hack/tools/openbao/config_schema/main.go", "hack/tools/openbao/operator_schema_drift/main.go",
+		"hack/tools/openbao/internal/configschema/schema.go", "internal/adapter/config/render_storage.go",
 		"internal/port/openbao/tls.go", "api/v1alpha1/openbaocluster_configuration_types.go",
 		".github/actions/run-openbao-config-compat/action.yml", ".github/actions/setup-repo-tools/action.yml",
 		".github/workflows/ci.yml", ".github/workflows/nightly.yml", "mk/development.mk",

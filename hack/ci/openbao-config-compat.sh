@@ -24,9 +24,9 @@ schema_tmp="$work_root/schema"
 mkdir -p "$schema_tmp"
 (
   cd "$ROOT_DIR"
-  GOFLAGS="$REPO_GOFLAGS" go build -o "$work_root/prepare" ./hack/tools/openbao_config_compat
+  GOFLAGS="$REPO_GOFLAGS" go build -o "$work_root/prepare" ./hack/tools/openbao/config_compat
   if [ "$REPORT_SCHEMA_DRIFT" = true ]; then
-    GOFLAGS="$REPO_GOFLAGS" go build -o "$work_root/operator-schema" ./hack/tools/openbao_operator_schema_drift
+    GOFLAGS="$REPO_GOFLAGS" go build -o "$work_root/operator-schema" ./hack/tools/openbao/operator_schema_drift
   fi
 )
 VERSIONS=("$@")
@@ -69,8 +69,8 @@ for version in "${VERSIONS[@]}"; do
   fi
 
   sed "s|SERVERCONFIG|${module_path}/${parser_path}|" \
-    "$ROOT_DIR/hack/tools/openbao_config_compat/harness.go.tmpl" > "$tmpdir/main.go"
-  cp "$ROOT_DIR/hack/tools/openbao_config_compat/contract.go" "$tmpdir/contract.go"
+    "$ROOT_DIR/hack/tools/openbao/config_compat/harness.go.tmpl" > "$tmpdir/main.go"
+  cp "$ROOT_DIR/hack/tools/openbao/config_compat/contract.go" "$tmpdir/contract.go"
 
   (
     cd "${tmpdir}"

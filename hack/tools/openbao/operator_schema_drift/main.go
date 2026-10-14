@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
-	"github.com/kubebao/openbao-operator/hack/tools/internal/configschema"
+	"github.com/kubebao/openbao-operator/hack/tools/openbao/internal/configschema"
 	"github.com/kubebao/openbao-operator/internal/adapter/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

@@ -322,8 +322,8 @@ config:
           - 'internal/service/configuration/**/*'
           - 'cmd/bao-config-init/**/*'
           - 'Dockerfile.init'
-          - 'hack/tools/openbao_config_schema/**/*'
-          - 'hack/tools/openbao_operator_schema_drift/**/*'
+          - 'hack/tools/openbao/config_schema/**/*'
+          - 'hack/tools/openbao/operator_schema_drift/**/*'
 
 # Constants
 constants:

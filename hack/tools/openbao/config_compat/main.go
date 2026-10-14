@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"github.com/kubebao/openbao-operator/hack/tools/internal/configschema"
+	"github.com/kubebao/openbao-operator/hack/tools/openbao/internal/configschema"
 	platformsemver "github.com/kubebao/openbao-operator/internal/platform/semver"
 )
 

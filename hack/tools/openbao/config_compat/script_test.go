@@ -13,7 +13,7 @@ import (
 func TestScriptCleansTemporaryStateAndPreservesParserFailure(t *testing.T) {
 	for _, status := range []int{0, 17} {
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
-			root, err := filepath.Abs("../../..")
+			root, err := filepath.Abs("../../../..")
 			require.NoError(t, err)
 			bin, temp, reports := t.TempDir(), t.TempDir(), t.TempDir()
 			writeExecutable(t, filepath.Join(bin, "docker"),

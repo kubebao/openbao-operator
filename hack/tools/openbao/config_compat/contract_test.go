@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubebao/openbao-operator/hack/tools/internal/configschema"
+	"github.com/kubebao/openbao-operator/hack/tools/openbao/internal/configschema"
 	platformsemver "github.com/kubebao/openbao-operator/internal/platform/semver"
 	"github.com/stretchr/testify/require"
 )
@@ -105,7 +105,7 @@ func TestSerializedJSONAssertionsCompareHeaderValues(t *testing.T) {
 }
 
 func TestFixtureInventoryCoversEveryDeclaredOperatorPath(t *testing.T) {
-	root := filepath.Join("..", "..", "..")
+	root := filepath.Join("..", "..", "..", "..")
 	m, err := loadManifest(root)
 	require.NoError(t, err)
 	files, err := filepath.Glob(filepath.Join(root, "internal/adapter/config/testdata/*.hcl"))
@@ -129,7 +129,7 @@ func TestFixtureInventoryCoversEveryDeclaredOperatorPath(t *testing.T) {
 }
 
 func TestVersionBoundaryRetainsUnsupportedExpectations(t *testing.T) {
-	root := filepath.Join("..", "..", "..")
+	root := filepath.Join("..", "..", "..", "..")
 	file := filepath.Join(root, "internal/adapter/config/testdata/render_hcl_tls_native_reload_metrics.hcl")
 	spec := caseSpec{MinVersion: "2.7.0", Unsupported: []string{"tls_auto_reload"}}
 	for _, version := range []string{"2.6.4", "2.7.0-rc.1", "v2.7.0+build.1", "2.7.1"} {

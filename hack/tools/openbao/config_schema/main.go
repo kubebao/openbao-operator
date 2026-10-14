@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kubebao/openbao-operator/hack/tools/internal/configschema"
+	"github.com/kubebao/openbao-operator/hack/tools/openbao/internal/configschema"
 )
 
 func main() {
