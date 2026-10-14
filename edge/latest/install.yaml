@@ -373,6 +373,8 @@ spec:
                             items:
                               description: |-
                                 Plugin defines a declarative plugin configuration.
+                                Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+                                During upgrades, declarations must also meet the recorded running version's requirements.
                                 See: https://openbao.org/docs/configuration/plugins/
                               properties:
                                 args:
@@ -403,6 +405,7 @@ spec:
                                 image:
                                   description: |-
                                     Image is the OCI image URL including registry and repository.
+                                    Before OpenBao 2.7.0, use an untagged repository and set Version separately.
                                     Required if Command is not set. Conflicts with Command.
                                   type: string
                                 name:
@@ -3091,6 +3094,8 @@ spec:
                 items:
                   description: |-
                     Plugin defines a declarative plugin configuration.
+                    Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+                    During upgrades, declarations must also meet the recorded running version's requirements.
                     See: https://openbao.org/docs/configuration/plugins/
                   properties:
                     args:
@@ -3121,6 +3126,7 @@ spec:
                     image:
                       description: |-
                         Image is the OCI image URL including registry and repository.
+                        Before OpenBao 2.7.0, use an untagged repository and set Version separately.
                         Required if Command is not set. Conflicts with Command.
                       type: string
                     name:
@@ -5195,6 +5201,7 @@ spec:
                             type: array
                           description: |-
                             Headers contains additional HTTP headers to send with this self-init request.
+                            Requires OpenBao 2.6.0 or newer.
                             Header names must not be empty. Values are rendered into OpenBao's profile-engine
                             `headers` request field as map[string][]string.
                           type: object
@@ -5274,6 +5281,7 @@ spec:
                         when:
                           description: |-
                             When controls whether OpenBao executes this request.
+                            Requires OpenBao 2.6.0 or newer.
                             Omit it to execute the request. Set it to a JSON boolean for static gating
                             or to an OpenBao profile value object for dynamic evaluation, for example
                             {"eval_source":"cel","eval_type":"bool","expression":"true"}.
@@ -7582,6 +7590,8 @@ spec:
                     items:
                       description: |-
                         Plugin defines a declarative plugin configuration.
+                        Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+                        During upgrades, declarations must also meet the recorded running version's requirements.
                         See: https://openbao.org/docs/configuration/plugins/
                       properties:
                         args:
@@ -7612,6 +7622,7 @@ spec:
                         image:
                           description: |-
                             Image is the OCI image URL including registry and repository.
+                            Before OpenBao 2.7.0, use an untagged repository and set Version separately.
                             Required if Command is not set. Conflicts with Command.
                           type: string
                         name:
@@ -10114,10 +10125,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-1459f37f2f43
+          value: edge-5048abdc560c
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:a221457c41c0987d616ea296f700a2144b95e9bd16d685ac25287e78effd87dd
+        image: ghcr.io/kubebao/openbao-operator@sha256:72333e56afee28fc9758445143191f0ad30fbaeebd94315a3eabec8244564fd9
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10232,8 +10243,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-1459f37f2f43
-        image: ghcr.io/kubebao/openbao-operator@sha256:a221457c41c0987d616ea296f700a2144b95e9bd16d685ac25287e78effd87dd
+          value: edge-5048abdc560c
+        image: ghcr.io/kubebao/openbao-operator@sha256:72333e56afee28fc9758445143191f0ad30fbaeebd94315a3eabec8244564fd9
         livenessProbe:
           httpGet:
             path: /healthz
@@ -12081,7 +12092,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:73a46b7b9737a882b1163807593929ecaa475775423a6c02345df96e1e51a130
+    openbao.org/admission-policy-fingerprint: sha256:ae757476316e68f16ac52a6452cb2880e8c0fb90b9c1108d31f87eb61cc82dae
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -12444,6 +12455,8 @@ spec:
       > 0)'
     message: spec.selfInit.requests is required and must not be empty when spec.selfInit.enabled
       is true.
+  - expression: '!variables.has_self_init_request_controls || variables.self_init_request_controls_version_supported'
+    message: spec.selfInit.requests headers and when require OpenBao >= 2.6.0.
   - expression: |-
       !has(object.spec.selfInit) || object.spec.selfInit.enabled == false || (!has(object.spec.selfInit.requests) ||
 
@@ -12759,6 +12772,11 @@ spec:
   - expression: has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
       has(object.spec.unseal.azureKeyVault.authMethod)
     name: has_azure_key_vault_auth_method
+  - expression: |-
+      has(object.spec.selfInit) && object.spec.selfInit.enabled == true && has(object.spec.selfInit.requests) && object.spec.selfInit.requests.exists(r,
+
+        (has(r.headers) && size(r.headers) > 0) || has(r.when))
+    name: has_self_init_request_controls
   - expression: has(object.spec.backup)
     name: has_backup
   - expression: 'variables.has_backup && has(object.spec.backup.target.provider) &&
@@ -12941,6 +12959,13 @@ spec:
         (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] == 6 &&
          (variables.current_version_parts[2] > 0 || variables.current_version_prerelease == ""))))
     name: azure_key_vault_auth_method_current_version_supported
+  - expression: |-
+      variables.spec_version_valid && (variables.spec_version_parts[0] > 2 ||
+
+       (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] > 6) ||
+       (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] == 6 &&
+        (variables.spec_version_parts[2] > 0 || variables.spec_version_prerelease == "")))
+    name: self_init_request_controls_version_supported
   - expression: 'oldObject != null && has(oldObject.status) && has(oldObject.status.upgrade)
       && has(oldObject.status.upgrade.targetVersion) && oldObject.status.upgrade.targetVersion
       != "" ? (oldObject.status.upgrade.targetVersion.startsWith("v") ? oldObject.status.upgrade.targetVersion.substring(1)
