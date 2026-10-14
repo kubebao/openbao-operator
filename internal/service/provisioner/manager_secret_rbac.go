@@ -106,7 +106,9 @@ func accumulateRestoreTenantSecretNames(restore *openbaov1alpha1.OpenBaoRestore,
 		reader[ref.Name] = struct{}{}
 	}
 	if template := restore.Spec.ClusterTemplate; template != nil {
-		reader[template.Unseal.CredentialsSecretRef.Name] = struct{}{}
+		if ref := template.Unseal.CredentialsSecretRef; ref != nil {
+			reader[ref.Name] = struct{}{}
+		}
 		for _, ref := range template.ImagePullSecrets {
 			reader[ref.Name] = struct{}{}
 		}
