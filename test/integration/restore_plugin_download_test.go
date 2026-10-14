@@ -27,6 +27,7 @@ import (
 )
 
 func TestRestoreTestKMSPluginDownloads(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	for _, provider := range []string{"azurekeyvault", "custom-kms"} {
 		for _, enabled := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/%t", provider, enabled), func(t *testing.T) {
@@ -92,6 +93,10 @@ func TestRestoreTestKMSPluginDownloads(t *testing.T) {
 				require.Regexp(t, fmt.Sprintf(`(?m)^plugin_auto_download\s*=\s*%t$`, enabled), rendered)
 				require.NoError(t, controller.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespace, Name: resourceidentity.TLSServerSecretName(target),
+					Labels: map[string]string{
+						constants.LabelAppManagedBy:   constants.LabelValueAppManagedByOpenBaoOperator,
+						constants.LabelOpenBaoCluster: target.Name,
+					},
 				}}))
 				workloads := workload.NewManager(controller, k8sScheme, constants.PlatformKubernetes)
 				require.NoError(t, workloads.EnsureStatefulSet(ctx, logr.Discard(), target, rendered,
