@@ -29,11 +29,6 @@ const (
 	backupAuthMethodToken = "token"
 )
 
-// EffectiveProvider normalizes an empty provider to the default.
-func EffectiveProvider(provider string) string {
-	return blobstore.EffectiveProvider(provider)
-}
-
 // ResolveDestination maps an API target to its effective storage destination.
 func ResolveDestination(target openbaov1alpha1.BackupTarget) blobstore.Destination {
 	azureContainer := ""

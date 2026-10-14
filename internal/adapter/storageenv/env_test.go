@@ -19,15 +19,6 @@ func envMap(envVars []corev1.EnvVar) map[string]string {
 	return values
 }
 
-func TestEffectiveProvider(t *testing.T) {
-	if got := EffectiveProvider(""); got != constants.StorageProviderS3 {
-		t.Fatalf("EffectiveProvider(\"\") = %q, want %q", got, constants.StorageProviderS3)
-	}
-	if got := EffectiveProvider(constants.StorageProviderGCS); got != constants.StorageProviderGCS {
-		t.Fatalf("EffectiveProvider(gcs) = %q, want %q", got, constants.StorageProviderGCS)
-	}
-}
-
 func TestEffectiveJWTRole(t *testing.T) {
 	if got := EffectiveJWTRole("custom-role", true, "default-role"); got != "custom-role" {
 		t.Fatalf("configured role should win, got %q", got)
