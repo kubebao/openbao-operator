@@ -41,7 +41,9 @@ and workload identities need their usual delegation permissions there.</li></ol>
 configure its federation before enabling the test. Select it with <code>serviceAccountName</code>. The account name stays the
 same across generated targets. The operator reads this account but does not create, modify, adopt, or delete it.
 Configure <code>roleArn</code> for an S3 reader role or <code>workloadIdentity</code> for reader metadata. Any requested ServiceAccount
-annotations must already exist on the account; <code>workloadIdentity.podLabels</code> applies to the executor Pod.</p><p>Grant the reader only the storage permissions needed to download the snapshot. Keep upload and retention deletion
+annotations must already exist on the account; <code>workloadIdentity.podLabels</code> applies to the executor Pod.</p><p>Tests inherit storage connection settings, including <code>target.s3.region</code> and <code>target.s3.usePathStyle</code>. They remove
+both the top-level and nested backup writer roles before applying the independent <code>restoreTest.roleArn</code> reader
+selection. A nested writer role cannot override the reader selection or survive when the reader uses another identity.</p><p>Grant the reader only the storage permissions needed to download the snapshot. Keep upload and retention deletion
 permissions on the backup writer. Grant the configuring user <code>use</code> on the selected destination ServiceAccount and
 <code>usecloudidentities</code> in the destination when configuring cloud identity metadata.</p><p>Each target has its own request-specific Role and RoleBinding. Cleanup removes those grants and leaves the reader
 ServiceAccount in place. Use a separate reader account for each trust domain; runs using the same account share its
