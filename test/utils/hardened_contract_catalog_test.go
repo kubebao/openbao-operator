@@ -87,8 +87,8 @@ func TestHardenedRuleCatalogOwnershipAndFixtureCoverage(t *testing.T) {
 	byID := catalogByID(t, rules)
 	coverage := collectFixtureCoverage(t, byID)
 
-	if coverage.accepted != 1 {
-		t.Fatalf("accepted fixture count = %d, want 1", coverage.accepted)
+	if coverage.accepted != 2 {
+		t.Fatalf("accepted fixture count = %d, want 2", coverage.accepted)
 	}
 
 	assertRuleCoverage(t, rules, coverage)
