@@ -14,7 +14,30 @@
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
 <a href=/contribute/>Contribute</a>
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
-<span aria-current=page>Run CI-equivalent checks</span></nav><nav class=section-nav aria-label="Contribute sections"><a href=/contribute/>Overview</a><a href=/contribute/setup/>Set up a contributor workstation</a><a href=/contribute/standards/>Follow project standards</a><a href=/contribute/testing/>Test a change</a><a href=/contribute/ci/ aria-current=page>Run CI-equivalent checks</a><a href=/contribute/supply-chain/>Protect the software supply chain</a><a href=/contribute/release/>Prepare a release</a><a href=/contribute/incident-response/>Respond to a publishing incident</a></nav><article class=doc-article><header class=article-header><h1>Run CI-equivalent checks</h1><p class=article-lede>Map local validation to pull-request, main, nightly, and release workflow lanes.</p><p class=page-meta>Updated 10 October 2026 · 3 min read</p></header><div class=article-content><p>Pull-request CI routes checks by changed path and risk. Nightly and release workflows broaden compatibility, lifecycle, provenance, and reproducibility coverage.</p><p>Docker-based jobs in <code>ci.yml</code> configure the runner&rsquo;s Docker daemon and the E2E image builder to use
+<span aria-current=page>Run CI-equivalent checks</span></nav><nav class=section-nav aria-label="Contribute sections"><a href=/contribute/>Overview</a><a href=/contribute/setup/>Set up a contributor workstation</a><a href=/contribute/standards/>Follow project standards</a><a href=/contribute/testing/>Test a change</a><a href=/contribute/ci/ aria-current=page>Run CI-equivalent checks</a><a href=/contribute/supply-chain/>Protect the software supply chain</a><a href=/contribute/release/>Prepare a release</a><a href=/contribute/incident-response/>Respond to a publishing incident</a></nav><article class=doc-article><header class=article-header><h1>Run CI-equivalent checks</h1><p class=article-lede>Map local validation to pull-request, main, nightly, and release workflow lanes.</p><p class=page-meta>Updated 15 October 2026 · 8 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#fork-pull-requests>Fork pull requests</a></li></ul></nav></details><div class=article-content><p>Pull-request CI routes checks by changed path and risk. Nightly and release workflows broaden compatibility, lifecycle, provenance, and reproducibility coverage.</p><p>CodeQL uses GitHub default setup to analyze Actions, Go, JavaScript/TypeScript, and Python. Repository security
+settings control its languages and query suite. View its findings in the repository
+<a href=https://github.com/kubebao/openbao-operator/security/code-scanning>code scanning alerts</a>.</p><p>Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
+path-based checks. A failed diff stops routing. Initial pushes with an all-zero prior SHA classify every tracked path.
+Renames classify both the previous and current paths.</p><p>The <code>Detect Changes</code> job records required job expectations in the <code>ci-routing</code> artifact. The workflow uses
+that record to select jobs. <code>CI Required</code> rejects a failed routing job, missing results, unexpected job skips, and failed
+or cancelled checks. The record identifies the tested SHA and explains intentional E2E exclusions.
+The routing artifact remains available when only failed jobs are rerun.
+Fork pull requests use read-only E2E jobs after any approval required by the repository policy.</p><p>The advisory <code>CI Measurement</code> job collects the current attempt&rsquo;s job and step timings after validation and edge
+qualification. Its <code>ci-measurements-&lt;attempt></code> artifact contains raw run and job metadata, a JSON summary, and a
+Markdown summary. E2E reports add lane counts and specification timings. The snapshot excludes the measurement job.
+Runner-minutes sum job execution time; concurrent jobs overlap. The E2E category includes shared compilation in
+<code>Plan E2E Matrix</code>. Failed-job reruns measure only that attempt.
+Successful jobs inherited from previous attempts remain visible but do not count toward its runner consumption.
+E2E artifact names include the attempt number so reports from previous attempts are excluded.
+Missing reports do not prove qualification.</p><p>Run <code>make test-ci-tools</code> to test routing and reporting locally. <code>make verify-workflows</code> also runs these tests.
+To summarize saved evidence, use the jobs response from the run-attempt endpoint with all pages combined into one
+<code>jobs</code> array. The optional E2E directory contains downloaded lane artifacts with <code>summary.json</code> and <code>ginkgo.json</code>.</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh><span class=line><span class=cl>go run ./hack/tools/ci_report <span class=se>\
+</span></span></span><span class=line><span class=cl>  --run artifacts/ci-measurements/run.json <span class=se>\
+</span></span></span><span class=line><span class=cl>  --jobs artifacts/ci-measurements/jobs.json <span class=se>\
+</span></span></span><span class=line><span class=cl>  --e2e-dir artifacts/e2e-measurements <span class=se>\
+</span></span></span><span class=line><span class=cl>  --json-out artifacts/ci-measurements/summary.json <span class=se>\
+</span></span></span><span class=line><span class=cl>  --markdown-out artifacts/ci-measurements/summary.md
+</span></span></code></pre></div><p>Docker-based jobs in <code>ci.yml</code> configure the runner&rsquo;s Docker daemon and the E2E image builder to use
 <a href=https://docs.cloud.google.com/artifact-registry/docs/pull-cached-dockerhub-images>Google&rsquo;s public Docker Hub cache</a>.
 Image references and digest pins stay unchanged. A cache miss falls back to Docker Hub and can still reach its
 anonymous pull limit. The setup action restarts Docker, so run it before creating containers or Buildx builders.
@@ -29,13 +52,62 @@ publishes newly built paths to the project cache only from pushes to <code>main<
 the project migrates their setup steps incrementally.</p><table><thead><tr><th>CI concern</th><th>Local entry point</th></tr></thead><tbody><tr><td>Pinned environment contract</td><td><code>devenv test</code></td></tr><tr><td>Core quality gates</td><td><code>devenv tasks run operator:ci-core</code></td></tr><tr><td>API inventory and released CRD compatibility</td><td><code>make verify-api-contract</code></td></tr><tr><td>Hugo documentation and redirects</td><td><code>make docs-build</code></td></tr><tr><td>Vendored dependencies and licenses</td><td><code>make verify-vendor</code>, <code>make license-check</code></td></tr><tr><td>Static and filesystem security</td><td><code>make semgrep-ci</code>, <code>make security-ci</code></td></tr><tr><td>Focused cluster behavior</td><td><code>make test-e2e-ci</code>, <code>make helm-e2e-smoke</code></td></tr><tr><td>Prior-stable operator upgrade</td><td><code>make test-e2e-operator-upgrade</code></td></tr><tr><td>Existing platform cluster</td><td><code>make test-e2e-existing</code></td></tr></tbody></table><p>Docs-only changes normally avoid broad cluster E2E. Backup, upgrade, security, provisioner, admission, controller-critical, or seal-path changes expand into targeted shards. Maintainers can request the full E2E set with the repository&rsquo;s CI label.</p><p>The required <code>API Contract</code> job rejects unclassified API fields, stale inventory snapshots, and breaking or
 review-required schema changes against the released 0.5.0 CRDs. It runs for contract-related changes, pushes to
 <code>main</code>, and manual CI runs. Release validation runs the same gate before image builds and publication.
-<code>make report-crd-compatibility</code> produces a diagnostic report without weakening the required gate.</p><p>The E2E manifest owns suite routing, isolation, parallelism, and supported test versions. Do not duplicate those values in workflow logic. Run <code>make e2e-ci-matrix</code> or the nightly matrix commands before changing routing.</p><p>The <code>backup-restore</code> lane covers storage-provider backup and restore behavior. The <code>restore-tests</code> lane covers
+<code>make report-crd-compatibility</code> produces a diagnostic report without weakening the required gate.</p><p>The E2E manifest owns suite routing, isolation, parallelism, and supported test versions. Do not duplicate those values in workflow logic. Run <code>make e2e-ci-matrix</code> or the nightly matrix commands before changing routing.</p><p><code>ci_checks</code> records E2E scopes, full-suite selection, and pentest inclusion with the job expectations.
+<code>e2e_plan</code> consumes that record and emits only selected lanes. Each row contains the effective <code>label_filter</code> and
+<code>expected_case_ids</code>. The <code>e2e-plan</code> artifact retains the matrix. To reproduce CI selection, run <code>e2e_plan</code> with
+<code>--ci-plan artifacts/ci-routing/expected-checks.json --sha &lt;tested-sha></code> from the tested checkout.
+Without <code>--ci-plan</code>, <code>make e2e-ci-matrix</code> emits the full primary-version matrix.</p><p>PR filters retain E2E anchors and exclude <code>lower-layer-covered</code> scenarios. The default security lane also excludes
+pentest scenarios unless a hardening label or manual hardening input requests them. Full runs use the full selectors.
+Path, label, and manual-input selection share the same recorded scopes. Shared planner and lane-policy paths in
+<code>hack/ci/e2e-selection-paths.txt</code> select every automatic lane family on trusted and fork PRs.</p><p>Matrix planning first runs <code>make verify-e2e-manifest</code> to reject a stale generated catalog.
+The planner validates scenario IDs and suite <code>ci.lanes</code> against the full selectors. It rejects undeclared owners,
+overlapping owners, orphaned automatic scenarios, and empty selected lanes. The idle strategy-switch scenario belongs
+to <code>upgrade-bluegreen-core</code>. The <code>controller-jwt</code> lane owns the real credential-lifetime witness and uses its own
+operator, separate from manager restart tests. The <code>restore-tests</code> lane uses two workers for independent fixture
+groups; source, destination, storage, and approval changes remain group-owned.
+Kubernetes versions and profile coverage remain independent qualification contexts.
+Each automatic scenario must have an owner included in the full CI matrix with an automatic PR scope.
+Disabled lanes and manual scopes cannot satisfy automatic coverage requirements.</p><p>CI, nightly, and release lanes run <code>e2e_report --expected-cases</code> against the planned IDs. Every planned scenario must
+pass exactly once. Missing, extra, duplicate, skipped, pending, and failed scenarios block the lane. Missing reports,
+selector mismatches, and dry-run reports also fail validation. Lane artifacts retain <code>expected-cases.json</code>, the Ginkgo
+report, and the validation summary.</p><p>The matrix-planning job builds the E2E test suite, vendored Ginkgo runner, and report summarizer once, alongside
+image preparation. The run-scoped <code>e2e-binaries</code> artifact records the source SHA, operating system, architecture,
+pinned Go and Ginkgo versions, CGO setting, build tag, and SHA-256 checksums. Builds require a clean checkout.
+The artifact remains available when only failed lanes are rerun; full reruns replace it.</p><p>CI, nightly, and release workflows call <code>.github/actions/run-e2e-lane</code>. The action consumes the planned row and
+workflow-owned image references. Release helper overrides and per-run seal fixtures remain separate inputs.
+Each lane verifies the bundle before cluster preparation. Missing, stale, incompatible, or corrupted binaries fail
+the lane. CI does not fall back to compiling the suite in a lane. Downloads stay in the runner&rsquo;s temporary directory,
+so lane evidence does not upload the binary bundle again.
+Shared harness paths in <code>hack/ci/e2e-execution-paths.txt</code> select all lane families on trusted and fork PRs.</p><p>The shared action prepares Kind and images, runs the verified suite with the planned worker count, and validates its
+reports. It collects diagnostics before deleting the cluster, including after preparation or execution failures.
+Evidence uploads run after cleanup. Lane artifacts include the binary metadata, expected IDs, JSON and JUnit reports,
+and validation summary. Go setup remains available because suite install and deploy helpers still use Make and Go tools.</p><p>The <code>backup-restore</code> lane covers storage-provider backup and restore behavior. The <code>restore-tests</code> lane covers
 managed targets, scheduled restore tests, and cleanup after the full confirmation timeout. These lanes run in
 separate clusters, have independent time limits, and use the same selectors on PRs and <code>main</code>.
 Cross-cluster restore qualification requires a manually
-provisioned environment and is excluded from ordinary CI, nightly, and release-gate selectors.</p><aside class="callout callout-note" role=note><div class=callout-icon aria-hidden=true>i</div><div><p class=callout-title>Publishing requires more than PR CI</p><div class=callout-body>Edge, nightly, prerelease, and stable channels add immutable-subject, provenance, reproducibility, signing, and release-evidence gates. Passing <code>ci-core</code> does not authorize publication.</div></div></aside><p>Continue with <a href=/contribute/supply-chain/>supply-chain controls</a> and <a href=/contribute/release/>release management</a>.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+provisioned environment and is excluded from ordinary CI, nightly, and release-gate selectors.</p><aside class="callout callout-note" role=note><div class=callout-icon aria-hidden=true>i</div><div><p class=callout-title>Publishing requires more than PR CI</p><div class=callout-body>Edge, nightly, prerelease, and stable channels add immutable-subject, provenance, reproducibility, signing, and release-evidence gates. Passing <code>ci-core</code> does not authorize publication.</div></div></aside><p>Continue with <a href=/contribute/supply-chain/>supply-chain controls</a> and <a href=/contribute/release/>release management</a>.</p><h2 id=fork-pull-requests>Fork pull requests</h2><p>Fork PRs use the same scenario selection, signed fixtures, report validation, and operator-upgrade harness as
+same-repository PRs. Their image-build, lane, and operator-upgrade jobs declare only <code>contents: read</code> and use
+GitHub-hosted runners. Checkouts do not persist credentials. Fork jobs do not receive publishing or signing
+credentials, OIDC permissions, or environment secrets. Go and repo-tool cache persistence is disabled for forks.
+The fork image builder does not export Buildx caches.</p><p>GitHub&rsquo;s repository or organization approval policy controls whether an external contributor&rsquo;s workflow can start.
+Configure <strong>Require approval for all external contributors</strong>. Keep fork secret forwarding and write-token forwarding
+disabled wherever those options are available. Approval authorizes runner use; it does not make contributor code,
+workflow edits, binaries, reports, or images trusted. Review changes to workflow files and local actions before
+approval. The YAML cannot enforce an approval policy against a contributor who can modify that YAML.</p><p>The fork image builder exports one image archive instead of publishing to GHCR. Consumers select the exact artifact
+from the same workflow run and the successful producer&rsquo;s build attempt. Image metadata binds the repository,
+workflow run, PR head SHA, tested merge SHA, platform, image IDs, and archive checksum. Binary metadata records the
+same workflow identity. Failed-job reruns can reuse an earlier successful producer from the same run and source.
+Missing or mismatched artifacts fail; consumers do not fetch artifacts from another run or rebuild missing inputs.</p><p>The loader validates image roles, tags, config digests, platform, and archive paths without extracting files into the
+workspace. It constructs a Docker-only archive with controlled member names before importing images. Unrelated OCI
+indexes and image aliases cannot select a different import. Missing candidate images fail local preparation;
+No registry-pull fallback replaces them. Public signed Hardened fixtures retain their registry pulls and real
+verification. A seal lane requires both candidate SoftHSM and PyKMIP fixtures.</p><p>Checksums and source metadata provide transport checks, not trusted provenance. Fork artifacts and caches must not
+be promoted into privileged workflows or release inputs. Edge and release publication use trusted triggers and
+build their own candidate artifacts. Do not execute fork code or binaries in privileged <code>pull_request_target</code>,
+<code>workflow_run</code>, or comment-triggered jobs. Local tests cover routing and transport contracts; validating native
+approval, effective token permissions, and elapsed time also requires an approved fork run on GitHub.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
 <a href=/releases/>Releases</a>
-<a href=/contribute/>Contribute</a></div></footer></main></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#fork-pull-requests>Fork pull requests</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content/contribute/ci.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
 <label class=sr-only for=site-search>Search documentation</label>
 <input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
 <button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>
