@@ -344,6 +344,24 @@ nightly:
           labelFilter: >-
             case:dr-s3-restorable-backup || case:dr-s3-restore-cr || case:dr-gcs-provider-backup-smoke ||
             case:dr-azure-provider-backup-smoke || case:backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a
+        - lane: restore-tests
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: "case:restore-minimal-scheduled || case:restore-minimal-retain"
+          installCSIHostPath: false
+        - lane: restore-tests
+          kubernetes: "@primary"
+          coverage: network-dual-ipv4
+          networkProfile: dual-ipv4
+          labelFilter: "case:restore-minimal-scheduled || case:restore-minimal-retain"
+          installCSIHostPath: false
+        - lane: restore-tests
+          kubernetes: "@primary"
+          coverage: network-dual-ipv6
+          networkProfile: dual-ipv6
+          labelFilter: "case:restore-minimal-scheduled || case:restore-minimal-retain"
+          installCSIHostPath: false
         - lane: upgrade-rolling
           kubernetes: "@primary"
           coverage: network-ipv6
@@ -392,6 +410,24 @@ nightly:
           labelFilter: >-
             case:dr-s3-restorable-backup || case:dr-s3-restore-cr || case:dr-gcs-provider-backup-smoke ||
             case:dr-azure-provider-backup-smoke || case:backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a
+        - lane: restore-tests
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: "case:restore-minimal-scheduled || case:restore-minimal-retain"
+          installCSIHostPath: false
+        - lane: restore-tests
+          kubernetes: "@primary"
+          coverage: network-dual-ipv4
+          networkProfile: dual-ipv4
+          labelFilter: "case:restore-minimal-scheduled || case:restore-minimal-retain"
+          installCSIHostPath: false
+        - lane: restore-tests
+          kubernetes: "@primary"
+          coverage: network-dual-ipv6
+          networkProfile: dual-ipv6
+          labelFilter: "case:restore-minimal-scheduled || case:restore-minimal-retain"
+          installCSIHostPath: false
         - lane: upgrade-rolling
           kubernetes: "@primary"
           coverage: network-ipv6

@@ -509,7 +509,7 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 	}
 	assertKubernetesRowCounts(t, weeklyFirst, map[string]int{
 		"1.34.3": 12,
-		"1.36.1": 17,
+		"1.36.1": 20,
 	})
 
 	weeklySecond, err := buildGithubNightlyMatrix(m, "weekly-full", nightlyFilters{
@@ -520,7 +520,7 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 	}
 	assertKubernetesRowCounts(t, weeklySecond, map[string]int{
 		"1.35.1": 12,
-		"1.36.1": 17,
+		"1.36.1": 20,
 	})
 
 	releaseMatrix, err := buildGithubNightlyMatrix(m, "release-gate", nightlyFilters{})
@@ -530,7 +530,7 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 	assertKubernetesRowCounts(t, releaseMatrix, map[string]int{
 		"1.34.3": 12,
 		"1.35.1": 12,
-		"1.36.1": 17,
+		"1.36.1": 20,
 	})
 }
 

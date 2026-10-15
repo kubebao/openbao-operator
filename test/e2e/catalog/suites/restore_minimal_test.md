@@ -104,6 +104,7 @@ Recorded checkpoints:
 - preparing an administrator-owned reader account and separate destination credential reference
 - refusing manual and scheduled target creation before namespace approval
 - approving the prepared namespace and completing the restore test
+- checking destination Service families before the disposable target is removed
 - reusing the same reader account for a second generated target after cleanup
 - taking a new backup with the writer before the second disposable restore
 

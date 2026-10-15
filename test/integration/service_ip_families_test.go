@@ -16,7 +16,8 @@ import (
 
 func TestCRD_ServiceIPFamilies(t *testing.T) {
 	namespace := newTestNamespace(t)
-	for _, pool := range []string{"main", "read"} {
+	setRestoreDestinationApproval(t, namespace, "true")
+	for _, pool := range []string{"main", "read", "restore", "scheduled"} {
 		for index, tt := range []struct {
 			name      string
 			policy    corev1.IPFamilyPolicy
@@ -38,14 +39,33 @@ func TestCRD_ServiceIPFamilies(t *testing.T) {
 				if tt.policy != "" {
 					policy = ptr.To(tt.policy)
 				}
-				if pool == "main" {
+				var object client.Object = cluster
+				var restored *openbaov1alpha1.RestoreTargetServiceConfig
+				switch pool {
+				case "main":
 					cluster.Spec.Service = &openbaov1alpha1.ServiceConfig{IPFamilyPolicy: policy, IPFamilies: tt.families}
-				} else {
+				case "read":
 					cluster.Spec.ReadReplicas = &openbaov1alpha1.ReadReplicaConfig{Replicas: 1,
 						Service: &openbaov1alpha1.ReadReplicaServiceConfig{Enabled: true, IPFamilyPolicy: policy, IPFamilies: tt.families},
 					}
+				case "restore", "scheduled":
+					request := newFreshRestoreRequest(namespace, cluster.Name)
+					restored = &openbaov1alpha1.RestoreTargetServiceConfig{IPFamilyPolicy: policy, IPFamilies: tt.families}
+					request.Spec.ClusterTemplate.Service = restored
+					if pool == "restore" {
+						object = request
+					} else {
+						cluster.Spec.Backup = &openbaov1alpha1.BackupSchedule{
+							Schedule: "0 * * * *", JWTAuthRole: "backup", Target: request.Spec.Source.Target,
+							RestoreTest: &openbaov1alpha1.RestoreTest{
+								EverySuccessfulBackups: 1, Namespace: namespace,
+								CredentialsSecretRef: &corev1.LocalObjectReference{Name: "reader"},
+								ClusterTemplate:      *request.Spec.ClusterTemplate,
+							},
+						}
+					}
 				}
-				err := k8sClient.Create(ctx, cluster, client.DryRunAll)
+				err := k8sClient.Create(ctx, object, client.DryRunAll)
 				if tt.wantError != "" {
 					requireInvalidRequest(t, err)
 					require.ErrorContains(t, err, tt.wantError)
@@ -55,9 +75,17 @@ func TestCRD_ServiceIPFamilies(t *testing.T) {
 				if pool == "main" {
 					require.Equal(t, tt.families, cluster.Spec.Service.IPFamilies)
 					require.Equal(t, policy, cluster.Spec.Service.IPFamilyPolicy)
-				} else {
+				} else if pool == "read" {
 					require.Equal(t, tt.families, cluster.Spec.ReadReplicas.Service.IPFamilies)
 					require.Equal(t, policy, cluster.Spec.ReadReplicas.Service.IPFamilyPolicy)
+				} else {
+					if pool == "restore" {
+						restored = object.(*openbaov1alpha1.OpenBaoRestore).Spec.ClusterTemplate.Service
+					} else {
+						restored = cluster.Spec.Backup.RestoreTest.ClusterTemplate.Service
+					}
+					require.Equal(t, tt.families, restored.IPFamilies)
+					require.Equal(t, policy, restored.IPFamilyPolicy)
 				}
 			})
 		}

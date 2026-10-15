@@ -67,6 +67,12 @@ For any KMS seal plugin distributed as an OCI image, set
 to the generated restore request and target. The template does not inherit plugin settings from the source cluster.
 See [Configure target plugin downloads](../new-cluster/#create-the-request) for registry and preinstalled-binary requirements.
 
+To select the temporary target's client Service families, set `clusterTemplate.service.ipFamilyPolicy` and
+`clusterTemplate.service.ipFamilies`. For example, `RequireDualStack` with `[IPv6, IPv4]` requires both families with
+IPv6 first. The target uses these destination settings independently of the source cluster's Service configuration.
+Omit `clusterTemplate.service` to keep the internal headless Service only, or set `service: {}` to create a client
+Service with Kubernetes defaults. See [Select destination Service IP families](../new-cluster/#select-destination-service-ip-families).
+
 ```yaml
 restoreTest:
   everySuccessfulBackups: 7

@@ -1823,6 +1823,7 @@ _Appears in:_
 | `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |
+| `service` _[RestoreTargetServiceConfig](#restoretargetserviceconfig)_ | Service configures an optional ClusterIP Service for the destination.<br />When omitted, the target has only its internal headless Service. |  | Optional: \{\} <br /> |
 | `unseal` _[UnsealConfig](#unsealconfig)_ | Unseal uses the same provider configuration as OpenBaoCluster. The target<br />must be able to decrypt the snapshot with the original seal key material. |  |  |
 | `serviceAccount` _[ServiceAccountConfig](#serviceaccountconfig)_ | ServiceAccount configures credentials supplied through workload identity. |  | Optional: \{\} <br /> |
 | `podMetadata` _[PodMetadataConfig](#podmetadataconfig)_ | PodMetadata supplies provider-specific workload identity metadata. |  | Optional: \{\} <br /> |
@@ -1866,6 +1867,24 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `plugin` _[PluginConfig](#pluginconfig)_ | Plugin controls downloads, registration, and file ownership for Plugins.<br />Set autoDownload to true to download declared OCI plugins on startup. |  | Optional: \{\} <br /> |
+
+
+#### RestoreTargetServiceConfig
+
+
+
+RestoreTargetServiceConfig selects destination client Service IP families.
+These settings do not change Pod IP allocation or the internal peer Service.
+
+
+
+_Appears in:_
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 
 
 #### RestoreTest
@@ -3335,6 +3354,7 @@ _Appears in:_
 | `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |
+| `service` _[RestoreTargetServiceConfig](#restoretargetserviceconfig)_ | Service configures an optional ClusterIP Service for the destination.<br />When omitted, the target has only its internal headless Service. |  | Optional: \{\} <br /> |
 | `unseal` _[UnsealConfig](#unsealconfig)_ | Unseal uses the same provider configuration as OpenBaoCluster. The target<br />must be able to decrypt the snapshot with the original seal key material. |  |  |
 | `serviceAccount` _[ServiceAccountConfig](#serviceaccountconfig)_ | ServiceAccount configures credentials supplied through workload identity. |  | Optional: \{\} <br /> |
 | `podMetadata` _[PodMetadataConfig](#podmetadataconfig)_ | PodMetadata supplies provider-specific workload identity metadata. |  | Optional: \{\} <br /> |
@@ -3563,6 +3583,24 @@ _Appears in:_
 | --- | --- |
 | `Retain` |  |
 | `Disposable` |  |
+
+
+#### RestoreTargetServiceConfig
+
+
+
+RestoreTargetServiceConfig selects destination client Service IP families.
+These settings do not change Pod IP allocation or the internal peer Service.
+
+
+
+_Appears in:_
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 
 
 #### RestoreTargetStatus

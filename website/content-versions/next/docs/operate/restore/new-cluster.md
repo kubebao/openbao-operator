@@ -89,6 +89,29 @@ spec:
 The plugin settings use the same fields as `OpenBaoCluster.spec.configuration.plugin`. Other server configuration
 fields are not exposed by the restore template.
 
+### Select destination Service IP families
+
+Set `spec.clusterTemplate.service` to create an optional ClusterIP Service for the target. For example, this fragment
+requires both Service IP families with IPv6 first:
+
+```yaml
+spec:
+  clusterTemplate:
+    service:
+      ipFamilyPolicy: RequireDualStack
+      ipFamilies: [IPv6, IPv4]
+```
+
+Choose families supported by the recovery Kubernetes cluster. The operator does not inherit the source cluster's
+Service settings or restore its allocated Service IPs. If you omit `service`, the target has only its internal headless
+Service, which publishes both families when the cluster supports them. An empty `service: {}` creates a client Service
+with Kubernetes defaults. These fields do not change Pod IP allocation.
+
+Select the primary family before target creation. Kubernetes does not permit changing an existing Service's primary
+family. See [IPv6 and dual-stack networks](../../../configure/network/#use-ipv6-and-dual-stack-networks).
+
+### Transit example
+
 For a Transit target, apply this request after replacing the source identity and storage settings:
 
 ```yaml

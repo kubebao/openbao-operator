@@ -28,6 +28,39 @@ import (
 const restoreTestSnapshotKey = "snapshot"
 const restoreTestReaderAccountName = "snapshot-reader"
 
+func TestRestoreTestUsesDestinationServiceIPFamilies(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		t.Run(fmt.Sprintf("destination-configured-%t", configured), func(t *testing.T) {
+			cluster := newRestoreTestSource("source")
+			cluster.Spec.Service = &api.ServiceConfig{
+				IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicySingleStack), IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			}
+			if configured {
+				cluster.Spec.Backup.RestoreTest.ClusterTemplate.Service = &api.RestoreTargetServiceConfig{
+					IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyRequireDualStack),
+					IPFamilies:     []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol},
+				}
+			}
+			c := newTestClient(t, cluster)
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+			require.NoError(t, newBackupManager(c).reconcileRestoreTest(t.Context(), logr.Discard(), cluster, time.Now()))
+			children := &api.OpenBaoRestoreList{}
+			require.NoError(t, c.List(t.Context(), children))
+			require.Len(t, children.Items, 1)
+			service := children.Items[0].Spec.ClusterTemplate.Service
+			if !configured {
+				require.Nil(t, service, "source Service settings must not be inherited")
+				return
+			}
+			require.Equal(t, cluster.Spec.Backup.RestoreTest.ClusterTemplate.Service, service)
+			service.IPFamilies[0] = corev1.IPv4Protocol
+			*service.IPFamilyPolicy = corev1.IPFamilyPolicySingleStack
+			require.Equal(t, corev1.IPv6Protocol, cluster.Spec.Backup.RestoreTest.ClusterTemplate.Service.IPFamilies[0])
+			require.Equal(t, corev1.IPFamilyPolicyRequireDualStack, *cluster.Spec.Backup.RestoreTest.ClusterTemplate.Service.IPFamilyPolicy)
+		})
+	}
+}
+
 func TestRestoreTestDoesNotInheritBackupWriterIdentity(t *testing.T) {
 	cluster := newRestoreTestSource("source")
 	cluster.Spec.Backup.Target.RoleARN = "arn:aws:iam::123456789012:role/backup-writer"

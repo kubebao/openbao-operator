@@ -30,6 +30,36 @@ import (
 const existingTarget = "preexisting"
 const existingDataPVC = "preexisting PVC"
 
+func TestFreshTargetServiceIPFamilies(t *testing.T) {
+	for _, policy := range []corev1.IPFamilyPolicy{"", corev1.IPFamilyPolicySingleStack, corev1.IPFamilyPolicyRequireDualStack} {
+		t.Run(string(policy), func(t *testing.T) {
+			_, request := freshTargetFixture(t)
+			if policy != "" {
+				families := []corev1.IPFamily{corev1.IPv6Protocol}
+				if policy == corev1.IPFamilyPolicyRequireDualStack {
+					families = append(families, corev1.IPv4Protocol)
+				}
+				request.Spec.ClusterTemplate.Service = &api.RestoreTargetServiceConfig{
+					IPFamilyPolicy: ptr.To(policy), IPFamilies: families,
+				}
+			}
+			target := projectRestoreTarget(request)
+			if policy == "" {
+				require.Nil(t, target.Spec.Service, "omission must preserve the internal-only target profile")
+				return
+			}
+			template := request.Spec.ClusterTemplate.Service
+			require.Equal(t, template.IPFamilyPolicy, target.Spec.Service.IPFamilyPolicy)
+			require.Equal(t, template.IPFamilies, target.Spec.Service.IPFamilies)
+			require.Empty(t, target.Spec.Service.Type, "restore targets must retain ClusterIP exposure")
+			*target.Spec.Service.IPFamilyPolicy = corev1.IPFamilyPolicyPreferDualStack
+			target.Spec.Service.IPFamilies[0] = corev1.IPv4Protocol
+			require.Equal(t, policy, *template.IPFamilyPolicy, "target changes must not mutate the immutable request")
+			require.Equal(t, corev1.IPv6Protocol, template.IPFamilies[0])
+		})
+	}
+}
+
 func TestFreshTargetSingleCreationAttempt(t *testing.T) {
 	for _, outcome := range []string{"acknowledged", "lost response", "not created", existingTarget, existingDataPVC} {
 		t.Run(outcome, func(t *testing.T) {

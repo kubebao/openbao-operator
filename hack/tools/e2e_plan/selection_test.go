@@ -307,6 +307,12 @@ func TestNetworkQualificationContexts(t *testing.T) {
 		t.Fatal(err)
 	}
 	witnesses := map[string]string{
+		"restore-minimal-scheduled/ipv6":            "",
+		"restore-minimal-scheduled/dual-ipv4":       "",
+		"restore-minimal-scheduled/dual-ipv6":       "",
+		"restore-minimal-retain/ipv6":               "",
+		"restore-minimal-retain/dual-ipv4":          "",
+		"restore-minimal-retain/dual-ipv6":          "",
 		"network-external-tls-and-policy/ipv6":      "",
 		"network-external-tls-and-policy/dual-ipv4": "",
 		"network-external-tls-and-policy/dual-ipv6": "",

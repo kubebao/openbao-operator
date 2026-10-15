@@ -26,6 +26,13 @@ func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 	if template.Configuration != nil {
 		configuration = &api.OpenBaoConfiguration{Plugin: template.Configuration.Plugin}
 	}
+	var service *api.ServiceConfig
+	if template.Service != nil {
+		service = &api.ServiceConfig{
+			IPFamilyPolicy: template.Service.IPFamilyPolicy,
+			IPFamilies:     template.Service.IPFamilies,
+		}
+	}
 	oidc := &api.SelfInitOIDCConfig{Enabled: true}
 	if request.Spec.ServiceAccountName != "" {
 		oidc.AdditionalSubjects = &api.SelfInitOIDCAdditionalSubjects{
@@ -49,6 +56,7 @@ func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 			ControllerJWTMode: api.ControllerJWTModeTarget,
 			Storage:           template.Storage,
 			TLS:               template.TLS,
+			Service:           service,
 			Resources:         template.Resources,
 			InitContainer:     template.InitContainer,
 			ImagePullSecrets:  template.ImagePullSecrets,

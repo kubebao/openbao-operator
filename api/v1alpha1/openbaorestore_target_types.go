@@ -50,6 +50,11 @@ type RestoreClusterTemplate struct {
 	Storage StorageConfig `json:"storage"`
 	TLS     TLSConfig     `json:"tls"`
 
+	// Service configures an optional ClusterIP Service for the destination.
+	// When omitted, the target has only its internal headless Service.
+	// +optional
+	Service *RestoreTargetServiceConfig `json:"service,omitempty"`
+
 	// Unseal uses the same provider configuration as OpenBaoCluster. The target
 	// must be able to decrypt the snapshot with the original seal key material.
 	Unseal UnsealConfig `json:"unseal"`
@@ -80,6 +85,26 @@ type RestoreClusterTemplate struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=2
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}
+
+// RestoreTargetServiceConfig selects destination client Service IP families.
+// These settings do not change Pod IP allocation or the internal peer Service.
+// +kubebuilder:validation:XValidation:rule="!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]",message="ipFamilies must not contain duplicate families"
+// +kubebuilder:validation:XValidation:rule="!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || !has(self.ipFamilies) || size(self.ipFamilies) <= 1",message="SingleStack accepts at most one IP family"
+type RestoreTargetServiceConfig struct {
+	// IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+	// When omitted, Kubernetes uses its default Service policy.
+	// +kubebuilder:validation:Enum=SingleStack;PreferDualStack;RequireDualStack
+	// +optional
+	IPFamilyPolicy *corev1.IPFamilyPolicy `json:"ipFamilyPolicy,omitempty"`
+
+	// IPFamilies selects the Service IP families in primary-first order.
+	// The primary family cannot change after the Service is created.
+	// +kubebuilder:validation:MaxItems=2
+	// +kubebuilder:validation:items:Enum=IPv4;IPv6
+	// +listType=atomic
+	// +optional
+	IPFamilies []corev1.IPFamily `json:"ipFamilies,omitempty"`
 }
 
 // RestoreTargetConfiguration exposes server settings needed by KMS seal plugins.

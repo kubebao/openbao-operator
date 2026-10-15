@@ -521,6 +521,44 @@ spec:
                                   More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                 type: object
                             type: object
+                          service:
+                            description: |-
+                              Service configures an optional ClusterIP Service for the destination.
+                              When omitted, the target has only its internal headless Service.
+                            properties:
+                              ipFamilies:
+                                description: |-
+                                  IPFamilies selects the Service IP families in primary-first order.
+                                  The primary family cannot change after the Service is created.
+                                items:
+                                  description: |-
+                                    IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                                    to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                                  enum:
+                                  - IPv4
+                                  - IPv6
+                                  type: string
+                                maxItems: 2
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              ipFamilyPolicy:
+                                description: |-
+                                  IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                                  When omitted, Kubernetes uses its default Service policy.
+                                enum:
+                                - SingleStack
+                                - PreferDualStack
+                                - RequireDualStack
+                                type: string
+                            type: object
+                            x-kubernetes-validations:
+                            - message: ipFamilies must not contain duplicate families
+                              rule: '!has(self.ipFamilies) || size(self.ipFamilies)
+                                != 2 || self.ipFamilies[0] != self.ipFamilies[1]'
+                            - message: SingleStack accepts at most one IP family
+                              rule: '!has(self.ipFamilyPolicy) || self.ipFamilyPolicy
+                                != ''SingleStack'' || !has(self.ipFamilies) || size(self.ipFamilies)
+                                <= 1'
                           serviceAccount:
                             description: ServiceAccount configures credentials supplied
                               through workload identity.

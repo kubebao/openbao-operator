@@ -21,6 +21,7 @@ import (
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
+	"github.com/kubebao/openbao-operator/test/e2e/helpers"
 )
 
 var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("restore-minimal", "dr", "backup", "restore", "e2e-anchor"), func() {
@@ -151,6 +152,29 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				}
 				g.Expect(credentialSecrets).To(ContainElement("storage-reader"))
 			}, 8*time.Minute, time.Second).Should(Succeed())
+			By("checking destination Service families before the disposable target is removed")
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+				g.Expect(source.Status.Backup.RestoreTest.Active).NotTo(BeNil())
+				name := source.Status.Backup.RestoreTest.Active.Name
+				child := &api.OpenBaoRestore{}
+				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name}, child)).To(Succeed())
+				g.Expect(child.Spec.ClusterTemplate.Service).To(Equal(template.Service))
+				target := &api.OpenBaoCluster{}
+				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name}, target)).To(Succeed())
+				g.Expect(target.Spec.Service).NotTo(BeNil())
+				g.Expect(target.Spec.Service.IPFamilies).To(Equal(template.Service.IPFamilies))
+				service := &corev1.Service{}
+				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name + "-public"}, service)).To(Succeed())
+				g.Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeClusterIP))
+				g.Expect(service.Spec.IPFamilyPolicy).To(Equal(template.Service.IPFamilyPolicy))
+				g.Expect(service.Spec.IPFamilies).To(Equal(template.Service.IPFamilies))
+				g.Expect(service.Spec.ClusterIPs).To(HaveLen(len(template.Service.IPFamilies)))
+				AddReportEntry("scheduled-restore-service-families", map[string]any{
+					"sourceFamilies": source.Spec.Service.IPFamilies,
+					"targetFamilies": service.Spec.IPFamilies, "targetClusterIPs": service.Spec.ClusterIPs,
+				})
+			}, time.Minute, time.Second).Should(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
 				g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
@@ -219,6 +243,14 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				Namespace: request.Namespace,
 				Name:      request.Spec.Cluster,
 			}, cluster)).To(Succeed())
+			service := &corev1.Service{}
+			Expect(c.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: request.Spec.Cluster + "-public"}, service)).To(Succeed())
+			Expect(service.Spec.IPFamilies).To(Equal(template.Service.IPFamilies))
+			Expect(service.Spec.IPFamilyPolicy).To(Equal(template.Service.IPFamilyPolicy))
+			AddReportEntry("fresh-restore-service-families", map[string]any{
+				"sourceFamilies": source.Spec.Service.IPFamilies,
+				"targetFamilies": service.Spec.IPFamilies, "targetClusterIPs": service.Spec.ClusterIPs,
+			})
 			Expect(cluster.Annotations[constants.AnnotationRestoreHold]).To(Equal(string(request.UID)))
 			before := request.DeepCopy()
 			request.Annotations = map[string]string{constants.AnnotationRestoreAcknowledge: string(request.UID) + "/Abandon"}
@@ -372,7 +404,7 @@ func prepareMinimalDestinationNetwork(ctx context.Context, c client.Client, name
 	}
 	for _, ip := range apiServerEndpointIPs {
 		base.Spec.Egress = append(base.Spec.Egress, networkingv1.NetworkPolicyEgressRule{
-			To:    []networkingv1.NetworkPolicyPeer{{IPBlock: &networkingv1.IPBlock{CIDR: ip + "/32"}}},
+			To:    []networkingv1.NetworkPolicyPeer{{IPBlock: &networkingv1.IPBlock{CIDR: helpers.HostCIDR(ip)}}},
 			Ports: []networkingv1.NetworkPolicyPort{networkPolicyPort(corev1.ProtocolTCP, 6443), networkPolicyPort(corev1.ProtocolTCP, 443)},
 		})
 	}
