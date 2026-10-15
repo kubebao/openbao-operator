@@ -53,7 +53,7 @@ Recorded checkpoints:
 - forcing a reconcile after the manual Azure backup trigger
 - waiting for an Azure backup job to be created
 - waiting for the Azure backup job to complete successfully
-- recording the latest Azure backup key from cluster status
+- retaining the observed Azure Job's backup key for restore
 
 
 ## `backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a`
@@ -103,10 +103,10 @@ Labels: `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-
 
 Recorded checkpoints:
 - Writing a secret before backup
-- waiting for any earlier scheduled backup to release its operation lock
+- waiting for the source operation lock before requesting a new snapshot
 - waiting for the S3 backup job to complete successfully
 - waiting for a new snapshot that includes the pre-backup secret
-- recording the latest S3 backup key from cluster status
+- retaining the observed S3 Job's backup key for restore
 
 
 ## `backup-restore-handles-transient-s3-auth-failure-with-10300347`
@@ -183,6 +183,4 @@ Covers: _none_
 Labels: `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`
 
 Recorded checkpoints:
-- creating a cluster without backup status or a manual trigger
-- checking that the first deadline is persisted before any backup attempt
-- waiting for a scheduled snapshot without sending a manual trigger
+- waiting for the original cron deadline without sending a manual trigger

@@ -139,6 +139,10 @@ func ensureRustFS(ctx context.Context, c client.Client, restCfg *rest.Config) er
 }
 
 func triggerManualBackup(ctx context.Context, c client.Client, namespace, clusterName string) error {
+	return patchManualBackupTrigger(ctx, c, namespace, clusterName, time.Now().UTC().Format(time.RFC3339Nano))
+}
+
+func patchManualBackupTrigger(ctx context.Context, c client.Client, namespace, clusterName, token string) error {
 	cluster := &openbaov1alpha1.OpenBaoCluster{}
 	if err := c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: namespace}, cluster); err != nil {
 		return fmt.Errorf("get cluster for manual backup trigger: %w", err)
@@ -148,7 +152,7 @@ func triggerManualBackup(ctx context.Context, c client.Client, namespace, cluste
 	if cluster.Annotations == nil {
 		cluster.Annotations = make(map[string]string)
 	}
-	cluster.Annotations[constants.AnnotationTriggerBackup] = time.Now().UTC().Format(time.RFC3339Nano)
+	cluster.Annotations[constants.AnnotationTriggerBackup] = token
 
 	if err := c.Patch(ctx, cluster, client.MergeFrom(original)); err != nil {
 		return fmt.Errorf("patch manual backup trigger annotation: %w", err)
@@ -157,24 +161,37 @@ func triggerManualBackup(ctx context.Context, c client.Client, namespace, cluste
 	return nil
 }
 
-func waitForBackupJobCreated(ctx context.Context, c client.Client, namespace, clusterName string) {
+// Capture existing Jobs before sending the trigger so earlier successful or
+// failed attempts cannot satisfy the new observation.
+func triggerObservedBackup(ctx context.Context, c client.Client, source *openbaov1alpha1.OpenBaoCluster) backupObservation {
+	var observation backupObservation
 	Eventually(func(g Gomega) {
 		cluster := &openbaov1alpha1.OpenBaoCluster{}
-		g.Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: namespace}, cluster)).To(Succeed())
-
-		var jobs batchv1.JobList
-		err := c.List(ctx, &jobs, client.InNamespace(namespace), client.MatchingLabels{
-			constants.LabelAppManagedBy:      constants.LabelValueAppManagedByOpenBaoOperator,
-			constants.LabelOpenBaoComponent:  "backup",
-			constants.LabelOpenBaoBackupType: constants.BackupTypeScheduled,
-			constants.LabelOpenBaoCluster:    clusterName,
-		})
+		g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), cluster)).To(Succeed())
+		g.Expect(cluster.UID).To(Equal(source.UID))
+		g.Expect(cluster.Status.OperationLock).To(BeNil())
+		var err error
+		observation, err = captureBackupObservation(ctx, c, cluster)
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(jobs.Items).ToNot(BeEmpty())
-		for i := range jobs.Items {
-			g.Expect(validateManagedLifecycleJobOwnerProof(&jobs.Items[i], cluster)).To(Succeed())
-		}
 	}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+	observation.manualTrigger = time.Now().UTC().Format(time.RFC3339Nano)
+	Eventually(func() error {
+		return patchManualBackupTrigger(ctx, c, source.Namespace, source.Name, observation.manualTrigger)
+	}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+	return observation
+}
+
+func waitForBackupJobCreated(ctx context.Context, c client.Client, observation backupObservation) *batchv1.Job {
+	var job *batchv1.Job
+	Eventually(func(g Gomega) {
+		var jobs batchv1.JobList
+		g.Expect(c.List(ctx, &jobs, client.InNamespace(observation.cluster.Namespace),
+			backupJobLabels(observation.cluster.Name))).To(Succeed())
+		var err error
+		job, err = observation.newJob(jobs.Items)
+		g.Expect(err).NotTo(HaveOccurred())
+	}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+	return job
 }
 
 func validateManagedLifecycleJobOwnerProof(
@@ -211,45 +228,14 @@ func validateManagedLifecycleJobOwnerProof(
 	return nil
 }
 
-func waitForSuccessfulBackupJob(ctx context.Context, c client.Client, namespace, clusterName string) {
+func waitForSuccessfulBackupJob(ctx context.Context, c client.Client, observation backupObservation, expected *batchv1.Job) {
 	Eventually(func(g Gomega) {
-		var jobs batchv1.JobList
-		err := c.List(ctx, &jobs, client.InNamespace(namespace), client.MatchingLabels{
-			constants.LabelAppManagedBy:      constants.LabelValueAppManagedByOpenBaoOperator,
-			constants.LabelOpenBaoComponent:  "backup",
-			constants.LabelOpenBaoBackupType: constants.BackupTypeScheduled,
-			constants.LabelOpenBaoCluster:    clusterName,
-		})
-		g.Expect(err).NotTo(HaveOccurred())
-
-		foundSuccess := false
-		for i := range jobs.Items {
-			if jobs.Items[i].Status.Succeeded > 0 {
-				foundSuccess = true
-				break
-			}
-		}
-		g.Expect(foundSuccess).To(BeTrue())
-	}, 15*time.Minute, 30*time.Second).Should(Succeed())
-}
-
-func recordLatestBackupKey(
-	ctx context.Context,
-	f *framework.Framework,
-	c client.Client,
-	namespace string,
-	clusterName string,
-	backupKey *string,
-) {
-	Eventually(func(g Gomega) {
-		_ = f.TriggerReconcile(ctx, clusterName)
-		updated := &openbaov1alpha1.OpenBaoCluster{}
-		err := c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: namespace}, updated)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(updated.Status.Backup).NotTo(BeNil())
-		g.Expect(updated.Status.Backup.LastBackupName).NotTo(BeEmpty())
-		*backupKey = updated.Status.Backup.LastBackupName
-	}, framework.DefaultLongWaitTimeout, 5*time.Second).Should(Succeed())
+		job := &batchv1.Job{}
+		g.Expect(c.Get(ctx, client.ObjectKeyFromObject(expected), job)).To(Succeed())
+		cluster := &openbaov1alpha1.OpenBaoCluster{}
+		g.Expect(c.Get(ctx, client.ObjectKeyFromObject(observation.cluster), cluster)).To(Succeed())
+		g.Expect(observation.successfulJob(expected, job, cluster)).To(Succeed())
+	}, 15*time.Minute, framework.DefaultPollInterval).Should(Succeed())
 }
 
 func newBackupNetworkPolicy(
@@ -383,6 +369,9 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			drCluster         *openbaov1alpha1.OpenBaoCluster
 			credentialsSecret *corev1.Secret
 			backupKey         string
+			scheduledCluster  *openbaov1alpha1.OpenBaoCluster
+			scheduledDeadline time.Time
+			scheduledBackup   backupObservation
 		)
 
 		BeforeAll(func() {
@@ -446,7 +435,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 						APIServerEndpointIPs: apiServerEndpointIPs,
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
-						Schedule: "*/5 * * * *",
+						Schedule: manualBackupSchedule(time.Now()),
 						Image:    backupExecutorImage,
 						// JWTAuthRole not set - operator will auto-create backup role when OIDC is enabled
 						Target: openbaov1alpha1.BackupTarget{
@@ -472,6 +461,21 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
 			}
+			By("starting the independent scheduled source before the main S3 fixture is ready")
+			scheduledCluster, scheduledDeadline = newScheduledBackupCluster(drCluster, time.Now())
+			Expect(admin.Create(ctx, scheduledCluster)).To(Succeed())
+			Expect(admin.Create(ctx, newBackupNetworkPolicy(tenantNamespace, scheduledCluster.Name,
+				rustfsName, 9000, "backup", "restore"))).To(Succeed())
+			// Both sources and their policies are owned by tenantFW.Cleanup.
+			scheduledBackup = backupObservation{cluster: scheduledCluster.DeepCopy()}
+			By("checking that the first deadline is persisted before any backup attempt")
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), updated)).To(Succeed())
+				g.Expect(updated.UID).To(Equal(scheduledCluster.UID))
+				g.Expect(validateInitialBackupSchedule(updated, scheduledDeadline, time.Now())).To(Succeed())
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+
 			Expect(admin.Create(ctx, drCluster)).To(Succeed())
 
 			backupNetworkPolicy := newBackupNetworkPolicy(
@@ -544,46 +548,6 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			}
 		})
 
-		It("starts the first scheduled S3 backup", Label("e2e-anchor", "case:dr-s3-initial-schedule"), func() {
-			By("creating a cluster without backup status or a manual trigger")
-			scheduled := drCluster.DeepCopy()
-			scheduled.ObjectMeta = metav1.ObjectMeta{Name: "s3-scheduled-cluster", Namespace: tenantNamespace}
-			scheduled.Status = openbaov1alpha1.OpenBaoClusterStatus{}
-			scheduled.Spec.Replicas = 1
-			scheduled.Spec.ReadReplicas = nil
-			// Leave time to observe the persisted deadline before the first attempt.
-			firstRun := time.Now().UTC().Add(3 * time.Minute).Truncate(time.Minute)
-			scheduled.Spec.Backup.Schedule = fmt.Sprintf("%d %d * * *", firstRun.Minute(), firstRun.Hour())
-			Expect(admin.Create(ctx, scheduled)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(client.IgnoreNotFound(admin.Delete(ctx, scheduled))).To(Succeed())
-			})
-			policy := newBackupNetworkPolicy(tenantNamespace, scheduled.Name, rustfsName, 9000, "backup", "restore")
-			Expect(admin.Create(ctx, policy)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(client.IgnoreNotFound(admin.Delete(ctx, policy))).To(Succeed())
-			})
-
-			By("checking that the first deadline is persisted before any backup attempt")
-			Eventually(func(g Gomega) {
-				updated := &openbaov1alpha1.OpenBaoCluster{}
-				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduled), updated)).To(Succeed())
-				g.Expect(updated.Status.Backup).NotTo(BeNil())
-				g.Expect(updated.Status.Backup.NextScheduledBackup).NotTo(BeNil())
-				g.Expect(updated.Status.Backup.LastAttemptTime).To(BeNil())
-			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
-
-			By("waiting for a scheduled snapshot without sending a manual trigger")
-			waitForBackupJobCreated(ctx, admin, tenantNamespace, scheduled.Name)
-			waitForSuccessfulBackupJob(ctx, admin, tenantNamespace, scheduled.Name)
-			Eventually(func(g Gomega) {
-				updated := &openbaov1alpha1.OpenBaoCluster{}
-				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduled), updated)).To(Succeed())
-				g.Expect(updated.Status.Backup.LastBackupName).NotTo(BeEmpty())
-				g.Expect(updated.Status.Backup.LastHandledManualTrigger).To(BeEmpty())
-			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
-		})
-
 		It("creates a restorable S3 backup", Label(
 			"e2e-anchor",
 			"case:dr-s3-restorable-backup",
@@ -607,7 +571,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				g.Expect(err).NotTo(HaveOccurred())
 			}, framework.DefaultLongWaitTimeout, 10*time.Second).Should(Succeed(), "Failed to write pre-backup secret")
 
-			By("waiting for any earlier scheduled backup to release its operation lock")
+			By("waiting for the source operation lock before requesting a new snapshot")
 			var previousBackupKey string
 			Eventually(func(g Gomega) {
 				updated := &openbaov1alpha1.OpenBaoCluster{}
@@ -618,14 +582,12 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				}
 			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
-			Eventually(func() error {
-				return triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)
-			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			observation := triggerObservedBackup(ctx, admin, drCluster)
 
 			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
-			waitForBackupJobCreated(ctx, admin, tenantNamespace, drCluster.Name)
+			job := waitForBackupJobCreated(ctx, admin, observation)
 			By("waiting for the S3 backup job to complete successfully")
-			waitForSuccessfulBackupJob(ctx, admin, tenantNamespace, drCluster.Name)
+			waitForSuccessfulBackupJob(ctx, admin, observation, job)
 
 			By("waiting for a new snapshot that includes the pre-backup secret")
 			Eventually(func(g Gomega) {
@@ -636,8 +598,8 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				g.Expect(updated.Status.Backup.LastBackupName).NotTo(Equal(previousBackupKey))
 			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
-			By("recording the latest S3 backup key from cluster status")
-			recordLatestBackupKey(ctx, tenantFW, admin, tenantNamespace, drCluster.Name, &backupKey)
+			By("retaining the observed S3 Job's backup key for restore")
+			backupKey = job.Annotations[backupKeyAnnotation]
 		})
 
 		It("restores from S3 backup using OpenBaoRestore CR", Label(
@@ -751,6 +713,17 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			Expect(metricErr).NotTo(HaveOccurred(), "Last metrics output:\n%s", metricsOutput)
 		})
 
+		It("starts the first scheduled S3 backup", Label("e2e-anchor", "case:dr-s3-initial-schedule"), func() {
+			By("waiting for the original cron deadline without sending a manual trigger")
+			job := waitForBackupJobCreated(ctx, admin, scheduledBackup)
+			waitForSuccessfulBackupJob(ctx, admin, scheduledBackup, job)
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), updated)).To(Succeed())
+				g.Expect(validateScheduledBackupAttempt(updated, scheduledDeadline)).To(Succeed())
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+		})
+
 		It("handles transient S3 auth failure with backup retry after controller restart", Label(
 			"case:backup-restore-handles-transient-s3-auth-failure-with-10300347",
 			"failure-injection",
@@ -775,41 +748,11 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			})
 
 			By("triggering a manual backup with invalid credentials")
-			preTriggerJobUIDs := map[types.UID]struct{}{}
-			{
-				var jobs batchv1.JobList
-				Expect(admin.List(ctx, &jobs, client.InNamespace(tenantNamespace), client.MatchingLabels{
-					"app.kubernetes.io/managed-by": "openbao-operator",
-					"openbao.org/component":        "backup",
-					constants.LabelOpenBaoCluster:  drCluster.Name,
-				})).To(Succeed())
-				for i := range jobs.Items {
-					preTriggerJobUIDs[jobs.Items[i].UID] = struct{}{}
-				}
-			}
-			Expect(triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)).To(Succeed())
+			failureObservation := triggerObservedBackup(ctx, admin, drCluster)
 			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
 
 			By("waiting for backup activity")
-			Eventually(func(g Gomega) {
-				var jobs batchv1.JobList
-				err := admin.List(ctx, &jobs, client.InNamespace(tenantNamespace), client.MatchingLabels{
-					"app.kubernetes.io/managed-by": "openbao-operator",
-					"openbao.org/component":        "backup",
-					constants.LabelOpenBaoCluster:  drCluster.Name,
-				})
-				g.Expect(err).NotTo(HaveOccurred())
-
-				hasNewJob := false
-				for i := range jobs.Items {
-					job := jobs.Items[i]
-					if _, found := preTriggerJobUIDs[job.UID]; !found {
-						hasNewJob = true
-						break
-					}
-				}
-				g.Expect(hasNewJob).To(BeTrue(), "expected backup job after outage trigger")
-			}, 5*time.Minute, 5*time.Second).Should(Succeed())
+			failedJob := waitForBackupJobCreated(ctx, admin, failureObservation)
 
 			By("restarting the controller while failed backup status is being reconciled")
 			Expect(restartControllerDeployment(ctx, admin, operatorNamespace)).To(Succeed())
@@ -822,6 +765,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				err := admin.Get(ctx, types.NamespacedName{Name: drCluster.Name, Namespace: tenantNamespace}, updated)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(updated.Status.Backup).NotTo(BeNil())
+				g.Expect(updated.Status.Backup.LastHandledManualTrigger).To(Equal(failureObservation.manualTrigger))
 				g.Expect(updated.Status.Backup.ConsecutiveFailures).To(BeNumerically(">=", 1))
 				g.Expect(updated.Status.Backup.LastFailureReason).NotTo(BeEmpty())
 				g.Expect(updated.Status.Backup.LastFailureMessage).NotTo(BeEmpty())
@@ -836,8 +780,12 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 
 			time.Sleep(1100 * time.Millisecond)
 			recoveryTriggerTime := time.Now().UTC()
-			Expect(triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)).To(Succeed())
+			recoveryObservation := triggerObservedBackup(ctx, admin, drCluster)
 			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
+
+			recoveredJob := waitForBackupJobCreated(ctx, admin, recoveryObservation)
+			Expect(recoveredJob.UID).NotTo(Equal(failedJob.UID))
+			waitForSuccessfulBackupJob(ctx, admin, recoveryObservation, recoveredJob)
 
 			By("verifying backup recovery clears stale failure fields")
 			Eventually(func(g Gomega) {
@@ -847,13 +795,13 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				err := admin.Get(ctx, types.NamespacedName{Name: drCluster.Name, Namespace: tenantNamespace}, updated)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(updated.Status.Backup).NotTo(BeNil())
-				g.Expect(updated.Status.Backup.LastBackupName).NotTo(BeEmpty())
+				g.Expect(updated.Status.Backup.LastBackupName).To(Equal(recoveredJob.Annotations[backupKeyAnnotation]))
 				g.Expect(updated.Status.Backup.ConsecutiveFailures).To(Equal(int32(0)))
 				g.Expect(updated.Status.Backup.LastFailureReason).To(BeEmpty())
 				g.Expect(updated.Status.Backup.LastFailureMessage).To(BeEmpty())
 				g.Expect(updated.Status.Backup.LastBackupTime).NotTo(BeNil())
 				g.Expect(updated.Status.Backup.LastBackupTime.Time.After(recoveryTriggerTime.Add(-2 * time.Minute))).To(BeTrue())
-				backupKey = updated.Status.Backup.LastBackupName
+				backupKey = recoveredJob.Annotations[backupKeyAnnotation]
 			}, 15*time.Minute, 15*time.Second).Should(Succeed())
 
 			By("ensuring backup operation lock is released after recovery")
@@ -1009,7 +957,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 						APIServerEndpointIPs: apiServerEndpointIPs,
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
-						Schedule: "*/5 * * * *",
+						Schedule: manualBackupSchedule(time.Now()),
 						Image:    backupExecutorImage,
 						Target: openbaov1alpha1.BackupTarget{
 							Provider:   constants.StorageProviderGCS,
@@ -1067,7 +1015,10 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			}
 			cleanupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
-			_ = tenantFW.Cleanup(cleanupCtx)
+			if err := tenantFW.Cleanup(cleanupCtx); err != nil {
+				skipCleanup = true
+				Expect(err).NotTo(HaveOccurred(), "retaining the operator and failed backup fixture")
+			}
 		})
 
 		It("executes a manual backup to GCS", Label(
@@ -1076,18 +1027,16 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			"provider-smoke",
 		), func() {
 			By("annotating the cluster to trigger a manual GCS backup")
-			Eventually(func() error {
-				return triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)
-			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			observation := triggerObservedBackup(ctx, admin, drCluster)
 
 			By("forcing a reconcile after the manual GCS backup trigger")
 			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
 
 			By("waiting for a GCS backup job to be created")
-			waitForBackupJobCreated(ctx, admin, tenantNamespace, drCluster.Name)
+			job := waitForBackupJobCreated(ctx, admin, observation)
 
 			By("waiting for the GCS backup job to complete successfully")
-			waitForSuccessfulBackupJob(ctx, admin, tenantNamespace, drCluster.Name)
+			waitForSuccessfulBackupJob(ctx, admin, observation, job)
 		})
 	})
 
@@ -1154,7 +1103,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 						APIServerEndpointIPs: apiServerEndpointIPs,
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
-						Schedule: "*/5 * * * *",
+						Schedule: manualBackupSchedule(time.Now()),
 						Image:    backupExecutorImage,
 						// JWTAuthRole not set - operator will auto-create backup role when OIDC is enabled
 						Target: openbaov1alpha1.BackupTarget{
@@ -1218,7 +1167,10 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			}
 			cleanupCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
-			_ = tenantFW.Cleanup(cleanupCtx)
+			if err := tenantFW.Cleanup(cleanupCtx); err != nil {
+				skipCleanup = true
+				Expect(err).NotTo(HaveOccurred(), "retaining the operator and failed backup fixture")
+			}
 		})
 
 		It("executes a manual backup to Azure", Label(
@@ -1227,21 +1179,19 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			"provider-smoke",
 		), func() {
 			By("annotating the cluster to trigger a manual Azure backup")
-			Eventually(func() error {
-				return triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)
-			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			observation := triggerObservedBackup(ctx, admin, drCluster)
 
 			By("forcing a reconcile after the manual Azure backup trigger")
 			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
 
 			By("waiting for an Azure backup job to be created")
-			waitForBackupJobCreated(ctx, admin, tenantNamespace, drCluster.Name)
+			job := waitForBackupJobCreated(ctx, admin, observation)
 
 			By("waiting for the Azure backup job to complete successfully")
-			waitForSuccessfulBackupJob(ctx, admin, tenantNamespace, drCluster.Name)
+			waitForSuccessfulBackupJob(ctx, admin, observation, job)
 
-			By("recording the latest Azure backup key from cluster status")
-			recordLatestBackupKey(ctx, tenantFW, admin, tenantNamespace, drCluster.Name, &backupKey)
+			By("retaining the observed Azure Job's backup key for restore")
+			backupKey = job.Annotations[backupKeyAnnotation]
 		})
 
 		It("applies Azure retention in a separate storage workload", Label("e2e-anchor", "case:dr-azure-retention"), func() {
@@ -1255,21 +1205,24 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 			before := drCluster.DeepCopy()
 			drCluster.Spec.Backup.Retention.MaxCount = 1
 			Expect(admin.Patch(ctx, drCluster, client.MergeFrom(before))).To(Succeed())
-			Expect(triggerManualBackup(ctx, admin, tenantNamespace, drCluster.Name)).To(Succeed())
+			observation := triggerObservedBackup(ctx, admin, drCluster)
 			Expect(tenantFW.TriggerReconcile(ctx, drCluster.Name)).To(Succeed())
+			backupJob := waitForBackupJobCreated(ctx, admin, observation)
+			waitForSuccessfulBackupJob(ctx, admin, observation, backupJob)
 			Eventually(func(g Gomega) {
 				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(drCluster), drCluster)).To(Succeed())
 				g.Expect(drCluster.Status.Backup.LastBackupName).NotTo(Equal(previousKey))
 				g.Expect(drCluster.Status.Backup.Retention).NotTo(BeNil())
 				result := drCluster.Status.Backup.Retention.Last
 				g.Expect(result).NotTo(BeNil())
-				g.Expect(result.Key).To(Equal(drCluster.Status.Backup.LastBackupName))
+				g.Expect(result.Key).To(Equal(backupJob.Annotations[backupKeyAnnotation]))
+				g.Expect(string(result.SourceJobUID)).To(Equal(string(backupJob.UID)))
 				g.Expect(result.Outcome).To(Equal(openbaov1alpha1.BackupRetentionSucceeded))
 				g.Expect(result.DeletedByCount).To(BeNumerically(">=", 1))
 				g.Expect(drCluster.Status.Backup.Retention.Active).To(BeNil())
 				g.Expect(drCluster.Status.OperationLock).To(BeNil())
 			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
-			backupKey = drCluster.Status.Backup.LastBackupName
+			backupKey = backupJob.Annotations[backupKeyAnnotation]
 			By("checking that the worker retains storage identity without OpenBao authentication")
 			job := &batchv1.Job{}
 			Expect(admin.Get(ctx, client.ObjectKey{Namespace: tenantNamespace, Name: drCluster.Status.Backup.Retention.Last.Name}, job)).To(Succeed())

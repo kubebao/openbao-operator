@@ -307,6 +307,7 @@ func TestFixtureChangesSelectOwningLaneFamily(t *testing.T) {
 		path, lanes string
 	}{
 		{"test/e2e/restore_minimal_helpers.go", "core,controller-jwt,security,backup-restore,restore-tests"},
+		{"test/e2e/backup_observation.go", "core,controller-jwt,security,backup-restore,restore-tests"},
 	} {
 		t.Run(test.path, func(t *testing.T) {
 			routing, err := runRouting(t, "normal", test.path, "", eventPullRequest)
@@ -331,6 +332,7 @@ func TestFixtureChangesSelectOwningLaneFamily(t *testing.T) {
 func TestFixtureContractChangesSelectSupportTestsOnTrustedAndForkPRs(t *testing.T) {
 	for _, path := range []string{
 		"test/e2e/fixture_contract_test.go",
+		"test/e2e/backup_observation_contract_test.go",
 	} {
 		t.Run(path, func(t *testing.T) {
 			routing, err := runRouting(t, "normal", path, "", eventPullRequest)
