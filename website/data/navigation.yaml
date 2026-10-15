@@ -137,8 +137,6 @@ primary:
         url: docs/reference/release-lifecycle/
       - title: Known limitations
         url: docs/reference/known-limitations/
-      - title: IP-family qualification
-        url: docs/reference/network-qualification/
   - title: Architecture
     description: Understand control-plane boundaries and lifecycle contracts.
     url: docs/architecture/

@@ -1,14 +1,4 @@
----
-title: Verify IP-family behavior
-description: Run the operator networking and lifecycle scenarios on isolated IPv4, IPv6, and dual-stack Kind clusters.
-eyebrow: Reference · Network qualification
-weight: 10
-verifiedBy:
-  - hack/ci/create-network-kind.sh
-  - hack/ci/delete-network-kind.sh
-  - test/e2e/Cluster_Networking_test.go
-  - test/e2e/suites.yaml
----
+# Network qualification
 
 The `networking` PR lane runs on an IPv6-only Kind cluster with Cilium and kube-proxy replacement. It checks three
 voters and a read replica, Pod IP advertisement, DNS and literal-IP connections with certificate verification, Service

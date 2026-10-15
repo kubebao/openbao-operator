@@ -60,6 +60,11 @@ configured TLS server name; selecting an IP family does not add IP SANs to an ex
 The Cilium API-server policy requirement below applies to IPv4, IPv6, and dual-stack clusters. A configured allow-list
 does not prove that the CNI permits traffic.
 
+Network tests cover IPv4, IPv6, and both dual-stack primary-family orders with Cilium. They verify OperatorManaged
+and External TLS, peer discovery, client Services, and workload and lifecycle Job egress policy. IPv6 lifecycle tests
+cover scaling, restart, rolling upgrade, S3 and Azure backup and restore, and GCS backup through storage emulators.
+Cloud load balancers, other CNIs, ACME issuance over IPv6, and storage-driver compatibility require separate qualification.
+
 ## Understand the managed baseline
 
 | Direction | Managed path | Purpose |
@@ -224,5 +229,3 @@ only to Jobs. The explicit contract is also used to decide whether Hardened back
 Inspect both `<cluster>-network-policy` and `<cluster>-jobs-network-policy`, then test DNS, Kubernetes API access, the
 selected edge path, and every external dependency from the affected pod or Job context. A ready condition proves the
 configuration shape, not that the CNI, NAT path, or external firewall accepts the traffic.
-
-See [network qualification](../../reference/network-qualification/) for the tested paths, local test procedure, and qualification limits.
