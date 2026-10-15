@@ -149,6 +149,8 @@ func buildContainerEnv(cluster *openbaov1alpha1.OpenBaoCluster) []corev1.EnvVar 
 			},
 		},
 		corev1.EnvVar{
+			// bao-wrapper formats this Pod IP URL after kubelet expansion so IPv6
+			// literals have brackets while IPv4 advertisements remain unchanged.
 			Name:  constants.EnvBaoAPIAddr,
 			Value: fmt.Sprintf("https://$(%s):%d", constants.EnvPodIP, constants.PortAPI),
 		},

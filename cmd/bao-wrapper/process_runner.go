@@ -39,7 +39,7 @@ func run(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
+	cmd.Env = childEnvironment(os.Environ())
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start child process: %w", err)
