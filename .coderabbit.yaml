@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: >-
+  Write concise, factual technical English. Explain concrete failure conditions
+  and their impact. Avoid speculative warnings and stylistic preferences.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  in_progress_fortune: false
+  poem: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    # Review Dependabot PRs and dependency-labeled PRs automatically.
+    ignore_usernames: []
+    labels: []
+
+  # CI owns PR formatting and mechanical documentation requirements.
+  pre_merge_checks:
+    description:
+      mode: "off"
+    title:
+      mode: "off"
+    docstrings:
+      mode: "off"
+
+  # Use instructions instead of exclusions to retain security-relevant manifests.
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Report actionable correctness, security, and compatibility issues introduced
+        by the change. Explain the affected behavior and a concrete failure scenario.
+        Prioritize authorization, namespace isolation, secret handling, reconciliation
+        idempotency, and backup, restore, and upgrade failure paths.
+
+        Leave formatting, naming, and mechanical coverage requirements to existing
+        CI checks. Do not request PR-template sections on dependency-only PRs.
+        Apply the project guidelines within their documented scope.
+
+        Do not suggest style edits or direct fixes to vendored or generated files.
+        Identify the owning source or generator when a correction is needed. Review
+        behavioral changes in CRD schemas, admission policies, RBAC, and Helm output.
+
+        For dependency updates, check supported versions, coordinated version pins
+        and integrity assertions, affected SDK and API behavior, and workflow runtime
+        and input compatibility. Do not infer safety from minor or patch version
+        labels alone. Request additional validation for a concrete uncovered failure
+        scenario, not merely because a dependency version changed.
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - files: "website/content/contribute/standards.md"
+        applyTo: "**"
+      - files: ".agents/rules/architecture.md"
+        applyTo: "api/**/*.go,cmd/**/*.go,internal/**/*.go"
+      - files: >-
+          .agents/rules/code-style.md,
+          .agents/rules/error-handling.md,
+          .agents/rules/naming-conventions.md,
+          .agents/rules/security.md
+        applyTo: "**/*.go"
+      - files: ".agents/rules/kubernetes-patterns.md"
+        applyTo: "internal/controller/**/*.go"
+      - files: ".agents/rules/testing-standards.md"
+        applyTo: "**/*_test.go,test/**"
+      - files: ".agents/rules/generated-artifacts.md"
+        applyTo: >-
+          api/**,config/**,charts/**,dist/**,hack/**,go.mod,go.sum,vendor/**,
+          website/generated/**,.ast-grep/**
+      - files: ".agents/rules/documentation.md,website/EDITORIAL.md"
+        applyTo: "**/*.md"
