@@ -50,6 +50,9 @@ func (m *Manager) Reconcile(ctx context.Context, logger logr.Logger, cluster *op
 	// Restored data can contain active integrations. The administrator prepares
 	// destination isolation; additive ordinary policies would weaken that boundary.
 	if cluster.Annotations[constants.AnnotationRestoreOrigin] != "" {
+		if cluster.Spec.Service != nil {
+			return m.ensureExternalService(ctx, logger, cluster)
+		}
 		return nil
 	}
 	if err := m.ensureExternalService(ctx, logger, cluster); err != nil {

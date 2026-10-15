@@ -3729,7 +3729,9 @@
       "restore",
       "e2e-anchor"
     ],
-    "steps": null,
+    "steps": [
+      "checking ready client Service backends for each destination family"
+    ],
     "focused": false,
     "pending": false,
     "suiteFile": "",

@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -137,21 +138,6 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 
 			By("approving the prepared namespace and completing the restore test")
 			setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, true)
-			Eventually(func(g Gomega) {
-				jobs := &batchv1.JobList{}
-				g.Expect(c.List(ctx, jobs, client.InNamespace(destinationFW.Namespace), client.MatchingLabels{"openbao.org/component": "restore"})).To(Succeed())
-				g.Expect(jobs.Items).NotTo(BeEmpty())
-				job := &jobs.Items[0]
-				g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(readerAccount.Name))
-				g.Expect(job.Spec.Template.Labels).NotTo(HaveKey("e2e.identity/writer"))
-				credentialSecrets := []string{}
-				for _, volume := range job.Spec.Template.Spec.Volumes {
-					if volume.Secret != nil {
-						credentialSecrets = append(credentialSecrets, volume.Secret.SecretName)
-					}
-				}
-				g.Expect(credentialSecrets).To(ContainElement("storage-reader"))
-			}, 8*time.Minute, time.Second).Should(Succeed())
 			By("checking destination Service families before the disposable target is removed")
 			Eventually(func(g Gomega) {
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
@@ -174,7 +160,23 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 					"sourceFamilies": source.Spec.Service.IPFamilies,
 					"targetFamilies": service.Spec.IPFamilies, "targetClusterIPs": service.Spec.ClusterIPs,
 				})
-			}, time.Minute, time.Second).Should(Succeed())
+			}, 8*time.Minute, time.Second).Should(Succeed())
+			Eventually(func(g Gomega) {
+				jobs := &batchv1.JobList{}
+				g.Expect(c.List(ctx, jobs, client.InNamespace(destinationFW.Namespace), client.MatchingLabels{"openbao.org/component": "restore"})).To(Succeed())
+				g.Expect(jobs.Items).NotTo(BeEmpty())
+				job := &jobs.Items[0]
+				g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(readerAccount.Name))
+				g.Expect(job.Spec.Template.Labels).NotTo(HaveKey("e2e.identity/writer"))
+				credentialSecrets := []string{}
+				for _, volume := range job.Spec.Template.Spec.Volumes {
+					if volume.Secret != nil {
+						credentialSecrets = append(credentialSecrets, volume.Secret.SecretName)
+					}
+				}
+				g.Expect(credentialSecrets).To(ContainElement("storage-reader"))
+			}, 8*time.Minute, time.Second).Should(Succeed())
+
 			Eventually(func(g Gomega) {
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
 				g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
@@ -247,6 +249,27 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 			Expect(c.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: request.Spec.Cluster + "-public"}, service)).To(Succeed())
 			Expect(service.Spec.IPFamilies).To(Equal(template.Service.IPFamilies))
 			Expect(service.Spec.IPFamilyPolicy).To(Equal(template.Service.IPFamilyPolicy))
+			By("checking ready client Service backends for each destination family")
+			Eventually(func(g Gomega) {
+				slices := &discoveryv1.EndpointSliceList{}
+				g.Expect(c.List(ctx, slices, client.InNamespace(request.Namespace),
+					client.MatchingLabels{discoveryv1.LabelServiceName: service.Name})).To(Succeed())
+				for _, family := range template.Service.IPFamilies {
+					found := false
+					for _, slice := range slices.Items {
+						if slice.AddressType != discoveryv1.AddressType(family) {
+							continue
+						}
+						for _, endpoint := range slice.Endpoints {
+							if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready &&
+								endpoint.TargetRef != nil && endpoint.TargetRef.Name == request.Spec.Cluster+"-0" {
+								found = true
+							}
+						}
+					}
+					g.Expect(found).To(BeTrue(), "no ready target backend for %s", family)
+				}
+			}, time.Minute, time.Second).Should(Succeed())
 			AddReportEntry("fresh-restore-service-families", map[string]any{
 				"sourceFamilies": source.Spec.Service.IPFamilies,
 				"targetFamilies": service.Spec.IPFamilies, "targetClusterIPs": service.Spec.ClusterIPs,

@@ -87,6 +87,9 @@ Covers: _none_
 
 Labels: `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor`
 
+Recorded checkpoints:
+- checking ready client Service backends for each destination family
+
 
 ## `restore-minimal-scheduled`
 

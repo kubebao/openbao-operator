@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -15,6 +16,24 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 )
+
+func TestRestoreTargetClientServicePreservesDualStackSelection(t *testing.T) {
+	cluster := newMinimalCluster("recovery", "default")
+	cluster.Annotations = map[string]string{constants.AnnotationRestoreOrigin: "request"}
+	cluster.Spec.Service = &api.ServiceConfig{
+		IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyRequireDualStack),
+		IPFamilies:     []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol},
+	}
+	c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(cluster).WithReturnManagedFields().Build()
+	m := NewManager(c, testScheme, "operators", constants.PlatformKubernetes)
+	require.NoError(t, m.Reconcile(t.Context(), logr.Discard(), cluster))
+	service := &corev1.Service{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKey{Namespace: cluster.Namespace, Name: externalServiceName(cluster)}, service))
+	require.Equal(t, corev1.ServiceTypeClusterIP, service.Spec.Type)
+	require.Equal(t, cluster.Spec.Service.IPFamilyPolicy, service.Spec.IPFamilyPolicy)
+	require.Equal(t, cluster.Spec.Service.IPFamilies, service.Spec.IPFamilies)
+	require.Equal(t, constants.ComponentOpenBaoCluster, service.Spec.Selector[constants.LabelOpenBaoComponent])
+}
 
 func TestServicesExcludeHelperPodsAndPreserveWorkloadPools(t *testing.T) {
 	t.Parallel()
