@@ -26,8 +26,8 @@ parallelism:
 ciLanes:
   - id: core
     name: "Core Lifecycle & Manager"
-    labelFilter: "(((lifecycle && !tls && !hsm && !pkcs11) || manager) && !openshift)"
-    prLabelFilter: "(((lifecycle && !tls && !hsm && !pkcs11) || (manager && (smoke || e2e-anchor))) && !openshift)"
+    labelFilter: "(((lifecycle && !controller-jwt && !tls && !hsm && !pkcs11) || manager) && !openshift)"
+    prLabelFilter: "(((lifecycle && !controller-jwt && !tls && !hsm && !pkcs11) || (manager && (smoke || e2e-anchor))) && !openshift)"
     prScope: always
     timeoutMinutes: 45
     e2eTimeout: 40m
@@ -37,6 +37,24 @@ ciLanes:
     hardenedInitImage: ""
     hardenedUpgradeExecutorImage: ""
     installCSIHostPath: true
+    loadBackupExecutorImage: false
+    loadUpgradeExecutorImage: false
+    preloadUpgradeImages: false
+    preloadHardenedAssets: false
+    preloadStorageEmulators: []
+
+  - id: controller-jwt
+    name: "Controller JWT Lifecycle"
+    labelFilter: "(case:controller-jwt-renewal-migration-recovery && !openshift)"
+    prScope: always
+    timeoutMinutes: 45
+    e2eTimeout: 40m
+    parallelNodes: 1
+    excludePentestOnDefaultPR: false
+    hardenedSigned: false
+    hardenedInitImage: ""
+    hardenedUpgradeExecutorImage: ""
+    installCSIHostPath: false
     loadBackupExecutorImage: false
     loadUpgradeExecutorImage: false
     preloadUpgradeImages: false
@@ -86,6 +104,7 @@ ciLanes:
     prScope: backup
     timeoutMinutes: 45
     e2eTimeout: 40m
+    parallelNodes: 2
     excludePentestOnDefaultPR: false
     hardenedSigned: false
     hardenedInitImage: ""
@@ -246,6 +265,7 @@ nightly:
             - "@primary"
           lanes:
             - core
+            - controller-jwt
             - security
             - backup-restore
             - restore-tests
@@ -279,6 +299,7 @@ nightly:
           rotateCompatibility: true
           lanes:
             - core
+            - controller-jwt
             - security
             - backup-restore
             - restore-tests
@@ -297,6 +318,7 @@ nightly:
             - "@releaseGate"
           lanes:
             - core
+            - controller-jwt
             - security
             - backup-restore
             - restore-tests
@@ -405,7 +427,7 @@ suites:
       budget: 25m
     ci:
       lanes:
-        - core
+        - controller-jwt
       pullRequest: changed-paths
     nightly:
       policy: primary-version-full
@@ -881,7 +903,7 @@ suites:
     title: "Minimal fresh restore and scheduled restore tests"
     owner: backup-restore
     riskTier: critical
-    isolation: global-mutator
+    isolation: parallel-safe
     files:
       - test/e2e/restore_minimal_test.go
     labels:

@@ -174,8 +174,19 @@ make test-e2e-ci \
   E2E_JSON_REPORT=dist/test/controller-jwt/ginkgo.json
 ```
 
-This serial scenario uses the default inline transport and takes at least eleven minutes to cross the real JWT lifetime.
+This serial scenario uses the default inline transport and waits beyond the TokenRequest's recorded expiration,
+with a minimum elapsed lifetime of ten minutes. It then requires OpenBao to reject that credential within 90 seconds,
+retaining the generated role's clock-skew and expiration leeway. Periodic policy repair overlaps the lifetime wait.
+After rejection, an approved idle strategy change triggers policy verification without resetting credential identity,
+changing the OpenBao version, or backdating status.
 Allow up to 25 minutes for setup, reconciliation, and recovery. The snapshot operation uses the Raft API on the same CR;
 object storage, the OpenBaoRestore Job, and recovery into a different CR UID require their own E2E coverage.
+
+The `restore-minimal` suite has two independently owned, ordered fixture groups. With `E2E_PARALLEL_NODES=2`, the real
+ten-minute identity-mismatch deadline runs alongside the other restore journeys. Each group owns its source and
+destination namespaces, Transit service, storage emulator, and credentials. The emulator uses a separate namespace
+because it runs as root; source and destination namespaces retain restricted Pod Security. Approval withdrawal and
+scheduled-source changes cannot affect the other group. Run `make test-e2e-support` to check fixture ownership and
+request-copy contracts without a cluster.
 When using `test-e2e-existing` with an isolated test cluster, set both `E2E_OPENBAO_VERSION` and `E2E_OPENBAO_IMAGE`,
 and configure its API-server egress addresses through `E2E_API_SERVER_CIDR` and `E2E_API_SERVER_ENDPOINT_IPS`.

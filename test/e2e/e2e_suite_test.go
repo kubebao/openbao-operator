@@ -64,6 +64,7 @@ type suiteBootstrap struct {
 	CertManagerPreinstalled []bool   `json:"certManagerPreinstalled"`
 	StorageClass            string   `json:"storageClass,omitempty"`
 	APIServerEndpointIPs    []string `json:"apiServerEndpointIPs,omitempty"`
+	CleanupStatePath        string   `json:"cleanupStatePath"`
 }
 
 var (
@@ -75,7 +76,7 @@ var (
 	// These variables are useful if these components are already installed, avoiding
 	// re-installation and conflicts.
 	skipCertManagerInstall = os.Getenv("CERT_MANAGER_INSTALL_SKIP") == e2eStringTrue
-	// suiteBootstrapState stores cross-cluster bootstrap state for cleanup (node 1 only).
+	// suiteBootstrapState stores shared bootstrap and cleanup state on every worker.
 	suiteBootstrapState *suiteBootstrap
 	// Note: Gateway API CRDs are NOT installed by default in BeforeSuite.
 	// Individual tests that require Gateway API should use InstallGatewayAPI() and UninstallGatewayAPI()
@@ -476,6 +477,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		cmd *exec.Cmd
 		err error
 	)
+	cleanupState, err := os.CreateTemp("", "openbao-e2e-cleanup-*")
+	Expect(err).NotTo(HaveOccurred())
+	_, err = cleanupState.WriteString("cleanup\n")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cleanupState.Close()).To(Succeed())
 
 	if useExistingCluster {
 		kubeconfigPath := strings.TrimSpace(os.Getenv("KUBECONFIG"))
@@ -493,6 +499,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		}
 
 		bootstrap := suiteBootstrap{
+			CleanupStatePath:        cleanupState.Name(),
 			Clusters:                []string{existingClusterName},
 			Kubeconfigs:             []string{kubeconfigPath},
 			CertManagerPreinstalled: []bool{},
@@ -617,6 +624,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	kubeconfigPath := filepath.Join(os.TempDir(), fmt.Sprintf("openbao-operator-e2e-%s.kubeconfig", clusterName))
 
 	bootstrap := suiteBootstrap{
+		CleanupStatePath:        cleanupState.Name(),
 		Clusters:                []string{clusterName},
 		Kubeconfigs:             []string{kubeconfigPath},
 		CertManagerPreinstalled: []bool{},
@@ -796,6 +804,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	ExpectWithOffset(1, json.Unmarshal(data, bootstrap)).To(Succeed(), "Failed to unmarshal suite bootstrap state")
 	ExpectWithOffset(1, bootstrap.Clusters).To(HaveLen(1))
 	ExpectWithOffset(1, bootstrap.Kubeconfigs).To(HaveLen(1))
+	suiteBootstrapState = bootstrap
 
 	// All processes share the same cluster
 	clusterName := bootstrap.Clusters[0]
@@ -814,19 +823,20 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 var _ = SynchronizedAfterSuite(func() {
 	// THIS BLOCK RUNS ON ALL NODES (after all specs complete)
-	// Per-node cleanup can go here if needed.
-	// Currently, all cleanup is shared and goes in the node 1 block below.
+	if skipCleanup && suiteBootstrapState != nil {
+		Expect(requestCleanupPreservation(suiteBootstrapState.CleanupStatePath)).To(Succeed())
+	}
 }, func() {
 	// THIS BLOCK RUNS ONCE (on node 1, after all nodes complete the first block)
 	// This ensures cleanup only happens once after all tests finish.
 
-	if skipCleanup {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping cleanup as E2E_SKIP_CLEANUP is set to true\n")
-		return
-	}
-
 	if suiteBootstrapState == nil {
 		_, _ = fmt.Fprintf(GinkgoWriter, "suite bootstrap state not initialized; skipping shared cleanup\n")
+		return
+	}
+	defer func() { _ = os.Remove(suiteBootstrapState.CleanupStatePath) }()
+	if skipCleanup || cleanupPreservationRequested(suiteBootstrapState.CleanupStatePath) {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping shared cleanup because a worker requested evidence preservation\n")
 		return
 	}
 

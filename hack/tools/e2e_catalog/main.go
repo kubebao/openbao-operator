@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"hash/fnv"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -116,6 +119,13 @@ func collectCases(opts options) ([]testCase, error) {
 
 	var cases []testCase
 	for _, file := range files {
+		ginkgoFile, err := importsGinkgo(file)
+		if err != nil {
+			return nil, err
+		}
+		if !ginkgoFile {
+			continue
+		}
 		outline, err := outlineFile(opts.GinkgoPath, file)
 		if err != nil {
 			return nil, err
@@ -131,6 +141,24 @@ func collectCases(opts options) ([]testCase, error) {
 	})
 
 	return cases, nil
+}
+
+// Regular Go tests exercise fixture contracts without registering E2E specs.
+func importsGinkgo(path string) (bool, error) {
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+	if err != nil {
+		return false, fmt.Errorf("parse test imports %s: %w", path, err)
+	}
+	for _, imported := range file.Imports {
+		path, err := strconv.Unquote(imported.Path.Value)
+		if err != nil {
+			return false, err
+		}
+		if path == "github.com/onsi/ginkgo/v2" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func outlineFile(ginkgoPath, filePath string) ([]outlineNode, error) {

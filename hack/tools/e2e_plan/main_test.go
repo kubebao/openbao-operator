@@ -489,7 +489,7 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build CI matrix: %v", err)
 	}
-	assertKubernetesRowCounts(t, ciMatrix, map[string]int{"1.36.1": 11})
+	assertKubernetesRowCounts(t, ciMatrix, map[string]int{"1.36.1": 12})
 
 	dailyMatrix, err := buildGithubNightlyMatrix(m, "daily", nightlyFilters{})
 	if err != nil {
@@ -498,7 +498,7 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 	assertKubernetesRowCounts(t, dailyMatrix, map[string]int{
 		"1.34.3": 2,
 		"1.35.1": 2,
-		"1.36.1": 10,
+		"1.36.1": 11,
 	})
 
 	weeklyFirst, err := buildGithubNightlyMatrix(m, "weekly-full", nightlyFilters{
@@ -508,8 +508,8 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 		t.Fatalf("build first weekly rotation: %v", err)
 	}
 	assertKubernetesRowCounts(t, weeklyFirst, map[string]int{
-		"1.34.3": 10,
-		"1.36.1": 10,
+		"1.34.3": 11,
+		"1.36.1": 11,
 	})
 
 	weeklySecond, err := buildGithubNightlyMatrix(m, "weekly-full", nightlyFilters{
@@ -519,8 +519,8 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 		t.Fatalf("build second weekly rotation: %v", err)
 	}
 	assertKubernetesRowCounts(t, weeklySecond, map[string]int{
-		"1.35.1": 10,
-		"1.36.1": 10,
+		"1.35.1": 11,
+		"1.36.1": 11,
 	})
 
 	releaseMatrix, err := buildGithubNightlyMatrix(m, "release-gate", nightlyFilters{})
@@ -528,9 +528,9 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 		t.Fatalf("build release matrix: %v", err)
 	}
 	assertKubernetesRowCounts(t, releaseMatrix, map[string]int{
-		"1.34.3": 10,
-		"1.35.1": 10,
-		"1.36.1": 10,
+		"1.34.3": 11,
+		"1.35.1": 11,
+		"1.36.1": 11,
 	})
 }
 

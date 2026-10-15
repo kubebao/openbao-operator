@@ -1,9 +1,43 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestCatalogDistinguishesFixtureContractsFromGinkgoSpecs(t *testing.T) {
+	for _, test := range []struct {
+		name, source string
+		want         bool
+	}{
+		{"regular Go test", "package e2e\nimport \"testing\"\nfunc TestFixture(t *testing.T) {}", false},
+		{"dot import", "package e2e\nimport . \"github.com/onsi/ginkgo/v2\"", true},
+		{"named import", "package e2e\nimport ginkgo \"github.com/onsi/ginkgo/v2\"", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "fixture_test.go")
+			if err := os.WriteFile(path, []byte(test.source), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			got, err := importsGinkgo(path)
+			if err != nil || got != test.want {
+				t.Fatalf("importsGinkgo() = %t, %v; want %t", got, err, test.want)
+			}
+		})
+	}
+	// A directory containing only fixture contracts must not launch Ginkgo.
+	dir := t.TempDir()
+	source := []byte("package e2e\nimport \"testing\"")
+	if err := os.WriteFile(filepath.Join(dir, "fixture_test.go"), source, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cases, err := collectCases(options{InputDir: dir, GinkgoPath: "ginkgo-must-not-run"})
+	if err != nil || len(cases) != 0 {
+		t.Fatalf("fixture-only catalog = %v, %v", cases, err)
+	}
+}
 
 func TestFlattenSpecsInheritsLabelsAndSteps(t *testing.T) {
 	t.Parallel()

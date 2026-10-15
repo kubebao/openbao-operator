@@ -1013,10 +1013,12 @@
     ],
     "steps": [
       "bootstrapping Target mode with the operator-generated roles and policy approval",
+      "deleting an operational policy while the original Target credential ages",
       "initializing an existing-style Shared cluster and saving its actual Raft snapshot",
       "preparing the existing role, switching the CR, then removing shared trust",
       "restoring the pre-migration snapshot while the CR remains in Target mode",
       "repairing restored audience trust through the independent administrator login",
+      "observing periodic policy repair during the original Target credential's lifetime",
       "keeping the same controller process alive beyond the initial JWT's ten-minute lifetime",
       "repairing a deleted operational policy using the renewed Target credential"
     ],
@@ -3500,13 +3502,14 @@
   },
   {
     "id": "restore-minimal-cancel",
-    "generatedId": "restore-minimal-cleans-a-cancelled-disposable-target-and-e2b004fa",
+    "generatedId": "restore-minimal-cleans-a-cancelled-disposable-target-and-89b69284",
     "caseLabel": "restore-minimal-cancel",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
     "name": "cleans a cancelled disposable target and its data volume",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
+      "Fresh target journeys",
       "cleans a cancelled disposable target and its data volume"
     ],
     "labels": [
@@ -3534,13 +3537,14 @@
   },
   {
     "id": "restore-minimal-missing-source",
-    "generatedId": "restore-minimal-cleans-a-disposable-target-when-the-c26b3f85",
+    "generatedId": "restore-minimal-cleans-a-disposable-target-when-the-ef59e827",
     "caseLabel": "restore-minimal-missing-source",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
     "name": "cleans a disposable target when the source object is missing",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
+      "Fresh target journeys",
       "cleans a disposable target when the source object is missing"
     ],
     "labels": [
@@ -3565,46 +3569,15 @@
     "suiteTitle": ""
   },
   {
-    "id": "restore-minimal-identity",
-    "generatedId": "restore-minimal-does-not-confirm-application-when-the-8f108f5b",
-    "caseLabel": "restore-minimal-identity",
-    "file": "test/e2e/restore_minimal_test.go",
-    "type": "It",
-    "name": "does not confirm application when the source identity differs",
-    "path": [
-      "Minimal fresh restore and scheduled restore tests",
-      "does not confirm application when the source identity differs"
-    ],
-    "labels": [
-      "restore-minimal",
-      "dr",
-      "backup",
-      "restore",
-      "e2e-anchor",
-      "case:restore-minimal-identity"
-    ],
-    "domainLabels": [
-      "restore-minimal",
-      "dr",
-      "backup",
-      "restore",
-      "e2e-anchor"
-    ],
-    "steps": null,
-    "focused": false,
-    "pending": false,
-    "suiteFile": "",
-    "suiteTitle": ""
-  },
-  {
     "id": "restore-minimal-digest",
-    "generatedId": "restore-minimal-rejects-changed-snapshot-bytes-before-submission-029fe870",
+    "generatedId": "restore-minimal-rejects-changed-snapshot-bytes-before-submission-976cbeb6",
     "caseLabel": "restore-minimal-digest",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
     "name": "rejects changed snapshot bytes before submission",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
+      "Fresh target journeys",
       "rejects changed snapshot bytes before submission"
     ],
     "labels": [
@@ -3630,13 +3603,14 @@
   },
   {
     "id": "restore-minimal-static",
-    "generatedId": "restore-minimal-restores-a-static-sealed-snapshot-with-bdf5828c",
+    "generatedId": "restore-minimal-restores-a-static-sealed-snapshot-with-7592f62e",
     "caseLabel": "restore-minimal-static",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
     "name": "restores a static-sealed snapshot with the original key and removes the disposable target",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
+      "Fresh target journeys",
       "restores a static-sealed snapshot with the original key and removes the disposable target"
     ],
     "labels": [
@@ -3665,13 +3639,14 @@
   },
   {
     "id": "restore-minimal-retain",
-    "generatedId": "restore-minimal-retains-an-applied-target-until-the-5e6efe95",
+    "generatedId": "restore-minimal-retains-an-applied-target-until-the-77beced7",
     "caseLabel": "restore-minimal-retain",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
     "name": "retains an applied target until the administrator accepts a paused handoff",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
+      "Fresh target journeys",
       "retains an applied target until the administrator accepts a paused handoff"
     ],
     "labels": [
@@ -3697,13 +3672,14 @@
   },
   {
     "id": "restore-minimal-scheduled",
-    "generatedId": "restore-minimal-reuses-a-reader-account-across-scheduled-38eda393",
+    "generatedId": "restore-minimal-reuses-a-reader-account-across-scheduled-66efdf01",
     "caseLabel": "restore-minimal-scheduled",
     "file": "test/e2e/restore_minimal_test.go",
     "type": "It",
     "name": "reuses a reader account across scheduled restores and removes disposable targets",
     "path": [
       "Minimal fresh restore and scheduled restore tests",
+      "Fresh target journeys",
       "reuses a reader account across scheduled restores and removes disposable targets"
     ],
     "labels": [
@@ -3728,6 +3704,39 @@
       "reusing the same reader account for a second generated target after cleanup",
       "taking a new backup with the writer before the second disposable restore"
     ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
+    "id": "restore-minimal-identity",
+    "generatedId": "restore-minimal-does-not-confirm-application-when-the-fd1a5ca4",
+    "caseLabel": "restore-minimal-identity",
+    "file": "test/e2e/restore_minimal_test.go",
+    "type": "It",
+    "name": "does not confirm application when the source identity differs",
+    "path": [
+      "Minimal fresh restore and scheduled restore tests",
+      "Source identity deadline",
+      "does not confirm application when the source identity differs"
+    ],
+    "labels": [
+      "restore-minimal",
+      "dr",
+      "backup",
+      "restore",
+      "e2e-anchor",
+      "case:restore-minimal-identity"
+    ],
+    "domainLabels": [
+      "restore-minimal",
+      "dr",
+      "backup",
+      "restore",
+      "e2e-anchor"
+    ],
+    "steps": null,
     "focused": false,
     "pending": false,
     "suiteFile": "",

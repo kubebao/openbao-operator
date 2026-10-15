@@ -117,7 +117,10 @@ Path, label, and manual-input selection share the same recorded scopes. Shared p
 Matrix planning first runs `make verify-e2e-manifest` to reject a stale generated catalog.
 The planner validates scenario IDs and suite `ci.lanes` against the full selectors. It rejects undeclared owners,
 overlapping owners, orphaned automatic scenarios, and empty selected lanes. The idle strategy-switch scenario belongs
-to `upgrade-bluegreen-core`. Kubernetes versions and profile coverage remain independent qualification contexts.
+to `upgrade-bluegreen-core`. The `controller-jwt` lane owns the real credential-lifetime witness and uses its own
+operator, separate from manager restart tests. The `restore-tests` lane uses two workers for independent fixture
+groups; source, destination, storage, and approval changes remain group-owned.
+Kubernetes versions and profile coverage remain independent qualification contexts.
 Each automatic scenario must have an owner included in the full CI matrix with an automatic PR scope.
 Disabled lanes and manual scopes cannot satisfy automatic coverage requirements.
 

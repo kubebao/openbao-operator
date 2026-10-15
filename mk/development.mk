@@ -522,6 +522,7 @@ MUTATION_GOMEMLIMIT ?= 8GiB
 .PHONY: test-e2e-support
 test-e2e-support: ## Run cluster-independent tests for E2E framework and helper packages.
 	GOFLAGS="$(GOFLAGS_VENDOR)" go test -tags=e2e -count=1 ./test/e2e/framework ./test/e2e/helpers
+	GOFLAGS="$(GOFLAGS_VENDOR)" go test -tags=e2e -count=1 -run '^TestE2EFixture' ./test/e2e
 
 .PHONY: setup-test-e2e
 setup-test-e2e: ## Set up a Kind cluster for e2e tests if it does not exist

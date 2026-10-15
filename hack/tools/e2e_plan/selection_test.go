@@ -34,10 +34,10 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build CI planner: %v\n%s", err, output)
 	}
-	all := []string{"core", "security", "backup-restore", "restore-tests", "upgrade-rolling",
+	all := []string{"core", "controller-jwt", "security", "backup-restore", "restore-tests", "upgrade-rolling",
 		"upgrade-bluegreen-core", "upgrade-bluegreen-verification", "upgrade-bluegreen-recovery",
 		"upgrade-gateway", "hardened", "hsm"}
-	upgrades := all[4:9]
+	upgrades := all[5:10]
 	tests := []struct {
 		name, event, head string
 		labels, routes    []string
@@ -45,25 +45,28 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 		full, pentest     bool
 		blocked           bool
 	}{
-		{name: "source PR", lanes: all[:2], routes: []string{"e2e"}},
-		{name: "backup path", lanes: all[:4], routes: []string{"e2e", "e2e_backup"}},
+		{name: "source PR", lanes: all[:3], routes: []string{"e2e"}},
+		{name: "backup path", lanes: all[:5], routes: []string{"e2e", "e2e_backup"}},
 		{
 			name:   "upgrade path",
-			lanes:  append(append([]string{}, all[:2]...), upgrades...),
+			lanes:  append(append([]string{}, all[:3]...), upgrades...),
 			routes: []string{"e2e", "e2e_upgrade"},
 		},
-		{name: "backup planner path", lanes: all[2:4], routes: []string{"e2e_backup"}},
-		{name: "backup label", lanes: all[2:4], labels: []string{"backup"}},
+		{name: "backup planner path", lanes: all[3:5], routes: []string{"e2e_backup"}},
+		{name: "backup label", lanes: all[3:5], labels: []string{"backup"}},
 		{name: "upgrade label", lanes: upgrades, labels: []string{"upgrades"}},
 		{name: "security label", lanes: []string{"hardened"}, labels: []string{"security"}, pentest: true},
 		{
 			name:    "pentest with source and label",
-			lanes:   []string{"core", "security", "hardened"},
+			lanes:   []string{"core", "controller-jwt", "security", "hardened"},
 			labels:  []string{"controller"},
 			routes:  []string{"e2e"},
 			pentest: true,
 		},
-		{name: "hardened path", lanes: []string{"core", "security", "hardened"}, routes: []string{"e2e", "e2e_hardened"}},
+		{
+			name: "hardened path", lanes: []string{"core", "controller-jwt", "security", "hardened"},
+			routes: []string{"e2e", "e2e_hardened"},
+		},
 		{name: "seal path", lanes: []string{"hsm"}, routes: []string{"e2e_seal"}},
 		{name: "full label", lanes: all, labels: []string{"ci:full-e2e"}, full: true, pentest: true},
 		{name: "main push", event: "push", lanes: all, full: true, pentest: true},
@@ -78,7 +81,7 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 		{
 			name:   "manual backup",
 			event:  "workflow_dispatch",
-			lanes:  all[2:4],
+			lanes:  all[3:5],
 			routes: []string{"manual_e2e_requested", "manual_backup_e2e"},
 		},
 		{
@@ -290,6 +293,42 @@ func TestProfilesPreserveQualificationContexts(t *testing.T) {
 	}
 }
 
+func TestWaitOverlapKeepsDedicatedJWTAndParallelRestoreWitnesses(t *testing.T) {
+	m, cases := loadRepoManifest(t), repoCases(t)
+	matrix, err := buildGithubMatrix(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	planned, err := selectScenarios(matrix, m, cases, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jwtOwners := 0
+	for _, row := range planned.Include {
+		if slices.Contains(row.ExpectedCaseIDs, "controller-jwt-renewal-migration-recovery") {
+			jwtOwners++
+			if row.ID != "controller-jwt" || row.ParallelNodes != 1 || len(row.ExpectedCaseIDs) != 1 {
+				t.Fatalf("JWT process lifetime witness shares its lane: %+v", row)
+			}
+		}
+		if row.ID == "restore-tests" {
+			want := []string{"restore-minimal-static", "restore-minimal-scheduled", "restore-minimal-retain",
+				"restore-minimal-missing-source", "restore-minimal-digest", "restore-minimal-identity", "restore-minimal-cancel"}
+			if row.ParallelNodes != 2 || len(row.ExpectedCaseIDs) != len(want) {
+				t.Fatalf("restore witnesses no longer overlap with full case ownership: %+v", row)
+			}
+			for _, id := range want {
+				if !slices.Contains(row.ExpectedCaseIDs, id) {
+					t.Fatalf("restore deadline or lifecycle witness %s is absent", id)
+				}
+			}
+		}
+	}
+	if jwtOwners != 1 {
+		t.Fatalf("JWT witness has %d owners, want one", jwtOwners)
+	}
+}
+
 func qualificationContext(row matrixRow, id string) string {
 	return strings.Join([]string{row.Kubernetes, row.OpenBaoImage, row.Profile, row.Coverage, id}, "/")
 }
@@ -316,7 +355,13 @@ func TestScenarioOwnershipRejectsDrift(t *testing.T) {
 			"owned by both",
 		},
 		{"overlapping selectors", func(m *manifest, _ *[]catalogCase) {
-			m.CILanes[4].LabelFilter = strings.ReplaceAll(m.CILanes[4].LabelFilter, " && !case:idle-upgrade-strategy-switch", "")
+			for i := range m.CILanes {
+				if m.CILanes[i].ID == "upgrade-rolling" {
+					m.CILanes[i].LabelFilter = strings.ReplaceAll(
+						m.CILanes[i].LabelFilter, " && !case:idle-upgrade-strategy-switch", "",
+					)
+				}
+			}
 		}, "undeclared lane"},
 		{"orphan", func(m *manifest, _ *[]catalogCase) {
 			m.CILanes[0].LabelFilter = "nonexistent-label"

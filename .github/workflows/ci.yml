@@ -205,7 +205,7 @@ jobs:
             echo "go_toolchain=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|config/|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(perfcheck/|tools/|helm(chart|values)/)|test/(integration/|unit/|perf/))'; then
+          if changed_matches '^(internal/|cmd/|api/|config/|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(perfcheck/|tools/|helm(chart|values)/)|test/(integration/|unit/|perf/|e2e/.*_contract_test\.go$))'; then
             echo "go_tests=true" >> "${GITHUB_OUTPUT}"
           else
             echo "go_tests=false" >> "${GITHUB_OUTPUT}"
@@ -247,7 +247,7 @@ jobs:
             echo "operator_upgrade_e2e=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/service/backup/|internal/service/restore/|internal/adapter/(storage|storageenv)/|cmd/bao-backup/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|backup_restore_test\.go|restore_minimal_test\.go|suites\.yaml)|hack/tools/e2e_(manifest|plan)/|go\.(mod|sum)$|vendor/|Dockerfile\.backup$|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-lifecycle-paths.txt' || changed_matches_file 'hack/ci/e2e-execution-paths.txt' || changed_matches_file 'hack/ci/e2e-selection-paths.txt'; then
+          if changed_matches '^(internal/service/backup/|internal/service/restore/|internal/adapter/(storage|storageenv)/|cmd/bao-backup/|test/e2e/(e2e_suite_test\.go|framework/.*|helpers/.*|backup_restore_test\.go|restore_minimal_test\.go|restore_minimal_helpers\.go|suites\.yaml)|hack/tools/e2e_(manifest|plan)/|go\.(mod|sum)$|vendor/|Dockerfile\.backup$|Makefile|mk/)' || changed_matches_file 'hack/ci/e2e-lifecycle-paths.txt' || changed_matches_file 'hack/ci/e2e-execution-paths.txt' || changed_matches_file 'hack/ci/e2e-selection-paths.txt'; then
             echo "e2e_backup=true" >> "${GITHUB_OUTPUT}"
           else
             echo "e2e_backup=false" >> "${GITHUB_OUTPUT}"

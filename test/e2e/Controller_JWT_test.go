@@ -61,10 +61,15 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 		targetAPI.repairAutopilot(ctx, f, target)
 		started := time.Now()
 		targetUID := target.UID
-		targetToken := controllerJWTFor(ctx, clientset, controller, targetAudience)
+		targetCredential := controllerJWTCredentialFor(ctx, clientset, controller, targetAudience)
+		targetToken := targetCredential.Token
 		sharedToken := controllerJWTFor(ctx, clientset, controller, portauth.TokenAudienceOpenBaoInternal)
 		targetAPI.expectJWT(targetToken, true)
 		targetAPI.expectJWT(sharedToken, false)
+		initialPolicyRevision := target.Status.Workload.PolicyRevision
+
+		By("deleting an operational policy while the original Target credential ages")
+		targetAPI.request(http.MethodDelete, "sys/policies/acl/openbao-operator", nil, http.StatusNoContent)
 
 		By("initializing an existing-style Shared cluster and saving its actual Raft snapshot")
 		legacy, legacyAPI := newControllerJWTCluster(ctx, f, "migrate", "")
@@ -123,9 +128,21 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 		legacyAPI.expectJWT(targetToken, false)
 		legacyAPI.repairAutopilot(ctx, f, legacy)
 
+		By("observing periodic policy repair during the original Target credential's lifetime")
+		targetAPI.waitForOperatorPolicy(6 * time.Minute)
+		periodicRepairElapsed := time.Since(started)
+		Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(target), target)).To(Succeed())
+		Expect(target.Status.Workload.PolicyRevision).To(Equal(initialPolicyRevision),
+			"periodic repair must not depend on a desired policy-bundle change")
+
 		By("keeping the same controller process alive beyond the initial JWT's ten-minute lifetime")
-		Eventually(func() bool { return time.Since(started) >= 11*time.Minute },
-			12*time.Minute, 10*time.Second).Should(BeTrue())
+		Eventually(func() bool {
+			return time.Since(started) >= 10*time.Minute && time.Now().After(targetCredential.ExpirationTimestamp.Add(5*time.Second))
+		}, 12*time.Minute, 2*time.Second).Should(BeTrue())
+		// The generated role retains its production clock-skew and expiration
+		// leeway. Require actual rejection after that window, not just exp < now.
+		Eventually(func() (bool, error) { return targetAPI.jwtRejected(targetToken) },
+			90*time.Second, 2*time.Second).Should(BeTrue(), "OpenBao must reject the expired credential")
 		currentController := controllerJWTPod(ctx, f.Client)
 		Expect(currentController.UID).To(Equal(controller.UID))
 		Expect(currentController.Status.ContainerStatuses[0].RestartCount).To(Equal(controller.Status.ContainerStatuses[0].RestartCount))
@@ -139,24 +156,27 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 
 		By("repairing a deleted operational policy using the renewed Target credential")
 		targetAPI.request(http.MethodDelete, "sys/policies/acl/openbao-operator", nil, http.StatusNoContent)
-		Expect(f.TriggerReconcile(ctx, target.Name)).To(Succeed())
-		Eventually(func() error {
-			data, err := targetAPI.read("sys/policies/acl/openbao-operator")
-			if err != nil {
-				return err
-			}
-			policy, _ := data["policy"].(string)
-			if policy == "" {
-				return fmt.Errorf("operational policy has not been repaired")
-			}
-			return nil
-		}, 6*time.Minute, 5*time.Second).Should(Succeed())
+		// Both strategies are already approved. An idle strategy change changes
+		// the desired bundle and bypasses its successful verification cache.
+		// It does not change the Pod-bound credential's cache key or lifetime.
+		Expect(f.Client.Patch(ctx, target, client.RawPatch("application/merge-patch+json",
+			[]byte(`{"spec":{"upgrade":{"strategy":"BlueGreen"}}}`)))).To(Succeed())
+		targetAPI.waitForOperatorPolicy(2 * time.Minute)
+		Eventually(func(g Gomega) {
+			g.Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(target), target)).To(Succeed())
+			g.Expect(target.Status.Workload.PolicyRevision).NotTo(Equal(initialPolicyRevision))
+			g.Expect(target.Status.Workload.PolicyReconciliation.LastError).To(BeNil())
+		}, 2*time.Minute, 2*time.Second).Should(Succeed())
 		targetAPI.repairAutopilot(ctx, f, target)
-		Expect(controllerJWTPod(ctx, f.Client).UID).To(Equal(controller.UID))
+		finalController := controllerJWTPod(ctx, f.Client)
+		Expect(finalController.UID).To(Equal(controller.UID))
+		Expect(finalController.Status.ContainerStatuses[0].RestartCount).To(Equal(controller.Status.ContainerStatuses[0].RestartCount))
 		AddReportEntry("controller-jwt-validation", map[string]any{
 			"targetUID": targetUID, "migratedUID": legacyUID, "controllerPodUID": controller.UID,
 			"elapsedSeconds": int(time.Since(started).Seconds()), "transport": "inline",
 			"snapshotRestore": "pre-migration role restored and repaired", "policyRepair": "verified after JWT expiration",
+			"initialJWTExpiresAt":                targetCredential.ExpirationTimestamp.Time,
+			"periodicPolicyRepairElapsedSeconds": int(periodicRepairElapsed.Seconds()),
 		})
 	}, SpecTimeout(25*time.Minute))
 })
@@ -171,6 +191,10 @@ func controllerJWTPod(ctx context.Context, c client.Client) corev1.Pod {
 }
 
 func controllerJWTFor(ctx context.Context, c kubernetes.Interface, pod corev1.Pod, audience string) string {
+	return controllerJWTCredentialFor(ctx, c, pod, audience).Token
+}
+
+func controllerJWTCredentialFor(ctx context.Context, c kubernetes.Interface, pod corev1.Pod, audience string) authenticationv1.TokenRequestStatus {
 	response, err := c.CoreV1().ServiceAccounts(pod.Namespace).CreateToken(ctx, pod.Spec.ServiceAccountName,
 		&authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{
 			Audiences: []string{audience}, ExpirationSeconds: ptr.To(int64(600)),
@@ -178,7 +202,21 @@ func controllerJWTFor(ctx context.Context, c kubernetes.Interface, pod corev1.Po
 		}}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(response.Status.ExpirationTimestamp.Time).To(BeTemporally("<", time.Now().Add(11*time.Minute)))
-	return response.Status.Token
+	return response.Status
+}
+
+func (a *controllerJWTAPI) waitForOperatorPolicy(timeout time.Duration) {
+	Eventually(func() error {
+		data, err := a.read("sys/policies/acl/openbao-operator")
+		if err != nil {
+			return err
+		}
+		policy, _ := data["policy"].(string)
+		if policy == "" {
+			return fmt.Errorf("operational policy has not been repaired")
+		}
+		return nil
+	}, timeout, 2*time.Second).Should(Succeed())
 }
 
 type controllerJWTAPI struct {
@@ -313,14 +351,36 @@ func (a *controllerJWTAPI) login() error {
 }
 
 func (a *controllerJWTAPI) expectJWT(jwt string, allowed bool) {
-	payload, err := json.Marshal(map[string]string{"jwt": jwt, "role": portauth.RoleNameOperator})
-	Expect(err).NotTo(HaveOccurred())
-	_, status, err := a.exchange(http.MethodPost, "auth/jwt-operator/login", payload, "")
+	status, err := a.jwtLoginStatus(jwt)
 	Expect(err).NotTo(HaveOccurred())
 	if allowed {
 		Expect(status).To(Equal(http.StatusOK))
 	} else {
 		Expect(status).To(Or(Equal(http.StatusBadRequest), Equal(http.StatusForbidden)))
+	}
+}
+
+func (a *controllerJWTAPI) jwtLoginStatus(jwt string) (int, error) {
+	payload, err := json.Marshal(map[string]string{"jwt": jwt, "role": portauth.RoleNameOperator})
+	if err != nil {
+		return 0, err
+	}
+	_, status, err := a.exchange(http.MethodPost, "auth/jwt-operator/login", payload, "")
+	return status, err
+}
+
+func (a *controllerJWTAPI) jwtRejected(jwt string) (bool, error) {
+	status, err := a.jwtLoginStatus(jwt)
+	if err != nil {
+		return false, err
+	}
+	switch status {
+	case http.StatusBadRequest, http.StatusForbidden:
+		return true, nil
+	case http.StatusOK:
+		return false, nil
+	default:
+		return false, fmt.Errorf("JWT login returned HTTP %d instead of a credential validation result", status)
 	}
 }
 

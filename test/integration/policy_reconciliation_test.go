@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -135,4 +136,54 @@ func TestPolicyReconciliationWithoutSelfInit(t *testing.T) {
 	cluster.Spec.SelfInit = nil
 	cluster.Spec.ReconcilePolicies = true
 	require.NoError(t, k8sClient.Create(ctx, cluster))
+}
+
+func TestPolicyRepairAfterDeclaredIdleStrategyChange(t *testing.T) {
+	cluster := newMinimalClusterObj(newTestNamespace(t), "policy-bundle-change")
+	waitForOpenBaoClusterAdmissionPolicies(t, cluster.Namespace)
+	cluster.Spec.ReconcilePolicies = true
+	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{
+		Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true},
+		Requests: []openbaov1alpha1.SelfInitRequest{{
+			Name: "audit", Operation: openbaov1alpha1.SelfInitOperationUpdate, Path: "sys/audit/stdout",
+			AuditDevice: &openbaov1alpha1.SelfInitAuditDevice{Type: "file",
+				FileOptions: &openbaov1alpha1.FileAuditOptions{FilePath: "stdout"}},
+		}},
+	}
+	require.NoError(t, k8sClient.Create(ctx, cluster))
+	cluster.Status.Initialized = true
+	cluster.Status.Phase = openbaov1alpha1.ClusterPhaseRunning
+	cluster.Status.CurrentVersion = cluster.Spec.Version
+	cluster.Status.ReadyReplicas = cluster.Spec.Replicas
+	cluster.Status.AcceptedUpgradeStrategy = openbaov1alpha1.UpdateStrategyRollingUpdate
+	cluster.Status.Conditions = []metav1.Condition{{Type: "Available", Status: metav1.ConditionTrue,
+		Reason: "Ready", Message: "Fixture workload is ready", LastTransitionTime: metav1.Now()}}
+	require.NoError(t, k8sClient.Status().Update(ctx, cluster))
+	store := &policyClient{values: map[string]string{}}
+	reconcile := func() {
+		t.Helper()
+		require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
+		manager := &configuration.PolicyManager{ClientFor: func(context.Context, *openbaov1alpha1.OpenBaoCluster) (portopenbao.PolicyClient, error) {
+			return store, nil
+		}}
+		_, err := manager.Reconcile(ctx, logr.Discard(), cluster)
+		require.NoError(t, err)
+		require.NoError(t, k8sClient.Status().Update(ctx, cluster))
+	}
+	reconcile()
+	initialUID, initialRevision := cluster.UID, cluster.Status.Workload.PolicyRevision
+	verified := cluster.Status.Workload.PolicyReconciliation.LastVerified.DeepCopy()
+	delete(store.values, portauth.PolicyNameOperator)
+	store.writes = 0
+	reconcile()
+	require.Zero(t, store.writes, "a fresh manager must honor the persisted verification cache")
+	before := cluster.DeepCopy()
+	cluster.Spec.Upgrade = &openbaov1alpha1.UpgradeConfig{Strategy: openbaov1alpha1.UpdateStrategyBlueGreen}
+	require.NoError(t, k8sClient.Patch(ctx, cluster, client.MergeFrom(before)))
+	require.Equal(t, verified, cluster.Status.Workload.PolicyReconciliation.LastVerified)
+	reconcile()
+	require.Equal(t, initialUID, cluster.UID)
+	require.NotEqual(t, initialRevision, cluster.Status.Workload.PolicyRevision)
+	require.NotEmpty(t, store.values[portauth.PolicyNameOperator], "repair uses the declared bundle change, not a backdated status")
+	require.NoError(t, configuration.RequirePolicyReady(cluster, portauth.PolicyNameOperator))
 }

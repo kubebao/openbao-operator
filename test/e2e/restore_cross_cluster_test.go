@@ -127,7 +127,7 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 					Data: map[string][]byte{"accessKeyId": []byte(rustfsAccessKey), "secretAccessKey": []byte(rustfsSecretKey)},
 				})).To(Succeed())
 			}
-			prepareMinimalDestinationNetwork(ctx, destinationClient, destinationFW.Namespace, infrastructureNamespace)
+			prepareMinimalDestinationNetwork(ctx, destinationClient, destinationFW.Namespace, infrastructureNamespace, rustfsName)
 			setMinimalDestinationApproval(ctx, destinationClient, destinationFW.Namespace, true)
 
 			By("making backup storage and Transit reachable independently of the source Kubernetes cluster")

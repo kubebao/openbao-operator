@@ -210,7 +210,8 @@ func TestSharedExecutionChangesSelectEveryLaneFamily(t *testing.T) {
 	}
 }
 
-func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
+func lanePlanner(t *testing.T) func(checkPlan) []string {
+	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -221,6 +222,36 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build E2E planner: %v\n%s", err, output)
 	}
+	return func(plan checkPlan) []string {
+		t.Helper()
+		planPath := filepath.Join(t.TempDir(), "plan.json")
+		if err := writeJSON(planPath, plan); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(planner, "--ci-plan", planPath, "--sha", "tested-sha")
+		cmd.Dir = root
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("plan E2E lanes: %v\n%s", err, output)
+		}
+		var matrix struct {
+			Include []struct {
+				ID string `json:"id"`
+			} `json:"include"`
+		}
+		if err := json.Unmarshal(output, &matrix); err != nil {
+			t.Fatal(err)
+		}
+		lanes := make([]string, 0, len(matrix.Include))
+		for _, row := range matrix.Include {
+			lanes = append(lanes, row.ID)
+		}
+		return lanes
+	}
+}
+
+func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
+	plannedLanes := lanePlanner(t)
 	for _, path := range []string{
 		"hack/tools/e2e_plan/main.go",
 		"hack/tools/e2e_plan/selection.go",
@@ -250,32 +281,11 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 			if plan.E2E.Full || plan.E2E.IncludePentest {
 				t.Fatal("shared selection paths must retain the default PR selector and pentest policy")
 			}
-			planPath := filepath.Join(t.TempDir(), "plan.json")
-			if err := writeJSON(planPath, plan); err != nil {
-				t.Fatal(err)
-			}
-			cmd := exec.Command(planner, "--ci-plan", planPath, "--sha", "tested-sha")
-			cmd.Dir = root
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				t.Fatalf("plan shared selection change: %v\n%s", err, output)
-			}
-			var matrix struct {
-				Include []struct {
-					ID string `json:"id"`
-				} `json:"include"`
-			}
-			if err := json.Unmarshal(output, &matrix); err != nil {
-				t.Fatal(err)
-			}
-			lanes := make([]string, 0, len(matrix.Include))
-			for _, row := range matrix.Include {
-				lanes = append(lanes, row.ID)
-			}
-			want := "core,security,backup-restore,restore-tests,upgrade-rolling,upgrade-bluegreen-core," +
+			lanes := plannedLanes(plan)
+			want := "core,controller-jwt,security,backup-restore,restore-tests,upgrade-rolling,upgrade-bluegreen-core," +
 				"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway,hardened,hsm"
 			if strings.Join(lanes, ",") != want {
-				t.Fatalf("shared selection change planned %v, want all 11 automatic lanes", lanes)
+				t.Fatalf("shared selection change planned %v, want all 12 automatic lanes", lanes)
 			}
 			forkPlan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
 				prEvent("fork/repo"), routing)
@@ -286,6 +296,67 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 				if forkPlan.Checks[job] {
 					t.Fatalf("shared selection change must not select %s on a fork PR", job)
 				}
+			}
+		})
+	}
+}
+
+func TestFixtureChangesSelectOwningLaneFamily(t *testing.T) {
+	plannedLanes := lanePlanner(t)
+	for _, test := range []struct {
+		path, lanes string
+	}{
+		{"test/e2e/restore_minimal_helpers.go", "core,controller-jwt,security,backup-restore,restore-tests"},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			routing, err := runRouting(t, "normal", test.path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
+				prEvent("owner/repo"), routing)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if plan.E2E.Full || plan.E2E.IncludePentest {
+				t.Fatal("fixture changes must retain the default PR selector and pentest policy")
+			}
+			if lanes := plannedLanes(plan); strings.Join(lanes, ",") != test.lanes {
+				t.Fatalf("fixture change planned %v, want %s", lanes, test.lanes)
+			}
+		})
+	}
+}
+
+func TestFixtureContractChangesSelectSupportTestsOnTrustedAndForkPRs(t *testing.T) {
+	for _, path := range []string{
+		"test/e2e/fixture_contract_test.go",
+	} {
+		t.Run(path, func(t *testing.T) {
+			routing, err := runRouting(t, "normal", path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, head := range []string{"owner/repo", "fork/repo"} {
+				t.Run(head, func(t *testing.T) {
+					plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
+						prEvent(head), routing)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, job := range []string{"test-unit", "test-integration"} {
+						if !plan.Checks[job] {
+							t.Errorf("contract test change must select %s", job)
+						}
+					}
+					if head == "fork/repo" {
+						for _, job := range []string{"build-artifacts", "build-e2e-images", "operator-upgrade-e2e", "e2e-matrix", "e2e"} {
+							if plan.Checks[job] {
+								t.Errorf("contract test change must not select %s on a fork PR", job)
+							}
+						}
+					}
+				})
 			}
 		})
 	}

@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -17,458 +16,312 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
-	helpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
 )
 
-var _ = Describe("Minimal fresh restore and scheduled restore tests", Ordered, Label("restore-minimal", "dr", "backup", "restore", "e2e-anchor"), func() {
+var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("restore-minimal", "dr", "backup", "restore", "e2e-anchor"), func() {
 	ctx := context.Background()
-	var c client.Client
-	var config *rest.Config
-	var sourceFW, destinationFW *framework.Framework
-	var source *api.OpenBaoCluster
-	var template *api.RestoreClusterTemplate
-	var snapshot api.RestoreSource
-	const image = "openbao/openbao:2.7.1"
-
-	BeforeAll(func() {
-		var err error
-		config, err = ctrlconfig.GetConfig()
-		Expect(err).NotTo(HaveOccurred())
-		scheme := runtime.NewScheme()
-		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
-		Expect(api.AddToScheme(scheme)).To(Succeed())
-		c, err = client.New(config, client.Options{Scheme: scheme})
-		Expect(err).NotTo(HaveOccurred())
-		sourceFW, err = framework.New(ctx, c, "minimal-source", operatorNamespace)
-		Expect(err).NotTo(HaveOccurred())
-		destinationFW, err = framework.New(ctx, c, "minimal-destination", operatorNamespace)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ensureRustFS(ctx, c, config)).To(Succeed())
-
-		By("preparing compatible Transit credentials in both namespaces")
-		infra := helpers.InfraBaoConfig{
-			Namespace: sourceFW.Namespace,
-			Name:      "transit",
-			// The infrastructure helper uses file storage, which 2.7 removes.
-			// Source and restore targets still use the 2.7 image below.
-			Image: "openbao/openbao:2.6.4",
+	Context("Fresh target journeys", Ordered, func() {
+		var c client.Client
+		var sourceFW, destinationFW *framework.Framework
+		var source *api.OpenBaoCluster
+		var template *api.RestoreClusterTemplate
+		var snapshot api.RestoreSource
+		var fixture *minimalRestoreFixture
+		BeforeAll(func() {
+			fixture = newMinimalRestoreFixture(ctx)
+			c = fixture.client
+			sourceFW, destinationFW = fixture.sourceFW, fixture.destinationFW
+			source, template, snapshot = fixture.source, fixture.template, fixture.snapshot
+		})
+		newRequest := func(name string, lifecycle api.RestoreTargetLifecycle) *api.OpenBaoRestore {
+			return fixture.newRequest(name, lifecycle)
 		}
-		Expect(helpers.EnsureInfraBao(ctx, config, c, infra)).To(Succeed())
-		address := fmt.Sprintf("https://transit.%s.svc:8200", sourceFW.Namespace)
-		result, err := helpers.ConfigureInfraBaoTransit(ctx, config, c, sourceFW.Namespace, "transit", image, address, "recovery")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Phase).To(Equal(corev1.PodSucceeded), result.Logs)
-		token, err := helpers.ReadInfraBaoRootToken(ctx, c, sourceFW.Namespace, "transit")
-		Expect(err).NotTo(HaveOccurred())
-		ca, err := helpers.ReadInfraBaoTLSCACert(ctx, c, sourceFW.Namespace, "transit")
-		Expect(err).NotTo(HaveOccurred())
-		for _, namespace := range []string{sourceFW.Namespace, destinationFW.Namespace} {
-			Expect(helpers.EnsureInfraBaoSealCredentialsSecret(ctx, c, namespace, "transit-auth", token, ca, nil)).To(Succeed())
-			Expect(c.Create(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "storage",
-					Namespace: namespace,
-				},
 
-				Data: map[string][]byte{
-					"accessKeyId":     []byte(rustfsAccessKey),
-					"secretAccessKey": []byte(rustfsSecretKey),
-				},
-			})).To(Succeed())
-		}
-		prepareMinimalDestinationNetwork(ctx, c, destinationFW.Namespace, sourceFW.Namespace)
-		setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, true)
+		It("restores a static-sealed snapshot with the original key and removes the disposable target", Label("case:restore-minimal-static"), func() {
+			By("backing up a source with an operator-generated static key")
+			staticSource := source.DeepCopy()
+			staticSource.ObjectMeta = metav1.ObjectMeta{Name: "static-source", Namespace: sourceFW.Namespace}
+			staticSource.Status = api.OpenBaoClusterStatus{}
+			staticSource.Spec.Unseal = &api.UnsealConfig{Type: "static"}
+			staticSource.Spec.Backup.RestoreTest = nil
+			Expect(c.Create(ctx, staticSource)).To(Succeed())
+			Expect(c.Create(ctx, newBackupNetworkPolicy(sourceFW.Namespace, staticSource.Name, fixture.storageNamespace.Name, 9000, "backup"))).To(Succeed())
+			sourceFW.WaitForCondition(staticSource.Name, api.ConditionAvailable, metav1.ConditionTrue)
+			Expect(triggerManualBackup(ctx, c, staticSource.Namespace, staticSource.Name)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(staticSource), staticSource)).To(Succeed())
+				g.Expect(staticSource.Status.Backup).NotTo(BeNil())
+				g.Expect(staticSource.Status.Backup.LatestSnapshot).NotTo(BeNil())
+			}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
-		requests := helpers.CreateE2ERequests(sourceFW.Namespace)
-		source = &api.OpenBaoCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "source",
-				Namespace: sourceFW.Namespace,
-			},
-			Spec: api.OpenBaoClusterSpec{
-				Profile:  api.ProfileDevelopment,
-				Version:  "2.7.1",
-				Image:    image,
-				Replicas: 1,
-				InitContainer: &api.InitContainerConfig{
-					Enabled: true,
-					Image:   configInitImage,
-				},
-				Storage: api.StorageConfig{Size: "1Gi"},
-				TLS: api.TLSConfig{
-					Enabled:        true,
-					Mode:           api.TLSModeOperatorManaged,
-					RotationPeriod: "720h",
-				},
-				SelfInit: &api.SelfInitConfig{
-					Enabled:  true,
-					OIDC:     &api.SelfInitOIDCConfig{Enabled: true},
-					Requests: requests,
-				},
-				Unseal: &api.UnsealConfig{
-					Type:                 "transit",
-					CredentialsSecretRef: &corev1.LocalObjectReference{Name: "transit-auth"},
-					Transit: &api.TransitSealConfig{
-						Address:   address,
-						MountPath: "transit",
-						KeyName:   "recovery",
-						TLSCACert: "/etc/bao/seal-creds/ca.crt",
-					},
-				},
-				Network: &api.NetworkConfig{
-					APIServerCIDR:        apiServerCIDR,
-					APIServerEndpointIPs: apiServerEndpointIPs,
-					EgressRules: []networkingv1.NetworkPolicyEgressRule{{
-						To:    []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "transit"}}}},
-						Ports: []networkingv1.NetworkPolicyPort{networkPolicyPort(corev1.ProtocolTCP, 8200)},
-					}},
-				},
-				Backup: &api.BackupSchedule{
-					Schedule: "0 0 1 1 *",
-					Image:    backupExecutorImage,
-					Target: api.BackupTarget{
-						Provider:             "s3",
-						Endpoint:             rustfsEndpoint,
-						Bucket:               rustfsBucket,
-						PathPrefix:           "minimal",
-						UsePathStyle:         true,
-						CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage"},
-					},
-				},
-				DeletionPolicy: api.DeletionPolicyDeleteAll,
-			},
-		}
-		Expect(c.Create(ctx, source)).To(Succeed())
-		Expect(c.Create(ctx, newBackupNetworkPolicy(sourceFW.Namespace, source.Name, rustfsName, 9000, "backup"))).To(Succeed())
-		sourceFW.WaitForCondition(source.Name, api.ConditionAvailable, metav1.ConditionTrue)
-		Expect(triggerManualBackup(ctx, c, source.Namespace, source.Name)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
-			g.Expect(source.Status.Backup).NotTo(BeNil())
-			g.Expect(source.Status.Backup.LatestSnapshot).NotTo(BeNil())
-		}, 5*time.Minute, 2*time.Second).Should(Succeed())
-		summary := source.Status.Backup.LatestSnapshot
-		snapshot = api.RestoreSource{
-			Target: *source.Spec.Backup.Target.DeepCopy(),
-			Key:    source.Status.Backup.LastBackupName,
+			By("preparing the original key as an administrator-owned destination Secret")
+			key := &corev1.Secret{}
+			Expect(c.Get(ctx, client.ObjectKey{Namespace: sourceFW.Namespace, Name: staticSource.Name + "-unseal-key"}, key)).To(Succeed())
+			key.ObjectMeta = metav1.ObjectMeta{Name: "static-restore-key", Namespace: destinationFW.Namespace}
+			Expect(c.Create(ctx, key)).To(Succeed())
+			request := newRequest("static-recovery", api.RestoreTargetLifecycleDisposable)
+			request.Spec.ClusterTemplate.Unseal = api.UnsealConfig{
+				Type:                 "static",
+				CredentialsSecretRef: &corev1.LocalObjectReference{Name: key.Name},
+			}
+			summary := staticSource.Status.Backup.LatestSnapshot
+			request.Spec.Source.Key = staticSource.Status.Backup.LastBackupName
+			request.Spec.Source.ExpectedClusterID = summary.ClusterID
+			request.Spec.Source.ExpectedVersion = summary.Version
+			request.Spec.Source.ExpectedDigest = summary.Digest
+			request.Spec.Source.ExpectedSize = summary.Size
+			Expect(c.Create(ctx, request)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseCompleted), request.Status.Message)
+				g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil())
+				g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete))
+			}, 6*time.Minute, 2*time.Second).Should(Succeed())
+			Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: request.Spec.Cluster}, &api.OpenBaoCluster{}))).To(BeTrue())
+			Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: "data-" + request.Spec.Cluster + "-0"}, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(key), key)).To(Succeed())
+			Expect(key.OwnerReferences).To(BeEmpty())
+			Expect(c.Delete(ctx, request)).To(Succeed())
+			Eventually(func() bool {
+				return apierrors.IsNotFound(c.Get(ctx, client.ObjectKeyFromObject(request), &api.OpenBaoRestore{}))
+			}, time.Minute, time.Second).Should(BeTrue())
+		})
 
-			ExpectedClusterID: summary.ClusterID,
-			ExpectedVersion:   summary.Version,
-			ExpectedDigest:    summary.Digest,
-			ExpectedSize:      summary.Size,
-		}
-		template = &api.RestoreClusterTemplate{
-			Version: "2.7.1",
-			Image:   image,
-			Storage: source.Spec.Storage,
-			TLS:     source.Spec.TLS,
+		It("reuses a reader account across scheduled restores and removes disposable targets", Label("case:restore-minimal-scheduled"), func() {
+			By("preparing an administrator-owned reader account and separate destination credential reference")
+			readerAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+				Name: "snapshot-reader", Namespace: destinationFW.Namespace,
+				Annotations: map[string]string{"e2e.identity/reader": "true"},
+			}}
+			Expect(c.Create(ctx, readerAccount)).To(Succeed())
+			readerUID := readerAccount.UID
+			storage := &corev1.Secret{}
+			Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: "storage"}, storage)).To(Succeed())
+			Expect(c.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "storage-reader", Namespace: destinationFW.Namespace}, Data: storage.Data})).To(Succeed())
+			By("refusing manual and scheduled target creation before namespace approval")
+			setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, false)
+			Eventually(func() error {
+				return c.Create(ctx, newRequest("unapproved", "Disposable"), client.DryRunAll)
+			}, time.Minute, time.Second).Should(MatchError(ContainSubstring("openbao.org/restore-target-approved")))
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+			before := source.DeepCopy()
+			source.Spec.Backup.Target.WorkloadIdentity = &api.WorkloadIdentityConfig{
+				ServiceAccountAnnotations: map[string]string{"e2e.identity/writer": "true"},
+				PodLabels:                 map[string]string{"e2e.identity/writer": "true"},
+			}
+			source.Spec.Backup.RestoreTest = &api.RestoreTest{
+				EverySuccessfulBackups: 1,
+				Namespace:              destinationFW.Namespace,
 
-			InitContainer: source.Spec.InitContainer.DeepCopy(),
-			Unseal:        *source.Spec.Unseal.DeepCopy(),
-		}
-	})
+				ClusterTemplate:      *template.DeepCopy(),
+				CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
+				ServiceAccountName:   readerAccount.Name,
+				CleanupAfterSeconds:  30,
+			}
+			Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+				g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
+				g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
+				g.Expect(meta.FindStatusCondition(source.Status.Backup.RestoreTest.Conditions, "Passed")).To(HaveField("Reason", "DestinationRejected"))
+			}, time.Minute, time.Second).Should(Succeed())
+			children := &api.OpenBaoRestoreList{}
+			Expect(c.List(ctx, children, client.InNamespace(destinationFW.Namespace))).To(Succeed())
+			Expect(children.Items).To(BeEmpty())
 
-	newRequest := func(name string, lifecycle api.RestoreTargetLifecycle) *api.OpenBaoRestore {
-		return &api.OpenBaoRestore{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: destinationFW.Namespace,
-			},
-			Spec: api.OpenBaoRestoreSpec{
-				Cluster:         name,
-				Source:          *snapshot.DeepCopy(),
-				ClusterTemplate: template.DeepCopy(),
-				TargetLifecycle: lifecycle,
-				Force:           true,
-				Image:           backupExecutorImage,
-			},
-		}
-	}
-	It("restores a static-sealed snapshot with the original key and removes the disposable target", Label("case:restore-minimal-static"), func() {
-		By("backing up a source with an operator-generated static key")
-		staticSource := source.DeepCopy()
-		staticSource.ObjectMeta = metav1.ObjectMeta{Name: "static-source", Namespace: sourceFW.Namespace}
-		staticSource.Status = api.OpenBaoClusterStatus{}
-		staticSource.Spec.Unseal = &api.UnsealConfig{Type: "static"}
-		staticSource.Spec.Backup.RestoreTest = nil
-		Expect(c.Create(ctx, staticSource)).To(Succeed())
-		Expect(c.Create(ctx, newBackupNetworkPolicy(sourceFW.Namespace, staticSource.Name, rustfsName, 9000, "backup"))).To(Succeed())
-		sourceFW.WaitForCondition(staticSource.Name, api.ConditionAvailable, metav1.ConditionTrue)
-		Expect(triggerManualBackup(ctx, c, staticSource.Namespace, staticSource.Name)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(staticSource), staticSource)).To(Succeed())
-			g.Expect(staticSource.Status.Backup).NotTo(BeNil())
-			g.Expect(staticSource.Status.Backup.LatestSnapshot).NotTo(BeNil())
-		}, 5*time.Minute, 2*time.Second).Should(Succeed())
-
-		By("preparing the original key as an administrator-owned destination Secret")
-		key := &corev1.Secret{}
-		Expect(c.Get(ctx, client.ObjectKey{Namespace: sourceFW.Namespace, Name: staticSource.Name + "-unseal-key"}, key)).To(Succeed())
-		key.ObjectMeta = metav1.ObjectMeta{Name: "static-restore-key", Namespace: destinationFW.Namespace}
-		Expect(c.Create(ctx, key)).To(Succeed())
-		request := newRequest("static-recovery", api.RestoreTargetLifecycleDisposable)
-		request.Spec.ClusterTemplate.Unseal = api.UnsealConfig{
-			Type:                 "static",
-			CredentialsSecretRef: &corev1.LocalObjectReference{Name: key.Name},
-		}
-		summary := staticSource.Status.Backup.LatestSnapshot
-		request.Spec.Source.Key = staticSource.Status.Backup.LastBackupName
-		request.Spec.Source.ExpectedClusterID = summary.ClusterID
-		request.Spec.Source.ExpectedVersion = summary.Version
-		request.Spec.Source.ExpectedDigest = summary.Digest
-		request.Spec.Source.ExpectedSize = summary.Size
-		Expect(c.Create(ctx, request)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseCompleted), request.Status.Message)
-			g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil())
-			g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete))
-		}, 6*time.Minute, 2*time.Second).Should(Succeed())
-		Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: request.Spec.Cluster}, &api.OpenBaoCluster{}))).To(BeTrue())
-		Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: "data-" + request.Spec.Cluster + "-0"}, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
-		Expect(c.Get(ctx, client.ObjectKeyFromObject(key), key)).To(Succeed())
-		Expect(key.OwnerReferences).To(BeEmpty())
-		Expect(c.Delete(ctx, request)).To(Succeed())
-		Eventually(func() bool {
-			return apierrors.IsNotFound(c.Get(ctx, client.ObjectKeyFromObject(request), &api.OpenBaoRestore{}))
-		}, time.Minute, time.Second).Should(BeTrue())
-	})
-
-	It("reuses a reader account across scheduled restores and removes disposable targets", Label("case:restore-minimal-scheduled"), func() {
-		By("preparing an administrator-owned reader account and separate destination credential reference")
-		readerAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
-			Name: "snapshot-reader", Namespace: destinationFW.Namespace,
-			Annotations: map[string]string{"e2e.identity/reader": "true"},
-		}}
-		Expect(c.Create(ctx, readerAccount)).To(Succeed())
-		readerUID := readerAccount.UID
-		storage := &corev1.Secret{}
-		Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: "storage"}, storage)).To(Succeed())
-		Expect(c.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "storage-reader", Namespace: destinationFW.Namespace}, Data: storage.Data})).To(Succeed())
-		By("refusing manual and scheduled target creation before namespace approval")
-		setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, false)
-		Eventually(func() error {
-			return c.Create(ctx, newRequest("unapproved", "Disposable"), client.DryRunAll)
-		}, time.Minute, time.Second).Should(MatchError(ContainSubstring("openbao.org/restore-target-approved")))
-		Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
-		before := source.DeepCopy()
-		source.Spec.Backup.Target.WorkloadIdentity = &api.WorkloadIdentityConfig{
-			ServiceAccountAnnotations: map[string]string{"e2e.identity/writer": "true"},
-			PodLabels:                 map[string]string{"e2e.identity/writer": "true"},
-		}
-		source.Spec.Backup.RestoreTest = &api.RestoreTest{
-			EverySuccessfulBackups: 1,
-			Namespace:              destinationFW.Namespace,
-
-			ClusterTemplate:      *template.DeepCopy(),
-			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
-			ServiceAccountName:   readerAccount.Name,
-			CleanupAfterSeconds:  30,
-		}
-		Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
-			g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
-			g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
-			g.Expect(meta.FindStatusCondition(source.Status.Backup.RestoreTest.Conditions, "Passed")).To(HaveField("Reason", "DestinationRejected"))
-		}, time.Minute, time.Second).Should(Succeed())
-		children := &api.OpenBaoRestoreList{}
-		Expect(c.List(ctx, children, client.InNamespace(destinationFW.Namespace))).To(Succeed())
-		Expect(children.Items).To(BeEmpty())
-
-		By("approving the prepared namespace and completing the restore test")
-		setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, true)
-		Eventually(func(g Gomega) {
-			jobs := &batchv1.JobList{}
-			g.Expect(c.List(ctx, jobs, client.InNamespace(destinationFW.Namespace), client.MatchingLabels{"openbao.org/component": "restore"})).To(Succeed())
-			g.Expect(jobs.Items).NotTo(BeEmpty())
-			job := &jobs.Items[0]
-			g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(readerAccount.Name))
-			g.Expect(job.Spec.Template.Labels).NotTo(HaveKey("e2e.identity/writer"))
-			credentialSecrets := []string{}
-			for _, volume := range job.Spec.Template.Spec.Volumes {
-				if volume.Secret != nil {
-					credentialSecrets = append(credentialSecrets, volume.Secret.SecretName)
+			By("approving the prepared namespace and completing the restore test")
+			setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, true)
+			Eventually(func(g Gomega) {
+				jobs := &batchv1.JobList{}
+				g.Expect(c.List(ctx, jobs, client.InNamespace(destinationFW.Namespace), client.MatchingLabels{"openbao.org/component": "restore"})).To(Succeed())
+				g.Expect(jobs.Items).NotTo(BeEmpty())
+				job := &jobs.Items[0]
+				g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(readerAccount.Name))
+				g.Expect(job.Spec.Template.Labels).NotTo(HaveKey("e2e.identity/writer"))
+				credentialSecrets := []string{}
+				for _, volume := range job.Spec.Template.Spec.Volumes {
+					if volume.Secret != nil {
+						credentialSecrets = append(credentialSecrets, volume.Secret.SecretName)
+					}
 				}
-			}
-			g.Expect(credentialSecrets).To(ContainElement("storage-reader"))
-		}, 8*time.Minute, time.Second).Should(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
-			g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
-			g.Expect(source.Status.Backup.RestoreTest.Last).NotTo(BeNil(), "conditions: %v", source.Status.Backup.RestoreTest.Conditions)
-			g.Expect(source.Status.Backup.RestoreTest.Last.Outcome).To(Equal(api.RestoreTestPassed))
-			g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
-		}, 10*time.Minute, 2*time.Second).Should(Succeed())
-		last := source.Status.Backup.RestoreTest.Last
-		Expect(last.Namespace).To(Equal(destinationFW.Namespace))
-		Expect(last.Key).NotTo(BeEmpty())
-		Expect(last.Digest).To(MatchRegexp(`^sha256:[a-f0-9]{64}$`))
-		Expect(last.Reason).To(Equal("SnapshotApplied"))
-		Expect(last.Message).NotTo(BeEmpty())
-		Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{
-			Namespace: destinationFW.Namespace,
-			Name:      last.Name,
-		}, &api.OpenBaoRestore{}))).To(BeTrue())
-		Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{
-			Namespace: destinationFW.Namespace,
-			Name:      last.Name,
-		}, &api.OpenBaoCluster{}))).To(BeTrue())
-		Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{
-			Namespace: destinationFW.Namespace,
-			Name:      "data-" + last.Name + "-0",
-		}, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
-		By("reusing the same reader account for a second generated target after cleanup")
-		firstRun := last.Name
-		Eventually(func() bool {
-			roleGone := apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: firstRun + "-restore-serviceaccount-role"}, &rbacv1.Role{}))
-			bindingGone := apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: firstRun + "-restore-serviceaccount-rolebinding"}, &rbacv1.RoleBinding{}))
-			return roleGone && bindingGone
-		}, time.Minute, time.Second).Should(BeTrue())
-		Expect(c.Get(ctx, client.ObjectKeyFromObject(readerAccount), readerAccount)).To(Succeed())
-		Expect(readerAccount.UID).To(Equal(readerUID))
-		Expect(readerAccount.OwnerReferences).To(BeEmpty())
-		Expect(readerAccount.Annotations).To(Equal(map[string]string{"e2e.identity/reader": "true"}))
-		Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
-		before = source.DeepCopy()
-		source.Spec.Backup.RestoreTest.CleanupAfterSeconds = 0
-		Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
-		By("taking a new backup with the writer before the second disposable restore")
-		Expect(triggerManualBackup(ctx, c, source.Namespace, source.Name)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
-			g.Expect(source.Status.Backup.RestoreTest.Last.Name).NotTo(Equal(firstRun))
-			g.Expect(source.Status.Backup.RestoreTest.Last.Outcome).To(Equal(api.RestoreTestPassed))
-			g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
-		}, 12*time.Minute, 2*time.Second).Should(Succeed())
-		Expect(c.Get(ctx, client.ObjectKeyFromObject(readerAccount), readerAccount)).To(Succeed())
-		Expect(readerAccount.UID).To(Equal(readerUID))
-		Expect(readerAccount.OwnerReferences).To(BeEmpty())
-	})
+				g.Expect(credentialSecrets).To(ContainElement("storage-reader"))
+			}, 8*time.Minute, time.Second).Should(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+				g.Expect(source.Status.Backup.RestoreTest).NotTo(BeNil())
+				g.Expect(source.Status.Backup.RestoreTest.Last).NotTo(BeNil(), "conditions: %v", source.Status.Backup.RestoreTest.Conditions)
+				g.Expect(source.Status.Backup.RestoreTest.Last.Outcome).To(Equal(api.RestoreTestPassed))
+				g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
+			}, 10*time.Minute, 2*time.Second).Should(Succeed())
+			last := source.Status.Backup.RestoreTest.Last
+			Expect(last.Namespace).To(Equal(destinationFW.Namespace))
+			Expect(last.Key).NotTo(BeEmpty())
+			Expect(last.Digest).To(MatchRegexp(`^sha256:[a-f0-9]{64}$`))
+			Expect(last.Reason).To(Equal("SnapshotApplied"))
+			Expect(last.Message).NotTo(BeEmpty())
+			Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{
+				Namespace: destinationFW.Namespace,
+				Name:      last.Name,
+			}, &api.OpenBaoRestore{}))).To(BeTrue())
+			Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{
+				Namespace: destinationFW.Namespace,
+				Name:      last.Name,
+			}, &api.OpenBaoCluster{}))).To(BeTrue())
+			Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{
+				Namespace: destinationFW.Namespace,
+				Name:      "data-" + last.Name + "-0",
+			}, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
+			By("reusing the same reader account for a second generated target after cleanup")
+			firstRun := last.Name
+			Eventually(func() bool {
+				roleGone := apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: firstRun + "-restore-serviceaccount-role"}, &rbacv1.Role{}))
+				bindingGone := apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: firstRun + "-restore-serviceaccount-rolebinding"}, &rbacv1.RoleBinding{}))
+				return roleGone && bindingGone
+			}, time.Minute, time.Second).Should(BeTrue())
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(readerAccount), readerAccount)).To(Succeed())
+			Expect(readerAccount.UID).To(Equal(readerUID))
+			Expect(readerAccount.OwnerReferences).To(BeEmpty())
+			Expect(readerAccount.Annotations).To(Equal(map[string]string{"e2e.identity/reader": "true"}))
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+			before = source.DeepCopy()
+			source.Spec.Backup.RestoreTest.CleanupAfterSeconds = 0
+			Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
+			By("taking a new backup with the writer before the second disposable restore")
+			Expect(triggerManualBackup(ctx, c, source.Namespace, source.Name)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
+				g.Expect(source.Status.Backup.RestoreTest.Last.Name).NotTo(Equal(firstRun))
+				g.Expect(source.Status.Backup.RestoreTest.Last.Outcome).To(Equal(api.RestoreTestPassed))
+				g.Expect(source.Status.Backup.RestoreTest.Active).To(BeNil())
+			}, 12*time.Minute, 2*time.Second).Should(Succeed())
+			Expect(c.Get(ctx, client.ObjectKeyFromObject(readerAccount), readerAccount)).To(Succeed())
+			Expect(readerAccount.UID).To(Equal(readerUID))
+			Expect(readerAccount.OwnerReferences).To(BeEmpty())
+		})
 
-	It("retains an applied target until the administrator accepts a paused handoff", Label("case:restore-minimal-retain"), func() {
-		request := newRequest("retained", "Retain")
-		Expect(c.Create(ctx, request)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Target).NotTo(BeNil(), request.Status.Message)
-			g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil(), request.Status.Message)
-		}, 8*time.Minute, 2*time.Second).Should(Succeed())
-		Expect(request.Status.Target.BootstrapClusterID).NotTo(Equal(snapshot.ExpectedClusterID))
-		Expect(request.Status.SubmissionClaim.Digest).To(Equal(snapshot.ExpectedDigest))
-		cluster := &api.OpenBaoCluster{}
-		Expect(c.Get(ctx, client.ObjectKey{
-			Namespace: request.Namespace,
-			Name:      request.Spec.Cluster,
-		}, cluster)).To(Succeed())
-		Expect(cluster.Annotations[constants.AnnotationRestoreHold]).To(Equal(string(request.UID)))
-		before := request.DeepCopy()
-		request.Annotations = map[string]string{constants.AnnotationRestoreAcknowledge: string(request.UID) + "/Abandon"}
-		Expect(c.Patch(ctx, request, client.MergeFrom(before))).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseUnknown))
-			g.Expect(request.Status.AdministratorDisposition).To(Equal(api.RestoreAdministratorAbandon))
-			g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil())
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
-			g.Expect(cluster.Spec.Paused).To(BeTrue())
-			g.Expect(cluster.Annotations[constants.AnnotationRestoreHold]).To(BeEmpty())
-		}, time.Minute, 2*time.Second).Should(Succeed())
-	})
-
-	It("cleans a disposable target when the source object is missing", Label("case:restore-minimal-missing-source"), func() {
-		request := newRequest("missing-source", "Disposable")
-		request.Spec.Source.Key = "missing-snapshot"
-		Expect(c.Create(ctx, request)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseFailed), request.Status.Message)
-			g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete))
-			g.Expect(request.Status.SubmissionClaim).To(BeNil())
-		}, 8*time.Minute, 2*time.Second).Should(Succeed())
-	})
-
-	It("rejects changed snapshot bytes before submission", Label("case:restore-minimal-digest"), func() {
-		request := newRequest("wrong-digest", "Disposable")
-		request.Spec.Source.ExpectedDigest = "sha256:" + strings.Repeat("0", 64)
-		Expect(c.Create(ctx, request)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Target).NotTo(BeNil())
-			g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete), request.Status.Message)
-			g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseFailed))
-			g.Expect(request.Status.SubmissionClaim).To(BeNil())
-		}, 5*time.Minute, 2*time.Second).Should(Succeed())
-	})
-
-	It("does not confirm application when the source identity differs", Label("case:restore-minimal-identity"), func() {
-		request := newRequest("wrong-identity", "Disposable")
-		request.Spec.Source.ExpectedClusterID = "different-source-id"
-		Expect(c.Create(ctx, request)).To(Succeed())
-		waitForHeldRestore(ctx, c, request)
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Target.AppliedAt).To(BeNil())
-			g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete))
-			g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseFailed))
-			key := client.ObjectKey{
+		It("retains an applied target until the administrator accepts a paused handoff", Label("case:restore-minimal-retain"), func() {
+			request := newRequest("retained", "Retain")
+			Expect(c.Create(ctx, request)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Target).NotTo(BeNil(), request.Status.Message)
+				g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil(), request.Status.Message)
+			}, 8*time.Minute, 2*time.Second).Should(Succeed())
+			Expect(request.Status.Target.BootstrapClusterID).NotTo(Equal(snapshot.ExpectedClusterID))
+			Expect(request.Status.SubmissionClaim.Digest).To(Equal(snapshot.ExpectedDigest))
+			cluster := &api.OpenBaoCluster{}
+			Expect(c.Get(ctx, client.ObjectKey{
 				Namespace: request.Namespace,
 				Name:      request.Spec.Cluster,
-			}
-			g.Expect(apierrors.IsNotFound(c.Get(ctx, key, &api.OpenBaoCluster{}))).To(BeTrue())
-			key.Name = "data-" + request.Spec.Cluster + "-0"
-			g.Expect(apierrors.IsNotFound(c.Get(ctx, key, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
-		}, 13*time.Minute, 2*time.Second).Should(Succeed())
-		Expect(c.Delete(ctx, request)).To(Succeed())
-	})
+			}, cluster)).To(Succeed())
+			Expect(cluster.Annotations[constants.AnnotationRestoreHold]).To(Equal(string(request.UID)))
+			before := request.DeepCopy()
+			request.Annotations = map[string]string{constants.AnnotationRestoreAcknowledge: string(request.UID) + "/Abandon"}
+			Expect(c.Patch(ctx, request, client.MergeFrom(before))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseUnknown))
+				g.Expect(request.Status.AdministratorDisposition).To(Equal(api.RestoreAdministratorAbandon))
+				g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil())
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
+				g.Expect(cluster.Spec.Paused).To(BeTrue())
+				g.Expect(cluster.Annotations[constants.AnnotationRestoreHold]).To(BeEmpty())
+			}, time.Minute, 2*time.Second).Should(Succeed())
+		})
 
-	It("cleans a cancelled disposable target and its data volume", Label("case:restore-minimal-cancel"), func() {
-		request := newRequest("cancelled", "Disposable")
-		request.Spec.CleanupAfterSeconds = 300
-		Expect(c.Create(ctx, request)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
-			g.Expect(request.Status.Target).NotTo(BeNil())
-			g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil(), request.Status.Message)
-		}, 5*time.Minute, 2*time.Second).Should(Succeed())
-		By("withdrawing approval without blocking cleanup of the admitted target")
-		setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, false)
-		Eventually(func() error {
-			return c.Create(ctx, newRequest("approval-withdrawn", "Disposable"), client.DryRunAll)
-		}, time.Minute, time.Second).Should(MatchError(ContainSubstring("openbao.org/restore-target-approved")))
-		Expect(c.Delete(ctx, request)).To(Succeed())
-		Eventually(func(g Gomega) {
-			g.Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKeyFromObject(request), &api.OpenBaoRestore{}))).To(BeTrue())
-			key := client.ObjectKey{
-				Namespace: request.Namespace,
-				Name:      request.Spec.Cluster,
-			}
-			g.Expect(apierrors.IsNotFound(c.Get(ctx, key, &api.OpenBaoCluster{}))).To(BeTrue())
-			key.Name = "data-" + request.Spec.Cluster + "-0"
-			g.Expect(apierrors.IsNotFound(c.Get(ctx, key, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
-		}, 3*time.Minute, 2*time.Second).Should(Succeed())
-	})
+		It("cleans a disposable target when the source object is missing", Label("case:restore-minimal-missing-source"), func() {
+			request := newRequest("missing-source", "Disposable")
+			request.Spec.Source.Key = "missing-snapshot"
+			Expect(c.Create(ctx, request)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseFailed), request.Status.Message)
+				g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete))
+				g.Expect(request.Status.SubmissionClaim).To(BeNil())
+			}, 8*time.Minute, 2*time.Second).Should(Succeed())
+		})
 
-	AfterAll(func() {
-		if skipCleanup {
-			return
-		}
-		if err := cleanupMinimalFixtures(ctx, c, sourceFW, destinationFW); err != nil {
-			// Shared suite cleanup has a forced-finalizer fallback. Preserve this
-			// suite's evidence instead when its own cleanup cannot finish safely.
-			skipCleanup = true
-			_, _ = fmt.Fprintf(GinkgoWriter, "Preserving restore fixtures after cleanup failure: %v\n", err)
-			Expect(err).NotTo(HaveOccurred())
-		}
+		It("rejects changed snapshot bytes before submission", Label("case:restore-minimal-digest"), func() {
+			request := newRequest("wrong-digest", "Disposable")
+			request.Spec.Source.ExpectedDigest = "sha256:" + strings.Repeat("0", 64)
+			Expect(c.Create(ctx, request)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Target).NotTo(BeNil())
+				g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete), request.Status.Message)
+				g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseFailed))
+				g.Expect(request.Status.SubmissionClaim).To(BeNil())
+			}, 5*time.Minute, 2*time.Second).Should(Succeed())
+		})
+
+		It("cleans a cancelled disposable target and its data volume", Label("case:restore-minimal-cancel"), func() {
+			request := newRequest("cancelled", "Disposable")
+			request.Spec.CleanupAfterSeconds = 300
+			Expect(c.Create(ctx, request)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Target).NotTo(BeNil())
+				g.Expect(request.Status.Target.AppliedAt).NotTo(BeNil(), request.Status.Message)
+			}, 5*time.Minute, 2*time.Second).Should(Succeed())
+			By("withdrawing approval without blocking cleanup of the admitted target")
+			setMinimalDestinationApproval(ctx, c, destinationFW.Namespace, false)
+			Eventually(func() error {
+				return c.Create(ctx, newRequest("approval-withdrawn", "Disposable"), client.DryRunAll)
+			}, time.Minute, time.Second).Should(MatchError(ContainSubstring("openbao.org/restore-target-approved")))
+			Expect(c.Delete(ctx, request)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(apierrors.IsNotFound(c.Get(ctx, client.ObjectKeyFromObject(request), &api.OpenBaoRestore{}))).To(BeTrue())
+				key := client.ObjectKey{
+					Namespace: request.Namespace,
+					Name:      request.Spec.Cluster,
+				}
+				g.Expect(apierrors.IsNotFound(c.Get(ctx, key, &api.OpenBaoCluster{}))).To(BeTrue())
+				key.Name = "data-" + request.Spec.Cluster + "-0"
+				g.Expect(apierrors.IsNotFound(c.Get(ctx, key, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+		})
+
+	})
+	Context("Source identity deadline", Ordered, func() {
+		var fixture *minimalRestoreFixture
+		BeforeAll(func() { fixture = newMinimalRestoreFixture(ctx) })
+
+		It("does not confirm application when the source identity differs", Label("case:restore-minimal-identity"), func() {
+			request := fixture.newRequest("wrong-identity", "Disposable")
+			request.Spec.Source.ExpectedClusterID = "different-source-id"
+			Expect(fixture.client.Create(ctx, request)).To(Succeed())
+			waitForHeldRestore(ctx, fixture.client, request)
+			Expect(request.Status.SubmissionClaim).NotTo(BeNil())
+			claimedAt := request.Status.SubmissionClaim.ClaimedAt.DeepCopy()
+			Eventually(func(g Gomega) {
+				g.Expect(fixture.client.Get(ctx, client.ObjectKeyFromObject(request), request)).To(Succeed())
+				g.Expect(request.Status.Target.AppliedAt).To(BeNil())
+				g.Expect(request.Status.Target.Cleanup).To(Equal(api.RestoreTargetCleanupComplete))
+				g.Expect(request.Status.Phase).To(Equal(api.RestorePhaseFailed))
+				key := client.ObjectKey{
+					Namespace: request.Namespace,
+					Name:      request.Spec.Cluster,
+				}
+				g.Expect(apierrors.IsNotFound(fixture.client.Get(ctx, key, &api.OpenBaoCluster{}))).To(BeTrue())
+				key.Name = "data-" + request.Spec.Cluster + "-0"
+				g.Expect(apierrors.IsNotFound(fixture.client.Get(ctx, key, &corev1.PersistentVolumeClaim{}))).To(BeTrue())
+			}, 13*time.Minute, 2*time.Second).Should(Succeed())
+			Expect(request.Status.SubmissionClaim.ClaimedAt.Equal(claimedAt)).To(BeTrue())
+			Expect(request.Status.CompletionTime).NotTo(BeNil())
+			Expect(request.Status.CompletionTime.Time).To(BeTemporally(">=", claimedAt.Add(10*time.Minute)),
+				"a wrong source identity must retain the full application deadline")
+			AddReportEntry("restore-identity-deadline", map[string]any{
+				"claimedAt": claimedAt.Time, "completedAt": request.Status.CompletionTime.Time,
+				"elapsedSeconds": request.Status.CompletionTime.Sub(claimedAt.Time).Seconds(),
+			})
+			Expect(fixture.client.Delete(ctx, request)).To(Succeed())
+		})
+
 	})
 })
 
@@ -489,7 +342,7 @@ func setMinimalDestinationApproval(ctx context.Context, c client.Client, namespa
 
 // This fixture exercises a prepared namespace on Cilium. JWT discovery shares
 // the API endpoint; this allowance cannot restrict traffic to a URL path.
-func prepareMinimalDestinationNetwork(ctx context.Context, c client.Client, namespace, sealNamespace string) {
+func prepareMinimalDestinationNetwork(ctx context.Context, c client.Client, namespace, sealNamespace, storageNamespace string) {
 	base := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "prepared-boundary",
@@ -532,7 +385,7 @@ func prepareMinimalDestinationNetwork(ctx context.Context, c client.Client, name
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{constants.LabelOpenBaoComponent: "restore"}},
 			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
-			Egress:      []networkingv1.NetworkPolicyEgressRule{namespaceEgressRule(rustfsName, corev1.ProtocolTCP, 9000), namespaceEgressRule(namespace, corev1.ProtocolTCP, 8200)},
+			Egress:      []networkingv1.NetworkPolicyEgressRule{namespaceEgressRule(storageNamespace, corev1.ProtocolTCP, 9000), namespaceEgressRule(namespace, corev1.ProtocolTCP, 8200)},
 		},
 	}
 	Expect(c.Create(ctx, helper)).To(Succeed())

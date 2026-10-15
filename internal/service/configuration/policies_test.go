@@ -200,6 +200,40 @@ func TestPolicyVerificationInterval(t *testing.T) {
 	require.Equal(t, 3, logins, "desired changes bypass the successful verification interval")
 }
 
+func TestIdleStrategyChangeRepairsDeletedPolicyWithoutWaitingForVerificationInterval(t *testing.T) {
+	cluster := &openbaov1alpha1.OpenBaoCluster{}
+	cluster.UID = "stable-target"
+	cluster.Spec.ReconcilePolicies, cluster.Status.Initialized = true, true
+	store := &policyStore{values: map[string]string{}}
+	logins := 0
+	manager := &PolicyManager{ClientFor: func(context.Context, *openbaov1alpha1.OpenBaoCluster) (portopenbao.PolicyClient, error) {
+		logins++
+		return store, nil
+	}}
+	_, err := manager.Reconcile(t.Context(), logr.Discard(), cluster)
+	require.NoError(t, err)
+	initialRevision := cluster.Status.Workload.PolicyRevision
+	verified := cluster.Status.Workload.PolicyReconciliation.LastVerified.DeepCopy()
+	approval := configbuilder.OperatorPolicyApproval(cluster)
+	delete(store.values, portauth.PolicyNameOperator)
+	store.writes = nil
+	_, err = manager.Reconcile(t.Context(), logr.Discard(), cluster)
+	require.NoError(t, err)
+	require.Empty(t, store.writes)
+	require.Equal(t, 1, logins, "unchanged desired state retains the verification cache")
+	cluster.Spec.Upgrade = &openbaov1alpha1.UpgradeConfig{Strategy: openbaov1alpha1.UpdateStrategyBlueGreen}
+	require.Equal(t, approval, configbuilder.OperatorPolicyApproval(cluster), "both strategies are already approved")
+	require.Equal(t, verified, cluster.Status.Workload.PolicyReconciliation.LastVerified, "do not backdate verification")
+	_, err = manager.Reconcile(t.Context(), logr.Discard(), cluster)
+	require.NoError(t, err)
+	require.Equal(t, 2, logins, "the changed desired bundle requires fresh authenticated verification")
+	require.Contains(t, store.writes, portauth.PolicyNameOperator)
+	require.Contains(t, store.writes, portauth.PolicyNameUpgrade)
+	require.NotEqual(t, initialRevision, cluster.Status.Workload.PolicyRevision)
+	require.NoError(t, RequirePolicyReady(cluster, portauth.PolicyNameOperator))
+	require.Nil(t, cluster.Status.Workload.PolicyReconciliation.LastError)
+}
+
 func TestPolicyReconciliationDuringStrategyChange(t *testing.T) {
 	for _, tc := range []struct {
 		name     string

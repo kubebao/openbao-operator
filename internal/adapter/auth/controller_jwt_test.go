@@ -155,6 +155,41 @@ func TestControllerTokenSource_SharedCompatibility(t *testing.T) {
 	}
 }
 
+func TestControllerTokenSource_RefreshFailureDoesNotReuseCachedCredential(t *testing.T) {
+	controllerJWTTestIdentity(t)
+	clientset := kubernetesfake.NewClientset()
+	calls := 0
+	clientset.PrependReactor("create", "serviceaccounts", func(k8stesting.Action) (bool, runtime.Object, error) {
+		calls++
+		if calls == 2 {
+			return true, nil, errors.New("TokenRequest temporarily rejected")
+		}
+		return true, &authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{
+			Token: fmt.Sprintf("credential-%d", calls), ExpirationTimestamp: metav1.NewTime(time.Now().Add(10 * time.Minute)),
+		}}, nil
+	})
+	source := NewControllerTokenSource(clientset)
+	testClock := &controllerJWTTestClock{now: time.Now()}
+	source.tokens = cache.NewExpiringWithClock(testClock)
+	source.readFile = func(string) ([]byte, error) { t.Fatal("Target refresh read the Shared credential"); return nil, nil }
+	cluster := targetJWTCluster("a")
+	first, err := source.Token(t.Context(), cluster)
+	require.NoError(t, err)
+	testClock.now = testClock.now.Add(9*time.Minute - time.Second)
+	cached, err := source.Token(t.Context(), cluster)
+	require.NoError(t, err)
+	require.Equal(t, first, cached)
+	require.Equal(t, 1, calls)
+	testClock.now = testClock.now.Add(2 * time.Second)
+	token, err := source.Token(t.Context(), cluster)
+	require.ErrorContains(t, err, "temporarily rejected")
+	require.Empty(t, token, "a refresh failure must not reuse the previous credential")
+	token, err = source.Token(t.Context(), cluster)
+	require.NoError(t, err)
+	require.NotEqual(t, first, token)
+	require.Equal(t, 3, calls, "a failed refresh must allow a new TokenRequest")
+}
+
 // Expiring uses Now; no timers run while this test clock advances.
 type controllerJWTTestClock struct {
 	clock.RealClock

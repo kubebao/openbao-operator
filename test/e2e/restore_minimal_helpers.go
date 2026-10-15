@@ -7,14 +7,23 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
+	helpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
 )
 
 // Keep both namespaces enrolled until requests and clusters finish deletion.
@@ -124,4 +133,198 @@ func deleteMinimalFixtureObject(ctx context.Context, c client.Client, obj client
 	}
 
 	return nil
+}
+
+type minimalRestoreFixture struct {
+	client                  client.Client
+	config                  *rest.Config
+	sourceFW, destinationFW *framework.Framework
+	source                  *api.OpenBaoCluster
+	template                *api.RestoreClusterTemplate
+	snapshot                api.RestoreSource
+	storageNamespace        *corev1.Namespace
+}
+
+func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
+	const image = "openbao/openbao:2.7.1"
+	f := &minimalRestoreFixture{}
+	ginkgo.DeferCleanup(func() {
+		if skipCleanup {
+			return
+		}
+		if err := cleanupMinimalFixtures(ctx, f.client, f.sourceFW, f.destinationFW); err != nil {
+			skipCleanup = true
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+		if f.storageNamespace != nil && f.storageNamespace.UID != "" {
+			err := deleteMinimalFixtureObject(ctx, f.client, f.storageNamespace)
+			if err != nil {
+				skipCleanup = true
+			}
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+	})
+	var err error
+	f.config, err = ctrlconfig.GetConfig()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	scheme := runtime.NewScheme()
+	gomega.Expect(clientgoscheme.AddToScheme(scheme)).To(gomega.Succeed())
+	gomega.Expect(api.AddToScheme(scheme)).To(gomega.Succeed())
+	f.client, err = client.New(f.config, client.Options{Scheme: scheme})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	f.sourceFW, err = framework.New(ctx, f.client, "minimal-source", operatorNamespace)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	f.destinationFW, err = framework.New(ctx, f.client, "minimal-destination", operatorNamespace)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	// RustFS runs as root. Keep its fixture namespace separate from the
+	// restricted source and destination namespaces.
+	f.storageNamespace = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: f.sourceFW.Namespace + "-storage"}}
+	gomega.Expect(f.client.Create(ctx, f.storageNamespace)).To(gomega.Succeed())
+	storage := minimalRestoreStorageConfig(f.storageNamespace.Name)
+	gomega.Expect(helpers.EnsureRustFS(ctx, f.client, f.config, storage)).To(gomega.Succeed())
+
+	ginkgo.By("preparing compatible Transit credentials in both namespaces")
+	infra := helpers.InfraBaoConfig{
+		Namespace: f.sourceFW.Namespace,
+		Name:      "transit",
+		// The infrastructure helper uses file storage, which 2.7 removes.
+		// Source and restore targets still use the 2.7 image below.
+		Image: "openbao/openbao:2.6.4",
+	}
+	gomega.Expect(helpers.EnsureInfraBao(ctx, f.config, f.client, infra)).To(gomega.Succeed())
+	address := fmt.Sprintf("https://transit.%s.svc:8200", f.sourceFW.Namespace)
+	result, err := helpers.ConfigureInfraBaoTransit(ctx, f.config, f.client, f.sourceFW.Namespace, "transit", image, address, "recovery")
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(result.Phase).To(gomega.Equal(corev1.PodSucceeded), result.Logs)
+	token, err := helpers.ReadInfraBaoRootToken(ctx, f.client, f.sourceFW.Namespace, "transit")
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	ca, err := helpers.ReadInfraBaoTLSCACert(ctx, f.client, f.sourceFW.Namespace, "transit")
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	for _, namespace := range []string{f.sourceFW.Namespace, f.destinationFW.Namespace} {
+		gomega.Expect(helpers.EnsureInfraBaoSealCredentialsSecret(ctx, f.client, namespace, "transit-auth", token, ca, nil)).To(gomega.Succeed())
+		gomega.Expect(f.client.Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "storage",
+				Namespace: namespace,
+			},
+
+			Data: map[string][]byte{
+				"accessKeyId":     []byte(rustfsAccessKey),
+				"secretAccessKey": []byte(rustfsSecretKey),
+			},
+		})).To(gomega.Succeed())
+	}
+	prepareMinimalDestinationNetwork(ctx, f.client, f.destinationFW.Namespace, f.sourceFW.Namespace, f.storageNamespace.Name)
+	setMinimalDestinationApproval(ctx, f.client, f.destinationFW.Namespace, true)
+
+	requests := helpers.CreateE2ERequests(f.sourceFW.Namespace)
+	f.source = &api.OpenBaoCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "source",
+			Namespace: f.sourceFW.Namespace,
+		},
+		Spec: api.OpenBaoClusterSpec{
+			Profile:  api.ProfileDevelopment,
+			Version:  "2.7.1",
+			Image:    image,
+			Replicas: 1,
+			InitContainer: &api.InitContainerConfig{
+				Enabled: true,
+				Image:   configInitImage,
+			},
+			Storage: api.StorageConfig{Size: "1Gi"},
+			TLS: api.TLSConfig{
+				Enabled:        true,
+				Mode:           api.TLSModeOperatorManaged,
+				RotationPeriod: "720h",
+			},
+			SelfInit: &api.SelfInitConfig{
+				Enabled:  true,
+				OIDC:     &api.SelfInitOIDCConfig{Enabled: true},
+				Requests: requests,
+			},
+			Unseal: &api.UnsealConfig{
+				Type:                 "transit",
+				CredentialsSecretRef: &corev1.LocalObjectReference{Name: "transit-auth"},
+				Transit: &api.TransitSealConfig{
+					Address:   address,
+					MountPath: "transit",
+					KeyName:   "recovery",
+					TLSCACert: "/etc/bao/seal-creds/ca.crt",
+				},
+			},
+			Network: &api.NetworkConfig{
+				APIServerCIDR:        apiServerCIDR,
+				APIServerEndpointIPs: apiServerEndpointIPs,
+				EgressRules: []networkingv1.NetworkPolicyEgressRule{{
+					To:    []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "transit"}}}},
+					Ports: []networkingv1.NetworkPolicyPort{networkPolicyPort(corev1.ProtocolTCP, 8200)},
+				}},
+			},
+			Backup: &api.BackupSchedule{
+				Schedule: "0 0 1 1 *",
+				Image:    backupExecutorImage,
+				Target: api.BackupTarget{
+					Provider:             "s3",
+					Endpoint:             minimalRestoreStorageEndpoint(f.storageNamespace.Name),
+					Bucket:               rustfsBucket,
+					PathPrefix:           "minimal/" + f.sourceFW.Namespace,
+					UsePathStyle:         true,
+					CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage"},
+				},
+			},
+			DeletionPolicy: api.DeletionPolicyDeleteAll,
+		},
+	}
+	gomega.Expect(f.client.Create(ctx, f.source)).To(gomega.Succeed())
+	gomega.Expect(f.client.Create(ctx, newBackupNetworkPolicy(f.sourceFW.Namespace, f.source.Name, f.storageNamespace.Name, 9000, "backup"))).To(gomega.Succeed())
+	f.sourceFW.WaitForCondition(f.source.Name, api.ConditionAvailable, metav1.ConditionTrue)
+	gomega.Expect(triggerManualBackup(ctx, f.client, f.source.Namespace, f.source.Name)).To(gomega.Succeed())
+	gomega.Eventually(func(g gomega.Gomega) {
+		g.Expect(f.client.Get(ctx, client.ObjectKeyFromObject(f.source), f.source)).To(gomega.Succeed())
+		g.Expect(f.source.Status.Backup).NotTo(gomega.BeNil())
+		g.Expect(f.source.Status.Backup.LatestSnapshot).NotTo(gomega.BeNil())
+	}, 5*time.Minute, 2*time.Second).Should(gomega.Succeed())
+	summary := f.source.Status.Backup.LatestSnapshot
+	f.snapshot = api.RestoreSource{
+		Target: *f.source.Spec.Backup.Target.DeepCopy(),
+		Key:    f.source.Status.Backup.LastBackupName,
+
+		ExpectedClusterID: summary.ClusterID,
+		ExpectedVersion:   summary.Version,
+		ExpectedDigest:    summary.Digest,
+		ExpectedSize:      summary.Size,
+	}
+	f.template = &api.RestoreClusterTemplate{
+		Version: "2.7.1",
+		Image:   image,
+		Storage: f.source.Spec.Storage,
+		TLS:     f.source.Spec.TLS,
+
+		InitContainer: f.source.Spec.InitContainer.DeepCopy(),
+		Unseal:        *f.source.Spec.Unseal.DeepCopy(),
+	}
+	return f
+}
+
+func minimalRestoreStorageConfig(namespace string) helpers.RustFSConfig {
+	config := helpers.DefaultRustFSConfig()
+	config.Namespace, config.Name = namespace, rustfsName
+	config.AccessKey, config.SecretKey = rustfsAccessKey, rustfsSecretKey
+	config.Buckets = []string{rustfsBucket}
+	return config
+}
+
+func minimalRestoreStorageEndpoint(namespace string) string {
+	return fmt.Sprintf("http://%s-svc.%s.svc:9000", rustfsName, namespace)
+}
+
+func (f *minimalRestoreFixture) newRequest(name string, lifecycle api.RestoreTargetLifecycle) *api.OpenBaoRestore {
+	return &api.OpenBaoRestore{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: f.destinationFW.Namespace},
+		Spec: api.OpenBaoRestoreSpec{
+			Cluster: name, Source: *f.snapshot.DeepCopy(), ClusterTemplate: f.template.DeepCopy(),
+			TargetLifecycle: lifecycle, Force: true, Image: backupExecutorImage,
+		},
+	}
 }
