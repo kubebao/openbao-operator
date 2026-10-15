@@ -2,6 +2,9 @@ name: Prepare E2E lane
 description: Pull lane images, create the Kind cluster, preload emulator images, and export E2E report paths.
 
 inputs:
+  candidate-image-transport:
+    description: Candidate images come from registry pulls or verified local artifacts.
+    default: registry
   kind-node-image:
     description: Kind node image to use for the lane.
     required: true
@@ -85,6 +88,7 @@ runs:
     - name: Pull E2E images
       shell: bash
       env:
+        CANDIDATE_TRANSPORT: ${{ inputs.candidate-image-transport }}
         MANAGER_IMAGE: ${{ inputs.manager-image }}
         CONFIG_INIT_IMAGE: ${{ inputs.config-init-image }}
         BACKUP_EXECUTOR_IMAGE: ${{ inputs.backup-executor-image }}
@@ -117,17 +121,25 @@ runs:
           done
         }
 
-        pull_image "${MANAGER_IMAGE}"
-        pull_image "${CONFIG_INIT_IMAGE}"
+        candidate_image() {
+          case "${CANDIDATE_TRANSPORT}" in
+            registry) pull_image "$1" ;;
+            artifact) docker image inspect "$1" >/dev/null ;;
+            *) echo "Unknown candidate image transport" >&2; exit 1 ;;
+          esac
+        }
+
+        candidate_image "${MANAGER_IMAGE}"
+        candidate_image "${CONFIG_INIT_IMAGE}"
 
         if [[ "${LOAD_BACKUP_EXECUTOR_IMAGE}" == "true" ]]; then
-          pull_image "${BACKUP_EXECUTOR_IMAGE}"
+          candidate_image "${BACKUP_EXECUTOR_IMAGE}"
         fi
 
         if [[ "${LOAD_UPGRADE_EXECUTOR_IMAGE}" == "true" ]] && [[ -n "${HARDENED_UPGRADE_EXECUTOR_IMAGE}" ]]; then
           pull_image "${HARDENED_UPGRADE_EXECUTOR_IMAGE}"
         elif [[ "${LOAD_UPGRADE_EXECUTOR_IMAGE}" == "true" ]]; then
-          pull_image "${UPGRADE_EXECUTOR_IMAGE}"
+          candidate_image "${UPGRADE_EXECUTOR_IMAGE}"
         fi
 
     - name: Create Kind cluster

@@ -184,6 +184,10 @@ func TestSharedExecutionChangesSelectEveryLaneFamily(t *testing.T) {
 	for _, path := range []string{
 		".github/actions/run-e2e-lane/action.yml",
 		".github/actions/prepare-e2e-lane/action.yml",
+		".github/actions/load-e2e-image-artifacts/action.yml",
+		".github/actions/setup-repo-tools/action.yml",
+		"hack/ci/e2e-images.py",
+		"hack/ci/e2e_artifacts.py",
 		"hack/ci/build-e2e-binaries.sh",
 		"hack/ci/configure-e2e-lane.py",
 		"hack/ci/e2e-binaries.py",
@@ -278,7 +282,7 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, job := range []string{"build-artifacts", "build-e2e-images", "operator-upgrade-e2e", "e2e-matrix", "e2e"} {
+			for _, job := range []string{"build-e2e-images", "operator-upgrade-e2e", "e2e"} {
 				if forkPlan.Checks[job] {
 					t.Fatalf("shared selection change must not select %s on a fork PR", job)
 				}

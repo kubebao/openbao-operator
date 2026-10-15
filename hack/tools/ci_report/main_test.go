@@ -173,3 +173,17 @@ func TestSharedCompilationCountsAsE2ECost(t *testing.T) {
 		t.Fatalf("shared compilation is missing from E2E cost: %+v", result)
 	}
 }
+
+func TestForkExecutionCountsAsE2ECost(t *testing.T) {
+	t.Parallel()
+	result, err := summarize(testRun(), []actionJob{
+		testJob(1, "Fork E2E (Core)", "success", 100, 220),
+		testJob(2, "Fork Operator Upgrade E2E", "success", 100, 160),
+	}, routingRecord{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CategoryMinutes["e2e"] != 3 || result.RunnerMinutes != 3 {
+		t.Fatalf("fork execution is missing from E2E cost: %+v", result)
+	}
+}

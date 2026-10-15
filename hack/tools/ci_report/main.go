@@ -230,7 +230,8 @@ func duration(step actionStep) (float64, error) {
 }
 
 func category(name string) string {
-	if strings.HasPrefix(name, "E2E (") || name == "Operator Upgrade E2E" ||
+	if strings.HasPrefix(name, "E2E (") || strings.HasPrefix(name, "Fork E2E (") ||
+		name == "Operator Upgrade E2E" || name == "Fork Operator Upgrade E2E" ||
 		name == "Plan E2E Matrix" || name == "Generate Release E2E Matrix" {
 		return "e2e"
 	}

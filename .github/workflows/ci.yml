@@ -79,6 +79,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Detect chart changes
@@ -313,6 +314,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -351,6 +354,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -382,6 +387,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -411,6 +418,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -429,6 +438,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install Nix
         uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31
@@ -481,6 +492,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -496,6 +509,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -511,6 +526,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -526,6 +543,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Verify Go toolchain sync
         run: make verify-go-toolchain-sync
@@ -538,6 +557,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -555,6 +576,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -572,6 +595,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -592,6 +617,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -625,6 +652,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -654,6 +683,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -683,6 +714,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -704,6 +737,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Build docs
@@ -717,6 +751,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -750,6 +786,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -778,6 +816,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
@@ -800,7 +840,7 @@ jobs:
     name: Build E2E Images Once
     runs-on: *runner
     needs: [changes, build-artifacts]
-    if: fromJSON(needs.changes.outputs.expected_checks)['build-e2e-images']
+    if: fromJSON(needs.changes.outputs.expected_checks)['build-e2e-images'] && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     env:
       BUILD_SEAL_FIXTURES: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || needs.changes.outputs.manual_full_e2e == 'true' || needs.changes.outputs.manual_seal_e2e == 'true' || needs.changes.outputs.e2e_seal == 'true' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full-e2e')) }}
     permissions:
@@ -816,6 +856,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -969,6 +1011,61 @@ jobs:
             fi
           } >> "${GITHUB_OUTPUT}"
 
+  build-e2e-image-artifacts:
+    name: Build Fork E2E Image Artifacts
+    runs-on: *runner
+    needs: [changes, build-artifacts]
+    if: fromJSON(needs.changes.outputs.expected_checks)['build-e2e-image-artifacts'] && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    permissions:
+      contents: read
+    env:
+      BUILD_SEAL_FIXTURES: ${{ needs.changes.outputs.e2e_seal == 'true' || contains(github.event.pull_request.labels.*.name, 'ci:full-e2e') }}
+    outputs:
+      manager_ref: ${{ steps.build.outputs.manager_ref }}
+      config_init_ref: ${{ steps.build.outputs.config_init_ref }}
+      backup_executor_ref: ${{ steps.build.outputs.backup_executor_ref }}
+      upgrade_executor_ref: ${{ steps.build.outputs.upgrade_executor_ref }}
+      openbao_softhsm_ref: ${{ steps.build.outputs.openbao_softhsm_ref }}
+      pykmip_server_ref: ${{ steps.build.outputs.pykmip_server_ref }}
+      artifact_name: ${{ steps.build.outputs.artifact_name }}
+      build_attempt: ${{ steps.build.outputs.build_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure Docker Hub cache
+        uses: ./.github/actions/setup-docker-mirror
+
+      - name: Download Binaries
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: operator-binaries
+          path: bin/linux_amd64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: v0.31.1
+          buildkitd-config: .github/actions/setup-docker-mirror/buildkitd.toml
+
+      - name: Build and verify image artifacts
+        id: build
+        run: |
+          set -euo pipefail
+          chmod +x bin/linux_amd64/*
+          python3 hack/ci/e2e-images.py build "${RUNNER_TEMP}/e2e-image-artifacts" "${GITHUB_SHA}"
+
+      - name: Upload fork E2E images
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.build.outputs.artifact_name }}
+          path: ${{ runner.temp }}/e2e-image-artifacts/
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
   operator-upgrade-e2e:
     name: Operator Upgrade E2E
     runs-on: *runner
@@ -981,6 +1078,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Configure Docker Hub cache
         uses: ./.github/actions/setup-docker-mirror
@@ -1020,6 +1119,58 @@ jobs:
           OPERATOR_UPGRADE_E2E_INIT_SOURCE: ${{ needs.build-e2e-images.outputs.config_init_ref }}
         run: make test-e2e-operator-upgrade
 
+  fork-operator-upgrade-e2e:
+    name: Fork Operator Upgrade E2E
+    runs-on: *runner
+    needs: [changes, build-e2e-image-artifacts]
+    if: fromJSON(needs.changes.outputs.expected_checks)['fork-operator-upgrade-e2e']
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure Docker Hub cache
+        uses: ./.github/actions/setup-docker-mirror
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+        with:
+          cache-tools: false
+
+      - name: Setup Helm 3 compatibility client
+        id: helm3
+        uses: ./.github/actions/setup-helm
+        with:
+          version-key: HELM3_COMPAT_VERSION
+
+      - name: Setup Helm 4
+        id: helm4
+        uses: ./.github/actions/setup-helm
+
+      - name: Setup Kubernetes CLI tools
+        uses: ./.github/actions/setup-kubernetes-tools
+        with:
+          install-dir: bin/
+
+      - name: Load fork E2E images
+        uses: ./.github/actions/load-e2e-image-artifacts
+        with:
+          artifact-name: ${{ needs.build-e2e-image-artifacts.outputs.artifact_name }}
+          build-attempt: ${{ needs.build-e2e-image-artifacts.outputs.build_attempt }}
+
+      - name: Upgrade previous stable operator to CI candidate
+        env:
+          OPERATOR_UPGRADE_E2E_IMAGE_TRANSPORT: artifact
+          HELM: ${{ steps.helm4.outputs.helm-path }}
+          HELM_INSTALL: ${{ steps.helm3.outputs.helm-path }}
+          OPERATOR_UPGRADE_E2E_MANAGER_SOURCE: ${{ needs.build-e2e-image-artifacts.outputs.manager_ref }}
+          OPERATOR_UPGRADE_E2E_INIT_SOURCE: ${{ needs.build-e2e-image-artifacts.outputs.config_init_ref }}
+        run: make test-e2e-operator-upgrade
+
   e2e-matrix:
     name: Plan E2E Matrix
     runs-on: *runner
@@ -1030,6 +1181,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Download CI routing plan
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1102,6 +1255,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Run planned E2E lane
         uses: ./.github/actions/run-e2e-lane
@@ -1117,6 +1272,40 @@ jobs:
           report-dir: artifacts/e2e-reports/ci/${{ matrix.id }}
           artifact-name: e2e-artifacts-ci-${{ matrix.id }}-${{ github.run_attempt }}
           registry-token: ${{ secrets.GITHUB_TOKEN }}
+
+  fork-e2e:
+    needs: [changes, e2e-matrix, build-e2e-image-artifacts]
+    if: fromJSON(needs.changes.outputs.expected_checks)['fork-e2e']
+    name: Fork E2E (${{ matrix.name }})
+    runs-on: *runner
+    permissions:
+      contents: read
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.e2e-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run planned E2E lane
+        uses: ./.github/actions/run-e2e-lane
+        with:
+          lane: ${{ toJSON(matrix) }}
+          manager-image: ${{ needs.build-e2e-image-artifacts.outputs.manager_ref }}
+          config-init-image: ${{ needs.build-e2e-image-artifacts.outputs.config_init_ref }}
+          backup-executor-image: ${{ needs.build-e2e-image-artifacts.outputs.backup_executor_ref }}
+          upgrade-executor-image: ${{ needs.build-e2e-image-artifacts.outputs.upgrade_executor_ref }}
+          openbao-image: ${{ matrix.id == 'hsm' && needs.build-e2e-image-artifacts.outputs.openbao_softhsm_ref || matrix.openbao_image }}
+          kmip-server-image: ${{ matrix.id == 'hsm' && needs.build-e2e-image-artifacts.outputs.pykmip_server_ref || '' }}
+          configure-docker-mirror: "true"
+          report-dir: artifacts/e2e-reports/ci/${{ matrix.id }}
+          artifact-name: e2e-artifacts-ci-${{ matrix.id }}-${{ github.run_attempt }}
+          image-transport: artifact
+          image-artifact: ${{ needs.build-e2e-image-artifacts.outputs.artifact_name }}
+          image-build-attempt: ${{ needs.build-e2e-image-artifacts.outputs.build_attempt }}
 
   ci-required:
     name: CI Required
@@ -1144,9 +1333,12 @@ jobs:
       - helm-e2e-smoke
       - build-artifacts
       - build-e2e-images
+      - build-e2e-image-artifacts
       - operator-upgrade-e2e
+      - fork-operator-upgrade-e2e
       - e2e-matrix
       - e2e
+      - fork-e2e
     steps:
       - name: Require a successful routing record
         env:
@@ -1196,6 +1388,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Compute edge variables

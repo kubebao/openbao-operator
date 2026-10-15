@@ -35,7 +35,7 @@ runs:
       with:
         go-version-file: ${{ inputs.go-version-file }}
         check-latest: ${{ inputs.check-latest }}
-        cache: ${{ inputs.cache-go }}
+        cache: ${{ inputs.cache-go == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
 
     - name: Add repo-local tools to PATH
       shell: bash
@@ -44,7 +44,7 @@ runs:
       run: echo "${GITHUB_WORKSPACE}/${TOOL_CACHE_PATH}" >> "${GITHUB_PATH}"
 
     - name: Cache repo tools
-      if: inputs.cache-tools == 'true'
+      if: inputs.cache-tools == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
       with:
         path: ${{ inputs.tool-cache-path }}

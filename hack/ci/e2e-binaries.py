@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Record and verify the run-scoped E2E executable bundle before execution."""
 
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -9,15 +8,11 @@ import platform
 import re
 import sys
 
+sys.dont_write_bytecode = True
+
+from e2e_artifacts import digest, run_identity, verify_identity
+
 BINARIES = ("e2e.test", "ginkgo", "e2e_report")
-
-
-def digest(path):
-    with path.open("rb") as stream:
-        checksum = hashlib.sha256()
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            checksum.update(chunk)
-    return checksum.hexdigest()
 
 
 def versions():
@@ -36,6 +31,7 @@ def record(bundle, sha):
         raise ValueError(f"build toolchain {built_go} differs from pinned {go_version}")
     metadata = {
         "version": 1,
+        "workflow": run_identity(sha),
         "sha": sha,
         "goos": os.environ["E2E_BUILD_GOOS"],
         "goarch": os.environ["E2E_BUILD_GOARCH"],
@@ -52,6 +48,7 @@ def verify(bundle, sha):
     metadata = json.loads((bundle / "metadata.json").read_text())
     if not isinstance(metadata, dict):
         raise ValueError("E2E bundle metadata must be an object")
+    verify_identity(metadata.get("workflow"), sha)
     go_version, ginkgo_version = versions()
     machine = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine())
     expected = {

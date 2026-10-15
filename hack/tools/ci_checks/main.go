@@ -157,18 +157,20 @@ func buildPlan(
 	}
 	mainPush := eventName == eventPush && ref == "refs/heads/main"
 	selection := buildE2ESelection(eventName, mainPush, event, routes)
-	trustedImages := eventName != eventPullRequest || event.PullRequest.Head.Repo.FullName == repository
+	fork := eventName == eventPullRequest && event.PullRequest.Head.Repo.FullName != repository
 	e2e := false
 	for _, selected := range selection.Scopes {
-		e2e = e2e || (trustedImages && selected)
+		e2e = e2e || selected
 	}
-	build := e2e || (trustedImages && routes["operator_upgrade_e2e"])
+	build := e2e || routes["operator_upgrade_e2e"]
 	checks := map[string]bool{
 		changesJob:        true,
 		"api-contract":    mainPush || eventName == eventWorkflowDispatch || routes["api_contract"],
 		"helm-e2e-smoke":  routes["chart"],
-		"build-artifacts": build, "build-e2e-images": build, "operator-upgrade-e2e": build,
-		"e2e-matrix": e2e, "e2e": e2e,
+		"build-artifacts": build, "build-e2e-images": build && !fork,
+		"build-e2e-image-artifacts": build && fork,
+		"operator-upgrade-e2e":      build && !fork, "fork-operator-upgrade-e2e": build && fork,
+		"e2e-matrix": e2e, "e2e": e2e && !fork, "fork-e2e": e2e && fork,
 	}
 	for job, route := range map[string]string{
 		"security": "security_scan", "dependency-licenses": "security_scan", "security-image": "security_image",
@@ -181,10 +183,7 @@ func buildPlan(
 	}
 	plan := checkPlan{Version: planVersion, SHA: sha, Event: eventName, Checks: checks}
 	plan.E2E = selection
-	if !trustedImages {
-		plan.Reason = "Fork pull requests do not publish E2E images; " +
-			"cluster qualification requires a maintainer or local run."
-	} else if !e2e {
+	if !e2e {
 		plan.Reason = "Current path, label, and manual-input policy does not select the Ginkgo E2E matrix."
 	}
 	return plan, nil

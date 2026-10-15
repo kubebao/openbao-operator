@@ -7,6 +7,9 @@ from pathlib import Path
 
 
 def configure():
+    transport = os.environ.get("E2E_IMAGE_TRANSPORT", "registry")
+    if transport not in ("registry", "artifact"):
+        raise ValueError("unknown candidate image transport")
     row = json.loads(os.environ["LANE_JSON"])
     expected = row["expected_case_ids"]
     if not expected or not row["label_filter"]:

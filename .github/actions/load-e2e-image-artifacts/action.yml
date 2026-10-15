@@ -1,0 +1,37 @@
+name: Load fork E2E images
+description: Verify same-run image archives before loading them on an unprivileged runner.
+inputs:
+  artifact-name:
+    description: Exact image artifact selected by the successful producer job.
+    required: true
+  build-attempt:
+    description: Producer attempt, retained when only failed downstream jobs rerun.
+    required: true
+  require-seal-fixtures:
+    description: Require both candidate SoftHSM and PyKMIP images before importing a seal lane.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Validate selected image artifact
+      shell: bash
+      env:
+        IMAGE_ARTIFACT: ${{ inputs.artifact-name }}
+        PRODUCER_ATTEMPT: ${{ inputs.build-attempt }}
+      run: |
+        set -euo pipefail
+        [[ "${PRODUCER_ATTEMPT}" =~ ^[1-9][0-9]*$ ]]
+        test "${IMAGE_ARTIFACT}" = "e2e-images-${GITHUB_RUN_ID}-${PRODUCER_ATTEMPT}"
+    - name: Download fork E2E images
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/e2e-image-artifacts
+    - name: Verify and load fork E2E images
+      shell: bash
+      env:
+        PRODUCER_ATTEMPT: ${{ inputs.build-attempt }}
+        E2E_REQUIRE_SEAL_FIXTURES: ${{ inputs.require-seal-fixtures }}
+      run: |
+        set -euo pipefail
+        python3 hack/ci/e2e-images.py load "${RUNNER_TEMP}/e2e-image-artifacts" "${GITHUB_SHA}" "${PRODUCER_ATTEMPT}"

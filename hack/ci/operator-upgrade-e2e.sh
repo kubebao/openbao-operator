@@ -472,8 +472,16 @@ prepare_candidate_image() {
   local build_target="$3"
   local registry_image="127.0.0.1:${registry_port}/${local_image#*/}"
 
+  if [[ "${OPERATOR_UPGRADE_E2E_IMAGE_TRANSPORT:-registry}" == "artifact" && -z "${source_image}" ]]; then
+    echo "Artifact transport requires a recorded candidate image" >&2
+    return 1
+  fi
   if [[ -n "${source_image}" ]]; then
-    "${DOCKER_BIN}" pull "${source_image}"
+    case "${OPERATOR_UPGRADE_E2E_IMAGE_TRANSPORT:-registry}" in
+      registry) "${DOCKER_BIN}" pull "${source_image}" ;;
+      artifact) "${DOCKER_BIN}" image inspect "${source_image}" >/dev/null ;;
+      *) echo "Unknown candidate image transport" >&2; return 1 ;;
+    esac
     "${DOCKER_BIN}" tag "${source_image}" "${local_image}"
   else
     make "${build_target}" IMG="${local_image}"

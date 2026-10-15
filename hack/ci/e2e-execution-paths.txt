@@ -1,3 +1,3 @@
-^\.github/actions/(run|prepare)-e2e-lane/
-^hack/ci/(build-e2e-binaries\.sh|configure-e2e-lane\.py|e2e-binaries\.py|run-e2e\.sh|summarize-e2e\.sh|e2e-execution-paths\.txt)$
+^\.github/actions/((run|prepare)-e2e-lane|load-e2e-image-artifacts|setup-repo-tools)/
+^hack/ci/(build-e2e-binaries\.sh|configure-e2e-lane\.py|e2e-binaries\.py|e2e-images\.py|e2e_artifacts\.py|run-e2e\.sh|summarize-e2e\.sh|e2e-execution-paths\.txt)$
 ^hack/tools/e2e_report/

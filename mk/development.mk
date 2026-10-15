@@ -152,7 +152,7 @@ test-ci-tools: ## Test CI job expectations, diff routing, timing reports, E2E pl
 		./hack/tools/ci_checks ./hack/tools/ci_report \
 		./hack/tools/e2e_plan ./hack/tools/e2e_report ./hack/tools/e2e_catalog ./hack/tools/e2e_manifest \
 		./.github/scripts
-	@python3 hack/ci/test_e2e_execution.py
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_e2e_*.py'
 
 .PHONY: verify-vendor
 verify-vendor: ## Verify vendor/ is synchronized with go.mod/go.sum.

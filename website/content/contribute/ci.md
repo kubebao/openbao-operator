@@ -32,9 +32,9 @@ Renames classify both the previous and current paths.
 
 The `Detect Changes` job records required job expectations in the `ci-routing` artifact. The workflow uses
 that record to select jobs. `CI Required` rejects a failed routing job, missing results, unexpected job skips, and failed
-or cancelled checks. The record identifies the tested SHA and explains exclusions for fork pull requests.
+or cancelled checks. The record identifies the tested SHA and explains intentional E2E exclusions.
 The routing artifact remains available when only failed jobs are rerun.
-Fork pull requests still need a maintainer or local run for cluster qualification.
+Fork pull requests use read-only E2E jobs after any approval required by the repository policy.
 
 The advisory `CI Measurement` job collects the current attempt's job and step timings after validation and edge
 qualification. Its `ci-measurements-<attempt>` artifact contains raw run and job metadata, a JSON summary, and a
@@ -108,8 +108,7 @@ Without `--ci-plan`, `make e2e-ci-matrix` emits the full primary-version matrix.
 PR filters retain E2E anchors and exclude `lower-layer-covered` scenarios. The default security lane also excludes
 pentest scenarios unless a hardening label or manual hardening input requests them. Full runs use the full selectors.
 Path, label, and manual-input selection share the same recorded scopes. Shared planner and lane-policy paths in
-`hack/ci/e2e-selection-paths.txt` select every automatic lane family on trusted PRs. Fork image-publication
-restrictions still apply.
+`hack/ci/e2e-selection-paths.txt` select every automatic lane family on trusted and fork PRs.
 
 Matrix planning first runs `make verify-e2e-manifest` to reject a stale generated catalog.
 The planner validates scenario IDs and suite `ci.lanes` against the full selectors. It rejects undeclared owners,
@@ -133,7 +132,7 @@ workflow-owned image references. Release helper overrides and per-run seal fixtu
 Each lane verifies the bundle before cluster preparation. Missing, stale, incompatible, or corrupted binaries fail
 the lane. CI does not fall back to compiling the suite in a lane. Downloads stay in the runner's temporary directory,
 so lane evidence does not upload the binary bundle again.
-Shared harness paths in `hack/ci/e2e-execution-paths.txt` select all lane families on trusted PRs.
+Shared harness paths in `hack/ci/e2e-execution-paths.txt` select all lane families on trusted and fork PRs.
 
 The shared action prepares Kind and images, runs the verified suite with the planned worker count, and validates its
 reports. It collects diagnostics before deleting the cluster, including after preparation or execution failures.
@@ -151,3 +150,35 @@ Edge, nightly, prerelease, and stable channels add immutable-subject, provenance
 {{< /callout >}}
 
 Continue with [supply-chain controls]({{< relref "/contribute/supply-chain.md" >}}) and [release management]({{< relref "/contribute/release.md" >}}).
+
+## Fork pull requests
+
+Fork PRs use the same scenario selection, signed fixtures, report validation, and operator-upgrade harness as
+same-repository PRs. Their image-build, lane, and operator-upgrade jobs declare only `contents: read` and use
+GitHub-hosted runners. Checkouts do not persist credentials. Fork jobs do not receive publishing or signing
+credentials, OIDC permissions, or environment secrets. Go and repo-tool cache persistence is disabled for forks.
+The fork image builder does not export Buildx caches.
+
+GitHub's repository or organization approval policy controls whether an external contributor's workflow can start.
+Configure **Require approval for all external contributors**. Keep fork secret forwarding and write-token forwarding
+disabled wherever those options are available. Approval authorizes runner use; it does not make contributor code,
+workflow edits, binaries, reports, or images trusted. Review changes to workflow files and local actions before
+approval. The YAML cannot enforce an approval policy against a contributor who can modify that YAML.
+
+The fork image builder exports one image archive instead of publishing to GHCR. Consumers select the exact artifact
+from the same workflow run and the successful producer's build attempt. Image metadata binds the repository,
+workflow run, PR head SHA, tested merge SHA, platform, image IDs, and archive checksum. Binary metadata records the
+same workflow identity. Failed-job reruns can reuse an earlier successful producer from the same run and source.
+Missing or mismatched artifacts fail; consumers do not fetch artifacts from another run or rebuild missing inputs.
+
+The loader validates image roles, tags, config digests, platform, and archive paths without extracting files into the
+workspace. It constructs a Docker-only archive with controlled member names before importing images. Unrelated OCI
+indexes and image aliases cannot select a different import. Missing candidate images fail local preparation;
+No registry-pull fallback replaces them. Public signed Hardened fixtures retain their registry pulls and real
+verification. A seal lane requires both candidate SoftHSM and PyKMIP fixtures.
+
+Checksums and source metadata provide transport checks, not trusted provenance. Fork artifacts and caches must not
+be promoted into privileged workflows or release inputs. Edge and release publication use trusted triggers and
+build their own candidate artifacts. Do not execute fork code or binaries in privileged `pull_request_target`,
+`workflow_run`, or comment-triggered jobs. Local tests cover routing and transport contracts; validating native
+approval, effective token permissions, and elapsed time also requires an approved fork run on GitHub.

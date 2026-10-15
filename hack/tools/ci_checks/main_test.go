@@ -49,7 +49,9 @@ func TestBuildPlanEventAndTrustPolicy(t *testing.T) {
 		{"same repo source", eventPullRequest, "owner/repo", nil, []string{"e2e", "go_tests"},
 			[]string{"e2e", "test-unit", "test-integration"}, []string{"docs"}},
 		{"fork source", eventPullRequest, "fork/repo", []string{"ci:full-e2e"}, []string{"e2e", "go_tests"},
-			[]string{"test-unit", "test-integration"}, []string{"e2e", "build-e2e-images", "operator-upgrade-e2e"}},
+			[]string{"test-unit", "test-integration", "build-artifacts", "build-e2e-image-artifacts",
+				"fork-e2e", "e2e-matrix", "fork-operator-upgrade-e2e"},
+			[]string{"e2e", "build-e2e-images", "operator-upgrade-e2e"}},
 		{"label requested backup", eventPullRequest, "owner/repo", []string{"backup"}, nil,
 			[]string{"e2e", "e2e-matrix", "build-artifacts"}, []string{"test-unit"}},
 		{"operator upgrade only", eventPullRequest, "owner/repo", nil, []string{"operator_upgrade_e2e"},
@@ -79,8 +81,8 @@ func TestBuildPlanEventAndTrustPolicy(t *testing.T) {
 					t.Errorf("%s must be excluded", key)
 				}
 			}
-			if test.head == "fork/repo" && !strings.Contains(plan.Reason, "Fork") {
-				t.Fatal("fork exclusion has no reason")
+			if test.head == "fork/repo" && plan.Reason != "" {
+				t.Fatal("selected fork E2E is reported as excluded")
 			}
 		})
 	}
@@ -220,6 +222,14 @@ func TestWorkflowUsesRecordedExpectations(t *testing.T) {
 			continue
 		}
 		want := "fromJSON(needs.changes.outputs.expected_checks)['" + job + "']"
+		if job == "build-e2e-images" {
+			want += " && (github.event_name != 'pull_request' || " +
+				"github.event.pull_request.head.repo.full_name == github.repository)"
+		}
+		if job == "build-e2e-image-artifacts" {
+			want += " && github.event_name == 'pull_request' && " +
+				"github.event.pull_request.head.repo.full_name != github.repository"
+		}
 		if workflow.Jobs[job].If != want {
 			t.Errorf("%s condition = %q, want %q", job, workflow.Jobs[job].If, want)
 		}
@@ -346,6 +356,52 @@ func TestWorkflowArtifactAttemptScope(t *testing.T) {
 	for _, step := range workflow.Jobs["e2e"].Steps {
 		if step.Name == "Run planned E2E lane" && !strings.Contains(step.With.ArtifactName, "${{ github.run_attempt }}") {
 			t.Error("E2E reports lack an attempt identity")
+		}
+	}
+}
+
+func TestForkPlansRequireExactlyOneUnprivilegedTransport(t *testing.T) {
+	for _, head := range []string{"owner/repo", "fork/repo"} {
+		for _, label := range []string{"", "ci:full-e2e", "backup", "upgrades", "security"} {
+			t.Run(head+"/"+label, func(t *testing.T) {
+				routing := emptyRouting()
+				routing["e2e"] = routingTrue
+				plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "sha",
+					prEvent(head, label), routing)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fork := head != "owner/repo"
+				for _, pair := range [][2]string{
+					{"build-e2e-images", "build-e2e-image-artifacts"},
+					{"e2e", "fork-e2e"},
+					{"operator-upgrade-e2e", "fork-operator-upgrade-e2e"},
+				} {
+					if plan.Checks[pair[0]] != !fork || plan.Checks[pair[1]] != fork {
+						t.Fatalf("transport pair %v must be exclusive: %v", pair, plan.Checks)
+					}
+				}
+				results := make(map[string]jobResult, len(plan.Checks))
+				for job, required := range plan.Checks {
+					result := "skipped"
+					if required {
+						result = "success"
+					}
+					results[job] = jobResult{result}
+				}
+				if err := validateResults(plan, "sha", results); err != nil {
+					t.Fatal(err)
+				}
+				if fork {
+					for _, job := range []string{"build-e2e-image-artifacts", "fork-e2e", "fork-operator-upgrade-e2e"} {
+						results[job] = jobResult{"skipped"}
+						if validateResults(plan, "sha", results) == nil {
+							t.Fatalf("missing fork qualification %s accepted", job)
+						}
+						results[job] = jobResult{"success"}
+					}
+				}
+			})
 		}
 	}
 }

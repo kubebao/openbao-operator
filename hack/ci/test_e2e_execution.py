@@ -22,12 +22,15 @@ spec.loader.exec_module(binaries)
 
 
 def command(args, cwd=ROOT, env=None):
-    return subprocess.run(args, cwd=cwd, env={**os.environ, **(env or {})},
+    return subprocess.run(args, cwd=cwd, env={**os.environ, "GITHUB_ACTIONS": "false", **(env or {})},
                           text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 
 class BundleIdentity(unittest.TestCase):
     def setUp(self):
+        scope = patch.dict(os.environ, {"GITHUB_ACTIONS": "false"})
+        scope.start()
+        self.addCleanup(scope.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.bundle = Path(self.tmp.name)
@@ -213,7 +216,7 @@ var _ = Describe("fixture", Label("fixture"), func() {
             if result.returncode:
                 cls.build.cleanup()
                 raise RuntimeError(result.stdout)
-        cls.build_env = {"E2E_BUILD_GOOS": platform.system().lower(),
+        cls.build_env = {"GITHUB_ACTIONS": "false", "E2E_BUILD_GOOS": platform.system().lower(),
                          "E2E_BUILD_GOARCH": command(["go", "env", "GOARCH"]).stdout.strip(),
                          "E2E_BUILD_GOVERSION": command(["go", "env", "GOVERSION"]).stdout.strip(),
                          "E2E_BUILD_CGO": command(["go", "env", "CGO_ENABLED"]).stdout.strip()}
@@ -233,7 +236,7 @@ var _ = Describe("fixture", Label("fixture"), func() {
         (root / "go.mod").write_bytes((ROOT / "go.mod").read_bytes())
         (root / "vendor").symlink_to(ROOT / "vendor", target_is_directory=True)
         (root / "test/e2e/fixture_test.go").write_bytes((self.build_root / "fixture/fixture_test.go").read_bytes())
-        for name in ("run-e2e.sh", "e2e-binaries.py"):
+        for name in ("run-e2e.sh", "e2e-binaries.py", "e2e_artifacts.py"):
             shutil.copyfile(ROOT / "hack/ci" / name, root / "hack/ci" / name)
         # Ginkgo queries go list for its version check. Any compilation or
         # Go compilation and report commands fail here, so success proves binary reuse.

@@ -38,9 +38,18 @@ inputs:
   artifact-name:
     description: Attempt-specific artifact name for lane evidence.
     required: true
+  image-transport:
+    description: Candidate image transport, registry or artifact.
+    default: registry
+  image-artifact:
+    description: Same-run candidate image artifact for fork qualification.
+    default: ""
+  image-build-attempt:
+    description: Attempt that produced the selected candidate image artifact.
+    default: ""
   registry-token:
-    description: GitHub token with package read access.
-    required: true
+    description: GitHub token with package read access for registry transport.
+    default: ""
   configure-docker-mirror:
     description: Configure the CI runner's Docker Hub cache before creating containers.
     default: "false"
@@ -51,6 +60,7 @@ runs:
     - name: Configure E2E lane
       shell: bash
       env:
+        E2E_IMAGE_TRANSPORT: ${{ inputs.image-transport }}
         LANE_JSON: ${{ inputs.lane }}
         MANAGER_IMAGE: ${{ inputs.manager-image }}
         CONFIG_INIT_IMAGE: ${{ inputs.config-init-image }}
@@ -91,7 +101,16 @@ runs:
       with:
         install-dir: bin/
 
+    - name: Load fork E2E images
+      if: inputs.image-transport == 'artifact'
+      uses: ./.github/actions/load-e2e-image-artifacts
+      with:
+        artifact-name: ${{ inputs.image-artifact }}
+        build-attempt: ${{ inputs.image-build-attempt }}
+        require-seal-fixtures: ${{ env.E2E_ENABLE_SOFTHSM_SUITE }}
+
     - name: Login to GHCR (pull)
+      if: inputs.image-transport == 'registry' && inputs.registry-token != ''
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         registry: ghcr.io
@@ -102,6 +121,7 @@ runs:
       id: prepare
       uses: ./.github/actions/prepare-e2e-lane
       with:
+        candidate-image-transport: ${{ inputs.image-transport }}
         kind-node-image: ${{ env.KIND_NODE_IMAGE }}
         kind-cluster: kind
         manager-image: ${{ inputs.manager-image }}
