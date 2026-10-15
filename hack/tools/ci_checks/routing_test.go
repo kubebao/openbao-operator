@@ -194,6 +194,9 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 		"hack/tools/e2e_plan/selection.go",
 		"hack/tools/e2e_plan/selection_test.go",
 		"hack/tools/e2e_manifest/main.go",
+		"hack/tools/e2e_report/main.go",
+		"hack/tools/e2e_report/selection.go",
+		"hack/tools/e2e_report/selection_test.go",
 		"test/e2e/suites.yaml",
 		"hack/ci/e2e-selection-paths.txt",
 	} {
