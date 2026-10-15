@@ -140,8 +140,9 @@ The identity that changes the `OpenBaoCluster` needs:
 Admission rejects loopback and link-local storage endpoints. Hardened clusters also reject insecure TLS and ambient
 storage identity.
 
-Storage clients reject AWS metadata (`fd00:ec2::254`) and EKS Pod Identity (`fd00:ec2::23`) as storage destinations,
-including DNS answers and redirects. Other private IPv6 storage addresses remain supported. Credential discovery
+Storage clients reject AWS metadata (`fd00:ec2::254`), EKS Pod Identity (`fd00:ec2::23`), and Google Cloud metadata
+(`fd20:ce::254`) as storage destinations, including DNS answers and redirects. Other private IPv6 storage addresses
+remain supported. Credential discovery
 uses a separate HTTP client, so these destination checks do not block workload-identity providers.
 
 ## Trigger and verify a backup

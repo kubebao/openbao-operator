@@ -138,6 +138,9 @@ func TestStorageEndpointRequestGuardIPv6(t *testing.T) {
 		{"mapped metadata", "[::ffff:169.254.169.254]:9000", "tcp", ""},
 		{"AWS metadata", "[fd00:ec2::254]:80", "tcp6", ""},
 		{"AWS Pod Identity", "[fd00:ec2::23]:80", "tcp6", ""},
+		{"Google metadata", "[fd20:ce::254]:80", "tcp6", ""},
+		{"scoped Google metadata", "[fd20:ce::254%eth0]:80", "tcp6", ""},
+		{"other private Google-prefix address", "[fd20:ce::55]:9000", "tcp6", "[fd20:ce::55]:9000"},
 		{"scoped AWS metadata", "[fd00:ec2::254%eth0]:80", "tcp6", ""},
 		{"other private AWS-prefix address", "[fd00:ec2::55]:9000", "tcp6", "[fd00:ec2::55]:9000"},
 		{"unspecified", "[::]:9000", "tcp6", ""},
@@ -167,7 +170,7 @@ func TestStorageEndpointRequestGuardIPv6(t *testing.T) {
 
 func TestStorageEndpointRequestGuardRejectsIPv6IdentityDNSAndRedirects(t *testing.T) {
 	t.Parallel()
-	for _, address := range []string{"fd00:ec2::254", "fd00:ec2::23"} {
+	for _, address := range []string{"fd00:ec2::254", "fd00:ec2::23", "fd20:ce::254"} {
 		t.Run(address, func(t *testing.T) {
 			t.Parallel()
 			dialed := false

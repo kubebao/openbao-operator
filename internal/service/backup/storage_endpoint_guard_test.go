@@ -68,6 +68,11 @@ func TestValidateStorageEndpointAccessRejectsUnsafeEndpointHosts(t *testing.T) {
 			wantErr:  "not allowed",
 		},
 		{
+			name:     "Google IPv6 metadata",
+			endpoint: "http://[fd20:ce::254]/computeMetadata/v1",
+			wantErr:  "not allowed",
+		},
+		{
 			name:     "scoped expanded AWS IPv6 metadata",
 			endpoint: "http://[fd00:0ec2:0000:0000:0000:0000:0000:0254%25eth0]/latest/meta-data",
 			wantErr:  "not allowed",
@@ -141,6 +146,16 @@ func TestValidateStorageEndpointAccessChecksDNSAnswers(t *testing.T) {
 			endpoint: "https://object-store.example.test",
 			addrs:    []netip.Addr{netip.MustParseAddr("203.0.113.10"), netip.MustParseAddr("fd00:ec2::23")},
 			wantErr:  "resolves to forbidden address",
+		},
+		{
+			name:     "mixed DNS includes Google IPv6 metadata",
+			endpoint: "https://object-store.example.test",
+			addrs:    []netip.Addr{netip.MustParseAddr("203.0.113.10"), netip.MustParseAddr("fd20:ce::254")},
+			wantErr:  "resolves to forbidden address",
+		},
+		{
+			name:     "other literal in Google ULA prefix",
+			endpoint: "http://[fd20:ce::55]:9000",
 		},
 		{
 			name:     "dns resolves to private IPv6 cluster address",
