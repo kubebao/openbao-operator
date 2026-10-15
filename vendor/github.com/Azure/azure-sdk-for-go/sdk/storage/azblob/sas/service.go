@@ -140,13 +140,6 @@ func (v BlobSignatureValues) SignWithSharedKey(sharedKeyCredential *SharedKeyCre
 		v.Version = Version
 	}
 	startTime, expiryTime, snapshotTime := formatTimesForSigning(v.StartTime, v.ExpiryTime, v.SnapshotTime)
-	if resource == "bv" {
-		// The "signed snapshot time" slot in the string-to-sign is shared between blob
-		// snapshots and blob versions: for a version SAS it must carry the version ID
-		// (which is itself a timestamp string), otherwise the service recomputes a
-		// different signature and rejects the SAS with AuthenticationFailed.
-		snapshotTime = v.BlobVersion
-	}
 
 	signedIdentifier := v.Identifier
 
@@ -248,12 +241,6 @@ func (v BlobSignatureValues) SignWithUserDelegation(userDelegationCredential *Us
 		v.Version = Version
 	}
 	startTime, expiryTime, snapshotTime := formatTimesForSigning(v.StartTime, v.ExpiryTime, v.SnapshotTime)
-	if resource == "bv" {
-		// See the corresponding comment in SignWithSharedKey: the "signed snapshot time"
-		// slot is shared between blob snapshots and blob versions and must carry the
-		// version ID for a version SAS.
-		snapshotTime = v.BlobVersion
-	}
 
 	udk := exported.GetUDKParams(userDelegationCredential)
 
