@@ -2193,13 +2193,13 @@
   },
   {
     "id": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
-    "generatedId": "upgrade-gateway-creates-a-tlsroute-and-reports-healthy-13fbff54",
+    "generatedId": "upgrade-gateway-creates-a-tlsroute-and-reports-healthy-1c3566a0",
     "caseLabel": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
     "file": "test/e2e/Upgrade_Gateway_test.go",
     "type": "It",
     "name": "creates a TLSRoute and reports healthy passthrough integration",
     "path": [
-      "Upgrade Strategies",
+      "Upgrade Strategies: Gateway API",
       "Gateway API",
       "Gateway TLS Passthrough",
       "creates a TLSRoute and reports healthy passthrough integration"
@@ -2235,13 +2235,13 @@
   },
   {
     "id": "upgrade-gateway-httproute-cutover",
-    "generatedId": "upgrade-gateway-keeps-httproute-stable-and-switches-external-3884249c",
+    "generatedId": "upgrade-gateway-keeps-httproute-stable-and-switches-external-954a56f0",
     "caseLabel": "upgrade-gateway-httproute-cutover",
     "file": "test/e2e/Upgrade_Gateway_test.go",
     "type": "It",
     "name": "keeps HTTPRoute stable and switches external Service selector at cutover",
     "path": [
-      "Upgrade Strategies",
+      "Upgrade Strategies: Gateway API",
       "Gateway API",
       "HTTPRoute Blue/Green Cutover",
       "keeps HTTPRoute stable and switches external Service selector at cutover"

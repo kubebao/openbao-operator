@@ -1,4 +1,4 @@
-# Upgrade Strategies
+# Upgrade Strategies: Gateway API
 
 Source: `test/e2e/Upgrade_Gateway_test.go`
 
@@ -13,11 +13,11 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 
 ## `upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7`
 
-Path: `Upgrade Strategies > Gateway API > Gateway TLS Passthrough > creates a TLSRoute and reports healthy passthrough integration`
+Path: `Upgrade Strategies: Gateway API > Gateway API > Gateway TLS Passthrough > creates a TLSRoute and reports healthy passthrough integration`
 
 State: `active`
 
-Generated fallback ID: `upgrade-gateway-creates-a-tlsroute-and-reports-healthy-13fbff54`
+Generated fallback ID: `upgrade-gateway-creates-a-tlsroute-and-reports-healthy-1c3566a0`
 
 Covers: _none_
 
@@ -31,11 +31,11 @@ Recorded checkpoints:
 
 ## `upgrade-gateway-httproute-cutover`
 
-Path: `Upgrade Strategies > Gateway API > HTTPRoute Blue/Green Cutover > keeps HTTPRoute stable and switches external Service selector at cutover`
+Path: `Upgrade Strategies: Gateway API > Gateway API > HTTPRoute Blue/Green Cutover > keeps HTTPRoute stable and switches external Service selector at cutover`
 
 State: `active`
 
-Generated fallback ID: `upgrade-gateway-keeps-httproute-stable-and-switches-external-3884249c`
+Generated fallback ID: `upgrade-gateway-keeps-httproute-stable-and-switches-external-954a56f0`
 
 Covers: _none_
 

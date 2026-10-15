@@ -137,7 +137,7 @@ func markGatewayProgrammed(
 }
 
 // Gateway API CRDs and GatewayClasses are shared cluster resources.
-var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "slow"), Serial, func() {
+var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades", "cluster", "slow"), Serial, func() {
 	ctx := context.Background()
 
 	// --- Gateway Integration ---

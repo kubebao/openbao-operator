@@ -799,7 +799,7 @@ suites:
       policy: primary-version-full
 
   - id: upgrade-gateway
-    title: "Upgrade Strategies"
+    title: "Upgrade Strategies: Gateway API"
     owner: upgrade
     riskTier: critical
     isolation: serial
