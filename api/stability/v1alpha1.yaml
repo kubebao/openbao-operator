@@ -252,6 +252,22 @@ resources:
       - path: spec.service
         classification: beta-stable
         owner: networking
+      - path: spec.service.ipFamilyPolicy
+        classification: additive-unfrozen
+        owner: networking
+        omission: Kubernetes selects the default Service IP family policy
+      - path: spec.service.ipFamilies
+        classification: additive-unfrozen
+        owner: networking
+        omission: Kubernetes selects the primary Service IP family
+      - path: spec.readReplicas.service.ipFamilyPolicy
+        classification: additive-unfrozen
+        owner: networking
+        omission: Kubernetes selects the default Service IP family policy
+      - path: spec.readReplicas.service.ipFamilies
+        classification: additive-unfrozen
+        owner: networking
+        omission: Kubernetes selects the primary Service IP family
       - path: spec.serviceAccount
         classification: beta-stable
         owner: workload-identity

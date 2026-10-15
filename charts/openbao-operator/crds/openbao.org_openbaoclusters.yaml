@@ -3226,12 +3226,43 @@ spec:
                           Enabled controls whether the operator creates a dedicated Service for the
                           read-replica pool.
                         type: boolean
+                      ipFamilies:
+                        description: |-
+                          IPFamilies selects the Service IP families in primary-first order.
+                          The primary family cannot change after the Service is created.
+                        items:
+                          description: |-
+                            IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                            to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                          enum:
+                          - IPv4
+                          - IPv6
+                          type: string
+                        maxItems: 2
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      ipFamilyPolicy:
+                        description: |-
+                          IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                          When omitted, Kubernetes uses its default Service policy.
+                        enum:
+                        - SingleStack
+                        - PreferDualStack
+                        - RequireDualStack
+                        type: string
                       type:
                         description: |-
                           Type is the Kubernetes Service type, for example "ClusterIP" or
                           "LoadBalancer".
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: ipFamilies must not contain duplicate families
+                      rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
+                        self.ipFamilies[0] != self.ipFamilies[1]'
+                    - message: SingleStack accepts at most one IP family
+                      rule: '!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != ''SingleStack''
+                        || !has(self.ipFamilies) || size(self.ipFamilies) <= 1'
                   storage:
                     description: Storage configures read-replica-specific storage
                       overrides.
@@ -5352,11 +5383,42 @@ spec:
                     description: Annotations are additional annotations to apply to
                       the Service.
                     type: object
+                  ipFamilies:
+                    description: |-
+                      IPFamilies selects the Service IP families in primary-first order.
+                      The primary family cannot change after the Service is created.
+                    items:
+                      description: |-
+                        IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                        to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                      enum:
+                      - IPv4
+                      - IPv6
+                      type: string
+                    maxItems: 2
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  ipFamilyPolicy:
+                    description: |-
+                      IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                      When omitted, Kubernetes uses its default Service policy.
+                    enum:
+                    - SingleStack
+                    - PreferDualStack
+                    - RequireDualStack
+                    type: string
                   type:
                     description: Type is the Kubernetes Service type, for example
                       "ClusterIP" or "LoadBalancer".
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: ipFamilies must not contain duplicate families
+                  rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0]
+                    != self.ipFamilies[1]'
+                - message: SingleStack accepts at most one IP family
+                  rule: '!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != ''SingleStack''
+                    || !has(self.ipFamilies) || size(self.ipFamilies) <= 1'
               serviceAccount:
                 description: ServiceAccount configures the Kubernetes ServiceAccount
                   used by the OpenBao Pods.

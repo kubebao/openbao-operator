@@ -35,6 +35,10 @@ replicas; OpenBao serves eligible reads locally and forwards writes to the activ
 currently excludes steady read replicas from this Service. The operator does not create a second Gateway or Ingress
 route for the opt-in dedicated read-replica Service.
 
+Use `spec.service.ipFamilyPolicy` and `spec.service.ipFamilies` to select the main Service's IP families. The dedicated
+read Service has the same fields under `spec.readReplicas.service`. See [IPv6 and dual-stack networking](../network/#use-ipv6-and-dual-stack-networks)
+for allocation rules and examples.
+
 ## Choose where TLS terminates
 
 | Pattern | Use it when | Required trust decision |

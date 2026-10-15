@@ -378,3 +378,48 @@ func TestOptionalS3TargetValidationRequiresExactReviewedRule(t *testing.T) {
 		})
 	}
 }
+
+func TestOptionalServiceIPFamilyValidationRequiresExactReviewedRules(t *testing.T) {
+	for _, path := range []string{"spec.service", "spec.readReplicas.service"} {
+		t.Run(path, func(t *testing.T) {
+			before := schemaNode{CRD: "openbaoclusters.openbao.org", Kind: "OpenBaoCluster", Version: "v1alpha1",
+				Path: path, Type: "object",
+			}
+			after := before
+			after.CEL = []celRule{
+				{Rule: "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]",
+					Message: "ipFamilies must not contain duplicate families"},
+				{Rule: "!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || " +
+					"!has(self.ipFamilies) || size(self.ipFamilies) <= 1",
+					Message: "SingleStack accepts at most one IP family"},
+			}
+			assertChange(t, compareSnapshots([]schemaNode{before}, []schemaNode{after}),
+				impactCompatible, "cel-optional-feature-validation", path)
+			for _, variation := range []string{"restriction", "metadata", "path", "kind", "version", "removal", "extra rule"} {
+				t.Run(variation, func(t *testing.T) {
+					oldNode, newNode := before, after
+					newNode.CEL = append([]celRule(nil), after.CEL...)
+					switch variation {
+					case "restriction":
+						newNode.CEL[0].Rule += " && self.type == 'ClusterIP'"
+					case "metadata":
+						newNode.CEL[0].Message = "different validation"
+					case "path":
+						oldNode.Path, newNode.Path = "spec.unrelated", "spec.unrelated"
+					case "kind":
+						oldNode.Kind, newNode.Kind = "Unrelated", "Unrelated"
+					case "version":
+						oldNode.Version, newNode.Version = "v1", "v1"
+					case "removal":
+						oldNode.CEL = []celRule{{Rule: "self.type != ''"}}
+					case "extra rule":
+						newNode.CEL = append(newNode.CEL, celRule{Rule: "self.type != ''"})
+					}
+					if !hasBlockingChanges(compareSnapshots([]schemaNode{oldNode}, []schemaNode{newNode})) {
+						t.Fatal("changed Service validation must require review")
+					}
+				})
+			}
+		})
+	}
+}

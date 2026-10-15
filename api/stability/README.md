@@ -87,6 +87,11 @@ accept all requests that omit the new optional target and cleanup
 fields. `TestCRD_FreshRestoreOptions` checks this boundary against the API server.
 Changes to these rules still require semantic review.
 
+The Service IP-family rules are also matched exactly, including their resource, paths, rule text, and metadata.
+They accept every released main or read-replica Service configuration because those requests omit both new optional
+fields. `TestCRD_ServiceIPFamilies` verifies legacy requests and the new combinations against the API server. Other
+changes to Service validation remain subject to the compatibility gate.
+
 The `API Contract` job runs for API, CRD, checker, gate-test, dependency, build-rule,
 and gate-workflow changes, every push to `main`, and manual CI runs. `CI Required`
 includes its result. Edge candidate builds and release image builds also depend

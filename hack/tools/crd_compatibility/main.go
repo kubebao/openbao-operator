@@ -29,6 +29,8 @@ const (
 	validationTightened = "validation-tightened"
 	trueValue           = "true"
 	currentAPIVersion   = "v1alpha1"
+	openBaoClusterKind  = "OpenBaoCluster"
+	openBaoClusterCRD   = "openbaoclusters.openbao.org"
 )
 
 type options struct {
@@ -546,6 +548,13 @@ func compareNode(oldNode, newNode schemaNode) []change {
 				newNode,
 				"S3 discriminator validation is guarded by an optional field absent from the released storage API",
 			))
+		case isOptionalServiceIPFamilyValidation(newNode, added, removed):
+			changes = append(changes, newChange(
+				impactCompatible,
+				"cel-optional-feature-validation",
+				newNode,
+				"Service IP family rules accept requests without the new optional family fields",
+			))
 		case len(added) > 0 && len(removed) == 0:
 			changes = append(changes, newChange(
 				impactReview,
@@ -572,13 +581,36 @@ func compareNode(oldNode, newNode schemaNode) []change {
 	return changes
 }
 
+// isOptionalServiceIPFamilyValidation recognizes only the optional-field guards
+// verified by TestCRD_ServiceIPFamilies. Released Service configurations omit both
+// fields and satisfy both rules. Rule text, metadata, resource, and paths are pinned.
+func isOptionalServiceIPFamilyValidation(node schemaNode, added, removed []string) bool {
+	if node.CRD != openBaoClusterCRD || node.Kind != openBaoClusterKind ||
+		node.Version != currentAPIVersion || (node.Path != "spec.service" && node.Path != "spec.readReplicas.service") ||
+		len(added) != 2 || len(removed) != 0 {
+		return false
+	}
+	allowed := celRuleSet([]celRule{
+		{
+			Rule:    "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]",
+			Message: "ipFamilies must not contain duplicate families",
+		},
+		{
+			Rule: "!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || " +
+				"!has(self.ipFamilies) || size(self.ipFamilies) <= 1",
+			Message: "SingleStack accepts at most one IP family",
+		},
+	})
+	return allowed[added[0]] && allowed[added[1]]
+}
+
 // isOptionalS3TargetValidation recognizes only the reviewed discriminator rule
 // for the new optional S3 block. Released targets without that block remain valid.
 func isOptionalS3TargetValidation(node schemaNode, added, removed []string) bool {
 	if node.Version != currentAPIVersion || len(added) != 1 || len(removed) != 0 {
 		return false
 	}
-	clusterTarget := node.CRD == "openbaoclusters.openbao.org" && node.Kind == "OpenBaoCluster" &&
+	clusterTarget := node.CRD == openBaoClusterCRD && node.Kind == openBaoClusterKind &&
 		node.Path == "spec.backup.target"
 	restoreTarget := node.CRD == "openbaorestores.openbao.org" && node.Kind == "OpenBaoRestore" &&
 		node.Path == "spec.source.target"
@@ -596,7 +628,7 @@ func isOptionalS3TargetValidation(node schemaNode, added, removed []string) bool
 // TestCRD_OpenBaoCluster_TLSRotationPeriod. Missing fields are rejected both before
 // and after the change; other TLS modes and supplied values retain their behavior.
 func isTLSRotationPeriodDiagnosticFix(node schemaNode, added, removed []string) bool {
-	if node.CRD != "openbaoclusters.openbao.org" || node.Kind != "OpenBaoCluster" ||
+	if node.CRD != openBaoClusterCRD || node.Kind != openBaoClusterKind ||
 		node.Version != currentAPIVersion || node.Path != "spec" || len(added) != 1 || len(removed) != 1 {
 		return false
 	}

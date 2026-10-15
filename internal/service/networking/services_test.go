@@ -2,6 +2,7 @@ package networking
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -9,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -17,6 +19,56 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
+
+func TestServiceIPFamilies(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		policy   *corev1.IPFamilyPolicy
+		families []corev1.IPFamily
+	}{
+		{name: "Kubernetes defaults"},
+		{name: "IPv6 single stack", policy: ptr.To(corev1.IPFamilyPolicySingleStack), families: []corev1.IPFamily{corev1.IPv6Protocol}},
+		{name: "IPv4 primary dual stack", policy: ptr.To(corev1.IPFamilyPolicyRequireDualStack), families: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}},
+		{name: "IPv6 primary dual stack", policy: ptr.To(corev1.IPFamilyPolicyPreferDualStack), families: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster := newMinimalCluster("families", "default")
+			cluster.Spec.Service = &openbaov1alpha1.ServiceConfig{IPFamilyPolicy: tt.policy, IPFamilies: tt.families}
+			cluster.Spec.ReadReplicas = &openbaov1alpha1.ReadReplicaConfig{
+				Replicas: 1,
+				Service:  &openbaov1alpha1.ReadReplicaServiceConfig{Enabled: true, IPFamilyPolicy: tt.policy, IPFamilies: tt.families},
+			}
+			c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(cluster).WithReturnManagedFields().Build()
+			m := NewManager(c, testScheme, "operators", constants.PlatformKubernetes)
+			ctx := context.Background()
+			if err := m.ensureHeadlessService(ctx, logr.Discard(), cluster); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.ensureExternalService(ctx, logr.Discard(), cluster); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.ensureReadReplicaService(ctx, logr.Discard(), cluster); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{externalServiceName(cluster), resourceidentity.ReadReplicaServiceName(cluster)} {
+				service := &corev1.Service{}
+				if err := c.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: name}, service); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(service.Spec.IPFamilyPolicy, tt.policy) || !reflect.DeepEqual(service.Spec.IPFamilies, tt.families) {
+					t.Fatalf("Service %s IP family configuration = %v / %v, want %v / %v", name, service.Spec.IPFamilyPolicy, service.Spec.IPFamilies, tt.policy, tt.families)
+				}
+			}
+			peerService := &corev1.Service{}
+			if err := c.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}, peerService); err != nil {
+				t.Fatal(err)
+			}
+			if peerService.Spec.IPFamilyPolicy == nil || *peerService.Spec.IPFamilyPolicy != corev1.IPFamilyPolicyPreferDualStack {
+				t.Fatalf("peer discovery policy = %v, want PreferDualStack", peerService.Spec.IPFamilyPolicy)
+			}
+		})
+	}
+}
 
 func TestEnsureExternalService_UsesSharedClientSelector(t *testing.T) {
 	cluster := newMinimalCluster("svc-test", "default")

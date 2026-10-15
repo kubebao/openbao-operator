@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -33,6 +34,8 @@ func (m *Manager) ensureHeadlessService(ctx context.Context, _ logr.Logger, clus
 			Labels:    resourceidentity.Labels(cluster),
 		},
 		Spec: corev1.ServiceSpec{
+			// Publish both address families for peer discovery when available.
+			IPFamilyPolicy:           ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			ClusterIP:                corev1.ClusterIPNone,
 			PublishNotReadyAddresses: true,
 			Selector:                 servicePodSelectorLabels(cluster),
@@ -119,6 +122,10 @@ func (m *Manager) ensureExternalService(ctx context.Context, _ logr.Logger, clus
 		},
 	}
 
+	if serviceCfg != nil {
+		service.Spec.IPFamilyPolicy = serviceCfg.IPFamilyPolicy
+		service.Spec.IPFamilies = serviceCfg.IPFamilies
+	}
 	if err := m.applyResource(ctx, service, cluster); err != nil {
 		return fmt.Errorf("failed to ensure external Service %s/%s: %w", cluster.Namespace, svcName, err)
 	}
@@ -173,8 +180,10 @@ func (m *Manager) ensureReadReplicaService(ctx context.Context, _ logr.Logger, c
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     svcType,
-			Selector: selector,
+			IPFamilyPolicy: serviceCfg.IPFamilyPolicy,
+			IPFamilies:     serviceCfg.IPFamilies,
+			Type:           svcType,
+			Selector:       selector,
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "api",
@@ -231,6 +240,7 @@ func (m *Manager) ensureMetricsService(ctx context.Context, _ logr.Logger, clust
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
+			IPFamilyPolicy:           ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			Type:                     serviceType,
 			ClusterIP:                clusterIPForMetricsService(cluster),
 			PublishNotReadyAddresses: publishNotReady,
@@ -294,6 +304,7 @@ func (m *Manager) ensureACMEChallengeService(ctx context.Context, _ logr.Logger,
 			Labels:    resourceidentity.Labels(cluster),
 		},
 		Spec: corev1.ServiceSpec{
+			IPFamilyPolicy:           ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 			Type:                     corev1.ServiceTypeClusterIP,
 			PublishNotReadyAddresses: true,
 			Selector:                 selectorLabels,
