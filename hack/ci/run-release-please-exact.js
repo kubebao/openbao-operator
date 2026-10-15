@@ -5,7 +5,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PINNED_RELEASE_PLEASE_VERSION = '17.6.0';
+const PINNED_RELEASE_PLEASE_VERSION = '17.11.2';
 const releasePleaseRoot = path.join(
   __dirname,
   'release-please',

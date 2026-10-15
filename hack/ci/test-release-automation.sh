@@ -132,18 +132,18 @@ assert_contains "${RELEASE_PLEASE_WORKFLOW}" "Resolve Release-As override"
 assert_contains "${RELEASE_PLEASE_WORKFLOW}" "bash hack/ci/resolve-release-as-override.sh"
 assert_contains "${RELEASE_PLEASE_WORKFLOW}" "Run release-please action (normal manifest PR)"
 assert_contains "${RELEASE_PLEASE_WORKFLOW}" "Run release-please wrapper (exact-version manifest PR)"
-assert_contains "${RELEASE_PLEASE_PACKAGE}" '"release-please": "17.6.0"'
+assert_contains "${RELEASE_PLEASE_PACKAGE}" '"release-please": "17.11.2"'
 assert_contains "${RELEASE_PLEASE_WORKFLOW}" "node hack/ci/run-release-please-exact.js"
-assert_contains "${RELEASE_PLEASE_EXACT_RUNNER}" "PINNED_RELEASE_PLEASE_VERSION = '17.6.0'"
+assert_contains "${RELEASE_PLEASE_EXACT_RUNNER}" "PINNED_RELEASE_PLEASE_VERSION = '17.11.2'"
 assert_contains "${RELEASE_PLEASE_WORKFLOW}" "exact-version release PR does not match requested version"
 assert_contains "${RELEASE_PLEASE_WORKFLOW}" "release-please did not create the requested"
 assert_not_contains "${RELEASE_PLEASE_WORKFLOW}" 'release-as: ${{ steps.release-as.outputs.release_as }}'
 node "${RELEASE_PLEASE_EXACT_RUNNER}" --self-test
 release_please_lock_version="$(jq -er '.packages["node_modules/release-please"].version' "${RELEASE_PLEASE_LOCK}")"
-[[ "${release_please_lock_version}" == "17.6.0" ]] || fail "release-please lockfile version is not pinned to 17.6.0"
+[[ "${release_please_lock_version}" == "17.11.2" ]] || fail "release-please lockfile version is not pinned to 17.11.2"
 release_please_lock_integrity="$(jq -er '.packages["node_modules/release-please"].integrity' "${RELEASE_PLEASE_LOCK}")"
-[[ "${release_please_lock_integrity}" == "sha512-ItzkkEBeEbKsCrx7N1QlADrCahoONA4WPlsOinSnXTkqUBIWlHC6+S28VJ9PaHy7ZPSJwSQsRuDjI0/HL5G6hw==" ]] || {
-  fail "release-please lockfile integrity does not match 17.6.0"
+[[ "${release_please_lock_integrity}" == "sha512-we0+NgyHjvczxrilD6aujnRNuASd65Jem0dY5evevxSZvz8BnKnB/QRN3UzGA229fcV09lKCYbqeE9HgkXzGmA==" ]] || {
+  fail "release-please lockfile integrity does not match 17.11.2"
 }
 
 assert_contains "${RELEASE_WORKFLOW}" "Setup Helm 3 compatibility client"
