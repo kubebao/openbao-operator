@@ -44,7 +44,6 @@ Labels: `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-a
 Recorded checkpoints:
 - Capturing HTTPRoute before upgrade to verify stability
 - Triggering upgrade
-- Waiting for upgrade to progress to cutover phase
 - Verifying external Service remains on Blue while DemotingBlue is in progress
 - Waiting for Cleanup phase and verifying the external Service selector switches to Green
 - Waiting for Blue/Green upgrade to complete

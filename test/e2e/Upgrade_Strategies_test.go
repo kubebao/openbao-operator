@@ -209,8 +209,15 @@ func expectBlueGreenServiceSelectorDuringPhase(
 	g.Expect(updated.Status.BlueGreen).NotTo(BeNil(), "BlueGreen status should be initialized")
 
 	if updated.Status.BlueGreen.Phase != phase {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Current phase: %s\n", updated.Status.BlueGreen.Phase)
-		g.Expect(updated.Status.BlueGreen.Phase).ToNot(BeEmpty())
+		current := updated.Status.BlueGreen.Phase
+		passed := phase == openbaov1alpha1.PhaseDemotingBlue && current == openbaov1alpha1.PhaseCleanup ||
+			current == openbaov1alpha1.PhaseRestoringReadReplicas ||
+			(current == openbaov1alpha1.PhaseIdle && updated.Spec.Version != "" &&
+				updated.Status.CurrentVersion == updated.Spec.Version)
+		if passed {
+			StopTrying(fmt.Sprintf("upgrade advanced to %s without observing the Service selector in %s", current, phase)).Now()
+		}
+		g.Expect(current).To(Equal(phase), "the requested phase must be observed before checking its Service selector")
 		return
 	}
 

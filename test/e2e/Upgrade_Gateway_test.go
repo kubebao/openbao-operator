@@ -25,7 +25,10 @@ import (
 	e2ehelpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
 )
 
-const e2eGatewayControllerName = gatewayv1.GatewayController("openbao.org/e2e-gateway")
+const (
+	e2eGatewayControllerName = gatewayv1.GatewayController("openbao.org/e2e-gateway")
+	gatewayPhasePollInterval = 250 * time.Millisecond
+)
 
 func ensureGatewayClassReady(
 	ctx context.Context,
@@ -298,14 +301,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 					g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 				}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
-				By("Waiting for upgrade to progress to cutover phase")
-				Eventually(func(g Gomega) {
-					updated := &openbaov1alpha1.OpenBaoCluster{}
-					g.Expect(admin.Get(ctx, types.NamespacedName{Name: upgradeCluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
-					g.Expect(updated.Status.BlueGreen).NotTo(BeNil(), "BlueGreen status should be initialized")
-					g.Expect(updated.Status.BlueGreen.Phase).ToNot(BeEmpty())
-				}, 10*time.Minute, framework.DefaultPollInterval).Should(Succeed())
-
+				// Start immediately and poll briefly to observe the cutover phases.
 				By("Verifying external Service remains on Blue while DemotingBlue is in progress")
 				Eventually(func(g Gomega) {
 					expectBlueGreenServiceSelectorDuringPhase(
@@ -320,7 +316,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 						},
 						"GreenRevision should be set at cutover",
 					)
-				}, 20*time.Minute, framework.DefaultPollInterval).Should(Succeed())
+				}, 20*time.Minute, gatewayPhasePollInterval).Should(Succeed())
 
 				By("Waiting for Cleanup phase and verifying the external Service selector switches to Green")
 				Eventually(func(g Gomega) {
@@ -336,7 +332,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 						},
 						"GreenRevision should be set during cleanup",
 					)
-				}, 20*time.Minute, framework.DefaultPollInterval).Should(Succeed())
+				}, 20*time.Minute, gatewayPhasePollInterval).Should(Succeed())
 
 				By("Waiting for Blue/Green upgrade to complete")
 				Eventually(func(g Gomega) {
