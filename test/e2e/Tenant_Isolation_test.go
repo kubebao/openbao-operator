@@ -274,8 +274,13 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 		})
 
 		AfterAll(func() {
+			// Resource preservation must not leak controller-wide configuration to later suites.
+			By("restoring operator to multi-tenant mode")
+			Expect(restoreMultiTenantMode()).To(Succeed())
+			waitForControllerRolloutAndLeader("")
+
 			if os.Getenv("E2E_SKIP_CLEANUP") == e2eStringTrue {
-				By("E2E_SKIP_CLEANUP=true: keeping single-tenant namespace and controller configuration for debugging")
+				By("E2E_SKIP_CLEANUP=true: keeping single-tenant namespace for debugging")
 				return
 			}
 
@@ -288,11 +293,6 @@ var _ = Describe("Tenant Isolation", Label("security", "tenant", "tenancy"), Ord
 			if err := c.Delete(cleanupCtx, ns); err != nil && !apierrors.IsNotFound(err) {
 				_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: failed to delete namespace %q: %v\n", singleTenantNS, err)
 			}
-
-			// Restore the operator to multi-tenant mode
-			By("restoring operator to multi-tenant mode")
-			Expect(restoreMultiTenantMode()).To(Succeed())
-			waitForControllerRolloutAndLeader("")
 		})
 
 		It("sets up single-tenant mode environment", Label(
