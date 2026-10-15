@@ -17,6 +17,11 @@ const (
 )
 
 func main() {
+	var selfInitSecretFiles []string
+	flag.Func("self-init-secret-file", "required bootstrap input file; repeat for each input", func(value string) error {
+		selfInitSecretFiles = append(selfInitSecretFiles, value)
+		return nil
+	})
 	templatePath := flag.String("template", "", "path to the config template file")
 	outputPath := flag.String("output", "", "path to write the rendered config file")
 	selfInitPath := flag.String("self-init", "", "optional path to self-init config file (only used for pod-0)")
@@ -45,6 +50,7 @@ func main() {
 		os.Getenv(envHostname),
 		os.Getenv(envPodIP),
 		*selfInitPath,
+		selfInitSecretFiles...,
 	); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "bao-config-init error: %v\n", err)
 		os.Exit(1)

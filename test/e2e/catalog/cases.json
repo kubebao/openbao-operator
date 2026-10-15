@@ -708,6 +708,47 @@
     "suiteTitle": ""
   },
   {
+    "id": "self-init-secret-input-lifecycle",
+    "generatedId": "cluster-selfinit-secret-inputs-requires-inputs-before-initialization-and-restarts-c76fd642",
+    "caseLabel": "self-init-secret-input-lifecycle",
+    "coverage": [
+      "self-init-secret-inputs",
+      "bootstrap-secret-removal"
+    ],
+    "file": "test/e2e/Cluster_SelfInit_Secret_Inputs_test.go",
+    "type": "It",
+    "name": "requires inputs before initialization and restarts without the bootstrap Secret",
+    "path": [
+      "Self-init Secret inputs",
+      "requires inputs before initialization and restarts without the bootstrap Secret"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "self-init-inputs",
+      "case:self-init-secret-input-lifecycle",
+      "covers:self-init-secret-inputs",
+      "covers:bootstrap-secret-removal"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "self-init-inputs"
+    ],
+    "steps": [
+      "blocking startup before OpenBao initializes when the Secret is absent",
+      "keeping startup blocked when the Secret lacks the selected key",
+      "consuming the selected key without giving the controller Secret read access",
+      "checking generated resources, events, configuration, and normal logs for the canary",
+      "completing bootstrap and removing the Secret input projections",
+      "deleting the bootstrap Secret and replacing the initialized Pod"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "tls-acme-self-init-ready",
     "generatedId": "cluster-tls-acme-creates-an-acme-tls-cluster-and-4caefad8",
     "caseLabel": "tls-acme-self-init-ready",

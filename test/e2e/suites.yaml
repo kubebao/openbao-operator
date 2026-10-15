@@ -363,6 +363,27 @@ suites:
     nightly:
       policy: primary-version-full
 
+  - id: self-init-secret-inputs
+    title: "Self-init Secret inputs"
+    owner: core
+    riskTier: critical
+    isolation: parallel-safe
+    files:
+      - test/e2e/Cluster_SelfInit_Secret_Inputs_test.go
+    labels:
+      - lifecycle
+      - cluster
+      - self-init-inputs
+    coverage:
+      - self-init-secret-inputs
+      - bootstrap-secret-removal
+    ci:
+      lanes:
+        - core
+      pullRequest: changed-paths
+    nightly:
+      policy: primary-version-full
+
   - id: controller-jwt
     title: "Controller JWT lifecycle"
     owner: security

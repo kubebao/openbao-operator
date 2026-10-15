@@ -127,10 +127,44 @@ type SelfInitRequest struct {
 	// it must not contain sensitive values such as tokens, passwords, or unseal keys.
 	// +optional
 	Data *apiextensionsv1.JSON `json:"data,omitempty"`
+	// DataFrom maps top-level request fields to required keys in same-namespace
+	// Secrets. Values are read as strings during first self-initialization.
+	// Requires OpenBao 2.6.0 or newer. Use only with raw request payloads, not
+	// auditDevice, authMethod, secretEngine, policy, or their reserved API paths.
+	// Field names must match ^[A-Za-z_][A-Za-z0-9_-]*$. A field must not occur
+	// in both data and dataFrom.
+	// All requests together can reference at most two distinct Secrets. Mappings,
+	// including their request and field names, are immutable after cluster creation.
+	// Missing inputs block startup before OpenBao initializes, including when
+	// when is false or allowFailure is true. Changes after initialization do not
+	// update OpenBao. The operator does not read or copy the Secret values.
+	// +kubebuilder:validation:MaxProperties=64
+	// +optional
+	DataFrom map[string]SelfInitDataSource `json:"dataFrom,omitempty"`
 	// AllowFailure allows this request to fail without blocking initialization.
 	// Defaults to false.
 	// +optional
 	AllowFailure bool `json:"allowFailure,omitempty"`
+}
+
+// SelfInitDataSource supplies one string field of a raw self-init request.
+type SelfInitDataSource struct {
+	// SecretKeyRef selects a required Secret key in the OpenBaoCluster namespace.
+	SecretKeyRef SelfInitSecretKeyReference `json:"secretKeyRef"`
+}
+
+// SelfInitSecretKeyReference identifies a bootstrap input without containing its value.
+type SelfInitSecretKeyReference struct {
+	// Name is the Secret name. The submitting identity must be authorized to get it.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$`
+	Name string `json:"name"`
+	// Key is the Secret data key. Its exact contents are used without trimming.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[-._a-zA-Z0-9]+$`
+	Key string `json:"key"`
 }
 
 // RecoveryKeysConfig configures OpenBao recovery-key bootstrap surfaces.

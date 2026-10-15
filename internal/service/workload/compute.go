@@ -172,6 +172,9 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 		// when we only intend to upgrade images. Preserve the locked fields from the
 		// existing StatefulSet so the UPDATE passes admission.
 		preserveLockedStatefulSetTemplateFields(desired, existingSTS)
+		if cluster.Status.Initialized || cluster.Status.SelfInitialized {
+			removeSelfInitSecretInputs(&desired.Spec.Template.Spec)
+		}
 
 		// ROLLING UPGRADE SAFETY: lock the StatefulSet partition before we apply a template change
 		// that would otherwise trigger an uncontrolled rollout.

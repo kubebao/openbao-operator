@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-controller-statefulset-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:71df31f013ae60eb423266e14891db3753db4276907db82d070f9ae088c028ae
+    openbao.org/admission-policy-fingerprint: sha256:f9ea866c4743f4f1c422909ff25c154267e84f645e276fb3bff19c321eed9179
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -25,6 +25,18 @@ spec:
     - name: is_controller
       expression: >-
         request.userInfo.username == variables.controller_principal
+    # Bootstrap cleanup can remove only the optional Secret input projection.
+    # It cannot add or redirect a dependency, executable, argument, or mount.
+    - name: bootstrap_input_cleanup
+      expression: >-
+        object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
+        oldObject.metadata.ownerReferences.exists(o,
+          o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
+        oldObject.spec.template.spec.volumes.exists(v,
+          v.name == 'self-init-inputs' && has(v.projected) &&
+          v.projected.sources.all(s, has(s.secret) && has(s.secret.optional) && s.secret.optional)) &&
+        object.spec.template.spec.volumes ==
+          oldObject.spec.template.spec.volumes.filter(v, v.name != 'self-init-inputs')
     # Resume can add only the normal Kubernetes API projection. This cannot
     # select another Secret, ConfigMap, ServiceAccount, or token audience.
     - name: api_volumes
@@ -62,6 +74,7 @@ spec:
     - expression: >-
         !variables.is_controller ||
         object.spec.template.spec.volumes == oldObject.spec.template.spec.volumes ||
+        variables.bootstrap_input_cleanup ||
         (variables.handoff &&
           object.spec.template.spec.volumes.filter(v, v.name != 'kube-api-access') == oldObject.spec.template.spec.volumes)
       message: OpenBao controller cannot modify StatefulSet volumes.
@@ -75,14 +88,28 @@ spec:
         (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
           .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ==
         (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
-          .map(c, {'name': c.name, 'command': c.command, 'args': c.args})
+          .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ||
+        (variables.bootstrap_input_cleanup &&
+          (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
+            .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ==
+          (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
+            .map(c, {'name': c.name, 'command': c.command,
+              'args': dyn(c.name == 'bao-config-init' ?
+                c.args.filter(a, !a.startsWith('--self-init-secret-file=/etc/bao/self-init-inputs/')) : c.args)}))
       message: OpenBao controller cannot modify init container commands or args.
     - expression: >-
         !variables.is_controller ||
         (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
           .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
         (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
-          .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts})
+          .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ||
+        (variables.bootstrap_input_cleanup &&
+          (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
+            .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
+          (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
+            .map(c, {'name': c.name, 'securityContext': c.securityContext,
+              'volumeMounts': dyn(c.name == 'bao-config-init' ?
+                c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)}))
       message: OpenBao controller cannot modify init container securityContext or volumeMounts.
     - expression: >-
         !variables.is_controller ||
@@ -97,6 +124,12 @@ spec:
         !variables.is_controller ||
         object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
         oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ||
+        (variables.bootstrap_input_cleanup &&
+          object.spec.template.spec.containers.map(c,
+            {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
+          oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext,
+            'volumeMounts': dyn(c.name == 'openbao' ?
+              c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)})) ||
         (variables.handoff &&
           object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext,
             'volumeMounts': dyn(c.volumeMounts.filter(m, m.name != 'kube-api-access'))}) ==

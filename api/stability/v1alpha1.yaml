@@ -236,6 +236,13 @@ resources:
         omission: generated JWT roles bind only their default local ServiceAccount subjects
         enforcement: [crd-schema, controller]
         rationale: Recovery-target identity bindings are additive and role-scoped; cross-control-plane JWT trust remains a separate configuration contract.
+      - path: spec.selfInit.requests[].dataFrom
+        classification: additive-unfrozen
+        mutability: immutable
+        owner: bootstrap-security
+        omission: raw self-init requests use only inline non-sensitive data
+        enforcement: [crd-schema, admission-policy, controller]
+        rationale: Immutable same-namespace Secret key mappings use at most two source Secrets and are consumed as strings only during first initialization.
       - path: spec.reconcilePolicies
         classification: additive-unfrozen
         owner: bootstrap-security

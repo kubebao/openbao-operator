@@ -246,6 +246,10 @@
       }
     },
     "render_self_init_requests.hcl": {},
+    "render_self_init_secret_inputs.hcl": {
+      "min_version": "2.6.0",
+      "unsupported_contains": ["eval_source", "file"]
+    },
     "render_self_init_restore_policy.hcl": {},
     "render_self_init_target_controller.hcl": {},
     "render_self_init_token_secret_ref.hcl": {},

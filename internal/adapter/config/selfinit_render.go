@@ -11,6 +11,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	platformsemver "github.com/kubebao/openbao-operator/internal/platform/semver"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
+	"github.com/kubebao/openbao-operator/internal/port/initmanager"
 	"github.com/zclconf/go-cty/cty"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -98,7 +99,7 @@ func validateSelfInitRequestVersion(cluster *openbaov1alpha1.OpenBaoCluster) err
 		return nil
 	}
 	for _, request := range cluster.Spec.SelfInit.Requests {
-		if len(request.Headers) == 0 && request.When == nil {
+		if len(request.Headers) == 0 && request.When == nil && len(request.DataFrom) == 0 {
 			continue
 		}
 		supported, err := platformsemver.AtLeast(cluster.Spec.Version, 2, 6, 0)
@@ -106,6 +107,9 @@ func validateSelfInitRequestVersion(cluster *openbaov1alpha1.OpenBaoCluster) err
 			return fmt.Errorf("validate self-init request version: %w", err)
 		}
 		if !supported {
+			if len(request.DataFrom) > 0 {
+				return fmt.Errorf("self-init request %q: dataFrom requires OpenBao >= 2.6.0", request.Name)
+			}
 			return fmt.Errorf("self-init request %q: headers and when require OpenBao >= 2.6.0", request.Name)
 		}
 	}
@@ -218,6 +222,10 @@ func defaultAutopilotRequest() (openbaov1alpha1.SelfInitRequest, error) {
 // operation, path, and optional data fields. The request name is required by OpenBao's configuration
 // schema and is used as the map key when parsing JSON/HCL.
 func renderSelfInitStanzas(body *hclwrite.Body, requests []openbaov1alpha1.SelfInitRequest) error {
+	inputs, err := initmanager.SecretInputs(requests)
+	if err != nil {
+		return err
+	}
 	for _, req := range requests {
 		if strings.TrimSpace(req.Name) == "" {
 			continue
@@ -262,6 +270,22 @@ func renderSelfInitStanzas(body *hclwrite.Body, requests []openbaov1alpha1.SelfI
 			dataVal = ctyVal
 		}
 
+		if len(req.DataFrom) > 0 {
+			data := map[string]cty.Value{}
+			if dataVal != cty.NilVal {
+				data = dataVal.AsValueMap()
+			}
+			for _, input := range inputs {
+				if input.RequestName == req.Name {
+					data[input.FieldName] = cty.ObjectVal(map[string]cty.Value{
+						"eval_source": cty.StringVal("file"),
+						"eval_type":   cty.StringVal("string"),
+						"path":        cty.StringVal(input.Path()),
+					})
+				}
+			}
+			dataVal = cty.ObjectVal(data)
+		}
 		if dataVal != cty.NilVal {
 			setSelfInitRequestData(requestBody, dataVal)
 		}

@@ -155,7 +155,7 @@ func (m *Manager) ensureConfigMapWithName(ctx context.Context, cluster *openbaov
 func (m *Manager) ensureSelfInitConfigMap(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error {
 	cmName := resourceidentity.ConfigInitMapName(cluster)
 
-	if cluster.Status.SelfInitialized {
+	if cluster.Status.SelfInitialized || (cluster.Status.Initialized && cluster.Spec.SelfInit != nil && cluster.Spec.SelfInit.Enabled) {
 		logger.V(1).Info("Self-init already completed; reconciling inert self-init ConfigMap", "configmap", cmName)
 		return m.ensureConfigMapWithName(ctx, cluster, cmName, completedSelfInitConfig)
 	}
@@ -181,6 +181,14 @@ func (m *Manager) ensureSelfInitConfigMap(ctx context.Context, logger logr.Logge
 		if err := m.client.Delete(ctx, configMap); err != nil {
 			return fmt.Errorf("failed to delete self-init ConfigMap %s/%s: %w", cluster.Namespace, cmName, err)
 		}
+		return nil
+	}
+
+	// Completion is written before status. Preserve that durable witness if the
+	// controller stops before it can persist status, so restarts need no inputs.
+	if completed, err := m.selfInitConfigCompleted(ctx, cluster, cmName); err != nil {
+		return err
+	} else if completed {
 		return nil
 	}
 
@@ -279,6 +287,28 @@ func (m *Manager) ensureSelfInitConfigMap(ctx context.Context, logger logr.Logge
 	}
 
 	return nil
+}
+
+func (m *Manager) selfInitConfigCompleted(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, name string) (bool, error) {
+	completed := &corev1.ConfigMap{}
+	reader := m.reader
+	if reader == nil {
+		reader = m.client
+	}
+	err := reader.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: name}, completed)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check self-init completion ConfigMap: %w", err)
+	}
+	if completed.Data[configFileName] != completedSelfInitConfig {
+		return false, nil
+	}
+	if err := resourceownership.RequireOwnerProof("preserve completed self-init configuration", completed, cluster); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func shouldBootstrapJWTAuth(cluster *openbaov1alpha1.OpenBaoCluster) bool {

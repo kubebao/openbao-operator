@@ -2073,6 +2073,22 @@ _Appears in:_
 | `requests` _[SelfInitRequest](#selfinitrequest) array_ | Requests defines the API operations to execute during self-initialization.<br />Each request becomes a named request block inside an initialize stanza. |  | Optional: \{\} <br /> |
 
 
+#### SelfInitDataSource
+
+
+
+SelfInitDataSource supplies one string field of a raw self-init request.
+
+
+
+_Appears in:_
+- [SelfInitRequest](#selfinitrequest)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `secretKeyRef` _[SelfInitSecretKeyReference](#selfinitsecretkeyreference)_ | SecretKeyRef selects a required Secret key in the OpenBaoCluster namespace. |  |  |
+
+
 #### SelfInitOIDCAdditionalSubjects
 
 
@@ -2175,6 +2191,7 @@ _Appears in:_
 | `secretEngine` _[SelfInitSecretEngine](#selfinitsecretengine)_ | SecretEngine configures a secret engine when Path starts with "sys/mounts/".<br />This provides structured configuration for enabling secret engines.<br />Only used when Path matches the pattern "sys/mounts/*". |  | Optional: \{\} <br /> |
 | `policy` _[SelfInitPolicy](#selfinitpolicy)_ | Policy configures a policy when Path starts with "sys/policies/".<br />This provides structured configuration for creating/updating policies.<br />Only used when Path matches the pattern "sys/policies/*". |  | Optional: \{\} <br /> |
 | `data` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#json-v1-apiextensions-k8s-io)_ | Data contains the request payload for paths that don't have structured types.<br />This must be a JSON/YAML object whose shape matches the target API endpoint.<br />Nested maps and lists are supported and are rendered into the initialize stanza as HCL objects.<br />**Note:** For common paths, use structured types instead:<br />- `sys/audit/*` → use `auditDevice`<br />- `sys/auth/*` → use `authMethod`<br />- `sys/mounts/*` → use `secretEngine`<br />- `sys/policies/*` → use `policy`<br />This payload is stored in the OpenBaoCluster resource and persisted in etcd;<br />it must not contain sensitive values such as tokens, passwords, or unseal keys. |  | Optional: \{\} <br /> |
+| `dataFrom` _object (keys:string, values:[SelfInitDataSource](#selfinitdatasource))_ | DataFrom maps top-level request fields to required keys in same-namespace<br />Secrets. Values are read as strings during first self-initialization.<br />Requires OpenBao 2.6.0 or newer. Use only with raw request payloads, not<br />auditDevice, authMethod, secretEngine, policy, or their reserved API paths.<br />Field names must match ^[A-Za-z_][A-Za-z0-9_-]*$. A field must not occur<br />in both data and dataFrom.<br />All requests together can reference at most two distinct Secrets. Mappings,<br />including their request and field names, are immutable after cluster creation.<br />Missing inputs block startup before OpenBao initializes, including when<br />when is false or allowFailure is true. Changes after initialization do not<br />update OpenBao. The operator does not read or copy the Secret values. |  | MaxProperties: 64 <br />Optional: \{\} <br /> |
 | `allowFailure` _boolean_ | AllowFailure allows this request to fail without blocking initialization.<br />Defaults to false. |  | Optional: \{\} <br /> |
 
 
@@ -2196,6 +2213,23 @@ _Appears in:_
 | `type` _string_ | Type is the type of secret engine (e.g., "kv", "pki", "transit", "database"). |  | MinLength: 1 <br /> |
 | `description` _string_ | Description is an optional description for the secret engine. |  | Optional: \{\} <br /> |
 | `options` _object (keys:string, values:string)_ | Options contains optional configuration specific to the secret engine type.<br />For KV engines, common options include: version ("1" or "2").<br />For other engines, options vary by type. |  | Optional: \{\} <br /> |
+
+
+#### SelfInitSecretKeyReference
+
+
+
+SelfInitSecretKeyReference identifies a bootstrap input without containing its value.
+
+
+
+_Appears in:_
+- [SelfInitDataSource](#selfinitdatasource)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the Secret name. The submitting identity must be authorized to get it. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br /> |
+| `key` _string_ | Key is the Secret data key. Its exact contents are used without trimming. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[-._a-zA-Z0-9]+$` <br /> |
 
 
 #### ServiceAccountConfig

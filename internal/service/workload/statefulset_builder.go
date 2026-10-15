@@ -13,6 +13,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/adapter/security"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
+	"github.com/kubebao/openbao-operator/internal/port/initmanager"
 )
 
 const (
@@ -27,6 +28,15 @@ const (
 // When operator image verification is enabled, this should be a digest.
 // spec identifies the target workload pool and rollout shape.
 func buildStatefulSetForSpec(cluster *openbaov1alpha1.OpenBaoCluster, configContent string, initialized bool, spec StatefulSetSpec, platform string) (*appsv1.StatefulSet, error) {
+	var secretInputs []initmanager.SecretInput
+	if !initialized && !cluster.Status.Initialized && !cluster.Status.SelfInitialized &&
+		!spec.DisableSelfInit && cluster.Spec.SelfInit != nil && cluster.Spec.SelfInit.Enabled {
+		var err error
+		secretInputs, err = initmanager.SecretInputs(cluster.Spec.SelfInit.Requests)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if spec.Pool == "" {
 		spec.Pool = constants.LabelValueOpenBaoWorkloadPoolVoter
 	}
@@ -117,6 +127,7 @@ func buildStatefulSetForSpec(cluster *openbaov1alpha1.OpenBaoCluster, configCont
 		},
 	}
 
+	addSelfInitSecretInputs(&statefulSet.Spec.Template.Spec, secretInputs)
 	security.AddManagedWorkloadSecurityLabels(statefulSet.Labels, cluster)
 
 	return statefulSet, nil

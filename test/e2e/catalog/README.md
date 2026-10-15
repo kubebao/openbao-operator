@@ -11,10 +11,10 @@ Notes:
 
 ## Summary
 
-- Files: `23`
-- Specs: `97`
-- Explicit case IDs: `49`
-- Coverage tags: `54`
+- Files: `24`
+- Specs: `98`
+- Explicit case IDs: `50`
+- Coverage tags: `56`
 
 ## Suites
 
@@ -24,6 +24,7 @@ Notes:
 | [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 8 | 0 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
 | [Hardened profile (External TLS + Transit auto-unseal + SelfInit)](suites/Cluster_Profile_Hardened_test.md) | 5 | 3 | 0 | `profile-hardened`, `security`, `cluster`, `upgrade`, `bluegreen`, `hardened`, `rolling` | `test/e2e/Cluster_Profile_Hardened_test.go` |
 | [Cluster Runtime Controls](suites/Cluster_Runtime_Controls_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `runtime` | `test/e2e/Cluster_Runtime_Controls_test.go` |
+| [Self-init Secret inputs](suites/Cluster_SelfInit_Secret_Inputs_test.md) | 1 | 1 | 0 | `lifecycle`, `cluster`, `self-init-inputs` | `test/e2e/Cluster_SelfInit_Secret_Inputs_test.go` |
 | [ACME TLS (OpenBao native ACME client)](suites/Cluster_TLS_ACME_test.md) | 2 | 1 | 0 | `tls`, `security`, `slow` | `test/e2e/Cluster_TLS_ACME_test.go` |
 | [Cluster TLS Lifecycle](suites/Cluster_TLS_Lifecycle_test.md) | 1 | 1 | 0 | `tls`, `cluster`, `lifecycle` | `test/e2e/Cluster_TLS_Lifecycle_test.go` |
 | [Cluster KMIP Unseal](suites/Cluster_Unseal_KMIP_test.md) | 1 | 0 | 0 | `cluster`, `lifecycle`, `unseal`, `kmip`, `hsm` | `test/e2e/Cluster_Unseal_KMIP_test.go` |
@@ -62,6 +63,7 @@ Notes:
 | `bluegreen-operation-identity` | 1 |
 | `bluegreen-replica-drift` | 1 |
 | `bluegreen-upgrade` | 1 |
+| `bootstrap-secret-removal` | 1 |
 | `cert-replacement` | 1 |
 | `configmap-protection` | 1 |
 | `controller-failover` | 1 |
@@ -91,6 +93,7 @@ Notes:
 | `restore-static-token-secret-identity` | 1 |
 | `scale-reconcile` | 1 |
 | `secret-regeneration` | 1 |
+| `self-init-secret-inputs` | 1 |
 | `stable-workload-identity` | 1 |
 | `stale-green-cleanup` | 1 |
 | `statefulset-protection` | 1 |
