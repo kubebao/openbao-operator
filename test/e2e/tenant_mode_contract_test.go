@@ -6,13 +6,30 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/kubebao/openbao-operator/test/utils"
 )
 
 func TestE2EFixtureSingleTenantRestoresModeBeforePreservingResources(t *testing.T) {
-	file, err := parser.ParseFile(token.NewFileSet(), "Tenant_Isolation_test.go", nil, 0)
+	root, err := utils.GetProjectDir()
+	require.NoError(t, err)
+	for _, directory := range []string{root, filepath.Join(root, "test", "e2e")} {
+		t.Run(filepath.Base(directory), func(t *testing.T) {
+			t.Chdir(directory)
+			assertSingleTenantModeRestoredBeforePreservation(t)
+		})
+	}
+}
+
+func assertSingleTenantModeRestoredBeforePreservation(t *testing.T) {
+	t.Helper()
+	root, err := utils.GetProjectDir()
+	require.NoError(t, err)
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(root, "test", "e2e", "Tenant_Isolation_test.go"), nil, 0)
 	require.NoError(t, err)
 	calls := func(node ast.Node, name string) bool {
 		found := false
