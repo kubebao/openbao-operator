@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -175,14 +176,9 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	apiService := &corev1.Service{}
 	gomega.Expect(f.client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "kubernetes"}, apiService)).To(gomega.Succeed())
-	families := append([]corev1.IPFamily(nil), apiService.Spec.IPFamilies...)
-	gomega.Expect(families).NotTo(gomega.BeEmpty())
+	gomega.Expect(apiService.Spec.IPFamilies).NotTo(gomega.BeEmpty())
+	families := append([]corev1.IPFamily(nil), apiService.Spec.IPFamilies[:1]...)
 	policy := corev1.IPFamilyPolicySingleStack
-	if len(families) == 2 {
-		// Exercise destination selection independently of the source's primary family.
-		families[0], families[1] = families[1], families[0]
-		policy = corev1.IPFamilyPolicyRequireDualStack
-	}
 	f.sourceFW, err = framework.New(ctx, f.client, "minimal-source", operatorNamespace)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	f.destinationFW, err = framework.New(ctx, f.client, "minimal-destination", operatorNamespace)
@@ -309,6 +305,19 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 		ExpectedVersion:   summary.Version,
 		ExpectedDigest:    summary.Digest,
 		ExpectedSize:      summary.Size,
+	}
+	sourcePod := &corev1.Pod{}
+	gomega.Expect(f.client.Get(ctx, client.ObjectKey{Namespace: f.source.Namespace, Name: f.source.Name + "-0"}, sourcePod)).To(gomega.Succeed())
+	assertNetworkProfile(*sourcePod, os.Getenv("E2E_NETWORK_PROFILE"))
+	if len(sourcePod.Status.PodIPs) == 2 {
+		// The Kubernetes API Service can remain single-stack in a dual-stack
+		// cluster. Use the actual Pod addresses to require both families.
+		secondary := corev1.IPv6Protocol
+		if families[0] == corev1.IPv6Protocol {
+			secondary = corev1.IPv4Protocol
+		}
+		families = []corev1.IPFamily{secondary, families[0]}
+		policy = corev1.IPFamilyPolicyRequireDualStack
 	}
 	f.template = &api.RestoreClusterTemplate{
 		Version: "2.7.1",
