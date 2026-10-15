@@ -2,6 +2,9 @@ name: Prepare E2E lane
 description: Pull lane images, create the Kind cluster, preload emulator images, and export E2E report paths.
 
 inputs:
+  network-profile:
+    description: Optional policy-enforcing Cilium profile (ipv4, ipv6, dual-ipv4, dual-ipv6).
+    default: ""
   candidate-image-transport:
     description: Candidate images come from registry pulls or verified local artifacts.
     default: registry
@@ -147,10 +150,18 @@ runs:
       env:
         KIND_CLUSTER: ${{ inputs.kind-cluster }}
         KIND_NODE_IMAGE: ${{ inputs.kind-node-image }}
+        E2E_NETWORK_PROFILE: ${{ inputs.network-profile }}
+        E2E_REPORT_DIR: ${{ inputs.report-dir }}
       run: |
         set -euo pipefail
 
-        if ! kind get clusters | grep -qx "${KIND_CLUSTER}"; then
+        if [[ -n "${E2E_NETWORK_PROFILE}" ]]; then
+          export KUBECONFIG="${RUNNER_TEMP}/network-kind.kubeconfig"
+          export E2E_NETWORK_OWNER="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+          echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+          echo "E2E_NETWORK_OWNER=${E2E_NETWORK_OWNER}" >> "${GITHUB_ENV}"
+          bash hack/ci/create-network-kind.sh
+        elif ! kind get clusters | grep -qx "${KIND_CLUSTER}"; then
           kind create cluster --name "${KIND_CLUSTER}" --image "${KIND_NODE_IMAGE}"
         fi
 

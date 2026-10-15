@@ -59,6 +59,7 @@ type Framework struct {
 
 // DevelopmentClusterConfig defines the inputs for creating a basic Development profile cluster.
 type DevelopmentClusterConfig struct {
+	TLSMode              openbaov1alpha1.TLSMode
 	Name                 string
 	Replicas             int32
 	Version              string
@@ -386,6 +387,9 @@ func (f *Framework) CreateDevelopmentCluster(ctx context.Context, cfg Developmen
 
 	if cfg.DeletionPolicy != "" {
 		cluster.Spec.DeletionPolicy = cfg.DeletionPolicy
+	}
+	if cfg.TLSMode != "" {
+		cluster.Spec.TLS.Mode = cfg.TLSMode
 	}
 
 	if sc := strings.TrimSpace(os.Getenv("E2E_STORAGE_CLASS")); sc != "" {

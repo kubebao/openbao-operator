@@ -1,3 +1,4 @@
 ^hack/tools/e2e_(manifest|plan|report)/
 ^test/e2e/suites\.yaml$
 ^hack/ci/e2e-selection-paths\.txt$
+^hack/ci/(create|delete)-network-kind\.sh$

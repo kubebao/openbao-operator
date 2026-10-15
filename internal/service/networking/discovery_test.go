@@ -50,6 +50,36 @@ func TestAPIServerDiscovery_DiscoverServiceNetworkCIDR(t *testing.T) {
 	}
 }
 
+func TestIPToSingleHostCIDR(t *testing.T) {
+	for address, want := range map[string]string{
+		"10.96.0.1":        "10.96.0.1/32",
+		"fd00:10:96::1":    "fd00:10:96::1/128",
+		"::ffff:10.96.0.1": "10.96.0.1/32",
+		"not-an-ip":        "",
+	} {
+		got, err := ipToSingleHostCIDR(address)
+		if got != want || (err != nil) != (want == "") {
+			t.Errorf("ipToSingleHostCIDR(%q) = %q, %v; want %q", address, got, err, want)
+		}
+	}
+}
+
+func TestDetectAPIServerInfoIPv6Primary(t *testing.T) {
+	t.Setenv("KUBERNETES_SERVICE_HOST", "fd00:10:96::1")
+	c := fake.NewClientBuilder().WithScheme(testScheme).Build()
+	m := &Manager{client: c, reader: c}
+	cluster := &openbaov1alpha1.OpenBaoCluster{Spec: openbaov1alpha1.OpenBaoClusterSpec{
+		Network: &openbaov1alpha1.NetworkConfig{APIServerEndpointIPs: []string{"192.0.2.1", "2001:db8::1"}},
+	}}
+	info, err := m.detectAPIServerInfo(context.Background(), logr.Discard(), cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.ServiceNetworkCIDR != "fd00:10:96::1/128" || strings.Join(info.EndpointIPs, ",") != "192.0.2.1,2001:db8::1" {
+		t.Fatalf("API server egress = %+v, want IPv6 Service VIP and both declared endpoint families", info)
+	}
+}
+
 func TestDetectAPIServerInfo_ManualCIDRIsNormalized(t *testing.T) {
 	m := &Manager{client: fake.NewClientBuilder().
 		WithScheme(testScheme).

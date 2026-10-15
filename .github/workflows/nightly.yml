@@ -32,6 +32,7 @@ on:
           - upgrade-bluegreen-recovery
           - upgrade-gateway
           - hardened
+          - networking
       e2e_kubernetes:
         description: Optional Kubernetes version filter for manual dispatch.
         required: false

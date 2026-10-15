@@ -6,6 +6,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -1272,7 +1273,7 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 							// Allow egress to the Service ClusterIP (some CNIs evaluate policy pre-DNAT).
 							{
 								IPBlock: &networkingv1.IPBlock{
-									CIDR: svc.Spec.ClusterIP + "/32",
+									CIDR: e2ehelpers.HostCIDR(svc.Spec.ClusterIP),
 								},
 							},
 							{
@@ -1316,7 +1317,7 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 			c,
 			f.Namespace,
 			openBaoImage,
-			fmt.Sprintf("https://%s:8200", svc.Spec.ClusterIP),
+			"https://"+net.JoinHostPort(svc.Spec.ClusterIP, "8200"),
 			"default",
 			map[string]string{"role": "test-verifier"},
 		)

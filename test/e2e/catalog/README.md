@@ -11,10 +11,10 @@ Notes:
 
 ## Summary
 
-- Files: `25`
-- Specs: `98`
-- Explicit case IDs: `98`
-- Coverage tags: `56`
+- Files: `26`
+- Specs: `100`
+- Explicit case IDs: `100`
+- Coverage tags: `58`
 
 ## Suites
 
@@ -22,6 +22,7 @@ Notes:
 | --- | ---: | ---: | ---: | --- | --- |
 | [Cluster Lifecycle: Deletion Policy](suites/Cluster_DeletionPolicy_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `deletion` | `test/e2e/Cluster_DeletionPolicy_test.go` |
 | [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 8 | 8 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
+| [Cluster Networking](suites/Cluster_Networking_test.md) | 2 | 2 | 0 | `networking`, `critical`, `e2e-anchor` | `test/e2e/Cluster_Networking_test.go` |
 | [Hardened profile (External TLS + Transit auto-unseal + SelfInit)](suites/Cluster_Profile_Hardened_test.md) | 5 | 5 | 0 | `profile-hardened`, `security`, `cluster`, `upgrade`, `bluegreen`, `hardened`, `rolling` | `test/e2e/Cluster_Profile_Hardened_test.go` |
 | [Cluster Runtime Controls](suites/Cluster_Runtime_Controls_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `runtime` | `test/e2e/Cluster_Runtime_Controls_test.go` |
 | [Self-init Secret inputs](suites/Cluster_SelfInit_Secret_Inputs_test.md) | 1 | 1 | 0 | `lifecycle`, `cluster`, `self-init-inputs` | `test/e2e/Cluster_SelfInit_Secret_Inputs_test.go` |
@@ -55,6 +56,8 @@ Notes:
 | `operation-lock` | 3 |
 | `anti-tamper` | 2 |
 | `backup-owner-first` | 2 |
+| `network-policy-enforcement` | 2 |
+| `pod-ip-advertisement` | 2 |
 | `pvc-cleanup` | 2 |
 | `recoverability-secret-cleanup` | 2 |
 | `rolling-upgrade` | 2 |

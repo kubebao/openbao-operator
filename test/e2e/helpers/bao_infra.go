@@ -145,7 +145,7 @@ seal "static" {
 }
 
 listener "tcp" {
-  address     = "0.0.0.0:8200"
+  address     = "[::]:8200"
   tls_cert_file = "/etc/bao/tls/tls.crt"
   tls_key_file  = "/etc/bao/tls/tls.key"
   tls_client_ca_file = "/etc/bao/tls/ca.crt"

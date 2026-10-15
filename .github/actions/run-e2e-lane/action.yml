@@ -124,6 +124,7 @@ runs:
         candidate-image-transport: ${{ inputs.image-transport }}
         kind-node-image: ${{ env.KIND_NODE_IMAGE }}
         kind-cluster: kind
+        network-profile: ${{ env.E2E_NETWORK_PROFILE }}
         manager-image: ${{ inputs.manager-image }}
         config-init-image: ${{ inputs.config-init-image }}
         backup-executor-image: ${{ inputs.backup-executor-image }}
@@ -164,7 +165,12 @@ runs:
       if: >-
         always() && (steps.prepare.outcome == 'success' || steps.prepare.outcome == 'failure' || steps.prepare.outcome == 'cancelled')
       shell: bash
-      run: kind delete cluster --name kind
+      run: |
+        if [[ -n "${E2E_NETWORK_PROFILE}" ]]; then
+          bash hack/ci/delete-network-kind.sh
+        else
+          kind delete cluster --name kind
+        fi
 
     - name: Upload E2E artifacts
       if: always()

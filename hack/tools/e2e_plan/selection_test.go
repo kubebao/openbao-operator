@@ -36,7 +36,7 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 	}
 	all := []string{"core", "controller-jwt", "security", "backup-restore", "restore-tests", "upgrade-rolling",
 		"upgrade-bluegreen-core", "upgrade-bluegreen-verification", "upgrade-bluegreen-recovery",
-		"upgrade-gateway", "hardened", "hsm"}
+		"upgrade-gateway", "hardened", "hsm", "networking"}
 	upgrades := all[5:10]
 	tests := []struct {
 		name, event, head string
@@ -45,11 +45,14 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 		full, pentest     bool
 		blocked           bool
 	}{
-		{name: "source PR", lanes: all[:3], routes: []string{"e2e"}},
-		{name: "backup path", lanes: all[:5], routes: []string{"e2e", "e2e_backup"}},
+		{name: "source PR", lanes: append(append([]string{}, all[:3]...), "networking"), routes: []string{"e2e"}},
+		{
+			name: "backup path", lanes: append(append([]string{}, all[:5]...), "networking"),
+			routes: []string{"e2e", "e2e_backup"},
+		},
 		{
 			name:   "upgrade path",
-			lanes:  append(append([]string{}, all[:3]...), upgrades...),
+			lanes:  append(append(append([]string{}, all[:3]...), upgrades...), "networking"),
 			routes: []string{"e2e", "e2e_upgrade"},
 		},
 		{name: "backup planner path", lanes: all[3:5], routes: []string{"e2e_backup"}},
@@ -58,13 +61,13 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 		{name: "security label", lanes: []string{"hardened"}, labels: []string{"security"}, pentest: true},
 		{
 			name:    "pentest with source and label",
-			lanes:   []string{"core", "controller-jwt", "security", "hardened"},
+			lanes:   []string{"core", "controller-jwt", "security", "hardened", "networking"},
 			labels:  []string{"controller"},
 			routes:  []string{"e2e"},
 			pentest: true,
 		},
 		{
-			name: "hardened path", lanes: []string{"core", "controller-jwt", "security", "hardened"},
+			name: "hardened path", lanes: []string{"core", "controller-jwt", "security", "hardened", "networking"},
 			routes: []string{"e2e", "e2e_hardened"},
 		},
 		{name: "seal path", lanes: []string{"hsm"}, routes: []string{"e2e_seal"}},
@@ -290,6 +293,49 @@ func TestProfilesPreserveQualificationContexts(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestNetworkQualificationContexts(t *testing.T) {
+	m, cases := loadRepoManifest(t), repoCases(t)
+	matrix, err := buildGithubNightlyMatrix(m, "weekly-full", nightlyFilters{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	planned, err := selectScenarios(matrix, m, cases, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	witnesses := map[string]string{
+		"network-external-tls-and-policy/ipv6":      "",
+		"network-external-tls-and-policy/dual-ipv4": "",
+		"network-external-tls-and-policy/dual-ipv6": "",
+		"network-addresses-and-policy/ipv6":         "",
+		"network-addresses-and-policy/dual-ipv4":    "",
+		"network-addresses-and-policy/dual-ipv6":    "",
+		"cluster-restart-at-rolls-pod/ipv6":         "",
+		"upgrade-rolling-happy-path/ipv6":           "",
+		"dr-s3-restorable-backup/ipv6":              "",
+		"dr-s3-restore-cr/ipv6":                     "",
+	}
+	for _, row := range planned.Include {
+		for _, id := range row.ExpectedCaseIDs {
+			key := id + "/" + row.NetworkProfile
+			if _, required := witnesses[key]; required {
+				witnesses[key] = row.ID
+			}
+		}
+	}
+	for key, owner := range witnesses {
+		if owner == "" {
+			t.Errorf("network qualification omits %s", key)
+		}
+	}
+
+	row := planned.Include[0]
+	row.NetworkProfile = "ipv7"
+	if _, err := selectScenarios(githubMatrix{Include: []matrixRow{row}}, m, cases, nil); err == nil {
+		t.Fatal("unknown address families must fail planning")
 	}
 }
 

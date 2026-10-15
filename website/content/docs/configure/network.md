@@ -5,9 +5,6 @@ eyebrow: Configure · Service boundary
 weight: 8
 verifiedBy:
   - api/v1alpha1/openbaocluster_networking_types.go
-  - api/v1alpha1/openbaocluster_workload_types.go
-  - cmd/bao-wrapper/environment.go
-  - internal/service/networking/services.go
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/service/networking/policy_build.go
   - internal/service/networking/policy_rules.go
@@ -23,42 +20,6 @@ The operator manages standard Kubernetes `NetworkPolicy` resources. The platform
 and any supplementary CNI-specific policies.
 
 Add environment-specific peers and egress explicitly; enabling an edge resource does not silently widen pod access.
-
-## Use IPv6 and dual-stack networks
-
-OpenBao advertises the primary Pod IP from `status.podIP`. IPv6 literals include brackets, for example
-`https://[fd00::12]:8200`. Raft peers use the shared headless Service and Pod DNS names. On dual-stack clusters, that
-Service publishes both IP families. On single-stack clusters, it uses the available family.
-
-The main client Service and dedicated read-replica Service retain the Kubernetes default IP family policy unless
-you configure `ipFamilyPolicy` or `ipFamilies`. To request both families with IPv6 as the primary family:
-
-{{< command label="configure" title="Request IPv6-first dual-stack client Services" >}}
-spec:
-  service:
-    type: ClusterIP
-    ipFamilyPolicy: RequireDualStack
-    ipFamilies: [IPv6, IPv4]
-  readReplicas:
-    replicas: 1
-    service:
-      enabled: true
-      ipFamilyPolicy: RequireDualStack
-      ipFamilies: [IPv6, IPv4]
-{{< /command >}}
-
-`RequireDualStack` requires a dual-stack Kubernetes cluster. `PreferDualStack` also works on a single-stack cluster
-when you omit `ipFamilies`. Use `SingleStack` with `ipFamilies: [IPv6]` to request an IPv6-only client Service on a
-cluster that supports that family. Choose the primary family before creating the Service; Kubernetes does not allow
-changing an existing Service's primary family. External load balancers and edge controllers must support the selected
-families independently.
-
-Use `/32` for a single IPv4 endpoint and `/128` for a single IPv6 endpoint in NetworkPolicy CIDR rules. Specify literal
-IPv6 URL endpoints with brackets. DNS endpoints can resolve to either family. Certificate verification still uses the
-configured TLS server name; selecting an IP family does not add IP SANs to an externally supplied certificate.
-
-The Cilium API-server policy requirement below applies to IPv4, IPv6, and dual-stack clusters. A configured allow-list
-does not prove that the CNI permits traffic.
 
 ## Understand the managed baseline
 

@@ -409,6 +409,20 @@ func TestParseAddr(t *testing.T) {
 		wantLoopback bool
 	}{
 		{
+			name:         "IPv6 loopback",
+			rawAddr:      "https://[::1]:8200",
+			wantLoopback: true,
+		},
+		{
+			name:    "IPv6 Pod address",
+			rawAddr: "https://[2001:db8::12]:8200",
+		},
+		{
+			name:    "bare IPv6 rejected",
+			rawAddr: "https://2001:db8::12:8200",
+			wantErr: true,
+		},
+		{
 			name:         "valid https URL",
 			rawAddr:      "https://localhost:8200",
 			wantErr:      false,

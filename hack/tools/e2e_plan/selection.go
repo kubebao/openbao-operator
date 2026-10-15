@@ -204,6 +204,9 @@ func selectScenarios(
 	planned := githubMatrix{Include: []matrixRow{}}
 	seen := map[string]string{}
 	for _, row := range matrix.Include {
+		if !validNetworkProfile(row.NetworkProfile) {
+			return githubMatrix{}, fmt.Errorf("lane %s has invalid network profile %q", row.ID, row.NetworkProfile)
+		}
 		if selection != nil {
 			if !selection.Scopes[row.PRScope] {
 				continue
@@ -233,7 +236,7 @@ func selectScenarios(
 			if !fullFilter(tc.Labels) {
 				return githubMatrix{}, fmt.Errorf("lane %s selects scenario %s outside its full owner", row.ID, tc.ID)
 			}
-			key := strings.Join([]string{row.Kubernetes, row.OpenBaoImage, tc.ID}, "\x00")
+			key := strings.Join([]string{row.Kubernetes, row.OpenBaoImage, row.NetworkProfile, tc.ID}, "\x00")
 			if previous, exists := seen[key]; exists {
 				return githubMatrix{}, fmt.Errorf("scenario %s repeats in %s and %s on Kubernetes %s / %s",
 					tc.ID, previous, row.ID, row.Kubernetes, row.OpenBaoImage)

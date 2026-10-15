@@ -36,11 +36,6 @@ var (
 	apiServerEndpointIPs []string
 )
 
-// kindDefaultServiceCIDR is the default service CIDR used by kind clusters.
-// This is used in e2e tests to configure spec.network.apiServerCIDR to avoid
-// requiring permissions to read the kubernetes service in the default namespace.
-const kindDefaultServiceCIDR = "10.96.0.0/12"
-
 func init() {
 	openBaoVersion = strings.TrimSpace(os.Getenv("E2E_OPENBAO_VERSION"))
 	if openBaoVersion == "" {
@@ -53,9 +48,6 @@ func init() {
 	}
 
 	apiServerCIDR = strings.TrimSpace(os.Getenv("E2E_API_SERVER_CIDR"))
-	if apiServerCIDR == "" {
-		apiServerCIDR = kindDefaultServiceCIDR
-	}
 }
 
 func blueGreenUpgradeFromVersion() string {

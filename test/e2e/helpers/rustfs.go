@@ -102,8 +102,8 @@ func EnsureRustFS(ctx context.Context, c client.Client, restCfg *rest.Config, cf
 			Namespace: cfg.Namespace,
 		},
 		Data: map[string]string{
-			"RUSTFS_ADDRESS":         "0.0.0.0:9000",
-			"RUSTFS_CONSOLE_ADDRESS": "0.0.0.0:9001",
+			"RUSTFS_ADDRESS":         "[::]:9000",
+			"RUSTFS_CONSOLE_ADDRESS": "[::]:9001",
 			"RUSTFS_LOG_LEVEL":       "info",
 		},
 	}
@@ -209,11 +209,11 @@ func EnsureRustFS(ctx context.Context, c client.Client, restCfg *rest.Config, cf
 								},
 								{
 									Name:  "RUSTFS_ADDRESS",
-									Value: "0.0.0.0:9000",
+									Value: "[::]:9000",
 								},
 								{
 									Name:  "RUSTFS_CONSOLE_ADDRESS",
-									Value: "0.0.0.0:9001",
+									Value: "[::]:9001",
 								},
 								{
 									Name:  "RUSTFS_LOG_LEVEL",

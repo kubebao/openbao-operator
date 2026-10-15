@@ -122,7 +122,7 @@ func EnsureAzurite(ctx context.Context, c client.Client, cfg AzuriteConfig) erro
 							},
 							Args: []string{
 								"azurite",
-								"--blobHost", "0.0.0.0",
+								"--blobHost", "::",
 								"--blobPort", fmt.Sprintf("%d", cfg.BlobPort),
 								"--skipApiVersionCheck",
 								"--disableProductStyleUrl", // Required for IP-style URLs with account name in path

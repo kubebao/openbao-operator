@@ -134,6 +134,7 @@ class LaneConfiguration(unittest.TestCase):
                 self.assertEqual(json.loads(values["EXPECTED_CASE_IDS"]), row["expected_case_ids"])
                 self.assertEqual(values["E2E_PARALLEL_NODES"], str(row["parallel_nodes"]))
                 self.assertEqual(values["E2E_TIMEOUT"], row["e2e_timeout"])
+                self.assertEqual(values["E2E_NETWORK_PROFILE"], row["network_profile"])
                 self.assertEqual(values["E2E_ENABLE_HARDENED_SIGNED_SUITE"], row["hardened_signed"])
                 for field in ("load_backup_executor_image", "load_upgrade_executor_image", "preload_upgrade_images",
                               "preload_hardened_assets", "preload_storage_emulators", "preload_rustfs_image",

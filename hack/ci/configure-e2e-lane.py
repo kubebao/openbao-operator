@@ -37,6 +37,7 @@ def configure():
         "E2E_SUMMARY_JSON": str(report / "summary.json"),
         "KIND_NODE_IMAGE": row["kind_node_image"],
         "KIND_CLUSTER": "kind",
+        "E2E_NETWORK_PROFILE": row.get("network_profile", ""),
         "OPENBAO_REQUEUE_STANDARD": "10s",
         "E2E_LABEL_FILTER": row["label_filter"],
         "E2E_PARALLEL_NODES": str(row["parallel_nodes"]),

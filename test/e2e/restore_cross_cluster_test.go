@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -140,7 +141,7 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 				Type:                 "transit",
 				CredentialsSecretRef: &corev1.LocalObjectReference{Name: "transit-auth"},
 				Transit: &api.TransitSealConfig{
-					Address:       fmt.Sprintf("https://%s:%d", nodeIP, sealService.Spec.Ports[0].NodePort),
+					Address:       "https://" + net.JoinHostPort(nodeIP, fmt.Sprint(sealService.Spec.Ports[0].NodePort)),
 					MountPath:     "transit",
 					KeyName:       "recovery",
 					TLSCACert:     "/etc/bao/seal-creds/ca.crt",
@@ -162,10 +163,10 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 					Unseal:            sourceSeal,
 					DeletionPolicy:    api.DeletionPolicyDeleteAll,
 					Network: &api.NetworkConfig{
-						APIServerCIDR:        sourceAPI.Spec.ClusterIP + "/32",
+						APIServerCIDR:        helpers.HostCIDR(sourceAPI.Spec.ClusterIP),
 						APIServerEndpointIPs: []string{crossClusterNodeIP(ctx, sourceClient)},
 						EgressRules: []networkingv1.NetworkPolicyEgressRule{{
-							To: []networkingv1.NetworkPolicyPeer{{IPBlock: &networkingv1.IPBlock{CIDR: nodeIP + "/32"}}},
+							To: []networkingv1.NetworkPolicyPeer{{IPBlock: &networkingv1.IPBlock{CIDR: helpers.HostCIDR(nodeIP)}}},
 							Ports: []networkingv1.NetworkPolicyPort{
 								{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: sealService.Spec.Ports[0].NodePort}},
 								{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: storageService.Spec.Ports[0].NodePort}},
@@ -182,7 +183,7 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 						Image:    backupExecutorImage,
 						Target: api.BackupTarget{
 							Provider:             "s3",
-							Endpoint:             fmt.Sprintf("http://%s:%d", nodeIP, storageService.Spec.Ports[0].NodePort),
+							Endpoint:             "http://" + net.JoinHostPort(nodeIP, fmt.Sprint(storageService.Spec.Ports[0].NodePort)),
 							Bucket:               rustfsBucket,
 							PathPrefix:           sourceFW.Namespace,
 							UsePathStyle:         true,

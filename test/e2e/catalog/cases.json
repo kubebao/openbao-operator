@@ -418,6 +418,74 @@
     "suiteTitle": ""
   },
   {
+    "id": "network-addresses-and-policy",
+    "generatedId": "cluster-networking-advertises-valid-pod-ip-urls-and-4de2c193",
+    "caseLabel": "network-addresses-and-policy",
+    "coverage": [
+      "pod-ip-advertisement",
+      "network-policy-enforcement"
+    ],
+    "file": "test/e2e/Cluster_Networking_test.go",
+    "type": "It",
+    "name": "advertises valid Pod IP URLs and enforces workload egress policy",
+    "path": [
+      "Cluster Networking",
+      "advertises valid Pod IP URLs and enforces workload egress policy"
+    ],
+    "labels": [
+      "networking",
+      "critical",
+      "case:network-addresses-and-policy",
+      "e2e-anchor",
+      "covers:pod-ip-advertisement",
+      "covers:network-policy-enforcement"
+    ],
+    "domainLabels": [
+      "networking",
+      "critical",
+      "e2e-anchor"
+    ],
+    "steps": null,
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
+    "id": "network-external-tls-and-policy",
+    "generatedId": "cluster-networking-uses-external-tls-with-only-the-2e2c13a7",
+    "caseLabel": "network-external-tls-and-policy",
+    "coverage": [
+      "pod-ip-advertisement",
+      "network-policy-enforcement"
+    ],
+    "file": "test/e2e/Cluster_Networking_test.go",
+    "type": "It",
+    "name": "uses External TLS with only the stable server name",
+    "path": [
+      "Cluster Networking",
+      "uses External TLS with only the stable server name"
+    ],
+    "labels": [
+      "networking",
+      "critical",
+      "case:network-external-tls-and-policy",
+      "e2e-anchor",
+      "covers:pod-ip-advertisement",
+      "covers:network-policy-enforcement"
+    ],
+    "domainLabels": [
+      "networking",
+      "critical",
+      "e2e-anchor"
+    ],
+    "steps": null,
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "hardened-bluegreen-upgrade",
     "generatedId": "cluster-profile-hardened-performs-a-hardened-blue-green-upgrade-6ad6aecb",
     "caseLabel": "hardened-bluegreen-upgrade",

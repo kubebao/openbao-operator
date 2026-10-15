@@ -35,12 +35,14 @@ const (
 //
 // The SANs match the operator-generated certificate shape closely enough to
 // satisfy probes (localhost) and in-cluster DNS names.
+// Optional serverNames replace the default DNS SANs for TLS contract tests.
 func EnsureExternalTLSSecrets(
 	ctx context.Context,
 	c client.Client,
 	namespace string,
 	clusterName string,
 	replicas int32,
+	serverNames ...string,
 ) error {
 	if c == nil {
 		return fmt.Errorf("kubernetes client is required")
@@ -66,6 +68,7 @@ func EnsureExternalTLSSecrets(
 		replicas,
 		caCertPEM,
 		caKeyPEM,
+		serverNames...,
 	)
 	if err != nil {
 		return err
@@ -170,6 +173,7 @@ func generateServerCert(
 	replicas int32,
 	caCertPEM []byte,
 	caKeyPEM []byte,
+	serverNames ...string,
 ) ([]byte, []byte, error) {
 	caCert, caKey, err := parseCA(caCertPEM, caKeyPEM)
 	if err != nil {
@@ -198,6 +202,9 @@ func generateServerCert(
 
 	for i := int32(0); i < replicas; i++ {
 		dnsNames = append(dnsNames, fmt.Sprintf("%s-%d.%s.%s.svc", clusterName, i, clusterName, namespace))
+	}
+	if len(serverNames) > 0 {
+		dnsNames = serverNames
 	}
 
 	ipAddresses := []net.IP{net.ParseIP("127.0.0.1")}

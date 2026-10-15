@@ -6,6 +6,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -634,7 +635,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					c,
 					f.Namespace,
 					openBaoImage,
-					fmt.Sprintf("https://%s:8200", svc.Spec.ClusterIP),
+					"https://"+net.JoinHostPort(svc.Spec.ClusterIP, "8200"),
 					"default",
 					map[string]string{"role": "test-verifier"},
 					1, // Expected min_quorum for Development profile with 1 replica
@@ -696,7 +697,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					c,
 					f.Namespace,
 					openBaoImage,
-					fmt.Sprintf("https://%s:8200", svc.Spec.ClusterIP),
+					"https://"+net.JoinHostPort(svc.Spec.ClusterIP, "8200"),
 					"default",
 					map[string]string{"role": "test-verifier"},
 					3, // Expected min_quorum for Development profile with 3 replicas
@@ -761,7 +762,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					c,
 					f.Namespace,
 					openBaoImage,
-					fmt.Sprintf("https://%s:8200", svc.Spec.ClusterIP),
+					"https://"+net.JoinHostPort(svc.Spec.ClusterIP, "8200"),
 					"default",
 					map[string]string{"role": "test-verifier"},
 					1, // Expected min_quorum for Development profile with 1 replica

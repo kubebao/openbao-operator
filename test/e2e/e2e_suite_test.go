@@ -47,6 +47,7 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
+	"github.com/kubebao/openbao-operator/test/e2e/helpers"
 	"github.com/kubebao/openbao-operator/test/utils"
 )
 
@@ -267,6 +268,21 @@ func applyControllerEnvOverrides(namespace string) error {
 		"-n", namespace, "--timeout=2m") // #nosec G204 -- test harness command
 	if _, err := utils.Run(cmd); err != nil {
 		return fmt.Errorf("failed to wait for controller rollout: %w", err)
+	}
+	return nil
+}
+
+func applyNetworkTestResources(namespace string) error {
+	if os.Getenv("E2E_NETWORK_PROFILE") == "" {
+		return nil
+	}
+	// Network qualification includes a CNI agent on every node. Give the
+	// provisioner enough memory for cache warmup without reclaiming its code
+	// pages under the small development-manifest limit.
+	cmd := exec.Command("kubectl", "set", "resources", "deployment/openbao-operator-provisioner", "-n", namespace,
+		"--limits=cpu=500m,memory=256Mi", "--requests=cpu=100m,memory=128Mi")
+	if _, err := utils.Run(cmd); err != nil {
+		return fmt.Errorf("set provisioner resources for network qualification: %w", err)
 	}
 	return nil
 }
@@ -551,6 +567,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 				To(Succeed(), "Failed to patch kube-api token audience on operator Deployments")
 
 			By("waiting for operator deployments to become Available")
+			ExpectWithOffset(1, applyNetworkTestResources(operatorNamespace)).To(Succeed())
 			ExpectWithOffset(1, waitForDeploymentsAvailable(operatorNamespace, 5*time.Minute)).
 				To(Succeed(), "Operator deployments did not become Available in time")
 
@@ -784,6 +801,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 				To(Succeed(), fmt.Sprintf("Failed to patch kube-api token audience on operator Deployments (cluster=%s)", clusterName))
 
 			By(fmt.Sprintf("waiting for operator deployments to become Available (cluster=%s)", clusterName))
+			ExpectWithOffset(1, applyNetworkTestResources(operatorNamespace)).To(Succeed())
 			ExpectWithOffset(1, waitForDeploymentsAvailable(operatorNamespace, 5*time.Minute)).
 				To(Succeed(), fmt.Sprintf("Operator deployments did not become Available in time (cluster=%s)", clusterName))
 
@@ -816,6 +834,15 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		ExpectWithOffset(1, os.Setenv("E2E_STORAGE_CLASS", bootstrap.StorageClass)).To(Succeed())
 	}
 	apiServerEndpointIPs = append([]string(nil), bootstrap.APIServerEndpointIPs...)
+	if apiServerCIDR == "" {
+		cfg, err := ctrlconfig.GetConfig()
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		apiClient, err := client.New(cfg, client.Options{Scheme: clientgoscheme.Scheme})
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		service := &corev1.Service{}
+		ExpectWithOffset(1, apiClient.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "kubernetes"}, service)).To(Succeed())
+		apiServerCIDR = helpers.HostCIDR(service.Spec.ClusterIP)
+	}
 
 	proc := GinkgoParallelProcess()
 	_, _ = fmt.Fprintf(GinkgoWriter, "E2E parallel process=%d shared_cluster=%s kubeconfig=%s\n", proc, clusterName, kubeconfigPath)

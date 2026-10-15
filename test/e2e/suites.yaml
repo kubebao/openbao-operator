@@ -240,6 +240,23 @@ ciLanes:
     preloadHardenedAssets: false
     preloadStorageEmulators: []
 
+  - id: networking
+    name: "Networking"
+    networkProfile: ipv6
+    labelFilter: "networking"
+    prScope: always
+    timeoutMinutes: 20
+    e2eTimeout: 15m
+    parallelNodes: 1
+    excludePentestOnDefaultPR: false
+    hardenedSigned: false
+    installCSIHostPath: false
+    loadBackupExecutorImage: false
+    loadUpgradeExecutorImage: false
+    preloadUpgradeImages: false
+    preloadHardenedAssets: false
+    preloadStorageEmulators: []
+
   - id: platform-openshift
     name: "OpenShift Platform"
     labelFilter: "(openshift && platform)"
@@ -277,6 +294,7 @@ nightly:
             - upgrade-bluegreen-recovery
             - upgrade-gateway
             - hardened
+            - networking
       rows:
         - lane: core
           kubernetes: "@compatibility"
@@ -311,6 +329,34 @@ nightly:
             - upgrade-bluegreen-recovery
             - upgrade-gateway
             - hardened
+            - networking
+      rows:
+        - lane: core
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: "(lifecycle && scaling) || case:cluster-restart-at-rolls-pod"
+          installCSIHostPath: false
+        - lane: backup-restore
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: >-
+            case:dr-s3-restorable-backup || case:dr-s3-restore-cr || case:dr-gcs-provider-backup-smoke ||
+            case:dr-azure-provider-backup-smoke || case:backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a
+        - lane: upgrade-rolling
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: "case:upgrade-rolling-happy-path"
+        - lane: networking
+          kubernetes: "@primary"
+          coverage: network-dual-ipv4
+          networkProfile: dual-ipv4
+        - lane: networking
+          kubernetes: "@primary"
+          coverage: network-dual-ipv6
+          networkProfile: dual-ipv6
 
     - id: release-gate
       description: "Manual full compatibility gate before release promotion."
@@ -330,8 +376,61 @@ nightly:
             - upgrade-bluegreen-recovery
             - upgrade-gateway
             - hardened
+            - networking
+
+      rows:
+        - lane: core
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: "(lifecycle && scaling) || case:cluster-restart-at-rolls-pod"
+          installCSIHostPath: false
+        - lane: backup-restore
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: >-
+            case:dr-s3-restorable-backup || case:dr-s3-restore-cr || case:dr-gcs-provider-backup-smoke ||
+            case:dr-azure-provider-backup-smoke || case:backup-restore-restores-from-azure-backup-using-openbaorestore-b3ea354a
+        - lane: upgrade-rolling
+          kubernetes: "@primary"
+          coverage: network-ipv6
+          networkProfile: ipv6
+          labelFilter: "case:upgrade-rolling-happy-path"
+        - lane: networking
+          kubernetes: "@primary"
+          coverage: network-dual-ipv4
+          networkProfile: dual-ipv4
+        - lane: networking
+          kubernetes: "@primary"
+          coverage: network-dual-ipv6
+          networkProfile: dual-ipv6
 
 suites:
+  - id: cluster-networking
+    title: "Cluster Networking"
+    owner: core
+    riskTier: high
+    isolation: parallel-safe
+    files:
+      - test/e2e/Cluster_Networking_test.go
+    labels:
+      - networking
+      - critical
+      - e2e-anchor
+    coverage:
+      - pod-ip-advertisement
+      - network-policy-enforcement
+    runtime:
+      observed: 0s
+      budget: 10m
+    ci:
+      lanes:
+        - networking
+      pullRequest: always
+    nightly:
+      policy: primary-version-full
+
   - id: cluster-deletion-policy
     title: "Cluster Lifecycle: Deletion Policy"
     owner: core

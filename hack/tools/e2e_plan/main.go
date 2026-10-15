@@ -92,16 +92,19 @@ type nightlyLaneSet struct {
 }
 
 type nightlyRowConfig struct {
-	Lane           string `yaml:"lane"`
-	Kubernetes     string `yaml:"kubernetes"`
-	Coverage       string `yaml:"coverage"`
-	LabelFilter    string `yaml:"labelFilter"`
-	TimeoutMinutes int    `yaml:"timeoutMinutes"`
-	E2ETimeout     string `yaml:"e2eTimeout"`
-	OpenBaoImage   string `yaml:"openbaoImage"`
+	InstallCSIHostPath *bool  `yaml:"installCSIHostPath"`
+	NetworkProfile     string `yaml:"networkProfile"`
+	Lane               string `yaml:"lane"`
+	Kubernetes         string `yaml:"kubernetes"`
+	Coverage           string `yaml:"coverage"`
+	LabelFilter        string `yaml:"labelFilter"`
+	TimeoutMinutes     int    `yaml:"timeoutMinutes"`
+	E2ETimeout         string `yaml:"e2eTimeout"`
+	OpenBaoImage       string `yaml:"openbaoImage"`
 }
 
 type ciLaneConfig struct {
+	NetworkProfile           string   `yaml:"networkProfile"`
 	ID                       string   `yaml:"id"`
 	Name                     string   `yaml:"name"`
 	LabelFilter              string   `yaml:"labelFilter"`
@@ -129,6 +132,7 @@ type githubMatrix struct {
 }
 
 type matrixRow struct {
+	NetworkProfile           string   `json:"network_profile"`
 	ID                       string   `json:"id"`
 	Name                     string   `json:"name"`
 	LabelFilter              string   `json:"label_filter"`
@@ -388,6 +392,9 @@ func includeInPRMatrix(lane ciLaneConfig) bool {
 
 func validateLane(prefix string, lane ciLaneConfig, seen map[string]bool, parallelism parallelismPolicy) []string {
 	var errs []string
+	if !validNetworkProfile(lane.NetworkProfile) {
+		errs = append(errs, fmt.Sprintf("%s.networkProfile %q is not recognized", prefix, lane.NetworkProfile))
+	}
 	if lane.ID == "" {
 		errs = append(errs, fmt.Sprintf("%s.id is required", prefix))
 	} else {
@@ -612,6 +619,7 @@ func matrixRowFromLane(policy versionPolicy, parallelism parallelismPolicy, lane
 	}
 	storageEmulators := storageEmulatorPreloadSet(lane.PreloadStorageEmulators)
 	return matrixRow{
+		NetworkProfile:           lane.NetworkProfile,
 		ID:                       lane.ID,
 		Name:                     lane.Name,
 		LabelFilter:              lane.LabelFilter,
@@ -671,6 +679,15 @@ func matrixRowFromNightlyLane(
 	parallelism parallelismPolicy,
 ) matrixRow {
 	row := matrixRowFromLane(policy, parallelism, lane)
+	if config.NetworkProfile != "" {
+		row.NetworkProfile = config.NetworkProfile
+	}
+	if row.NetworkProfile != "" {
+		row.Name = lane.Name + " / Cilium " + row.NetworkProfile
+	}
+	if config.InstallCSIHostPath != nil {
+		row.InstallCSIHostPath = strconv.FormatBool(*config.InstallCSIHostPath)
+	}
 	row.Kubernetes = config.Kubernetes
 	row.KindNodeImage = "kindest/node:v" + config.Kubernetes
 	row.Coverage = config.Coverage
@@ -688,6 +705,15 @@ func matrixRowFromNightlyLane(
 		row.E2ETimeout = config.E2ETimeout
 	}
 	return row
+}
+
+func validNetworkProfile(profile string) bool {
+	switch profile {
+	case "", "ipv4", "ipv6", "dual-ipv4", "dual-ipv6":
+		return true
+	default:
+		return false
+	}
 }
 
 var allowedPRScopes = map[string]bool{

@@ -58,6 +58,7 @@ type parallelismPolicy struct {
 }
 
 type ciLaneConfig struct {
+	NetworkProfile           string `yaml:"networkProfile"`
 	ID                       string `yaml:"id"`
 	Name                     string `yaml:"name"`
 	LabelFilter              string `yaml:"labelFilter"`
@@ -99,6 +100,7 @@ type nightlyLaneSet struct {
 }
 
 type nightlyRowConfig struct {
+	NetworkProfile string `yaml:"networkProfile"`
 	Lane           string `yaml:"lane"`
 	Kubernetes     string `yaml:"kubernetes"`
 	Coverage       string `yaml:"coverage"`
@@ -461,6 +463,9 @@ func validateCILanes(lanes []ciLaneConfig, parallelism parallelismPolicy) (map[s
 	seen := map[string]bool{}
 	lanesByID := map[string]ciLaneConfig{}
 	for idx, lane := range lanes {
+		if !validNetworkProfile(lane.NetworkProfile) {
+			errs = append(errs, fmt.Sprintf("ciLanes[%d].networkProfile %q is not recognized", idx, lane.NetworkProfile))
+		}
 		prefix := fmt.Sprintf("ciLanes[%d]", idx)
 		if lane.ID == "" {
 			errs = append(errs, fmt.Sprintf("%s.id is required", prefix))
@@ -639,6 +644,9 @@ func validateNightlyPlan(
 		}
 		for rowIdx, row := range profile.Rows {
 			rowPrefix := fmt.Sprintf("%s.rows[%d]", prefix, rowIdx)
+			if !validNetworkProfile(row.NetworkProfile) {
+				errs = append(errs, fmt.Sprintf("%s.networkProfile %q is not recognized", rowPrefix, row.NetworkProfile))
+			}
 			errs = append(errs, validateNightlyCoverage(rowPrefix, row.Coverage)...)
 			if _, ok := ciLanes[row.Lane]; !ok {
 				errs = append(errs, fmt.Sprintf("%s.lane %q is undefined", rowPrefix, row.Lane))
@@ -756,9 +764,21 @@ var allowedNightlyPolicies = map[string]bool{
 }
 
 var allowedNightlyCoverage = map[string]bool{
+	"network-ipv6":        true,
+	"network-dual-ipv4":   true,
+	"network-dual-ipv6":   true,
 	"compatibility-smoke": true,
 	"full":                true,
 	"release-gate":        true,
+}
+
+func validNetworkProfile(profile string) bool {
+	switch profile {
+	case "", "ipv4", "ipv6", "dual-ipv4", "dual-ipv6":
+		return true
+	default:
+		return false
+	}
 }
 
 func suiteTitle(cases []catalogCase) string {

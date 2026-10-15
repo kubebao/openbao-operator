@@ -253,6 +253,8 @@ func lanePlanner(t *testing.T) func(checkPlan) []string {
 func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 	plannedLanes := lanePlanner(t)
 	for _, path := range []string{
+		"hack/ci/create-network-kind.sh",
+		"hack/ci/delete-network-kind.sh",
 		"hack/tools/e2e_plan/main.go",
 		"hack/tools/e2e_plan/selection.go",
 		"hack/tools/e2e_plan/selection_test.go",
@@ -283,9 +285,9 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 			}
 			lanes := plannedLanes(plan)
 			want := "core,controller-jwt,security,backup-restore,restore-tests,upgrade-rolling,upgrade-bluegreen-core," +
-				"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway,hardened,hsm"
+				"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway,hardened,hsm,networking"
 			if strings.Join(lanes, ",") != want {
-				t.Fatalf("shared selection change planned %v, want all 12 automatic lanes", lanes)
+				t.Fatalf("shared selection change planned %v, want all 13 automatic lanes", lanes)
 			}
 			forkPlan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
 				prEvent("fork/repo"), routing)
@@ -303,13 +305,13 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 
 func TestFixtureChangesSelectOwningLaneFamily(t *testing.T) {
 	const upgradeLanes = "core,controller-jwt,security,upgrade-rolling,upgrade-bluegreen-core," +
-		"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway"
+		"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway,networking"
 	plannedLanes := lanePlanner(t)
 	for _, test := range []struct {
 		path, lanes string
 	}{
-		{"test/e2e/restore_minimal_helpers.go", "core,controller-jwt,security,backup-restore,restore-tests"},
-		{"test/e2e/backup_observation.go", "core,controller-jwt,security,backup-restore,restore-tests"},
+		{"test/e2e/restore_minimal_helpers.go", "core,controller-jwt,security,backup-restore,restore-tests,networking"},
+		{"test/e2e/backup_observation.go", "core,controller-jwt,security,backup-restore,restore-tests,networking"},
 		{"test/e2e/Upgrade_Gateway_test.go", upgradeLanes},
 		{"test/e2e/upgrade_fixture.go", upgradeLanes},
 	} {
