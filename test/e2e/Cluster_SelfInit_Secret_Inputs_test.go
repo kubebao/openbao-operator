@@ -193,7 +193,7 @@ func secretInputE2ECluster(namespace string) *openbaov1alpha1.OpenBaoCluster {
 					{Name: "admin-auth", Operation: openbaov1alpha1.SelfInitOperationUpdate, Path: "sys/auth/userpass",
 						AuthMethod: &openbaov1alpha1.SelfInitAuthMethod{Type: "userpass"}},
 					{Name: "admin-user", Operation: openbaov1alpha1.SelfInitOperationUpdate, Path: "auth/userpass/users/validator",
-						Data: &apiextensionsv1.JSON{Raw: []byte(`{"token_policies":["default"]}`)},
+						Data: &apiextensionsv1.JSON{Raw: []byte(`{}`)},
 						DataFrom: map[string]openbaov1alpha1.SelfInitDataSource{"password": {
 							SecretKeyRef: openbaov1alpha1.SelfInitSecretKeyReference{Name: "bootstrap-login", Key: "password"},
 						}},

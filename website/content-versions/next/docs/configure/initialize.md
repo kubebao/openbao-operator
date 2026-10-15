@@ -162,7 +162,8 @@ All requests together can reference at most two distinct Secrets. Multiple keys
 and requests can share either Secret. This limit keeps name-scoped authorization
 checks within Kubernetes' CEL evaluation budget.
 
-Declare the mappings when you create the cluster. The mappings, including their
+Declare the mappings and enable self-init when you create the cluster. Keep
+self-init enabled until initialization completes. The mappings, including their
 request names, field names, Secret names, and keys, are immutable after cluster
 creation. To repair a missing input, create or update the referenced Secret and
 key. This preserves the file projections in the existing StatefulSet template.

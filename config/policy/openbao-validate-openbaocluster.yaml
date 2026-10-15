@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-validate-openbaocluster
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:0e603228904cac477c87c79c9957dfc93f88dfadbba89c03fdffd9dc505fd55a
+    openbao.org/admission-policy-fingerprint: sha256:7acf88d350f1ff57c3805c6604666104b6df8cd357157e3660ec680a6e0b9386
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -930,6 +930,11 @@ spec:
           variables.self_init_input_requests.all(r, variables.old_self_init_input_requests.exists(o,
             o.name == r.name && o.dataFrom == r.dataFrom)))
       message: "Self-init dataFrom mappings and their request names are immutable after cluster creation; repair inputs at the referenced Secret name and key."
+    - expression: >-
+        size(variables.self_init_input_requests) == 0 ||
+        (oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized) ||
+        object.spec.selfInit.enabled
+      message: "Self-init with dataFrom must be enabled at creation and until initialization completes."
     # Secret projection delegates access to the workload. Authorize the submitter,
     # without requiring the controller to read the referenced Secret values.
     - expression: >-

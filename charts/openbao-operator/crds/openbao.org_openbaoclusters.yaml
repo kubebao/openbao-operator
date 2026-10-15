@@ -5235,6 +5235,7 @@ spec:
                             in both data and dataFrom.
                             All requests together can reference at most two distinct Secrets. Mappings,
                             including their request and field names, are immutable after cluster creation.
+                            Self-init must be enabled at creation and until initialization completes.
                             Missing inputs block startup before OpenBao initializes, including when
                             when is false or allowFailure is true. Changes after initialization do not
                             update OpenBao. The operator does not read or copy the Secret values.

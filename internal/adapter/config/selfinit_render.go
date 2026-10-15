@@ -273,7 +273,9 @@ func renderSelfInitStanzas(body *hclwrite.Body, requests []openbaov1alpha1.SelfI
 		if len(req.DataFrom) > 0 {
 			data := map[string]cty.Value{}
 			if dataVal != cty.NilVal {
-				data = dataVal.AsValueMap()
+				for key, value := range dataVal.AsValueMap() {
+					data[key] = value
+				}
 			}
 			for _, input := range inputs {
 				if input.RequestName == req.Name {

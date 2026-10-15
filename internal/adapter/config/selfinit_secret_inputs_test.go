@@ -30,6 +30,22 @@ func TestRenderSelfInitSecretInputs(t *testing.T) {
 	require.Contains(t, string(rendered), `eval_type   = "string"`)
 	require.NotContains(t, string(rendered), "client-secret")
 	require.NotContains(t, string(rendered), "human-oidc\"")
+	for _, tt := range []struct {
+		name string
+		data *apiextensionsv1.JSON
+	}{
+		{name: "empty data", data: &apiextensionsv1.JSON{Raw: []byte(`{}`)}},
+		{name: "omitted data"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			candidate := cluster.DeepCopy()
+			candidate.Spec.SelfInit.Requests[0].Data = tt.data
+			rendered, err := RenderSelfInitHCL(candidate, nil)
+			require.NoError(t, err)
+			require.Contains(t, string(rendered), inputs[0].Path())
+			require.Contains(t, string(rendered), `eval_source = "file"`)
+		})
+	}
 
 	cluster.Spec.Version = "2.5.5"
 	_, err = RenderSelfInitHCL(cluster, nil)

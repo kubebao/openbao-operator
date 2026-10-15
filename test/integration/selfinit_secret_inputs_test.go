@@ -319,11 +319,41 @@ func TestSelfInitSecretInputMappingsImmutable(t *testing.T) {
 	requireAdmissionDenied(t, err)
 	require.ErrorContains(t, err, "immutable after cluster creation")
 	disabled := secretInputCluster(namespace, "disabled-immutable-inputs")
-	disabled.Spec.SelfInit.Enabled = false
 	disabled.Spec.SelfInit.Requests = append(disabled.Spec.SelfInit.Requests, *second)
 	require.NoError(t, k8sClient.Create(ctx, disabled))
+	updateClusterStatus(t, disabled, func(status *openbaov1alpha1.OpenBaoClusterStatus) {
+		status.Initialized, status.SelfInitialized = true, true
+	})
+	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(disabled), disabled))
+	disabled.Spec.SelfInit.Enabled = false
+	require.NoError(t, k8sClient.Update(ctx, disabled))
 	disabled.Spec.SelfInit.Requests[1] = *disabled.Spec.SelfInit.Requests[0].DeepCopy()
 	err = k8sClient.Update(ctx, disabled, client.DryRunAll)
 	requireAdmissionDenied(t, err)
 	require.ErrorContains(t, err, "unique source-bearing request names")
+}
+
+func TestSelfInitSecretInputEnablement(t *testing.T) {
+	namespace := newTestNamespace(t)
+	waitForOpenBaoClusterAdmissionPolicies(t, namespace)
+	disabled := secretInputCluster(namespace, "disabled-inputs")
+	disabled.Spec.SelfInit.Enabled = false
+	err := k8sClient.Create(ctx, disabled, client.DryRunAll)
+	requireAdmissionDenied(t, err)
+	require.ErrorContains(t, err, "must be enabled at creation and until initialization completes")
+	cluster := secretInputCluster(namespace, "enabled-inputs")
+	require.NoError(t, k8sClient.Create(ctx, cluster))
+	cluster.Spec.SelfInit.Enabled = false
+	err = k8sClient.Update(ctx, cluster, client.DryRunAll)
+	requireAdmissionDenied(t, err)
+	require.ErrorContains(t, err, "must be enabled at creation and until initialization completes")
+	updateClusterStatus(t, cluster, func(status *openbaov1alpha1.OpenBaoClusterStatus) {
+		status.Initialized, status.SelfInitialized = true, true
+	})
+	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
+	cluster.Spec.SelfInit.Enabled = false
+	// Completed bootstrap can be disabled or re-enabled without replaying it.
+	require.NoError(t, k8sClient.Update(ctx, cluster))
+	cluster.Spec.SelfInit.Enabled = true
+	require.NoError(t, k8sClient.Update(ctx, cluster, client.DryRunAll))
 }
