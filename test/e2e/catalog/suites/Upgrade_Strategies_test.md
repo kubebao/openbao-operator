@@ -12,8 +12,6 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 | `upgrade-bluegreen-snapshot-promotion` | executes Blue/Green upgrade cycle with pre-upgrade snapshot | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `e2e-anchor` |
 | `upgrade-strategies-aborts-before-promotion-when-the-pre-230729f6` | aborts before promotion when the pre-promotion hook fails | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `failure` |
 | `upgrade-bluegreen-executor-failure-auto-abort` | induces executor failure and validates retry plus auto-abort behavior | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `failure`, `bluegreen`, `e2e-anchor` |
-| `upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7` | creates a TLSRoute and reports healthy passthrough integration | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-api`, `tls-passthrough` |
-| `upgrade-gateway-httproute-cutover` | keeps HTTPRoute stable and switches external Service selector at cutover | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-api`, `bluegreen`, `e2e-anchor` |
 | `upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935` | triggers late-phase rollback after promotion failures and recovers when auth is restored | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `failure`, `bluegreen`, `rollback` |
 | `upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87` | recovers a failed rolling upgrade after a retry request clears stale state | active | `lifecycle-job-owner-proof` | `upgrade`, `upgrades`, `cluster`, `slow`, `rolling`, `recovery`, `e2e-anchor` |
 | `upgrade-strategies-retries-a-failed-rolling-pre-upgrade-fade7ad8` | retries a failed rolling pre-upgrade snapshot before starting rollout | active | _none_ | `upgrade`, `upgrades`, `cluster`, `slow`, `rolling`, `snapshot`, `recovery` |
@@ -114,45 +112,6 @@ Recorded checkpoints:
 - Verifying an initial early-phase executor job fails due to induced policy restriction
 - Verifying retry job for that action is created and also fails
 - Verifying threshold triggers early-phase abort and cluster returns to idle on original version
-
-
-## `upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7`
-
-Path: `Upgrade Strategies > Gateway API > Gateway TLS Passthrough > creates a TLSRoute and reports healthy passthrough integration`
-
-State: `active`
-
-Covers: _none_
-
-Labels: `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-api`, `tls-passthrough`
-
-Recorded checkpoints:
-- waiting for passthrough Gateway integration status
-- verifying a TLSRoute is created for passthrough access
-- verifying BackendTLSPolicy is not created for passthrough mode
-
-
-## `upgrade-gateway-httproute-cutover`
-
-Path: `Upgrade Strategies > Gateway API > HTTPRoute Blue/Green Cutover > keeps HTTPRoute stable and switches external Service selector at cutover`
-
-State: `active`
-
-Generated fallback ID: `upgrade-strategies-keeps-httproute-stable-and-switches-external-7a9e6dd5`
-
-Covers: _none_
-
-Labels: `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-api`, `bluegreen`, `e2e-anchor`
-
-Recorded checkpoints:
-- Capturing HTTPRoute before upgrade to verify stability
-- Triggering upgrade
-- Waiting for upgrade to progress to cutover phase
-- Verifying external Service remains on Blue while DemotingBlue is in progress
-- Waiting for Cleanup phase and verifying the external Service selector switches to Green
-- Waiting for Blue/Green upgrade to complete
-- Verifying legacy blue/green Services do not exist
-- Verifying HTTPRoute remains stable throughout upgrade
 
 
 ## `upgrade-strategies-triggers-late-phase-rollback-after-promotion-c44db935`

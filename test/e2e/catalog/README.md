@@ -11,7 +11,7 @@ Notes:
 
 ## Summary
 
-- Files: `24`
+- Files: `25`
 - Specs: `98`
 - Explicit case IDs: `98`
 - Coverage tags: `56`
@@ -36,8 +36,9 @@ Notes:
 | [Security Guardrails](suites/Security_Guardrails_test.md) | 22 | 22 | 0 | `security`, `critical`, `admission`, `pentest`, `config`, `tokens`, `rbac`, `tamper` | `test/e2e/Security_Guardrails_test.go` |
 | [Tenant Data Isolation](suites/Tenant_Data_Isolation_test.md) | 1 | 1 | 0 | `security`, `tenant`, `tenancy` | `test/e2e/Tenant_Data_Isolation_test.go` |
 | [Tenant Isolation](suites/Tenant_Isolation_test.md) | 6 | 6 | 0 | `security`, `tenant`, `tenancy`, `critical`, `single-tenant` | `test/e2e/Tenant_Isolation_test.go` |
+| [Upgrade Strategies](suites/Upgrade_Gateway_test.md) | 2 | 2 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-api`, `tls-passthrough`, `bluegreen`, `e2e-anchor` | `test/e2e/Upgrade_Gateway_test.go` |
 | [Upgrade Strategies: Operation Lock Contention](suites/Upgrade_Operation_Lock_test.md) | 3 | 3 | 0 | `upgrade`, `backup`, `operation-lock`, `slow`, `e2e-anchor` | `test/e2e/Upgrade_Operation_Lock_test.go` |
-| [Upgrade Strategies](suites/Upgrade_Strategies_test.md) | 12 | 12 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `e2e-anchor`, `failure`, `gateway`, `requires-gateway-api`, `tls-passthrough`, `rollback`, `rolling`, `recovery`, `snapshot`, `read-replicas`, `read-replicas-rolling`, `chaos` | `test/e2e/Upgrade_Strategies_test.go` |
+| [Upgrade Strategies](suites/Upgrade_Strategies_test.md) | 10 | 10 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `e2e-anchor`, `failure`, `rollback`, `rolling`, `recovery`, `snapshot`, `read-replicas`, `read-replicas-rolling`, `chaos` | `test/e2e/Upgrade_Strategies_test.go` |
 | [Upgrade Strategy Switching](suites/Upgrade_Strategy_Switch_test.md) | 1 | 1 | 0 | `upgrade`, `rolling`, `bluegreen`, `slow` | `test/e2e/Upgrade_Strategy_Switch_test.go` |
 | [Upgrade Strategies: Blue/Green Drift](suites/Upgrade_Target_Drift_test.md) | 1 | 1 | 0 | `upgrade`, `bluegreen`, `slow` | `test/e2e/Upgrade_Target_Drift_test.go` |
 | [Security: Anti-Tamper Policy](suites/anti_tamper_policy_test.md) | 2 | 2 | 0 | `security`, `tamper`, `cluster`, `slow` | `test/e2e/anti_tamper_policy_test.go` |

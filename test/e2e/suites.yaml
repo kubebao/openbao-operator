@@ -123,6 +123,7 @@ ciLanes:
     prLabelFilter: "((upgrade && e2e-anchor && (rolling || operation-lock) && !hardened) && !openshift)"
     prScope: upgrade
     timeoutMinutes: 45
+    parallelNodes: 2
     e2eTimeout: 40m
     excludePentestOnDefaultPR: false
     hardenedSigned: false
@@ -141,6 +142,7 @@ ciLanes:
     prLabelFilter: "((upgrade && e2e-anchor && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prScope: upgrade
     timeoutMinutes: 30
+    parallelNodes: 2
     e2eTimeout: 25m
     excludePentestOnDefaultPR: false
     hardenedSigned: false
@@ -734,7 +736,7 @@ suites:
     title: "Upgrade Strategies: Operation Lock Contention"
     owner: upgrade
     riskTier: high
-    isolation: global-mutator
+    isolation: serial
     files:
       - test/e2e/Upgrade_Operation_Lock_test.go
     labels:
@@ -763,7 +765,7 @@ suites:
     title: "Upgrade Strategies"
     owner: upgrade
     riskTier: critical
-    isolation: global-mutator
+    isolation: parallel-safe
     files:
       - test/e2e/Upgrade_Strategies_test.go
     labels:
@@ -780,24 +782,42 @@ suites:
       - bluegreen
       - verification
       - failure
-      - gateway
-      - requires-gateway-api
-      - tls-passthrough
       - rollback
       - chaos
     coverage:
       - lifecycle-job-owner-proof
       - bluegreen-operation-identity
       - bluegreen-replica-drift
-    runtime:
-      observed: 36m39.240s
-      budget: 55m
     ci:
       lanes:
         - upgrade-rolling
         - upgrade-bluegreen-core
         - upgrade-bluegreen-verification
         - upgrade-bluegreen-recovery
+      pullRequest: changed-paths
+    nightly:
+      policy: primary-version-full
+
+  - id: upgrade-gateway
+    title: "Upgrade Strategies"
+    owner: upgrade
+    riskTier: critical
+    isolation: serial
+    files:
+      - test/e2e/Upgrade_Gateway_test.go
+    labels:
+      - upgrade
+      - upgrades
+      - cluster
+      - slow
+      - e2e-anchor
+      - gateway
+      - requires-gateway-api
+      - tls-passthrough
+      - bluegreen
+    coverage: []
+    ci:
+      lanes:
         - upgrade-gateway
       pullRequest: changed-paths
     nightly:
@@ -807,7 +827,7 @@ suites:
     title: "Upgrade Strategies: Blue/Green Drift"
     owner: upgrade
     riskTier: high
-    isolation: global-mutator
+    isolation: parallel-safe
     files:
       - test/e2e/Upgrade_Target_Drift_test.go
     labels:
@@ -832,7 +852,7 @@ suites:
     title: "Upgrade Strategy Switching"
     owner: upgrade
     riskTier: critical
-    isolation: global-mutator
+    isolation: parallel-safe
     files:
       - test/e2e/Upgrade_Strategy_Switch_test.go
     labels:

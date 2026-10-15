@@ -2192,6 +2192,97 @@
     "suiteTitle": ""
   },
   {
+    "id": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
+    "generatedId": "upgrade-gateway-creates-a-tlsroute-and-reports-healthy-13fbff54",
+    "caseLabel": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
+    "file": "test/e2e/Upgrade_Gateway_test.go",
+    "type": "It",
+    "name": "creates a TLSRoute and reports healthy passthrough integration",
+    "path": [
+      "Upgrade Strategies",
+      "Gateway API",
+      "Gateway TLS Passthrough",
+      "creates a TLSRoute and reports healthy passthrough integration"
+    ],
+    "labels": [
+      "upgrade",
+      "upgrades",
+      "cluster",
+      "slow",
+      "gateway",
+      "requires-gateway-api",
+      "tls-passthrough",
+      "case:upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7"
+    ],
+    "domainLabels": [
+      "upgrade",
+      "upgrades",
+      "cluster",
+      "slow",
+      "gateway",
+      "requires-gateway-api",
+      "tls-passthrough"
+    ],
+    "steps": [
+      "waiting for passthrough Gateway integration status",
+      "verifying a TLSRoute is created for passthrough access",
+      "verifying BackendTLSPolicy is not created for passthrough mode"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
+    "id": "upgrade-gateway-httproute-cutover",
+    "generatedId": "upgrade-gateway-keeps-httproute-stable-and-switches-external-3884249c",
+    "caseLabel": "upgrade-gateway-httproute-cutover",
+    "file": "test/e2e/Upgrade_Gateway_test.go",
+    "type": "It",
+    "name": "keeps HTTPRoute stable and switches external Service selector at cutover",
+    "path": [
+      "Upgrade Strategies",
+      "Gateway API",
+      "HTTPRoute Blue/Green Cutover",
+      "keeps HTTPRoute stable and switches external Service selector at cutover"
+    ],
+    "labels": [
+      "upgrade",
+      "upgrades",
+      "cluster",
+      "slow",
+      "gateway",
+      "requires-gateway-api",
+      "bluegreen",
+      "e2e-anchor",
+      "case:upgrade-gateway-httproute-cutover"
+    ],
+    "domainLabels": [
+      "upgrade",
+      "upgrades",
+      "cluster",
+      "slow",
+      "gateway",
+      "requires-gateway-api",
+      "bluegreen",
+      "e2e-anchor"
+    ],
+    "steps": [
+      "Capturing HTTPRoute before upgrade to verify stability",
+      "Triggering upgrade",
+      "Waiting for upgrade to progress to cutover phase",
+      "Verifying external Service remains on Blue while DemotingBlue is in progress",
+      "Waiting for Cleanup phase and verifying the external Service selector switches to Green",
+      "Waiting for Blue/Green upgrade to complete",
+      "Verifying legacy blue/green Services do not exist",
+      "Verifying HTTPRoute remains stable throughout upgrade"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "upgrade-backup-lock-contention",
     "generatedId": "upgrade-operation-lock-holds-a-manual-backup-request-until-805368c4",
     "caseLabel": "upgrade-backup-lock-contention",
@@ -2504,97 +2595,6 @@
       "Verifying an initial early-phase executor job fails due to induced policy restriction",
       "Verifying retry job for that action is created and also fails",
       "Verifying threshold triggers early-phase abort and cluster returns to idle on original version"
-    ],
-    "focused": false,
-    "pending": false,
-    "suiteFile": "",
-    "suiteTitle": ""
-  },
-  {
-    "id": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
-    "generatedId": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
-    "caseLabel": "upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7",
-    "file": "test/e2e/Upgrade_Strategies_test.go",
-    "type": "It",
-    "name": "creates a TLSRoute and reports healthy passthrough integration",
-    "path": [
-      "Upgrade Strategies",
-      "Gateway API",
-      "Gateway TLS Passthrough",
-      "creates a TLSRoute and reports healthy passthrough integration"
-    ],
-    "labels": [
-      "upgrade",
-      "upgrades",
-      "cluster",
-      "slow",
-      "gateway",
-      "requires-gateway-api",
-      "tls-passthrough",
-      "case:upgrade-strategies-creates-a-tlsroute-and-reports-healthy-79be45e7"
-    ],
-    "domainLabels": [
-      "upgrade",
-      "upgrades",
-      "cluster",
-      "slow",
-      "gateway",
-      "requires-gateway-api",
-      "tls-passthrough"
-    ],
-    "steps": [
-      "waiting for passthrough Gateway integration status",
-      "verifying a TLSRoute is created for passthrough access",
-      "verifying BackendTLSPolicy is not created for passthrough mode"
-    ],
-    "focused": false,
-    "pending": false,
-    "suiteFile": "",
-    "suiteTitle": ""
-  },
-  {
-    "id": "upgrade-gateway-httproute-cutover",
-    "generatedId": "upgrade-strategies-keeps-httproute-stable-and-switches-external-7a9e6dd5",
-    "caseLabel": "upgrade-gateway-httproute-cutover",
-    "file": "test/e2e/Upgrade_Strategies_test.go",
-    "type": "It",
-    "name": "keeps HTTPRoute stable and switches external Service selector at cutover",
-    "path": [
-      "Upgrade Strategies",
-      "Gateway API",
-      "HTTPRoute Blue/Green Cutover",
-      "keeps HTTPRoute stable and switches external Service selector at cutover"
-    ],
-    "labels": [
-      "upgrade",
-      "upgrades",
-      "cluster",
-      "slow",
-      "gateway",
-      "requires-gateway-api",
-      "bluegreen",
-      "e2e-anchor",
-      "case:upgrade-gateway-httproute-cutover"
-    ],
-    "domainLabels": [
-      "upgrade",
-      "upgrades",
-      "cluster",
-      "slow",
-      "gateway",
-      "requires-gateway-api",
-      "bluegreen",
-      "e2e-anchor"
-    ],
-    "steps": [
-      "Capturing HTTPRoute before upgrade to verify stability",
-      "Triggering upgrade",
-      "Waiting for upgrade to progress to cutover phase",
-      "Verifying external Service remains on Blue while DemotingBlue is in progress",
-      "Waiting for Cleanup phase and verifying the external Service selector switches to Green",
-      "Waiting for Blue/Green upgrade to complete",
-      "Verifying legacy blue/green Services do not exist",
-      "Verifying HTTPRoute remains stable throughout upgrade"
     ],
     "focused": false,
     "pending": false,

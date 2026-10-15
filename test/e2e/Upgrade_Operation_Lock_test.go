@@ -529,7 +529,7 @@ var _ = Describe("Upgrade Strategies: Operation Lock Contention", Label("upgrade
 
 	AfterAll(func() {
 		if tenantFW != nil {
-			_ = tenantFW.Cleanup(ctx)
+			cleanupUpgradeFixture(ctx, tenantFW)
 		}
 	})
 

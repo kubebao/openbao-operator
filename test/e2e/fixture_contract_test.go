@@ -3,7 +3,9 @@
 package e2e
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,10 +21,12 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
@@ -149,4 +153,48 @@ func TestE2EFixtureRestoreApprovalAndStorageAreNamespaceOwned(t *testing.T) {
 		require.Contains(t, minimalRestoreStorageEndpoint(pair[1]), "."+pair[1]+".svc:")
 	}
 	require.NotEqual(t, minimalRestoreStorageEndpoint("source-a"), minimalRestoreStorageEndpoint("source-b"))
+}
+
+func TestE2EFixtureUpgradeStorageIsNamespaceOwned(t *testing.T) {
+	first := upgradeStorageConfig("upgrade-storage-a")
+	second := upgradeStorageConfig("upgrade-storage-b")
+	require.NotEqual(t, first.Namespace, second.Namespace)
+	require.NotEqual(t, upgradeStorageEndpoint(first.Namespace), upgradeStorageEndpoint(second.Namespace))
+	require.Contains(t, upgradeStorageEndpoint(first.Namespace), "."+first.Namespace+".svc:")
+	require.Equal(t, first.Name, second.Name, "names are scoped to the owning namespace")
+	first.Buckets[0] = "other-bucket"
+	require.Equal(t, []string{rustfsBucket}, second.Buckets)
+}
+
+func TestE2EFixtureUpgradeStorageCleanupPinsNamespaceUID(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	for _, test := range []struct {
+		name string
+		uid  types.UID
+	}{
+		{name: "owned", uid: "fixture-uid"},
+		{name: "missing ownership"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "upgrade-storage-a", UID: test.uid}}
+			other := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "upgrade-storage-b", UID: "other-uid"}}
+			deleted := false
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(ns, other).WithInterceptorFuncs(interceptor.Funcs{
+				Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+					deleted = true
+					options := &client.DeleteOptions{}
+					options.ApplyOptions(opts)
+					require.Equal(t, ns.Name, obj.GetName())
+					require.NotNil(t, options.Preconditions)
+					require.Equal(t, test.uid, *options.Preconditions.UID)
+					return fmt.Errorf("injected deletion failure")
+				},
+			}).Build()
+			err := cleanupUpgradeStorage(t.Context(), c, ns)
+			require.Error(t, err, "cleanup failures must reach the preservation path")
+			require.Equal(t, test.uid != "", deleted)
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(other), &corev1.Namespace{}))
+		})
+	}
 }

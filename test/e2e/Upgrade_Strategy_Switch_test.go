@@ -121,7 +121,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 
 	AfterAll(func() {
 		if tenantFW != nil {
-			_ = tenantFW.Cleanup(ctx)
+			cleanupUpgradeFixture(ctx, tenantFW)
 		}
 	})
 

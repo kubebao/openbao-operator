@@ -190,3 +190,12 @@ scheduled-source changes cannot affect the other group. Run `make test-e2e-suppo
 request-copy contracts without a cluster.
 When using `test-e2e-existing` with an isolated test cluster, set both `E2E_OPENBAO_VERSION` and `E2E_OPENBAO_IMAGE`,
 and configure its API-server egress addresses through `E2E_API_SERVER_CIDR` and `E2E_API_SERVER_ENDPOINT_IPS`.
+
+The `upgrade-rolling` and `upgrade-bluegreen-core` lanes use two Ginkgo workers. Each ordered scenario owns its tenant
+namespace. Rolling snapshot recovery and native Blue/Green snapshot promotion also own separate RustFS namespaces;
+their endpoints and snapshot egress policies select that backend. Cleanup deletes storage with a namespace UID
+precondition and preserves evidence if tenant or storage cleanup fails. The scenarios retain their separate initial
+states, version pairs, replica counts, availability checks, and verification durations.
+Operation-lock scenarios retain `Serial, Ordered` because they pause the shared controller. Ginkgo runs them after
+parallel scenarios finish. Gateway API scenarios use a separate serial suite because they install shared CRDs and
+GatewayClasses. The verification, recovery, and Gateway lanes retain their existing worker counts.

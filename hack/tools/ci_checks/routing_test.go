@@ -302,12 +302,16 @@ func TestSharedSelectionChangesSelectEveryLaneFamily(t *testing.T) {
 }
 
 func TestFixtureChangesSelectOwningLaneFamily(t *testing.T) {
+	const upgradeLanes = "core,controller-jwt,security,upgrade-rolling,upgrade-bluegreen-core," +
+		"upgrade-bluegreen-verification,upgrade-bluegreen-recovery,upgrade-gateway"
 	plannedLanes := lanePlanner(t)
 	for _, test := range []struct {
 		path, lanes string
 	}{
 		{"test/e2e/restore_minimal_helpers.go", "core,controller-jwt,security,backup-restore,restore-tests"},
 		{"test/e2e/backup_observation.go", "core,controller-jwt,security,backup-restore,restore-tests"},
+		{"test/e2e/Upgrade_Gateway_test.go", upgradeLanes},
+		{"test/e2e/upgrade_fixture.go", upgradeLanes},
 	} {
 		t.Run(test.path, func(t *testing.T) {
 			routing, err := runRouting(t, "normal", test.path, "", eventPullRequest)
@@ -352,7 +356,13 @@ func TestFixtureContractChangesSelectSupportTestsOnTrustedAndForkPRs(t *testing.
 						}
 					}
 					if head == "fork/repo" {
-						for _, job := range []string{"build-artifacts", "build-e2e-images", "operator-upgrade-e2e", "e2e-matrix", "e2e"} {
+						for _, job := range []string{"build-artifacts", "build-e2e-image-artifacts", "e2e-matrix",
+							"fork-e2e", "fork-operator-upgrade-e2e"} {
+							if !plan.Checks[job] {
+								t.Errorf("contract test change must select fork qualification %s", job)
+							}
+						}
+						for _, job := range []string{"build-e2e-images", "operator-upgrade-e2e", "e2e"} {
 							if plan.Checks[job] {
 								t.Errorf("contract test change must not select %s on a fork PR", job)
 							}

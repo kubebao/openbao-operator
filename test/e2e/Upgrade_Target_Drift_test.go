@@ -137,7 +137,7 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 
 	AfterAll(func() {
 		if tenantFW != nil {
-			_ = tenantFW.Cleanup(ctx)
+			cleanupUpgradeFixture(ctx, tenantFW)
 		}
 	})
 
