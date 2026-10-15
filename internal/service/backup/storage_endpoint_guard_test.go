@@ -58,6 +58,21 @@ func TestValidateStorageEndpointAccessRejectsUnsafeEndpointHosts(t *testing.T) {
 			wantErr:  "not allowed",
 		},
 		{
+			name:     "AWS IPv6 metadata",
+			endpoint: "http://[fd00:ec2::254]/latest/meta-data",
+			wantErr:  "not allowed",
+		},
+		{
+			name:     "AWS IPv6 Pod Identity",
+			endpoint: "http://[fd00:ec2::23]/v1/credentials",
+			wantErr:  "not allowed",
+		},
+		{
+			name:     "scoped expanded AWS IPv6 metadata",
+			endpoint: "http://[fd00:0ec2:0000:0000:0000:0000:0000:0254%25eth0]/latest/meta-data",
+			wantErr:  "not allowed",
+		},
+		{
 			name:     "single integer loopback",
 			endpoint: "http://2130706433",
 			wantErr:  "ambiguous numeric IP encoding",
@@ -114,6 +129,27 @@ func TestValidateStorageEndpointAccessChecksDNSAnswers(t *testing.T) {
 			endpoint: "https://object-store.example.test",
 			addrs:    []netip.Addr{netip.MustParseAddr("::1")},
 			wantErr:  "resolves to forbidden address",
+		},
+		{
+			name:     "dns resolves to AWS IPv6 metadata",
+			endpoint: "https://object-store.example.test",
+			addrs:    []netip.Addr{netip.MustParseAddr("fd00:ec2::254")},
+			wantErr:  "resolves to forbidden address",
+		},
+		{
+			name:     "mixed DNS includes AWS IPv6 Pod Identity",
+			endpoint: "https://object-store.example.test",
+			addrs:    []netip.Addr{netip.MustParseAddr("203.0.113.10"), netip.MustParseAddr("fd00:ec2::23")},
+			wantErr:  "resolves to forbidden address",
+		},
+		{
+			name:     "dns resolves to private IPv6 cluster address",
+			endpoint: "http://minio.team-a.svc.cluster.local:9000",
+			addrs:    []netip.Addr{netip.MustParseAddr("fd00::123")},
+		},
+		{
+			name:     "other literal in AWS ULA prefix",
+			endpoint: "http://[fd00:ec2::55]:9000",
 		},
 		{
 			name:     "dns resolves to public address",

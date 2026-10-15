@@ -119,3 +119,75 @@ func TestStorageEndpointRequestGuardRejectsRedirectToForbiddenHost(t *testing.T)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not allowed")
 }
+
+func TestStorageEndpointRequestGuardIPv6(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name    string
+		address string
+		network string
+		want    string
+	}{
+		{"private cluster address", "[fd00::123]:9000", "tcp6", "[fd00::123]:9000"},
+		{"global address", "[2001:db8::123]:443", "tcp", "[2001:db8::123]:443"},
+		{"mapped IPv4", "[::ffff:10.96.12.34]:9000", "tcp4", "10.96.12.34:9000"},
+		{"incompatible family", "[fd00::123]:9000", "tcp4", ""},
+		{"loopback", "[::1]:9000", "tcp6", ""},
+		{"mapped loopback", "[::ffff:127.0.0.1]:9000", "tcp", ""},
+		{"link local", "[fe80::123]:9000", "tcp6", ""},
+		{"mapped metadata", "[::ffff:169.254.169.254]:9000", "tcp", ""},
+		{"AWS metadata", "[fd00:ec2::254]:80", "tcp6", ""},
+		{"AWS Pod Identity", "[fd00:ec2::23]:80", "tcp6", ""},
+		{"scoped AWS metadata", "[fd00:ec2::254%eth0]:80", "tcp6", ""},
+		{"other private AWS-prefix address", "[fd00:ec2::55]:9000", "tcp6", "[fd00:ec2::55]:9000"},
+		{"unspecified", "[::]:9000", "tcp6", ""},
+		{"multicast", "[ff02::1]:9000", "tcp6", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var dialed string
+			guard := storageEndpointRequestGuard{
+				dialContext: func(_ context.Context, _ string, address string) (net.Conn, error) {
+					dialed = address
+					client, server := net.Pipe()
+					t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+					return client, nil
+				},
+			}
+			_, err := guard.guardedDialContext(context.Background(), tt.network, tt.address)
+			if tt.want == "" {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.want, dialed)
+		})
+	}
+}
+
+func TestStorageEndpointRequestGuardRejectsIPv6IdentityDNSAndRedirects(t *testing.T) {
+	t.Parallel()
+	for _, address := range []string{"fd00:ec2::254", "fd00:ec2::23"} {
+		t.Run(address, func(t *testing.T) {
+			t.Parallel()
+			dialed := false
+			guard := storageEndpointRequestGuard{
+				resolver: fakeStorageEndpointRequestResolver{
+					"storage.example.test": {netip.MustParseAddr("203.0.113.10"), netip.MustParseAddr(address)},
+				},
+				dialContext: func(context.Context, string, string) (net.Conn, error) {
+					dialed = true
+					return nil, nil
+				},
+			}
+			_, err := guard.guardedDialContext(context.Background(), "tcp", "storage.example.test:443")
+			require.ErrorContains(t, err, "resolves to forbidden address")
+			assert.False(t, dialed, "mixed DNS answers must be rejected before any connection")
+			for _, target := range []string{"https://storage.example.test", "http://[" + address + "]/credentials"} {
+				req, err := http.NewRequest(http.MethodGet, target, nil)
+				require.NoError(t, err)
+				require.Error(t, guard.checkRedirect(req, nil), target)
+			}
+		})
+	}
+}

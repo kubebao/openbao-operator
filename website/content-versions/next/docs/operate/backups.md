@@ -10,6 +10,8 @@ verifiedBy:
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/service/backup/manager_reconcile.go
   - internal/service/backup/manager_effects.go
+  - internal/service/backup/storage_endpoint_guard.go
+  - internal/adapter/storage/endpoint_request_guard.go
   - test/integration/backup_manager_test.go
   - internal/service/backup/manager_trigger.go
   - internal/service/backup/retention_lifecycle.go
@@ -137,6 +139,10 @@ The identity that changes the `OpenBaoCluster` needs:
 
 Admission rejects loopback and link-local storage endpoints. Hardened clusters also reject insecure TLS and ambient
 storage identity.
+
+Storage clients reject AWS metadata (`fd00:ec2::254`) and EKS Pod Identity (`fd00:ec2::23`) as storage destinations,
+including DNS answers and redirects. Other private IPv6 storage addresses remain supported. Credential discovery
+uses a separate HTTP client, so these destination checks do not block workload-identity providers.
 
 ## Trigger and verify a backup
 

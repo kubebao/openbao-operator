@@ -18,7 +18,14 @@ type endpointResolver interface {
 
 var defaultStorageEndpointResolver endpointResolver = net.DefaultResolver
 
-var ambiguousNumericHostPattern = regexp.MustCompile(`(?i)^(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+)){0,3}$`)
+var (
+	ambiguousNumericHostPattern = regexp.MustCompile(`(?i)^(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+)){0,3}$`)
+	// AWS identity endpoints use ULA addresses rather than IPv6 link-local addresses.
+	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-IMDS-new-instances.html
+	// https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html
+	awsInstanceMetadataIPv6 = netip.MustParseAddr("fd00:ec2::254")
+	awsPodIdentityIPv6      = netip.MustParseAddr("fd00:ec2::23")
+)
 
 // ValidateStorageEndpointAccess rejects storage endpoints that resolve to local or metadata-adjacent addresses.
 func ValidateStorageEndpointAccess(ctx context.Context, cfg storage.Config) error {
@@ -146,12 +153,14 @@ func normalizeEndpointHost(host string) string {
 }
 
 func isForbiddenEndpointAddress(addr netip.Addr) bool {
-	addr = addr.Unmap()
+	addr = addr.Unmap().WithZone("")
 	return !addr.IsValid() ||
 		addr.IsLoopback() ||
 		addr.IsLinkLocalUnicast() ||
 		addr.IsUnspecified() ||
-		addr.IsMulticast()
+		addr.IsMulticast() ||
+		addr == awsInstanceMetadataIPv6 ||
+		addr == awsPodIdentityIPv6
 }
 
 type storageEndpointCandidate struct {
