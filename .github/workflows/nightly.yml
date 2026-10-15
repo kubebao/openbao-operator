@@ -571,7 +571,6 @@ jobs:
       attestations: write
     uses: ./.github/workflows/reusable-channel-hardening.yml
     with:
-      ref: ${{ github.sha }}
       source_ref: ${{ github.ref }}
       version: ${{ needs.prepare-nightly-candidate.outputs.version }}
       chart_version: ${{ needs.prepare-nightly-candidate.outputs.chart_version }}

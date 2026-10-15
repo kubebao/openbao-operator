@@ -26,6 +26,10 @@ verifiedBy:
 
 Pull-request CI routes checks by changed path and risk. Nightly and release workflows broaden compatibility, lifecycle, provenance, and reproducibility coverage.
 
+CodeQL uses GitHub default setup to analyze Actions, Go, JavaScript/TypeScript, and Python. Repository security
+settings control its languages and query suite. View its findings in the repository
+[code scanning alerts](https://github.com/kubebao/openbao-operator/security/code-scanning).
+
 Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
 path-based checks. A failed diff stops routing. Initial pushes with an all-zero prior SHA classify every tracked path.
 Renames classify both the previous and current paths.

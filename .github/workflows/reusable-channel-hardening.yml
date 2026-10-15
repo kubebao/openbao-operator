@@ -3,10 +3,6 @@ name: Reusable Channel Hardening
 on:
   workflow_call:
     inputs:
-      ref:
-        description: "Git ref/SHA to checkout"
-        required: true
-        type: string
       source_ref:
         description: "Expected source ref for attestation verification"
         required: true
@@ -81,6 +77,7 @@ permissions:
   contents: read
 
 jobs:
+  # Candidate source belongs to the triggering revision; helpers use the workflow revision.
   build:
     name: Build Images
     permissions:
@@ -91,7 +88,7 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     with:
       build_tag: ${{ inputs.build_tag }}
-      ref: ${{ inputs.ref }}
+      ref: ${{ github.sha }}
       source_date_epoch: ${{ inputs.source_date_epoch }}
       cache-scope: ${{ inputs.build_tag }}
 
@@ -105,7 +102,7 @@ jobs:
     uses: ./.github/workflows/reusable-build.yml
     with:
       build_tag: ${{ inputs.repro_build_tag }}
-      ref: ${{ inputs.ref }}
+      ref: ${{ github.sha }}
       source_date_epoch: ${{ inputs.source_date_epoch }}
       cache-scope: ${{ inputs.repro_build_tag }}
 
@@ -120,6 +117,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
+          persist-credentials: false
           path: .github-workflow-src
           fetch-depth: 1
 
@@ -145,10 +143,11 @@ jobs:
       contents: read
       packages: read
     steps:
-      - name: Checkout source ref
+      - name: Checkout event source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
           path: source-under-test
           fetch-depth: 0
 
@@ -156,6 +155,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
+          persist-credentials: false
           path: .github-workflow-src
           fetch-depth: 1
 
@@ -215,7 +215,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           SOURCE_DATE_EPOCH: ${{ inputs.source_date_epoch }}
           VERSION: ${{ inputs.version }}
-          SHA: ${{ inputs.ref }}
+          SHA: ${{ github.sha }}
           MANAGER_IMAGE: ${{ inputs.manager_image }}
           MANAGER_DIGEST: ${{ needs.build.outputs.manager_digest }}
           CONFIG_INIT_IMAGE: ${{ inputs.config_init_image }}
@@ -251,7 +251,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           SOURCE_DATE_EPOCH: ${{ inputs.source_date_epoch }}
           VERSION: ${{ inputs.version }}
-          SHA: ${{ inputs.ref }}
+          SHA: ${{ github.sha }}
           MANAGER_IMAGE: ${{ inputs.manager_image }}
           MANAGER_DIGEST: ${{ needs.rebuild.outputs.manager_digest }}
           CONFIG_INIT_IMAGE: ${{ inputs.config_init_image }}
@@ -457,6 +457,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
+          persist-credentials: false
 
       - name: Setup Helm
         uses: ./.github/actions/setup-helm
