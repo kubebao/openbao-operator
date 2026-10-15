@@ -76,3 +76,46 @@ func TestE2EFixtureGatewaySelectorRequiresObservedPhase(t *testing.T) {
 		})
 	}
 }
+
+func TestE2EFixtureGatewayUpgradeWaitsForEstablishedSource(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change func(*api.OpenBaoCluster)
+	}{
+		{name: "established source"},
+		{name: "initialized bootstrap without observed version", change: func(c *api.OpenBaoCluster) {
+			c.Status.CurrentVersion, c.Status.ReadyReplicas, c.Status.BlueGreen, c.Status.Conditions = "", 1, nil, nil
+		}},
+		{name: "target recorded without an upgrade", change: func(c *api.OpenBaoCluster) { c.Status.CurrentVersion = "2.5.5" }},
+		{name: "source still scaling", change: func(c *api.OpenBaoCluster) { c.Status.ReadyReplicas = 1 }},
+		{name: "version observed before BlueGreen initialization", change: func(c *api.OpenBaoCluster) { c.Status.BlueGreen = nil }},
+		{name: "upgrade already active", change: func(c *api.OpenBaoCluster) {
+			c.Status.BlueGreen.Phase, c.Status.BlueGreen.GreenRevision = api.PhaseDeployingGreen, "green"
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cluster := &api.OpenBaoCluster{
+				Spec: api.OpenBaoClusterSpec{Version: "2.4.4", Replicas: 3},
+				Status: api.OpenBaoClusterStatus{
+					Initialized: true, CurrentVersion: "2.4.4", ReadyReplicas: 3,
+					BlueGreen:  &api.BlueGreenStatus{Phase: api.PhaseIdle, BlueRevision: "blue"},
+					Conditions: []metav1.Condition{{Type: string(api.ConditionAvailable), Status: metav1.ConditionTrue}},
+				},
+			}
+			if test.change != nil {
+				test.change(cluster)
+			}
+			var failure any
+			func() {
+				defer func() { failure = recover() }()
+				g := NewGomega(func(message string, _ ...int) { panic(message) })
+				expectGatewayUpgradeSourceReady(g, cluster, "2.4.4")
+			}()
+			if test.change == nil {
+				require.Nil(t, failure)
+			} else {
+				require.IsType(t, "", failure, "an incomplete source must fail an assertion")
+			}
+		})
+	}
+}

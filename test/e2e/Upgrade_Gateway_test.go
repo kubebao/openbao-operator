@@ -30,6 +30,19 @@ const (
 	gatewayPhasePollInterval = 250 * time.Millisecond
 )
 
+func expectGatewayUpgradeSourceReady(g Gomega, cluster *openbaov1alpha1.OpenBaoCluster, version string) {
+	g.Expect(cluster.Status.Initialized).To(BeTrue())
+	g.Expect(cluster.Status.CurrentVersion).To(Equal(version), "the source version must be established before requesting an upgrade")
+	g.Expect(cluster.Status.ReadyReplicas).To(Equal(cluster.Spec.Replicas))
+	g.Expect(cluster.Status.BlueGreen).NotTo(BeNil())
+	g.Expect(cluster.Status.BlueGreen.Phase).To(Equal(openbaov1alpha1.PhaseIdle))
+	g.Expect(cluster.Status.BlueGreen.BlueRevision).NotTo(BeEmpty())
+	g.Expect(cluster.Status.BlueGreen.GreenRevision).To(BeEmpty())
+	available := meta.FindStatusCondition(cluster.Status.Conditions, string(openbaov1alpha1.ConditionAvailable))
+	g.Expect(available).NotTo(BeNil())
+	g.Expect(available.Status).To(Equal(metav1.ConditionTrue))
+}
+
 func ensureGatewayClassReady(
 	ctx context.Context,
 	c client.Client,
@@ -264,7 +277,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 				Eventually(func(g Gomega) {
 					updated := &openbaov1alpha1.OpenBaoCluster{}
 					g.Expect(admin.Get(ctx, types.NamespacedName{Name: upgradeCluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
-					g.Expect(updated.Status.Initialized).To(BeTrue())
+					expectGatewayUpgradeSourceReady(g, updated, initialVersion)
 				}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 			})
 
