@@ -48,7 +48,7 @@ func TestConfigCompatibilityChangeRouting(t *testing.T) {
 
 func TestChangeRoutingFailsClosedWhenGitCannotResolveDiff(t *testing.T) {
 	script := findStep(t, readWorkflow(t, "ci.yml").Jobs["changes"], "Detect chart changes").Run
-	for _, failure := range []string{"fetch", "diff"} {
+	for _, failure := range []string{"cat-file", "fetch", "diff"} {
 		t.Run(failure, func(t *testing.T) {
 			outputPath := filepath.Join(t.TempDir(), "outputs")
 			env := append(configCompatibilityRoutingEnv(configCompatibilityFakeGit(t), outputPath), "FAIL_GIT="+failure)
@@ -92,9 +92,17 @@ func TestConfigCompatibilityVersionMatrixComesFromManifest(t *testing.T) {
 func configCompatibilityFakeGit(t *testing.T) string {
 	t.Helper()
 	bin := t.TempDir()
-	script := "#!/usr/bin/env bash\n" +
-		"if [[ \"${FAIL_GIT:-}\" == \"$1\" ]]; then exit 23; fi\n" +
-		"case \"$1\" in fetch) exit 0 ;; diff) printf '%s\\n' \"${CHANGED_PATHS:-}\" ;; *) exit 1 ;; esac\n"
+	script := `#!/usr/bin/env bash
+if [[ "${FAIL_GIT:-}" == "$1" ]]; then exit 23; fi
+case "$1" in
+  cat-file)
+    if [[ "${FAIL_GIT:-}" == fetch && "$3" == 'base^{commit}' ]]; then exit 1; fi
+    exit 0 ;;
+  fetch) exit 0 ;;
+  diff) printf '%s\n' "${CHANGED_PATHS:-}" ;;
+  *) exit 1 ;;
+esac
+`
 	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
