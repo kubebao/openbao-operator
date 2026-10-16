@@ -2260,11 +2260,35 @@ spec:
                       injected into pods is unavailable/unusable in your environment).
                       Example: "10.43.0.0/16" for service network or "192.168.1.0/24" for control plane nodes.
                     type: string
+                  apiServerEgress:
+                    description: |-
+                      APIServerEgress adds a CNI-specific Kubernetes API egress policy alongside
+                      the standard NetworkPolicies. Omit this field for standard IP-based rules.
+                    properties:
+                      mode:
+                        description: |-
+                          Mode selects the Cilium kube-apiserver entity policy. This requires Cilium
+                          and its namespaced cilium.io/v2 CiliumNetworkPolicy API.
+                        enum:
+                        - Cilium
+                        type: string
+                      port:
+                        default: 6443
+                        description: |-
+                          Port is the API server's TCP backend port after Service translation.
+                          Set this to the cluster's actual backend port, which can differ from 443.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    required:
+                    - mode
+                    type: object
                   apiServerEndpointIPs:
                     description: |-
                       APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.
                       When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.
-                      This is required on some CNI implementations where egress enforcement happens on the post-NAT
+                      Use this on CNI implementations where egress enforcement happens on the post-NAT
                       destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).
 
                       The operator does not auto-detect these endpoint IPs because doing so reliably requires broader
@@ -10312,10 +10336,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-60362358e069
+          value: edge-be168afd13a0
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:a74b3155ce4c81e81c6ed8553c6d8f47ad2e52ff29d44af0e2b6f9d9837a7f8c
+        image: ghcr.io/kubebao/openbao-operator@sha256:6de9e7e9d4aee0a8e51f65aacb3ba184bca6b42fb53aa6c380b0381fc5478aa9
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10430,8 +10454,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-60362358e069
-        image: ghcr.io/kubebao/openbao-operator@sha256:a74b3155ce4c81e81c6ed8553c6d8f47ad2e52ff29d44af0e2b6f9d9837a7f8c
+          value: edge-be168afd13a0
+        image: ghcr.io/kubebao/openbao-operator@sha256:6de9e7e9d4aee0a8e51f65aacb3ba184bca6b42fb53aa6c380b0381fc5478aa9
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10680,7 +10704,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7
+    openbao.org/admission-policy-fingerprint: sha256:0d1171ae607befe8ddcd0eeb34543e8c5797856221a5ce83bb82f6a060481596
   name: openbao-operator-openbao-lock-managed-resource-mutations
 spec:
   failurePolicy: Fail
@@ -10786,7 +10810,26 @@ spec:
       - DELETE
       resources:
       - servicemonitors
+    - apiGroups:
+      - cilium.io
+      apiVersions:
+      - v2
+      operations:
+      - CREATE
+      - UPDATE
+      - DELETE
+      resources:
+      - ciliumnetworkpolicies
   validations:
+  - expression: |-
+      !(variables.is_operator_controller || variables.is_operator_provisioner) || !variables.is_cilium_policy_request || (
+
+        (request.operation == "CREATE" && variables.current_cilium_policy_is_operator_owned) ||
+        (request.operation == "UPDATE" && variables.current_cilium_policy_is_operator_owned && variables.old_cilium_policy_is_operator_owned) ||
+        (request.operation == "DELETE" && variables.old_cilium_policy_is_operator_owned)
+      )
+    message: The operator can only manage CiliumNetworkPolicies that match the OpenBao
+      API-server ownership shape.
   - expression: |-
       request.operation == "DELETE" || variables.owner_uid_annotation_allowed || (
 
@@ -10938,6 +10981,24 @@ spec:
       || variables.is_kube_controller_manager || variables.is_system_controller ||
       variables.is_kube_system_controller
     name: owner_uid_annotation_allowed
+  - expression: request.kind.group == "cilium.io" && request.kind.kind == "CiliumNetworkPolicy"
+    name: is_cilium_policy_request
+  - expression: |-
+      object != null && request.namespace != "" && has(object.metadata.labels) && ("app.kubernetes.io/managed-by" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in object.metadata.labels) && object.metadata.labels["openbao.org/cluster"] != "" && object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-api-server" && has(object.metadata.annotations) && ("openbao.org/owner-uid" in object.metadata.annotations) && has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(ref,
+
+        ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+        ref.name == object.metadata.labels["openbao.org/cluster"] &&
+        ref.uid == object.metadata.annotations["openbao.org/owner-uid"] &&
+        has(ref.controller) && ref.controller)
+    name: current_cilium_policy_is_operator_owned
+  - expression: |-
+      oldObject != null && request.namespace != "" && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-api-server" && has(oldObject.metadata.annotations) && ("openbao.org/owner-uid" in oldObject.metadata.annotations) && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
+
+        ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+        ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
+        ref.uid == oldObject.metadata.annotations["openbao.org/owner-uid"] &&
+        has(ref.controller) && ref.controller)
+    name: old_cilium_policy_is_operator_owned
   - expression: request.kind.group == "monitoring.coreos.com" && request.kind.kind
       == "ServiceMonitor"
     name: is_service_monitor_request
@@ -11953,6 +12014,15 @@ spec:
             rule.resources.all(r, r in ['httproutes', 'tlsroutes', 'backendtlspolicies']) &&
             rule.verbs != null &&
             rule.verbs.all(v, v in ['create', 'delete', 'get', 'list', 'patch', 'update', 'watch'])
+          ) ||
+          (
+            rule.apiGroups.size() == 1 &&
+            rule.apiGroups[0] == 'cilium.io' &&
+            rule.resources != null &&
+            rule.resources.size() == 1 &&
+            rule.resources[0] == 'ciliumnetworkpolicies' &&
+            rule.verbs != null &&
+            rule.verbs.all(v, v in ['create', 'delete', 'get', 'patch'])
           ) ||
           (
             rule.apiGroups.size() == 1 &&
