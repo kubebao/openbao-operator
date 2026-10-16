@@ -193,62 +193,6 @@ func targetPVCName(request *api.OpenBaoRestore) string {
 	return "data-" + request.Spec.Cluster + "-0"
 }
 
-// reconcileTargetRecovery chooses observation, cleanup, or administrator handoff.
-// Started cleanup always wins over application checks, even after the hold is gone.
-func (m *Manager) reconcileTargetRecovery(ctx context.Context, logger logr.Logger, request *api.OpenBaoRestore) (ctrl.Result, error) {
-	target := request.Status.Target
-	if target != nil && target.Cleanup != "" {
-		return m.cleanupTarget(ctx, logger, request)
-	}
-	if request.Status.Restart != nil || target == nil || target.BootstrapClusterID == "" {
-		return m.reconcileAcknowledgement(ctx, logger, request)
-	}
-	if target.AppliedAt == nil && request.Status.SubmissionClaim != nil {
-		return m.observeTargetApplication(ctx, logger, request)
-	}
-	return m.finishTargetRecovery(ctx, logger, request)
-}
-
-// observeTargetApplication confirms the identity transition only for a fresh
-// single-voter target. Existing-cluster health cannot establish that transition.
-func (m *Manager) observeTargetApplication(ctx context.Context, logger logr.Logger, request *api.OpenBaoRestore) (ctrl.Result, error) {
-	target := request.Status.Target
-	cluster := &api.OpenBaoCluster{}
-	err := m.reader.Get(ctx, client.ObjectKey{Namespace: request.Namespace, Name: request.Spec.Cluster}, cluster)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return ctrl.Result{}, err
-	}
-	if apierrors.IsNotFound(err) || cluster.UID != target.UID ||
-		cluster.Annotations[constants.AnnotationRestoreHold] != string(request.UID) {
-		return m.finishTargetRecovery(ctx, logger, request)
-	}
-
-	health, err := m.targetHealth(ctx, cluster)
-	if err == nil && health.ClusterID == request.Spec.Source.ExpectedClusterID && health.Version == request.Spec.Source.ExpectedVersion {
-		before := request.DeepCopy()
-		now := metav1.Now()
-		target.AppliedAt = &now
-		request.Status.Message = "Fresh target reports the expected source identity and healthy leadership; retained targets require administrator handoff"
-		return ctrl.Result{RequeueAfter: restoreRequeueImmediately}, m.patchStatus(ctx, request, before)
-	}
-	if time.Now().Before(request.Status.SubmissionClaim.ClaimedAt.Add(targetApplicationTimeout)) {
-		return ctrl.Result{RequeueAfter: restoreRequeueJobCheck}, nil
-	}
-	return m.finishTargetRecovery(ctx, logger, request)
-}
-
-func (m *Manager) finishTargetRecovery(ctx context.Context, logger logr.Logger, request *api.OpenBaoRestore) (ctrl.Result, error) {
-	if request.Spec.TargetLifecycle != api.RestoreTargetLifecycleDisposable {
-		return m.reconcileAcknowledgement(ctx, logger, request)
-	}
-
-	target := request.Status.Target
-	if target.AppliedAt != nil && time.Now().Before(target.AppliedAt.Add(time.Duration(request.Spec.CleanupAfterSeconds)*time.Second)) {
-		return ctrl.Result{RequeueAfter: restoreRequeueJobCheck}, nil
-	}
-	return m.cleanupTarget(ctx, logger, request)
-}
-
 // A failed or cancelled retained target remains available for administrator work,
 // including failures before an execution record exists.
 func (m *Manager) releaseUnsubmittedTarget(ctx context.Context, request *api.OpenBaoRestore) error {

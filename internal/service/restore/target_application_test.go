@@ -55,7 +55,7 @@ func TestTargetApplicationIdentityAndDeadlineSurviveManagerReplacement(t *testin
 					manager.readHealth = func(context.Context, portopenbao.ClientConfig) (*portopenbao.HealthStatus, error) {
 						return &health, healthError
 					}
-					_, err := manager.observeTargetApplication(t.Context(), logr.Discard(), request)
+					_, err := manager.reconcileTargetRecovery(t.Context(), logr.Discard(), request)
 					require.NoError(t, err)
 					require.True(t, claimedAt.Equal(&request.Status.SubmissionClaim.ClaimedAt), "retries must not renew the deadline")
 					if identity == "matching" {
