@@ -247,7 +247,8 @@ If verification fails or publication state is unexpected, stop and use the
 ## Publish edge Helm charts
 
 Successful `main` CI builds and verifies an edge chart with version
-`X.Y.Z-edge.<run-id>.<attempt>.g<commit>`. The shared channel workflow compares independent package builds and installs
+`0.0.0-edge.<run-id>.<attempt>.g<commit>`. The fixed `0.0.0` base keeps edge identity independent of release versions.
+The shared channel workflow compares independent package builds and installs
 the packaged chart in Kind without image overrides. The edge publisher then pushes those package bytes to
 `ghcr.io/kubebao/charts-edge/openbao-operator`, signs the OCI digest, and verifies its GitHub attestation. A publisher
 rerun accepts an existing chart version only when its bytes match.

@@ -84,8 +84,13 @@ if you do not need overrides.
    export EDGE_CHART_DIGEST="$(jq -er '.chart.digest' edge-metadata.json)"
    {{< /command >}}
 
-   The chart version has the form `X.Y.Z-edge.<CI-run-id>.<attempt>.g<commit>`. Retain the metadata with your evaluation
-   configuration. Pin the chart digest in GitOps so a new merge does not change the selected candidate.
+   The chart version has the form `0.0.0-edge.<CI-run-id>.<attempt>.g<commit>`. The `0.0.0` base is independent of stable
+   and planned release versions. Retain the metadata with your evaluation configuration. Pin the chart digest in GitOps
+   so a new merge does not change the selected candidate.
+
+   Earlier edge charts used a release-derived base such as `0.5.1`. SemVer orders the new `0.0.0-edge` versions below
+   those older versions. Select the new version or digest directly when switching; do not rely on a highest-version
+   selector. Previously published versions and digests remain available.
 
 2. Verify the chart publisher identity.
 

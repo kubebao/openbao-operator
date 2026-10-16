@@ -7,7 +7,7 @@ work_dir="$(mktemp -d)"
 trap 'rm -rf "${work_dir}"' EXIT
 export SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 export VERSION=edge-aaaaaaaaaaaa
-export CHART_VERSION=0.5.0-edge.123.1.gaaaaaaaaaaaa
+export CHART_VERSION=0.0.0-edge.123.1.gaaaaaaaaaaaa
 export SOURCE_DATE_EPOCH=1788912000
 export MANAGER_IMAGE=ghcr.io/kubebao/openbao-operator
 export CONFIG_INIT_IMAGE=ghcr.io/kubebao/openbao-init

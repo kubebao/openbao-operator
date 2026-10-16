@@ -12,7 +12,7 @@ import (
 func testConfig() config {
 	sha := strings.Repeat("a", 40)
 	return config{
-		sha: sha, version: "edge-" + sha[:12], chartVersion: "0.5.0-edge.123.1.g" + sha[:12],
+		sha: sha, version: "edge-" + sha[:12], chartVersion: "0.0.0-edge.123.1.g" + sha[:12],
 		images: []image{
 			{name: "openbao-operator", ref: "ghcr.io/kubebao/openbao-operator",
 				digest: "sha256:" + strings.Repeat("1", 64)},
