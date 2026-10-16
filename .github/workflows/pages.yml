@@ -7,16 +7,41 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: gh-pages
   cancel-in-progress: false
 
 jobs:
+  build:
+    name: Build Docs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build docs
+        uses: ./.github/actions/docs-build
+
+      - name: Upload rendered site
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rendered-docs
+          path: website/public/
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+
   deploy:
     name: Deploy Docs
+    needs: build
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     environment:
       name: github-pages
     steps:
@@ -25,8 +50,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build docs
-        uses: ./.github/actions/docs-build
+      - name: Download rendered site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rendered-docs
+          path: website/public/
 
       - name: Publish site root to GitHub Pages
         env:

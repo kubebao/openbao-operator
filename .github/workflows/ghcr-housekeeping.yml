@@ -20,19 +20,20 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: ghcr-housekeeping
   cancel-in-progress: false
 
 jobs:
-  housekeeping:
-    name: Cleanup GHCR image package versions
+  build:
+    name: Build GHCR housekeeping tool
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -40,6 +41,37 @@ jobs:
           go-version-file: go.mod
           check-latest: true
           cache: true
+
+      - name: Build tool and collect policy
+        env:
+          GOFLAGS: -mod=vendor
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ghcr-housekeeping
+          go build -trimpath -o artifacts/ghcr-housekeeping/ghcr-housekeeping ./hack/tools/ghcr_housekeeping
+          cp hack/tools/ghcr_housekeeping/policy.json artifacts/ghcr-housekeeping/policy.json
+
+      - name: Upload housekeeping tool and policy
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ghcr-housekeeping-tool
+          path: artifacts/ghcr-housekeeping/
+          if-no-files-found: error
+          overwrite: true
+
+  housekeeping:
+    name: Cleanup GHCR image package versions
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - name: Download housekeeping tool and policy
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ghcr-housekeeping-tool
+          path: artifacts/ghcr-housekeeping/
 
       - name: Resolve housekeeping configuration
         id: cfg
@@ -133,17 +165,17 @@ jobs:
 
       - name: Run GHCR housekeeping tool
         env:
-          GOFLAGS: -mod=vendor
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          go run ./hack/tools/ghcr_housekeeping \
+          chmod 0755 artifacts/ghcr-housekeeping/ghcr-housekeeping
+          artifacts/ghcr-housekeeping/ghcr-housekeeping \
             --owner "${{ steps.cfg.outputs.owner }}" \
             --owner-kind "${{ steps.cfg.outputs.owner_kind }}" \
             --registry-user "${GITHUB_ACTOR}" \
             --mode "${{ steps.cfg.outputs.mode }}" \
-            --policy-file hack/tools/ghcr_housekeeping/policy.json \
+            --policy-file artifacts/ghcr-housekeeping/policy.json \
             --max-delete-per-package "${{ steps.cfg.outputs.max_delete_per_package }}" \
             --max-delete-total "${{ steps.cfg.outputs.max_delete_total }}" \
             --report-json dist/housekeeping-report.json

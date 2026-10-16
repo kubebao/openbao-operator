@@ -4,10 +4,7 @@ on:
   pull_request_target:
     types: [labeled]
 
-permissions:
-  actions: write
-  contents: read
-  pull-requests: read
+permissions: {}
 
 concurrency:
   group: ci-label-dispatch-${{ github.event.pull_request.number }}
@@ -18,6 +15,8 @@ jobs:
     name: Dispatch CI Rerun
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && (github.event.label.name == 'ci:full-e2e' || github.event.label.name == 'backup' || github.event.label.name == 'upgrades' || github.event.label.name == 'security' || github.event.label.name == 'provisioner' || github.event.label.name == 'admission' || github.event.label.name == 'controller')
     runs-on: ubuntu-24.04
+    permissions:
+      actions: write
     steps:
       - name: Dispatch CI workflow
         env:

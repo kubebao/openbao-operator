@@ -7,20 +7,21 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: trusted-root-refresh
   cancel-in-progress: true
 
 jobs:
-  refresh:
+  prepare:
     name: Refresh trusted_root.json
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -34,9 +35,37 @@ jobs:
           set -euo pipefail
           make update-trusted-root verify-trusted-root
 
+      - name: Upload verified trusted root
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verified-trusted-root
+          path: internal/adapter/security/trusted_root.json
+          if-no-files-found: error
+          overwrite: true
+
+  refresh:
+    name: Propose trusted root update
+    needs: prepare
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download verified trusted root
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: verified-trusted-root
+          path: internal/adapter/security/
+
       - name: Create PR if changed
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
+          add-paths: internal/adapter/security/trusted_root.json
           branch: chore/update-trusted-root
           delete-branch: true
           title: "chore: update Sigstore trusted root"
