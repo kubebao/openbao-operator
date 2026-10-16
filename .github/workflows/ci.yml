@@ -217,7 +217,7 @@ jobs:
             echo "config_compat=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|config/|charts/|Dockerfile(\..*)?$|hack/(ci/|tools/)|hack/dev/tool-versions\.env$|go\.(mod|sum)$|vendor/|website/assets/js/|\.trivyignore|\.trivy\.yaml|Makefile|mk/)'; then
+          if changed_matches '^(internal/|cmd/|api/|config/|charts/|Dockerfile(\..*)?$|test/e2e/images/|hack/(ci/|tools/)|hack/dev/tool-versions\.env$|go\.(mod|sum)$|vendor/|website/assets/js/|\.github/((workflows|actions|scripts)/|(dependabot|dependency-review-config)\.yml$)|\.semgrep/|\.(semgrepignore|govulnignore)$|\.trivyignore|\.trivy\.yaml|Makefile|mk/)'; then
             echo "security_scan=true" >> "${GITHUB_OUTPUT}"
           else
             echo "security_scan=false" >> "${GITHUB_OUTPUT}"

@@ -210,6 +210,61 @@ func TestSharedExecutionChangesSelectEveryLaneFamily(t *testing.T) {
 	}
 }
 
+func TestSecurityPolicyChangesRequireSecurityChecks(t *testing.T) {
+	t.Parallel()
+	const (
+		jobSuccess = "success"
+		jobSkipped = "skipped"
+	)
+	for _, path := range []string{
+		".semgrep/rules/example.yaml",
+		".semgrep/tests/example.go",
+		".semgrepignore",
+		".govulnignore",
+		".trivyignore",
+		".trivy.yaml",
+		".github/workflows/example.yml",
+		".github/actions/example/action.yml",
+		".github/scripts/example.go",
+		".github/dependabot.yml",
+		".github/dependency-review-config.yml",
+		"test/e2e/images/pykmip-server/requirements.txt",
+	} {
+		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+			routing, err := runRouting(t, "normal", path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, head := range []string{"owner/repo", "fork/repo"} {
+				plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "sha",
+					prEvent(head), routing)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !plan.Checks["security"] {
+					t.Fatalf("policy change %s from %s does not require security checks", path, head)
+				}
+				results := make(map[string]jobResult, len(plan.Checks))
+				for job, required := range plan.Checks {
+					result := jobSkipped
+					if required {
+						result = jobSuccess
+					}
+					results[job] = jobResult{Result: result}
+				}
+				if err := validateResults(plan, "sha", results); err != nil {
+					t.Fatal(err)
+				}
+				results["security"] = jobResult{Result: jobSkipped}
+				if err := validateResults(plan, "sha", results); err == nil || !strings.Contains(err.Error(), "security:") {
+					t.Fatalf("skipped security checks accepted for %s from %s: %v", path, head, err)
+				}
+			}
+		})
+	}
+}
+
 func lanePlanner(t *testing.T) func(checkPlan) []string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
