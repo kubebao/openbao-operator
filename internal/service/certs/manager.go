@@ -301,7 +301,10 @@ func parseCertificate(pemBytes []byte) (*x509.Certificate, error) {
 
 func parseECDSAPrivateKey(pemBytes []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemBytes)
-	if block == nil || block.Type != "EC PRIVATE KEY" {
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode ECDSA private key PEM")
+	}
+	if block.Type != "EC PRIVATE KEY" {
 		return nil, fmt.Errorf("failed to decode ECDSA private key PEM (expected EC PRIVATE KEY, got %q)", block.Type)
 	}
 
