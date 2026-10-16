@@ -109,6 +109,9 @@ func TestHybridPQKeyExchange(t *testing.T) {
 	}
 	prober, err := probe.NewProber(probe.ProberConfig{
 		Addr: nodes[0].address, CAFile: filepath.Join(files, "tls", "ca.crt"), ServerName: clientConfig.TLSServerName,
+		StartupPath:   "/v1/sys/health?standbyok=true&perfstandbyok=true&sealedcode=204&uninitcode=204",
+		LivenessPath:  "/v1/sys/health?standbyok=true&perfstandbyok=true&sealedcode=204&uninitcode=204",
+		ReadinessPath: "/v1/sys/health?standbyok=true&perfstandbyok=true",
 	})
 	require.NoError(t, err)
 	require.NoError(t, prober.CheckStartup(t.Context()))
