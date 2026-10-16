@@ -53,8 +53,8 @@ type ClientConfig struct {
 	// ClusterKey is an optional per-cluster identifier used to share client state
 	// (rate limiting and circuit breakers) across multiple Client instances.
 	//
-	// Recommended format: "<namespace>/<name>".
-	// If empty, BaseURL hostname is used as a fallback (best-effort).
+	// ClientManager keys must identify one cluster lifetime, such as a Kubernetes UID.
+	// NewClient does not share state; use a ClientManager factory for shared state.
 	ClusterKey string
 
 	// BaseURL is the OpenBao API URL (e.g., "https://pod-0.cluster.ns.svc:8200").

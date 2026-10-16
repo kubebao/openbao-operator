@@ -57,6 +57,6 @@ func authenticatedOperatorClient(ctx context.Context, clientset kubernetes.Inter
 	if err != nil {
 		return nil, err
 	}
-	factory := manager.FactoryFor(cluster.Namespace+"/"+cluster.Name, trust.CACert, trust.TLSServerName)
+	factory := manager.FactoryFor(string(cluster.UID), trust.CACert, trust.TLSServerName)
 	return factory.NewWithJWT(ctx, baseURL, portauth.RoleNameOperator, jwt)
 }

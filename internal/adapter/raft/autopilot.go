@@ -414,7 +414,7 @@ func (m *Manager) newOpenBaoClient(ctx context.Context, cluster *openbaov1alpha1
 	}
 
 	// Get client factory
-	clusterKey := fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name)
+	clusterKey := string(cluster.UID)
 	factory := m.clientFactory(clusterKey, trust.CACert, trust.TLSServerName)
 	if factory == nil {
 		return nil, fmt.Errorf("client factory provider returned nil factory for cluster %s", clusterKey)
@@ -528,7 +528,7 @@ func (m *Manager) newOpenBaoClientWithToken(ctx context.Context, cluster *openba
 	}
 
 	// Create OpenBao client using the ClientManager for proper state isolation.
-	clusterKey := fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name)
+	clusterKey := string(cluster.UID)
 	factory := m.clientFactory(clusterKey, trust.CACert, trust.TLSServerName)
 	if factory == nil {
 		return nil, fmt.Errorf("client factory provider returned nil factory for cluster %s", clusterKey)

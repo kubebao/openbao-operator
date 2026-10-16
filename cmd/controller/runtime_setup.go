@@ -64,6 +64,9 @@ func buildControllerProcessRuntime(
 	}
 
 	clientMgr := openbao.NewClientManager(smartClientConfig)
+	if err := addOpenBaoClientStateCleanup(mgr, clientMgr, watchNamespaceFromEnv()); err != nil {
+		return controllerProcessRuntime{}, err
+	}
 	tokens := auth.NewControllerTokenSource(clientset)
 	raftMgr := raft.NewManager(clientset, raftClientFactoryProvider{clientManager: clientMgr}, tokens)
 	initMgr, err := initmanager.NewManager(

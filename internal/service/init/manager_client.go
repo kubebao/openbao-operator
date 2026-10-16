@@ -25,7 +25,7 @@ func (m *Manager) newOpenBaoClient(ctx context.Context, cluster *openbaov1alpha1
 		return nil, err
 	}
 
-	clusterKey := fmt.Sprintf("%s/%s", cluster.Namespace, cluster.Name)
+	clusterKey := string(cluster.UID)
 	factory := m.clientMgr.FactoryFor(clusterKey, trust.CACert, trust.TLSServerName)
 	if factory == nil {
 		return nil, fmt.Errorf("client manager returned nil factory for cluster %s", clusterKey)

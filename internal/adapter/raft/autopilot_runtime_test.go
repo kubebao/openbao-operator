@@ -11,11 +11,13 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -383,7 +385,7 @@ func TestPrepareScaleDown_RemovesFollowerAndUpdatesAutopilot(t *testing.T) {
 	t.Parallel()
 
 	cluster := &openbaov1alpha1.OpenBaoCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "ns"},
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "ns", UID: "cluster-uid"},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
 			Profile:  openbaov1alpha1.ProfileDevelopment,
 			Replicas: 3,
@@ -441,8 +443,8 @@ func TestPrepareScaleDown_RemovesFollowerAndUpdatesAutopilot(t *testing.T) {
 	if factory.newWithToken != 1 {
 		t.Fatalf("NewWithToken() calls = %d, want 1", factory.newWithToken)
 	}
-	if provider.clusterKey != "ns/cluster" {
-		t.Fatalf("clusterKey = %q, want ns/cluster", provider.clusterKey)
+	if provider.clusterKey != "cluster-uid" {
+		t.Fatalf("clusterKey = %q, want cluster-uid", provider.clusterKey)
 	}
 	if string(provider.caCert) != "pem-data" {
 		t.Fatalf("caCert = %q, want pem-data", string(provider.caCert))
@@ -890,4 +892,30 @@ type controllerTokenProviderFunc func(context.Context, *openbaov1alpha1.OpenBaoC
 
 func (f controllerTokenProviderFunc) Token(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster) (string, error) {
 	return f(ctx, cluster)
+}
+
+func TestNewOpenBaoClientsUseClusterUID(t *testing.T) {
+	t.Parallel()
+	for _, jwt := range []bool{false, true} {
+		t.Run(fmt.Sprintf("JWT=%t", jwt), func(t *testing.T) {
+			provider := &fakeScaleDownFactoryProvider{factory: &fakeScaleDownFactory{client: &fakeScaleDownClient{}}}
+			tokens := controllerTokenProviderFunc(func(context.Context, *openbaov1alpha1.OpenBaoCluster) (string, error) {
+				return "test-jwt", nil
+			})
+			manager := NewManager(k8sfake.NewClientset(), provider, tokens)
+			for _, uid := range []types.UID{"old-uid", "new-uid"} {
+				cluster := &openbaov1alpha1.OpenBaoCluster{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "same-name", UID: uid},
+				}
+				var err error
+				if jwt {
+					_, err = manager.newOpenBaoClient(t.Context(), cluster)
+				} else {
+					_, err = manager.newOpenBaoClientWithToken(t.Context(), cluster, "test-token")
+				}
+				require.NoError(t, err)
+				require.Equal(t, string(uid), provider.clusterKey)
+			}
+		})
+	}
 }

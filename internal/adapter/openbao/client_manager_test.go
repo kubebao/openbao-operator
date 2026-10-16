@@ -2,11 +2,16 @@ package openbao
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 )
@@ -91,6 +96,8 @@ func TestClientManager_NilReceiver(t *testing.T) {
 	}
 
 	mgr.Close()
+	mgr.Forget("cluster-uid")
+	require.Empty(t, mgr.ClusterKeys())
 }
 
 func clientManagerStateCount(t *testing.T, mgr *ClientManager) int {
@@ -207,5 +214,132 @@ func TestClientManager_FactoryCreatesWorkingClients(t *testing.T) {
 	}
 	if health.Sealed {
 		t.Errorf("expected Sealed=false")
+	}
+}
+
+func TestClientManager_StateLifecycle(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name string
+		key  string
+	}{
+		{name: "cluster UID", key: "cluster-uid"},
+		{name: "empty key", key: ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mgr := NewClientManager(ClientConfig{})
+			t.Cleanup(mgr.Close)
+			first := mgr.FactoryFor(tt.key, nil)
+			require.NotNil(t, first)
+			if tt.key == "" {
+				require.Nil(t, first.clientState)
+				require.Empty(t, mgr.ClusterKeys())
+			} else {
+				require.ElementsMatch(t, []string{tt.key}, mgr.ClusterKeys())
+			}
+
+			mgr.Forget(tt.key)
+			require.Empty(t, mgr.ClusterKeys())
+			second := mgr.FactoryFor(tt.key, nil)
+			require.NotNil(t, second)
+			if tt.key != "" {
+				require.NotSame(t, first.clientState, second.clientState)
+				require.NotSame(t, first.jwtTokens, second.jwtTokens)
+			}
+			// Forget does not invalidate a factory that is still in use.
+			_, err := first.New("https://openbao.example:8200")
+			require.NoError(t, err)
+
+			mgr.Close()
+			mgr.Close()
+			require.Empty(t, mgr.ClusterKeys())
+			require.Nil(t, mgr.FactoryFor(tt.key, nil))
+		})
+	}
+}
+
+func TestClientManager_ConcurrentLifecycle(t *testing.T) {
+	t.Parallel()
+	mgr := NewClientManager(ClientConfig{})
+	var workers, ready sync.WaitGroup
+	ready.Add(16)
+	start := make(chan struct{})
+	for range 16 {
+		workers.Go(func() {
+			factory := mgr.FactoryFor("cluster-uid", nil)
+			assert.NotNil(t, factory)
+			ready.Done()
+			<-start
+			for range 100 {
+				factory := mgr.FactoryFor("cluster-uid", nil)
+				if factory != nil {
+					_, err := factory.New("https://openbao.example:8200")
+					assert.NoError(t, err)
+				}
+				_ = mgr.ClusterKeys()
+				mgr.Forget("cluster-uid")
+			}
+		})
+	}
+	ready.Wait()
+	close(start)
+	mgr.Close()
+	workers.Wait()
+	require.Empty(t, mgr.ClusterKeys())
+	require.Nil(t, mgr.FactoryFor("cluster-uid", nil))
+}
+
+func TestClientManager_ClusterLifetimeIsolation(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name         string
+		nextKey      string
+		forget       bool
+		wantRequests int32
+		wantToken    string
+	}{
+		{name: "same UID shares state", nextKey: "old-uid", wantRequests: 1, wantToken: "token-1"},
+		{name: "new UID starts fresh", nextKey: "new-uid", wantRequests: 2, wantToken: "token-2"},
+		{name: "forgotten UID starts fresh", nextKey: "old-uid", forget: true, wantRequests: 2, wantToken: "token-2"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var logins, requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if req.URL.Path == apiPathAuthJWTLogin {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = fmt.Fprintf(w, `{"auth":{"client_token":"token-%d","ttl":3600}}`, logins.Add(1))
+					return
+				}
+				requests.Add(1)
+				w.WriteHeader(http.StatusInternalServerError)
+			}))
+			t.Cleanup(server.Close)
+			mgr := NewClientManager(ClientConfig{
+				RateLimitQPS: 1000, RateLimitBurst: 1000,
+				CircuitBreakerFailureThreshold: 1, CircuitBreakerOpenDuration: time.Minute,
+			})
+			t.Cleanup(mgr.Close)
+			first := mgr.FactoryFor("old-uid", nil)
+			token, err := first.LoginJWT(t.Context(), server.URL, "operator", "jwt")
+			require.NoError(t, err)
+			require.Equal(t, "token-1", token)
+			oldClient, err := first.NewWithToken(server.URL, token)
+			require.NoError(t, err)
+			require.Error(t, oldClient.StepDown(t.Context()))
+			if tt.forget {
+				mgr.Forget("old-uid")
+			}
+			second := mgr.FactoryFor(tt.nextKey, nil)
+			token, err = second.LoginJWT(t.Context(), server.URL, "operator", "jwt")
+			require.NoError(t, err)
+			require.Equal(t, tt.wantToken, token)
+			nextClient, err := second.NewWithToken(server.URL, token)
+			require.NoError(t, err)
+			require.Error(t, nextClient.StepDown(t.Context()))
+			require.Equal(t, tt.wantRequests, requests.Load())
+			// The old factory retains its open circuit even after manager cleanup.
+			require.Error(t, oldClient.StepDown(t.Context()))
+			require.Equal(t, tt.wantRequests, requests.Load())
+		})
 	}
 }
