@@ -27,6 +27,9 @@ func TestReconcileStatefulSetUpdateStrategySwitchesToOnDeleteAtomically(t *testi
 		},
 	}
 	mgr := workloadOwnershipManager(cluster, statefulSet)
+	if err := mgr.client.Get(t.Context(), client.ObjectKeyFromObject(statefulSet), statefulSet); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := mgr.reconcileStatefulSetUpdateStrategy(context.Background(), logr.Discard(), cluster, constants.LabelValueOpenBaoWorkloadPoolVoter, statefulSet); err != nil {
 		t.Fatalf("reconcileStatefulSetUpdateStrategy() error = %v", err)
@@ -56,6 +59,9 @@ func TestReconcileStatefulSetUpdateStrategySwitchesToRollingUpdate(t *testing.T)
 	statefulSet.Status.CurrentRevision = "current-blue-revision"
 	statefulSet.Status.UpdateRevision = "post-promotion-template-revision"
 	mgr := workloadOwnershipManager(cluster, statefulSet)
+	if err := mgr.client.Get(t.Context(), client.ObjectKeyFromObject(statefulSet), statefulSet); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := mgr.reconcileStatefulSetUpdateStrategy(context.Background(), logr.Discard(), cluster, constants.LabelValueOpenBaoWorkloadPoolVoter, statefulSet); err != nil {
 		t.Fatalf("reconcileStatefulSetUpdateStrategy() error = %v", err)
@@ -77,14 +83,37 @@ func TestReconcileStatefulSetUpdateStrategySwitchesToRollingUpdate(t *testing.T)
 }
 
 func TestReconcileStatefulSetUpdateStrategyRejectsUnownedStatefulSet(t *testing.T) {
-	cluster := workloadOwnershipCluster()
-	cluster.Status.AcceptedUpgradeStrategy = openbaov1alpha1.UpdateStrategyBlueGreen
-	statefulSet := workloadOwnershipStatefulSet(cluster.Name, cluster.Namespace, nil, 3)
-	statefulSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
-	mgr := workloadOwnershipManager(cluster, statefulSet)
-
-	err := mgr.reconcileStatefulSetUpdateStrategy(context.Background(), logr.Discard(), cluster, constants.LabelValueOpenBaoWorkloadPoolVoter, statefulSet)
-	if err == nil || !strings.Contains(err.Error(), "requires OpenBaoCluster owner proof") {
-		t.Fatalf("reconcileStatefulSetUpdateStrategy() error = %v, want owner proof error", err)
+	for _, pendingUpgrade := range []bool{false, true} {
+		name := "idle strategy transition"
+		if pendingUpgrade {
+			name = "pending version upgrade"
+		}
+		t.Run(name, func(t *testing.T) {
+			cluster := workloadOwnershipCluster()
+			cluster.Status.AcceptedUpgradeStrategy = openbaov1alpha1.UpdateStrategyBlueGreen
+			if pendingUpgrade {
+				cluster.Status.AcceptedUpgradeStrategy = openbaov1alpha1.UpdateStrategyRollingUpdate
+				cluster.Status.Initialized = true
+				cluster.Status.CurrentVersion = "2.5.5"
+			}
+			statefulSet := workloadOwnershipStatefulSet(cluster.Name, cluster.Namespace, nil, 3)
+			statefulSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
+			mgr := workloadOwnershipManager(cluster, statefulSet)
+			if err := mgr.client.Get(t.Context(), client.ObjectKeyFromObject(statefulSet), statefulSet); err != nil {
+				t.Fatal(err)
+			}
+			original := statefulSet.DeepCopy()
+			err := mgr.reconcileStatefulSetUpdateStrategy(t.Context(), logr.Discard(), cluster, constants.LabelValueOpenBaoWorkloadPoolVoter, statefulSet)
+			if err == nil || !strings.Contains(err.Error(), "requires OpenBaoCluster owner proof") {
+				t.Fatalf("reconcileStatefulSetUpdateStrategy() error = %v, want owner proof error", err)
+			}
+			stored := &appsv1.StatefulSet{}
+			if err := mgr.client.Get(t.Context(), client.ObjectKeyFromObject(statefulSet), stored); err != nil {
+				t.Fatal(err)
+			}
+			if stored.Spec.UpdateStrategy.Type != original.Spec.UpdateStrategy.Type || stored.Spec.UpdateStrategy.RollingUpdate != nil {
+				t.Fatalf("unowned StatefulSet strategy changed: %#v", stored.Spec.UpdateStrategy)
+			}
+		})
 	}
 }

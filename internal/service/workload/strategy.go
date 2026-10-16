@@ -87,6 +87,9 @@ func (m *Manager) reconcileStatefulSetUpdateStrategy(ctx context.Context, logger
 	if decision.action == preserveStatefulSetStrategy {
 		return nil
 	}
+	if err := resourceownership.RequireOwnerProof("change workload StatefulSet update strategy", existing, cluster); err != nil {
+		return err
+	}
 
 	operation := fmt.Sprintf("change update strategy on StatefulSet %s/%s", cluster.Namespace, existing.Name)
 	if decision.action == lockStatefulSetPartition {
@@ -95,9 +98,6 @@ func (m *Manager) reconcileStatefulSetUpdateStrategy(ctx context.Context, logger
 			"statefulset", existing.Name, "partition", *decision.strategy.RollingUpdate.Partition,
 			"fromVersion", cluster.Status.CurrentVersion, "toVersion", cluster.Spec.Version)
 	} else {
-		if err := resourceownership.RequireOwnerProof("change workload StatefulSet update strategy", existing, cluster); err != nil {
-			return err
-		}
 		logger.Info("Changing idle StatefulSet update strategy",
 			"statefulset", existing.Name, "strategy", decision.strategy.Type)
 	}
@@ -106,7 +106,8 @@ func (m *Manager) reconcileStatefulSetUpdateStrategy(ctx context.Context, logger
 	// API-defaulted rollingUpdate payload while switching to OnDelete.
 	patched := existing.DeepCopy()
 	patched.Spec.UpdateStrategy = decision.strategy
-	if err := m.client.Patch(ctx, patched, client.MergeFrom(existing)); err != nil {
+	// Re-observe ownership and strategy after a replacement or concurrent write.
+	if err := m.client.Patch(ctx, patched, client.MergeFromWithOptions(existing, client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("failed to %s: %w", operation, err)
 	}
 	return nil

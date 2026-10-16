@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +23,7 @@ import (
 
 func TestWorkloadStrategyLockPrecedesTemplateApply(t *testing.T) {
 	ensureDefaultAdmissionPoliciesApplied(t)
-	for _, outcome := range []string{"success", "conflict", "lost response"} {
+	for _, outcome := range []string{"success", "conflict", "lost response", "replacement"} {
 		t.Run(outcome, func(t *testing.T) {
 			namespace := newTestNamespace(t)
 			cluster := createMinimalCluster(t, namespace, "strategy-order")
@@ -71,6 +72,17 @@ func TestWorkloadStrategyLockPrecedesTemplateApply(t *testing.T) {
 					if patches == 1 && outcome == "conflict" {
 						return apierrors.NewConflict(schema.GroupResource{Group: "apps", Resource: "statefulsets"}, obj.GetName(), nil)
 					}
+					if patches == 1 && outcome == "replacement" {
+						require.NoError(t, c.Delete(ctx, current, client.Preconditions{UID: &current.UID}))
+						replacement := current.DeepCopy()
+						replacement.ObjectMeta = metav1.ObjectMeta{
+							Name: current.Name, Namespace: current.Namespace,
+							Labels: current.Labels, Annotations: current.Annotations, OwnerReferences: current.OwnerReferences,
+						}
+						require.NoError(t, c.Create(ctx, replacement))
+						require.NotEqual(t, uid, replacement.UID)
+						uid = replacement.UID
+					}
 					if err := c.Patch(ctx, obj, patch, opts...); err != nil {
 						return err
 					}
@@ -82,7 +94,7 @@ func TestWorkloadStrategyLockPrecedesTemplateApply(t *testing.T) {
 			})
 			err := reconcileClusterResources(ctx, logr.Discard(), wrapped, k8sScheme, cluster, spec)
 			if outcome != "success" {
-				if outcome == "conflict" {
+				if outcome == "conflict" || outcome == "replacement" {
 					require.True(t, apierrors.IsConflict(err), "expected conflict, got %v", err)
 				} else {
 					require.True(t, apierrors.IsTimeout(err), "expected timeout, got %v", err)
@@ -95,7 +107,7 @@ func TestWorkloadStrategyLockPrecedesTemplateApply(t *testing.T) {
 			}
 			require.NoError(t, err)
 			expectedPatches := 1
-			if outcome == "conflict" {
+			if outcome == "conflict" || outcome == "replacement" {
 				expectedPatches = 2
 			}
 			require.Equal(t, expectedPatches, patches)
