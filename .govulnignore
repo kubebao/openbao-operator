@@ -1,4 +1,3 @@
 # Govulncheck ignore list: one vulnerability ID per line (e.g. GO-2026-4377).
 # Blank lines and lines starting with # are skipped.
 # See SECURITY.md "Known dependency caveats" for context on these entries.
-GO-2026-5932
