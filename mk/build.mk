@@ -67,10 +67,9 @@ docker-build-upgrade: ## Build docker image with the upgrade helper.
 docker-push-upgrade: ## Push docker image with the upgrade helper.
 	$(CONTAINER_TOOL) push ${IMG}
 
-OPENBAO_SOFTHSM_BASE_IMAGE ?= openbao/openbao:2.6.4
+OPENBAO_SOFTHSM_BASE_IMAGE ?= $(shell sed -n 's/^ARG OPENBAO_BASE_IMAGE=//p' test/e2e/images/openbao-softhsm/Dockerfile)
 OPENBAO_SOFTHSM_IMG ?= openbao-softhsm:dev
-PYKMIP_BASE_IMAGE ?= python:3.11-slim
-PYKMIP_VERSION ?= 0.10.0
+PYKMIP_BASE_IMAGE ?= $(shell sed -n 's/^ARG PYKMIP_BASE_IMAGE=//p' test/e2e/images/pykmip-server/Dockerfile)
 PYKMIP_SERVER_IMG ?= pykmip-server:dev
 
 .PHONY: docker-build-e2e-openbao-softhsm
@@ -86,7 +85,6 @@ docker-build-e2e-pykmip-server: ## Build the test-only PyKMIP server image used 
 	$(CONTAINER_TOOL) build \
 		-f test/e2e/images/pykmip-server/Dockerfile \
 		--build-arg PYKMIP_BASE_IMAGE=$(PYKMIP_BASE_IMAGE) \
-		--build-arg PYKMIP_VERSION=$(PYKMIP_VERSION) \
 		-t $(PYKMIP_SERVER_IMG) \
 		test/e2e/images/pykmip-server
 

@@ -34,7 +34,10 @@ updates:
           - patch
 
   - package-ecosystem: docker
-    directory: /
+    directories:
+      - /
+      - /test/e2e/images/openbao-softhsm
+      - /test/e2e/images/pykmip-server
     schedule:
       interval: weekly
       day: wednesday
@@ -46,6 +49,22 @@ updates:
       - dependencies
     groups:
       docker-images:
+        patterns:
+          - "*"
+
+  - package-ecosystem: pip
+    directory: /test/e2e/images/pykmip-server
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "03:00"
+      timezone: Europe/Amsterdam
+    cooldown:
+      default-days: 7
+    labels:
+      - dependencies
+    groups:
+      pykmip-fixture:
         patterns:
           - "*"
 

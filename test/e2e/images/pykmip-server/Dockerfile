@@ -1,11 +1,15 @@
-ARG PYKMIP_BASE_IMAGE=python:3.11-slim
+ARG PYKMIP_BASE_IMAGE=python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
 FROM ${PYKMIP_BASE_IMAGE}
-
-ARG PYKMIP_VERSION=0.10.0
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN python -m pip install --no-cache-dir "PyKMIP==${PYKMIP_VERSION}" && \
+COPY requirements-build.txt requirements.txt /tmp/
+
+RUN python -m pip install --no-cache-dir --only-binary=:all: --require-hashes -r /tmp/requirements-build.txt && \
+    python -m pip install --no-cache-dir --no-build-isolation --only-binary=:all: --no-binary=PyKMIP \
+      --require-hashes -r /tmp/requirements.txt && \
+    python -m pip check && \
+    rm /tmp/requirements-build.txt /tmp/requirements.txt && \
     mkdir -p /var/lib/pykmip && \
     chown -R 1000:1000 /var/lib/pykmip
 
