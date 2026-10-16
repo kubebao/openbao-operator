@@ -62,7 +62,7 @@ specific contract.
 | `ACMECacheReady` | Shared ACME state for HA or blue-green topologies |
 | `GatewayIntegrationReady` | Referenced Gateway, GatewayClass, listener, and managed Route attachment |
 | `IngressIntegrationReady` | Managed Ingress prerequisites and load-balancer progress |
-| `APIServerNetworkReady` | Kubernetes API egress represented by operator-managed NetworkPolicy |
+| `APIServerNetworkReady` | Kubernetes API egress configuration in standard NetworkPolicies and the optional Cilium policy; does not probe live connectivity |
 | `AuditFileStorageReady` | Shared audit PVC readiness and workload mount adoption |
 
 ### Security and production conditions

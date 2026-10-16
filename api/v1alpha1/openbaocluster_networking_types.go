@@ -165,6 +165,11 @@ type IngressConfig struct {
 
 // NetworkConfig configures network-related settings for the OpenBaoCluster.
 type NetworkConfig struct {
+	// APIServerEgress adds a CNI-specific Kubernetes API egress policy alongside
+	// the standard NetworkPolicies. Omit this field for standard IP-based rules.
+	// +optional
+	APIServerEgress *APIServerEgressConfig `json:"apiServerEgress,omitempty"`
+
 	// APIServerCIDR is an optional CIDR block for the Kubernetes API server.
 	// When specified, this value is used instead of auto-detection for NetworkPolicy egress rules.
 	// This is useful when you want an explicit allow-list (or when the in-cluster service VIP
@@ -175,7 +180,7 @@ type NetworkConfig struct {
 
 	// APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.
 	// When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.
-	// This is required on some CNI implementations where egress enforcement happens on the post-NAT
+	// Use this on CNI implementations where egress enforcement happens on the post-NAT
 	// destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).
 	//
 	// The operator does not auto-detect these endpoint IPs because doing so reliably requires broader
@@ -272,6 +277,22 @@ type NetworkConfig struct {
 	//         app.kubernetes.io/name: traefik
 	// +optional
 	TrustedIngressPeers []networkingv1.NetworkPolicyPeer `json:"trustedIngressPeers,omitempty"`
+}
+
+// APIServerEgressConfig selects an additional Kubernetes API egress policy.
+type APIServerEgressConfig struct {
+	// Mode selects the Cilium kube-apiserver entity policy. This requires Cilium
+	// and its namespaced cilium.io/v2 CiliumNetworkPolicy API.
+	// +kubebuilder:validation:Enum=Cilium
+	Mode string `json:"mode"`
+
+	// Port is the API server's TCP backend port after Service translation.
+	// Set this to the cluster's actual backend port, which can differ from 443.
+	// +kubebuilder:default=6443
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +optional
+	Port int32 `json:"port,omitempty"`
 }
 
 // GatewayConfig configures Kubernetes Gateway API access for the OpenBao cluster.

@@ -90,6 +90,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				},
 				Upgrade: &openbaov1alpha1.UpgradeConfig{
 					Strategy:    openbaov1alpha1.UpdateStrategyRollingUpdate,

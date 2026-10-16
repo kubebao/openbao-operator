@@ -20,19 +20,19 @@ func TestGenerateTenantRole(t *testing.T) {
 			name:      "default namespace",
 			namespace: "default",
 			wantName:  TenantRoleName,
-			wantRules: 17, // Expected number of PolicyRules
+			wantRules: 18, // Expected number of PolicyRules
 		},
 		{
 			name:      "custom namespace",
 			namespace: "tenant-1",
 			wantName:  TenantRoleName,
-			wantRules: 17,
+			wantRules: 18,
 		},
 		{
 			name:      "namespace with special characters",
 			namespace: "my-namespace-123",
 			wantName:  TenantRoleName,
-			wantRules: 17,
+			wantRules: 18,
 		},
 	}
 
@@ -76,6 +76,7 @@ func TestGenerateTenantRole(t *testing.T) {
 			hasPodRule := false
 			hasEventsK8sRule := false
 			hasServiceMonitorRule := false
+			hasCiliumRule := false
 			hasPrometheusRuleRule := false
 			hasQuotaOrLimitRangeRule := false
 
@@ -124,6 +125,13 @@ func TestGenerateTenantRole(t *testing.T) {
 					hasEventsK8sRule = true
 				}
 
+				if slices.Contains(rule.APIGroups, "cilium.io") {
+					hasCiliumRule = true
+					if !slices.Equal(rule.Resources, []string{"ciliumnetworkpolicies"}) ||
+						!slices.Equal(rule.Verbs, []string{"create", "delete", "get", "patch"}) {
+						t.Errorf("unexpected Cilium permissions: %#v", rule)
+					}
+				}
 				if slices.Contains(rule.APIGroups, "monitoring.coreos.com") &&
 					slices.Contains(rule.Resources, "servicemonitors") &&
 					slices.Contains(rule.Verbs, "get") &&
@@ -162,6 +170,9 @@ func TestGenerateTenantRole(t *testing.T) {
 			}
 			if !hasEventsK8sRule {
 				t.Error("GenerateTenantRole() missing events.k8s.io Events rule")
+			}
+			if !hasCiliumRule {
+				t.Error("missing namespaced CiliumNetworkPolicy permissions")
 			}
 			if !hasServiceMonitorRule {
 				t.Error("GenerateTenantRole() missing monitoring.coreos.com ServiceMonitor rule")

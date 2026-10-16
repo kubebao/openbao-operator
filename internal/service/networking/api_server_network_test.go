@@ -27,7 +27,7 @@ func TestEvaluateAPIServerNetworkReadiness(t *testing.T) {
 			cluster:       &openbaov1alpha1.OpenBaoCluster{},
 			wantStatus:    metav1.ConditionUnknown,
 			wantReason:    "APIServerEndpointIPsRecommended",
-			wantMessageIn: "post-DNAT traffic",
+			wantMessageIn: "post-DNAT enforcement",
 		},
 		{
 			name:    "endpoint ips make readiness true",

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,14 +48,18 @@ var _ = Describe("Cluster Networking", Label("networking", "critical"), func() {
 		if tlsMode == openbaov1alpha1.TLSModeExternal {
 			Expect(e2ehelpers.EnsureExternalTLSSecrets(ctx, f.Client, f.Namespace, "network", 3, serverName)).To(Succeed())
 		}
+		profile := os.Getenv("E2E_NETWORK_PROFILE")
+		endpointIPs := apiServerEndpointIPs
+		if profile != "" {
+			endpointIPs = nil // The Cilium entity policy must work without pinned API endpoint IPs.
+		}
 		cluster, err := f.CreateDevelopmentCluster(ctx, framework.DevelopmentClusterConfig{
 			TLSMode: tlsMode,
 			Name:    "network", Replicas: 3, Version: openBaoVersion, Image: openBaoImage,
 			ConfigInitImg: configInitImage, APIServerCIDR: apiServerCIDR,
-			APIServerEndpointIPs: apiServerEndpointIPs,
+			APIServerEndpointIPs: endpointIPs,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		profile := os.Getenv("E2E_NETWORK_PROFILE")
 		By("configuring client and read-replica Services for the requested IP families")
 		families := []corev1.IPFamily{corev1.IPv4Protocol}
 		if profile == "ipv6" || profile == "dual-ipv6" {
@@ -81,6 +86,43 @@ var _ = Describe("Cluster Networking", Label("networking", "critical"), func() {
 		f.WaitForCondition(cluster.Name, openbaov1alpha1.ConditionAvailable, metav1.ConditionTrue)
 		f.WaitForCondition(cluster.Name, openbaov1alpha1.ConditionReadReplicasReady, metav1.ConditionTrue)
 		f.WaitForCondition(cluster.Name, openbaov1alpha1.ConditionRaftMembershipReady, metav1.ConditionTrue)
+		if profile != "" {
+			By("checking the operator-owned Cilium policy with no administrator workaround")
+			for _, kind := range []string{"CiliumNetworkPolicyList", "CiliumClusterwideNetworkPolicyList"} {
+				policies := &unstructured.UnstructuredList{}
+				policies.SetAPIVersion("cilium.io/v2")
+				policies.SetKind(kind)
+				options := []client.ListOption{}
+				if kind == "CiliumNetworkPolicyList" {
+					options = append(options, client.InNamespace(f.Namespace))
+				}
+				Expect(f.Client.List(ctx, policies, options...)).To(Succeed())
+				if kind == "CiliumClusterwideNetworkPolicyList" {
+					Expect(policies.Items).To(BeEmpty(), "no cluster-wide API exception may mask the managed policy")
+					continue
+				}
+				Expect(policies.Items).To(HaveLen(1))
+				cnp := policies.Items[0]
+				policyJSON, err := json.Marshal(cnp.Object)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = fmt.Fprintf(GinkgoWriter, "Managed Cilium API policy: %s\n", policyJSON)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cnp.GetName()).To(Equal(cluster.Name + "-api-server"))
+				Expect(cnp.GetOwnerReferences()).To(HaveLen(1))
+				Expect(cnp.GetOwnerReferences()[0].UID).To(Equal(cluster.UID))
+				Expect(cnp.GetAnnotations()[constants.AnnotationOpenBaoOwnerUID]).To(Equal(string(cluster.UID)))
+				Expect(cnp.Object["spec"]).To(Equal(map[string]interface{}{
+					"endpointSelector":  map[string]interface{}{"matchLabels": map[string]interface{}{constants.LabelOpenBaoCluster: cluster.Name}},
+					"enableDefaultDeny": map[string]interface{}{"ingress": false, "egress": false},
+					"egress": []interface{}{map[string]interface{}{
+						"toEntities": []interface{}{"kube-apiserver"},
+						"toPorts":    []interface{}{map[string]interface{}{"ports": []interface{}{map[string]interface{}{"port": "6443", "protocol": "TCP"}}}},
+					}},
+				}))
+				f.WaitForCondition(cluster.Name, openbaov1alpha1.ConditionAPIServerNetworkReady, metav1.ConditionTrue)
+			}
+		}
+
 		for _, name := range []string{cluster.Name + "-public", cluster.Name + "-read"} {
 			service := &corev1.Service{}
 			Expect(f.Client.Get(ctx, client.ObjectKey{Namespace: f.Namespace, Name: name}, service)).To(Succeed())
@@ -192,6 +234,13 @@ var _ = Describe("Cluster Networking", Label("networking", "critical"), func() {
 
 		By("checking API server access with the Kubernetes CA")
 		runClient("network-api", "curl --fail --silent --show-error --max-time 10 --cacert /kube-ca/ca.crt https://kubernetes.default.svc/healthz", true)
+		apiService := &corev1.Service{}
+		Expect(f.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "kubernetes"}, apiService)).To(Succeed())
+		for i, ip := range apiService.Spec.ClusterIPs {
+			connect := "kubernetes.default.svc:443:" + net.JoinHostPort(ip, "443")
+			runClient(fmt.Sprintf("network-api-family-%d", i), "curl --fail --silent --show-error --max-time 10 --cacert /kube-ca/ca.crt --connect-to "+connect+" https://kubernetes.default.svc/healthz", true)
+		}
+
 		By("proving the unrelated target is reachable from an unselected client")
 		runClient("network-control", "curl --fail --silent --show-error --max-time 10 "+targetURL, false)
 		By("proving the generated helper policy blocks a fresh connection to the same target")

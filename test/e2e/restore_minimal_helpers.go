@@ -267,6 +267,7 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 			Network: &api.NetworkConfig{
 				APIServerCIDR:        apiServerCIDR,
 				APIServerEndpointIPs: apiServerEndpointIPs,
+				APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				EgressRules: []networkingv1.NetworkPolicyEgressRule{{
 					To:    []networkingv1.NetworkPolicyPeer{{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "transit"}}}},
 					Ports: []networkingv1.NetworkPolicyPort{networkPolicyPort(corev1.ProtocolTCP, 8200)},

@@ -82,26 +82,6 @@ helm upgrade --install cilium oci://quay.io/cilium/charts/cilium \
   --values "${report_dir}/cilium.yaml" --wait --timeout 5m
 kubectl --kubeconfig "${KUBECONFIG}" wait nodes --all --for=condition=Ready --timeout=180s
 
-# The generated Kubernetes NetworkPolicies remain in force. Cilium identifies
-# API server nodes separately from CIDR peers; this administrator-owned additive
-# policy grants only the documented API server exception (issue #839).
-kubectl --kubeconfig "${KUBECONFIG}" apply -f - <<EOF
-apiVersion: cilium.io/v2
-kind: CiliumClusterwideNetworkPolicy
-metadata:
-  name: openbao-e2e-api-server
-spec:
-  endpointSelector:
-    matchExpressions:
-      - key: openbao.org/cluster
-        operator: Exists
-  egress:
-    - toEntities:
-        - kube-apiserver
-      toPorts:
-        - ports:
-            - port: "6443"
-              protocol: TCP
-EOF
+# API-server egress is managed by the operator; no administrator policy is installed.
 kubectl --kubeconfig "${KUBECONFIG}" get nodes -o json > "${report_dir}/nodes.json"
 kubectl --kubeconfig "${KUBECONFIG}" -n default get service kubernetes -o json > "${report_dir}/api-service.json"

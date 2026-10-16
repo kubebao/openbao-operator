@@ -13,6 +13,7 @@ var (
 	verbsClusterDelegation    = []string{"publishnetworking", "restore", "usecloudidentities", "usecustomexecutables", "useimagetrustroots"}
 	verbsEventWrite           = []string{"create", "patch"}
 	verbsPodManage            = []string{"delete", "get", "list", "patch", "update", "watch"}
+	verbsOptionalPolicyManage = []string{"create", "delete", "get", "patch"}
 	verbsServiceMonitorManage = []string{"create", "delete", "get", "patch"}
 	verbsSecretRead           = []string{"get"}
 	verbsSecretCreate         = []string{"create"}
@@ -111,6 +112,11 @@ func GenerateTenantRole(namespace string) *rbacv1.Role {
 			APIGroups: []string{"networking.k8s.io"},
 			Resources: []string{"ingresses", "networkpolicies"},
 			Verbs:     cloneStrings(verbsManage),
+		},
+		{
+			APIGroups: []string{"cilium.io"},
+			Resources: []string{"ciliumnetworkpolicies"},
+			Verbs:     cloneStrings(verbsOptionalPolicyManage),
 		},
 		{
 			APIGroups: []string{"gateway.networking.k8s.io"},

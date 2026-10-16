@@ -30,7 +30,7 @@ bash hack/ci/delete-network-kind.sh
 The profiles are `ipv4`, `ipv6`, `dual-ipv4`, and `dual-ipv6`. The setup script refuses to reuse an existing cluster or
 Docker network. It records the Kind and Cilium configuration and the actual Node and API Service addresses. Cleanup
 requires the network's cluster label and a matching per-run ownership token. The lab uses the Cilium version in `hack/dev/tool-versions.env` and an
-administrator-owned API-server policy; it does not replace the generated Kubernetes NetworkPolicies.
+operator-owned namespaced API-server entity policy. Test fixtures opt in through `spec.network.apiServerEgress` when a network profile is set. The lab does not install an administrator API-server exception; the tests reject cluster-wide policies that could mask missing egress. Standard Kubernetes NetworkPolicies remain in force.
 
 Network qualification gives the provisioner a 500m CPU limit and 256 MiB memory limit for cache warmup. Production
 resource configuration remains independent of this test fixture. These tests do not qualify cloud load balancers,

@@ -433,6 +433,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
 						Schedule: manualBackupSchedule(time.Now()),
@@ -955,6 +956,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
 						Schedule: manualBackupSchedule(time.Now()),
@@ -1101,6 +1103,7 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
 						Schedule: manualBackupSchedule(time.Now()),

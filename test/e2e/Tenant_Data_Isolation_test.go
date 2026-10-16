@@ -70,6 +70,7 @@ var _ = Describe("Tenant Data Isolation", Label("security", "tenant", "tenancy")
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				},
 				DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 			},

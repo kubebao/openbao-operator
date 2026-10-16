@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:27a3f087ab0a67377bc466fb87bb500cdd559e9cb92603619123f117b8ecfcc7
+    openbao.org/admission-policy-fingerprint: sha256:0d1171ae607befe8ddcd0eeb34543e8c5797856221a5ce83bb82f6a060481596
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -47,6 +47,10 @@ spec:
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE", "DELETE"]
         resources: ["servicemonitors"]
+      - apiGroups: ["cilium.io"]
+        apiVersions: ["v2"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["ciliumnetworkpolicies"]
   variables:
     - name: operator_namespace
       expression: >-
@@ -189,6 +193,43 @@ spec:
         variables.is_kube_controller_manager ||
         variables.is_system_controller ||
         variables.is_kube_system_controller
+    - name: is_cilium_policy_request
+      expression: >-
+        request.kind.group == "cilium.io" && request.kind.kind == "CiliumNetworkPolicy"
+    - name: current_cilium_policy_is_operator_owned
+      expression: >-
+        object != null && request.namespace != "" &&
+        has(object.metadata.labels) &&
+        ("app.kubernetes.io/managed-by" in object.metadata.labels) &&
+        object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
+        ("openbao.org/cluster" in object.metadata.labels) &&
+        object.metadata.labels["openbao.org/cluster"] != "" &&
+        object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-api-server" &&
+        has(object.metadata.annotations) &&
+        ("openbao.org/owner-uid" in object.metadata.annotations) &&
+        has(object.metadata.ownerReferences) &&
+        object.metadata.ownerReferences.exists(ref,
+          ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+          ref.name == object.metadata.labels["openbao.org/cluster"] &&
+          ref.uid == object.metadata.annotations["openbao.org/owner-uid"] &&
+          has(ref.controller) && ref.controller)
+    - name: old_cilium_policy_is_operator_owned
+      expression: >-
+        oldObject != null && request.namespace != "" &&
+        has(oldObject.metadata.labels) &&
+        ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
+        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
+        ("openbao.org/cluster" in oldObject.metadata.labels) &&
+        oldObject.metadata.labels["openbao.org/cluster"] != "" &&
+        oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-api-server" &&
+        has(oldObject.metadata.annotations) &&
+        ("openbao.org/owner-uid" in oldObject.metadata.annotations) &&
+        has(oldObject.metadata.ownerReferences) &&
+        oldObject.metadata.ownerReferences.exists(ref,
+          ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+          ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
+          ref.uid == oldObject.metadata.annotations["openbao.org/owner-uid"] &&
+          has(ref.controller) && ref.controller)
     - name: is_service_monitor_request
       expression: >-
         request.kind.group == "monitoring.coreos.com" && request.kind.kind == "ServiceMonitor"
@@ -447,6 +488,15 @@ spec:
           check("maintenance").
           allowed()
   validations:
+    - expression: >-
+        !(variables.is_operator_controller || variables.is_operator_provisioner) ||
+        !variables.is_cilium_policy_request ||
+        (
+          (request.operation == "CREATE" && variables.current_cilium_policy_is_operator_owned) ||
+          (request.operation == "UPDATE" && variables.current_cilium_policy_is_operator_owned && variables.old_cilium_policy_is_operator_owned) ||
+          (request.operation == "DELETE" && variables.old_cilium_policy_is_operator_owned)
+        )
+      message: The operator can only manage CiliumNetworkPolicies that match the OpenBao API-server ownership shape.
     - expression: >-
         request.operation == "DELETE" ||
         variables.owner_uid_annotation_allowed ||

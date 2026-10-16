@@ -301,6 +301,7 @@ func newBackupFirstUpgradeCluster(
 			Network: &openbaov1alpha1.NetworkConfig{
 				APIServerCIDR:        apiServerCIDR,
 				APIServerEndpointIPs: apiServerEndpointIPs,
+				APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 			},
 			Upgrade: upgradeConfig,
 			Backup: &openbaov1alpha1.BackupSchedule{
@@ -485,6 +486,7 @@ var _ = Describe("Upgrade Strategies: Operation Lock Contention", Label("upgrade
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				},
 				Upgrade: &openbaov1alpha1.UpgradeConfig{
 					Image: upgradeExecutorImage,

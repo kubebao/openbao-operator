@@ -174,6 +174,11 @@ resources:
         classification: beta-stable
         owner: networking
         enforcement: [crd-schema, admission-policy, controller]
+      - path: spec.network.apiServerEgress
+        classification: additive-unfrozen
+        owner: networking
+        omission: only standard IP-based API egress policies are managed
+        rationale: Cilium entity policy is opt-in and does not change the default NetworkPolicy contract.
       - path: spec.network.dnsNamespace
         omission: DNS namespace is kube-system
       - path: spec.observability

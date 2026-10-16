@@ -12,6 +12,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -29,6 +30,7 @@ func TestRestoreTargetNetworkPreservesPreparedBoundary(t *testing.T) {
 			cluster := createMinimalCluster(t, namespace, "recovery")
 			cluster.Annotations = map[string]string{constants.AnnotationRestoreOrigin: "request"}
 			cluster.Spec.Service = service
+			cluster.Spec.Network = &api.NetworkConfig{APIServerEgress: &api.APIServerEgressConfig{Mode: "Cilium"}}
 			prepared := &networkingv1.NetworkPolicy{
 				ObjectMeta: metav1.ObjectMeta{Name: "prepared-boundary", Namespace: namespace},
 				Spec: networkingv1.NetworkPolicySpec{PodSelector: metav1.LabelSelector{},
@@ -60,6 +62,11 @@ func TestRestoreTargetNetworkPreservesPreparedBoundary(t *testing.T) {
 			require.Len(t, policies.Items, 1, "restore reconciliation must not add ordinary allow policies")
 			require.Equal(t, original.UID, policies.Items[0].UID)
 			require.Equal(t, original.Spec, policies.Items[0].Spec)
+			cnps := &unstructured.UnstructuredList{}
+			cnps.SetAPIVersion("cilium.io/v2")
+			cnps.SetKind("CiliumNetworkPolicyList")
+			require.NoError(t, k8sClient.List(ctx, cnps, client.InNamespace(namespace)))
+			require.Empty(t, cnps.Items, "restore isolation must not gain Cilium API access")
 			services := &corev1.ServiceList{}
 			require.NoError(t, k8sClient.List(ctx, services, client.InNamespace(namespace)))
 			want := 1

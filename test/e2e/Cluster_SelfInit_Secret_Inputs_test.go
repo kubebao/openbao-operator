@@ -187,7 +187,8 @@ func secretInputE2ECluster(namespace string) *openbaov1alpha1.OpenBaoCluster {
 			InitContainer: &openbaov1alpha1.InitContainerConfig{Enabled: true, Image: configInitImage},
 			TLS:           openbaov1alpha1.TLSConfig{Enabled: true, Mode: openbaov1alpha1.TLSModeOperatorManaged, RotationPeriod: "720h"},
 			Storage:       openbaov1alpha1.StorageConfig{Size: "1Gi"}, DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
-			Network: &openbaov1alpha1.NetworkConfig{APIServerCIDR: apiServerCIDR, APIServerEndpointIPs: apiServerEndpointIPs},
+			Network: &openbaov1alpha1.NetworkConfig{APIServerCIDR: apiServerCIDR, APIServerEndpointIPs: apiServerEndpointIPs,
+				APIServerEgress: framework.APIServerEgressForNetworkProfile()},
 			SelfInit: &openbaov1alpha1.SelfInitConfig{Enabled: true,
 				OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true}, Requests: []openbaov1alpha1.SelfInitRequest{
 					{Name: "admin-auth", Operation: openbaov1alpha1.SelfInitOperationUpdate, Path: "sys/auth/userpass",

@@ -78,6 +78,23 @@ _Appears in:_
 | `ExistingPVC` | ACMESharedCacheModeExistingPVC instructs the operator to mount an existing RWX PVC.<br /> |
 
 
+#### APIServerEgressConfig
+
+
+
+APIServerEgressConfig selects an additional Kubernetes API egress policy.
+
+
+
+_Appears in:_
+- [NetworkConfig](#networkconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `mode` _string_ | Mode selects the Cilium kube-apiserver entity policy. This requires Cilium<br />and its namespaced cilium.io/v2 CiliumNetworkPolicy API. |  | Enum: [Cilium] <br /> |
+| `port` _integer_ | Port is the API server's TCP backend port after Service translation.<br />Set this to the cluster's actual backend port, which can differ from 443. | 6443 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+
+
 #### AWSKMSSealConfig
 
 
@@ -1200,8 +1217,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `apiServerEgress` _[APIServerEgressConfig](#apiserveregressconfig)_ | APIServerEgress adds a CNI-specific Kubernetes API egress policy alongside<br />the standard NetworkPolicies. Omit this field for standard IP-based rules. |  | Optional: \{\} <br /> |
 | `apiServerCIDR` _string_ | APIServerCIDR is an optional CIDR block for the Kubernetes API server.<br />When specified, this value is used instead of auto-detection for NetworkPolicy egress rules.<br />This is useful when you want an explicit allow-list (or when the in-cluster service VIP<br />injected into pods is unavailable/unusable in your environment).<br />Example: "10.43.0.0/16" for service network or "192.168.1.0/24" for control plane nodes. |  | Optional: \{\} <br /> |
-| `apiServerEndpointIPs` _string array_ | APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.<br />When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.<br />This is required on some CNI implementations where egress enforcement happens on the post-NAT<br />destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).<br />The operator does not auto-detect these endpoint IPs because doing so reliably requires broader<br />cluster permissions (list/watch). Configure this field explicitly when needed.<br />Example (k3d): ["192.168.166.2"] |  | Optional: \{\} <br /> |
+| `apiServerEndpointIPs` _string array_ | APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.<br />When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.<br />Use this on CNI implementations where egress enforcement happens on the post-NAT<br />destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).<br />The operator does not auto-detect these endpoint IPs because doing so reliably requires broader<br />cluster permissions (list/watch). Configure this field explicitly when needed.<br />Example (k3d): ["192.168.166.2"] |  | Optional: \{\} <br /> |
 | `dnsNamespace` _string_ | DNSNamespace specifies the namespace where the cluster DNS service resides.<br />Defaults to "kube-system" if not specified. | kube-system | Optional: \{\} <br /> |
 | `dnsEndpointIPs` _string array_ | DNSEndpointIPs is an optional list of DNS resolver endpoint IPs that should be<br />allow-listed directly in the operator-managed NetworkPolicy on TCP/UDP port 53.<br />Use this for clusters that resolve DNS through node-local or host-networked caches<br />instead of pod-backed DNS Services in a namespace. These IP-based rules are additive<br />to the namespace-based allow-list controlled by DNSNamespace.<br />The operator does not auto-detect these endpoint IPs because doing so reliably would<br />require environment-specific node or DNS discovery logic outside the current trust model.<br />Example: ["169.254.20.10"] |  | Optional: \{\} <br /> |
 | `egressRules` _[NetworkPolicyEgressRule](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#networkpolicyegressrule-v1-networking) array_ | EgressRules allows users to specify additional egress rules that will be merged into<br />the operator-managed NetworkPolicy. This is useful for allowing access to external<br />services such as transit seal backends, object storage endpoints, or other dependencies.<br />The operator's default egress rules (DNS, API server, cluster pods) are always included<br />and cannot be overridden. User-provided rules are appended to the operator-managed rules.<br />Hardened clusters require every user-provided egress rule to be port-scoped and to target<br />explicit non-wildcard peers.<br />Example: Allow egress to a transit seal backend in another namespace:<br />  egressRules:<br />  - to:<br />    - namespaceSelector:<br />        matchLabels:<br />          kubernetes.io/metadata.name: transit-namespace<br />    ports:<br />    - protocol: TCP<br />      port: 8200 |  | Optional: \{\} <br /> |

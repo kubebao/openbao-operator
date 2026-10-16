@@ -66,6 +66,7 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				},
 				DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 			},

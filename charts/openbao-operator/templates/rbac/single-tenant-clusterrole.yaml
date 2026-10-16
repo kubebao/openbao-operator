@@ -175,6 +175,15 @@ rules:
       - watch{{- end }}
 
   - apiGroups:
+      - cilium.io
+    resources:
+      - ciliumnetworkpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
+  - apiGroups:
       - monitoring.coreos.com
     resources:
       - servicemonitors

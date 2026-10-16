@@ -92,7 +92,7 @@ func (m *Manager) Reconcile(ctx context.Context, logger logr.Logger, cluster *op
 	if err := m.ensureJobNetworkPolicy(ctx, logger, cluster); err != nil {
 		return err
 	}
-	return nil
+	return m.ensureCiliumAPIServerPolicy(ctx, logger, cluster)
 }
 
 func (m *Manager) applyResource(ctx context.Context, obj client.Object, cluster *openbaov1alpha1.OpenBaoCluster) error {

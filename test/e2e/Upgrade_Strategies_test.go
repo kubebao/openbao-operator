@@ -457,6 +457,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Image: upgradeExecutorImage,
@@ -925,6 +926,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					Backup: &openbaov1alpha1.BackupSchedule{
 						Schedule: "*/5 * * * *",
@@ -1212,6 +1214,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Image: upgradeExecutorImage,
@@ -1498,6 +1501,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
@@ -1971,6 +1975,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
@@ -2337,6 +2342,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
@@ -2539,6 +2545,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
@@ -2725,6 +2732,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
@@ -2968,6 +2976,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					},
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},

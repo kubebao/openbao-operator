@@ -7,7 +7,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
-	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	networkingmanager "github.com/kubebao/openbao-operator/internal/service/networking"
 )
 
@@ -35,15 +34,6 @@ func EvaluateAPIServerNetwork(
 	)
 
 	readiness := manager.EvaluateAPIServerNetworkReadiness(ctx, logr.Discard(), cluster)
-	switch readiness.Status {
-	case metav1.ConditionTrue:
-		readiness.Reason = constants.ReasonAPIServerNetworkReady
-	case metav1.ConditionUnknown:
-		readiness.Reason = constants.ReasonAPIServerEndpointIPsRecommended
-	default:
-		readiness.Reason = constants.ReasonAPIServerNetworkConfigurationInvalid
-	}
-
 	return APIServerNetworkResult{
 		Status:  readiness.Status,
 		Reason:  readiness.Reason,

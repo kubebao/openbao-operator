@@ -2262,11 +2262,35 @@ spec:
                       injected into pods is unavailable/unusable in your environment).
                       Example: "10.43.0.0/16" for service network or "192.168.1.0/24" for control plane nodes.
                     type: string
+                  apiServerEgress:
+                    description: |-
+                      APIServerEgress adds a CNI-specific Kubernetes API egress policy alongside
+                      the standard NetworkPolicies. Omit this field for standard IP-based rules.
+                    properties:
+                      mode:
+                        description: |-
+                          Mode selects the Cilium kube-apiserver entity policy. This requires Cilium
+                          and its namespaced cilium.io/v2 CiliumNetworkPolicy API.
+                        enum:
+                        - Cilium
+                        type: string
+                      port:
+                        default: 6443
+                        description: |-
+                          Port is the API server's TCP backend port after Service translation.
+                          Set this to the cluster's actual backend port, which can differ from 443.
+                        format: int32
+                        maximum: 65535
+                        minimum: 1
+                        type: integer
+                    required:
+                    - mode
+                    type: object
                   apiServerEndpointIPs:
                     description: |-
                       APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.
                       When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.
-                      This is required on some CNI implementations where egress enforcement happens on the post-NAT
+                      Use this on CNI implementations where egress enforcement happens on the post-NAT
                       destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).
 
                       The operator does not auto-detect these endpoint IPs because doing so reliably requires broader

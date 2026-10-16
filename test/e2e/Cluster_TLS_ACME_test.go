@@ -326,6 +326,7 @@ var _ = Describe("ACME TLS (OpenBao native ACME client)", Label("tls", "security
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 					TrustedIngressPeers: []networkingv1.NetworkPolicyPeer{
 						{
 							// Allow ingress from infra-bao for ACME validation.

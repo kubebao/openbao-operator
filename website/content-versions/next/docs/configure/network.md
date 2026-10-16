@@ -76,6 +76,7 @@ Cloud load balancers, other CNIs, ACME issuance over IPv6, and storage-driver co
 | Ingress | Operator and operator-managed backup or restore Jobs on port 8200 | Lifecycle operations |
 | Egress | Cluster DNS on TCP and UDP 53 | Name resolution |
 | Egress | Kubernetes API service on 443 and configured endpoint IPs on 6443 | Service registration and lifecycle operations |
+| Egress, opt-in Cilium mode | `kube-apiserver` entity on the configured TCP backend port | API access for workloads and lifecycle Jobs |
 | Egress | Cluster workload peers | OpenBao cluster communication |
 
 The operator always keeps these baseline rules. `spec.network` adds, rather than replaces, them.
@@ -131,40 +132,44 @@ kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- hubble observe --sin
 An empty setting disables node CIDR matching. Look for `Policy denied` drops to the API endpoint with destination
 identity `kube-apiserver` or `remote-node`. A timeout alone does not identify this failure mode.
 
-Keep the operator-managed NetworkPolicies and add the following supplementary policy through your platform deployment
-tooling. Replace `<namespace>` and `<cluster>` with the OpenBaoCluster namespace and name. The selector covers its
-workload and lifecycle Job pods. Use the actual API backend port if it differs from 6443.
+Enable the operator-owned supplementary policy for this cluster:
 
-{{< command label="configure" title="Allow API-server egress for one OpenBao cluster" >}}
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: <cluster>-apiserver
-  namespace: <namespace>
+{{< command label="configure" title="Enable Cilium API-server egress" >}}
 spec:
-  endpointSelector:
-    matchLabels:
-      openbao.org/cluster: <cluster>
-  egress:
-    - toEntities:
-        - kube-apiserver
-      toPorts:
-        - ports:
-            - port: "6443"
-              protocol: TCP
+  network:
+    apiServerEgress:
+      mode: Cilium
+      port: 6443
 {{< /command >}}
 
-The platform administrator owns this policy. Cilium [deny policies][cilium-deny] still take precedence.
+Set `port` to the API server's TCP backend port after Service translation. It defaults to 6443; some platforms use
+443 or another port. Cilium [matches the translated backend port][cilium-ports], so the Service port alone is insufficient.
+This mode requires Cilium and the namespaced `cilium.io/v2` `CiliumNetworkPolicy` API. The operator does not install
+Cilium, detect the active CNI, or change cluster-wide Cilium settings.
+
+The operator creates `<cluster>-api-server` in the cluster's namespace. It selects only pods labeled
+`openbao.org/cluster: <cluster>`, including voters, read replicas, and lifecycle Jobs. Its only allowance is TCP to
+Cilium's `kube-apiserver` entity on the configured backend port. The existing Kubernetes NetworkPolicies remain in force.
+The supplementary policy sets `enableDefaultDeny.ingress` and `enableDefaultDeny.egress` to `false`; it does not introduce
+a separate default-deny posture. Cilium [deny policies][cilium-deny] still take precedence.
+
+Upgrade the operator's RBAC and admission policies with the controller. Both installation modes grant namespaced
+`get`, `create`, `patch`, and `delete` access to `ciliumnetworkpolicies`; no cluster-wide Cilium policy access is required.
+If the requested API or permissions are missing, the operator reports `APIServerNetworkConfigurationInvalid`.
+
+When migrating from the administrator workaround, enable this field first. Verify that the operator-owned policy exists,
+then remove the administrator-owned exception through the tooling that created it. The operator does not adopt or remove
+that exception. Removing `apiServerEgress` deletes only the operator-owned policy. Keep the field enabled while the
+cluster depends on Cilium entity matching.
 
 Verify new API requests from the affected workload and Jobs. Expect forwarded connections and responses in Hubble,
 and successful API operations in application logs. An HTTP `401` or `403` confirms connectivity, not authorization.
-
-{{< callout type="note" title="Alternative: enable node CIDR matching" >}}
-A cluster administrator can set Cilium's `policyCIDRMatchMode: [nodes]` to allow `ipBlock` rules to match node IPs.
-This changes policy interpretation across the cluster; review existing policies before choosing this alternative.
-{{< /callout >}}
+`APIServerNetworkReady=True` confirms the applied configuration; it does not probe connectivity or prove that Cilium
+has realized the policy. Restore-origin destination clusters retain administrator-managed isolation and do not receive
+this ordinary API egress allowance.
 
 [cilium-node-cidrs]: https://docs.cilium.io/en/stable/security/policy/layer3/#cidr-select-nodes
+[cilium-ports]: https://docs.cilium.io/en/stable/security/policy/layer4/
 [cilium-deny]: https://docs.cilium.io/en/stable/security/policy/deny/
 
 ## Allow edge and monitoring peers
@@ -223,9 +228,9 @@ only to Jobs. The explicit contract is also used to decide whether Hardened back
 
 | Condition | Meaning | Response |
 | --- | --- | --- |
-| `APIServerNetworkReady=True` | Service VIP and explicit endpoint IPs are configured | Continue with runtime checks |
-| `APIServerNetworkReady=Unknown` | The service-VIP path exists, but post-DNAT requirements cannot be proven | Add `apiServerEndpointIPs` if the CNI requires them |
-| `APIServerNetworkReady=False` with reason `APIServerNetworkConfigurationInvalid` | A safe API allow-list could not be built | Correct the CIDR or endpoint entries |
+| `APIServerNetworkReady=True` | IP-based targets are configured, or the owned Cilium policy matches the requested configuration | Continue with runtime checks |
+| `APIServerNetworkReady=Unknown` | The VIP path is configured, the Cilium policy is pending, or restore isolation is administrator-managed | Inspect the reason and use the CNI-specific configuration |
+| `APIServerNetworkReady=False` with reason `APIServerNetworkConfigurationInvalid` | API targets or the requested Cilium policy cannot be configured or observed | Check targets, API availability, RBAC, and ownership |
 | `OpenBaoCluster` `BackupConfigurationReady=False` with reason `NetworkEgressRulesRequired` | Hardened backup lacks acceptable explicit storage egress | Add the storage target peers and ports |
 | `OpenBaoRestore` `RestoreConfigurationReady=False` with reason `NetworkEgressRulesRequired` | Hardened restore lacks acceptable explicit storage egress | Add the storage target peers and ports |
 

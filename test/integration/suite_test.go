@@ -47,6 +47,7 @@ func TestMain(m *testing.M) {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
+			filepath.Join("..", "fixtures", "cilium"),
 			filepath.Join("..", "..", "config", "crd", "bases"),
 			filepath.Join("..", "manifests", "gateway-api", "v1.5.1", "crds"),
 			filepath.Join("..", "manifests", "prometheus-operator", "v0.91.0", "crds"),

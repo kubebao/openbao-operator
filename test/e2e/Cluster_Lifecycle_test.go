@@ -129,6 +129,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 						IngressRules: []networkingv1.NetworkPolicyIngressRule{
 							{
 								From: []networkingv1.NetworkPolicyPeer{
@@ -557,6 +558,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					Network: &openbaov1alpha1.NetworkConfig{
 						APIServerCIDR:        apiServerCIDR,
 						APIServerEndpointIPs: apiServerEndpointIPs,
+						APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 						IngressRules: []networkingv1.NetworkPolicyIngressRule{
 							{
 								From: []networkingv1.NetworkPolicyPeer{

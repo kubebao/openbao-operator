@@ -20,10 +20,13 @@ type APIServerNetworkReadiness struct {
 }
 
 // EvaluateAPIServerNetworkReadiness validates the operator-known Kubernetes API
-// egress contract for main and job NetworkPolicies. Unknown means the common
-// service-VIP path is configured, but environment-specific post-DNAT endpoint
-// requirements cannot be proven without explicit endpoint IPs.
+// egress configuration for main and Job policies. It does not probe connectivity.
+// Unknown identifies incomplete configuration evidence or external restore isolation.
 func (m *Manager) EvaluateAPIServerNetworkReadiness(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) APIServerNetworkReadiness {
+	if cluster.Annotations[constants.AnnotationRestoreOrigin] != "" {
+		return APIServerNetworkReadiness{Status: metav1.ConditionUnknown, Reason: constants.ReasonAPIServerNetworkManagedExternally,
+			Message: "Restore destination isolation is administrator-managed; ordinary API egress policies are not applied."}
+	}
 	info, err := m.detectAPIServerInfo(ctx, logger, cluster)
 	if err != nil {
 		wrapped := wrapAPIServerNetworkConfigurationError("primary", err)
@@ -42,12 +45,15 @@ func (m *Manager) EvaluateAPIServerNetworkReadiness(ctx context.Context, logger 
 		}
 	}
 
+	if ciliumAPIServerEnabled(cluster) {
+		return m.evaluateCiliumAPIServerPolicy(ctx, cluster)
+	}
 	if len(info.EndpointIPs) == 0 {
 		return APIServerNetworkReadiness{
 			Status: metav1.ConditionUnknown,
 			Reason: constants.ReasonAPIServerEndpointIPsRecommended,
 			Message: fmt.Sprintf(
-				"Kubernetes API egress is configured through the service VIP (%s). This is sufficient on many clusters. If your CNI enforces egress on post-DNAT traffic, also configure spec.network.apiServerEndpointIPs with the control-plane endpoint IPs.",
+				"Kubernetes API egress is configured through the service VIP (%s). For IP-based post-DNAT enforcement, configure spec.network.apiServerEndpointIPs. On Cilium, use spec.network.apiServerEgress with mode Cilium and the API backend port. This condition does not probe live connectivity.",
 				info.ServiceNetworkCIDR,
 			),
 		}
@@ -57,7 +63,7 @@ func (m *Manager) EvaluateAPIServerNetworkReadiness(ctx context.Context, logger 
 		Status: metav1.ConditionTrue,
 		Reason: constants.ReasonAPIServerNetworkReady,
 		Message: fmt.Sprintf(
-			"Kubernetes API egress is configured with service VIP %s and explicit endpoint IPs %v.",
+			"Kubernetes API egress is configured with service VIP %s and explicit endpoint IPs %v. This validates IP-based configuration, not live connectivity. Cilium requires spec.network.apiServerEgress with mode Cilium when API server identities do not match CIDR rules.",
 			info.ServiceNetworkCIDR,
 			info.EndpointIPs,
 		),

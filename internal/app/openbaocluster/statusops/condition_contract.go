@@ -96,6 +96,8 @@ var ingressIntegrationReadyConditionContract = newConditionContract(
 )
 
 var apiServerNetworkReadyConditionContract = newConditionContract(
+	conditionContractEntry{reason: constants.ReasonAPIServerEgressPolicyPending, status: metav1.ConditionUnknown},
+	conditionContractEntry{reason: constants.ReasonAPIServerNetworkManagedExternally, status: metav1.ConditionUnknown},
 	conditionContractEntry{reason: constants.ReasonAPIServerNetworkReady, status: metav1.ConditionTrue},
 	conditionContractEntry{reason: constants.ReasonAPIServerEndpointIPsRecommended, status: metav1.ConditionUnknown},
 	conditionContractEntry{reason: constants.ReasonAPIServerNetworkConfigurationInvalid, status: metav1.ConditionFalse},

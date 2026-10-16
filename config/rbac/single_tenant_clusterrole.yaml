@@ -200,6 +200,16 @@ rules:
       - patch
       - update
       - watch
+  # Optional namespaced Cilium API-server egress policy
+  - apiGroups:
+      - cilium.io
+    resources:
+      - ciliumnetworkpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - patch
   # Observability
   - apiGroups:
       - monitoring.coreos.com

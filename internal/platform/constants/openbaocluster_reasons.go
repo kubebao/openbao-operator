@@ -41,6 +41,9 @@ const (
 	ReasonAPIServerNetworkReady            = "APIServerNetworkReady"
 	ReasonAPIServerEndpointIPsRecommended  = "APIServerEndpointIPsRecommended"
 
+	ReasonAPIServerEgressPolicyPending      = "APIServerEgressPolicyPending"
+	ReasonAPIServerNetworkManagedExternally = "APIServerNetworkManagedExternally"
+
 	ReasonStorageInvalidSize             = "StorageInvalidSize"
 	ReasonStorageShrinkNotSupported      = "StorageShrinkNotSupported"
 	ReasonStorageResizeNotSupported      = "StorageResizeNotSupported"

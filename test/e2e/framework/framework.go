@@ -380,6 +380,7 @@ func (f *Framework) CreateDevelopmentCluster(ctx context.Context, cfg Developmen
 			Network: &openbaov1alpha1.NetworkConfig{
 				APIServerCIDR:        cfg.APIServerCIDR,
 				APIServerEndpointIPs: cfg.APIServerEndpointIPs,
+				APIServerEgress:      APIServerEgressForNetworkProfile(),
 			},
 			DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 		},

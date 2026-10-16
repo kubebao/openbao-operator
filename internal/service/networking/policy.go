@@ -80,7 +80,8 @@ func wrapAPIServerNetworkConfigurationError(policyScope string, cause error) err
 
 	msg := fmt.Sprintf(
 		"%s NetworkPolicy requires explicit Kubernetes API egress targets. Configure spec.network.apiServerCIDR. "+
-			"If your CNI enforces egress on post-DNAT traffic, also configure spec.network.apiServerEndpointIPs with the control-plane endpoint IPs",
+			"If your CNI enforces egress on post-DNAT traffic, also configure spec.network.apiServerEndpointIPs with the control-plane endpoint IPs. "+
+			"On Cilium, configure spec.network.apiServerEgress with mode Cilium and the API backend port",
 		scope,
 	)
 	if cause != nil {

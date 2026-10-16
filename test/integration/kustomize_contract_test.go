@@ -155,6 +155,7 @@ func TestKustomizeDefault_LockManagedPolicyRequiresOpenBaoLabels(t *testing.T) {
 		t.Fatal("openbao-lock-managed-resource-mutations policy missing spec.matchConstraints.resourceRules")
 	}
 	var hasServiceMonitorRule bool
+	var hasCiliumPolicyRule bool
 	var hasPersistentVolumeClaimRule bool
 	var hasServiceAccountRule bool
 	for _, rule := range resourceRules {
@@ -164,6 +165,9 @@ func TestKustomizeDefault_LockManagedPolicyRequiresOpenBaoLabels(t *testing.T) {
 		}
 		groups, _, _ := unstructured.NestedStringSlice(ruleMap, "apiGroups")
 		resources, _, _ := unstructured.NestedStringSlice(ruleMap, "resources")
+		if containsString(groups, "cilium.io") && containsString(resources, "ciliumnetworkpolicies") {
+			hasCiliumPolicyRule = true
+		}
 		if containsString(groups, "monitoring.coreos.com") && containsString(resources, "servicemonitors") {
 			hasServiceMonitorRule = true
 		}
@@ -173,6 +177,9 @@ func TestKustomizeDefault_LockManagedPolicyRequiresOpenBaoLabels(t *testing.T) {
 		if containsString(groups, "") && containsString(resources, "serviceaccounts") {
 			hasServiceAccountRule = true
 		}
+	}
+	if !hasCiliumPolicyRule {
+		t.Fatal("managed-resource policy must protect CiliumNetworkPolicies")
 	}
 	if !hasServiceMonitorRule {
 		t.Fatalf("openbao-lock-managed-resource-mutations policy does not protect monitoring.coreos.com ServiceMonitors")
@@ -1163,6 +1170,7 @@ func TestKustomizeSingleTenantOverlay_BakesInNamespaceScopeAndRemovesProvisioner
 	if got := kustomizeEnvVarValue(t, controller, "WATCH_NAMESPACE"); got != testSingleTenantTargetNS {
 		t.Fatalf("WATCH_NAMESPACE = %q, want %q", got, testSingleTenantTargetNS)
 	}
+	assertClusterRoleHasResourceRule(t, singleTenantRole, "cilium.io", "ciliumnetworkpolicies", []string{"create", "delete", "get", "patch"})
 	assertClusterRoleHasResourceRule(
 		t,
 		singleTenantRole,

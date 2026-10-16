@@ -121,6 +121,7 @@ var _ = Describe("Cluster PKCS#11 Unseal", Label("cluster", "lifecycle", "unseal
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				},
 				Unseal: &openbaov1alpha1.UnsealConfig{
 					Type: "pkcs11",

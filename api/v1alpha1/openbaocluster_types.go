@@ -77,9 +77,9 @@ const (
 	// the managed Ingress integration contract for the chosen ingress mode.
 	ConditionIngressIntegrationReady ConditionType = "IngressIntegrationReady"
 	// ConditionAPIServerNetworkReady indicates whether the operator can validate
-	// the Kubernetes API egress contract used by the operator-managed NetworkPolicy.
-	// Unknown means the common service-VIP path is configured, but some CNIs may
-	// still require explicit apiServerEndpointIPs for post-DNAT enforcement.
+	// Kubernetes API egress configuration, including an opt-in Cilium entity policy.
+	// It does not probe connectivity. Unknown identifies a VIP-only contract, a
+	// pending managed policy, or administrator-managed restore isolation.
 	ConditionAPIServerNetworkReady ConditionType = "APIServerNetworkReady"
 	// ConditionBackupConfigurationReady indicates whether the operator can verify
 	// the backup Job's operator-known prerequisites such as auth references,

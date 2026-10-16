@@ -81,6 +81,8 @@ func TestApplyEvaluatedConditionAllowsKnownReasonStatusPairs(t *testing.T) {
 			results: []ConditionResult{
 				conditionResult(metav1.ConditionTrue, constants.ReasonAPIServerNetworkReady),
 				conditionResult(metav1.ConditionUnknown, constants.ReasonAPIServerEndpointIPsRecommended),
+				conditionResult(metav1.ConditionUnknown, constants.ReasonAPIServerEgressPolicyPending),
+				conditionResult(metav1.ConditionUnknown, constants.ReasonAPIServerNetworkManagedExternally),
 				conditionResult(metav1.ConditionFalse, constants.ReasonAPIServerNetworkConfigurationInvalid),
 				conditionResult(metav1.ConditionUnknown, reasonPaused),
 				conditionResult(metav1.ConditionUnknown, ReasonProfileNotSet),

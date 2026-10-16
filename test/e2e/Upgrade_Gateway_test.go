@@ -261,6 +261,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 						Network: &openbaov1alpha1.NetworkConfig{
 							APIServerCIDR:        apiServerCIDR,
 							APIServerEndpointIPs: apiServerEndpointIPs,
+							APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 						},
 						Gateway: &openbaov1alpha1.GatewayConfig{
 							Enabled: true,
@@ -510,6 +511,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 						Network: &openbaov1alpha1.NetworkConfig{
 							APIServerCIDR:        apiServerCIDR,
 							APIServerEndpointIPs: apiServerEndpointIPs,
+							APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 						},
 						Gateway: &openbaov1alpha1.GatewayConfig{
 							Enabled:        true,

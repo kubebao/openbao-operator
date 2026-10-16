@@ -88,6 +88,7 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 				Network: &openbaov1alpha1.NetworkConfig{
 					APIServerCIDR:        apiServerCIDR,
 					APIServerEndpointIPs: apiServerEndpointIPs,
+					APIServerEgress:      framework.APIServerEgressForNetworkProfile(),
 				},
 				Upgrade: &openbaov1alpha1.UpgradeConfig{
 					Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
