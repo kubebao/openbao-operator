@@ -764,6 +764,7 @@ var allowedNightlyPolicies = map[string]bool{
 }
 
 var allowedNightlyCoverage = map[string]bool{
+	"network-ipv4":        true,
 	"network-ipv6":        true,
 	"network-dual-ipv4":   true,
 	"network-dual-ipv6":   true,

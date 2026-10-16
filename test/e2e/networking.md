@@ -6,7 +6,8 @@ IP families, Kubernetes API access, and denied workload and helper egress. A rea
 provide the negative test's control. The External TLS case supplies only the stable server-name DNS SAN.
 
 Weekly and release qualification add IPv6 scaling, restart, rolling upgrade, and storage-provider journeys. They also run the
-networking scenarios and fresh/scheduled restore targets on dual-stack clusters with each primary family. The restore
+networking scenarios on IPv4 and dual-stack clusters with each primary family, plus fresh/scheduled restore targets on both
+dual-stack orders. The restore
 fixture selects a destination client Service primary family different from the source on dual-stack clusters. It checks
 the generated request, target, and Service, then retains the existing application and cleanup checks across two scheduled
 runs. These restore journeys also run on IPv6-only clusters. Matrices record `network_profile` so repeated

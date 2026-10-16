@@ -369,6 +369,10 @@ nightly:
           labelFilter: "case:upgrade-rolling-happy-path"
         - lane: networking
           kubernetes: "@primary"
+          coverage: network-ipv4
+          networkProfile: ipv4
+        - lane: networking
+          kubernetes: "@primary"
           coverage: network-dual-ipv4
           networkProfile: dual-ipv4
         - lane: networking
@@ -433,6 +437,10 @@ nightly:
           coverage: network-ipv6
           networkProfile: ipv6
           labelFilter: "case:upgrade-rolling-happy-path"
+        - lane: networking
+          kubernetes: "@primary"
+          coverage: network-ipv4
+          networkProfile: ipv4
         - lane: networking
           kubernetes: "@primary"
           coverage: network-dual-ipv4
