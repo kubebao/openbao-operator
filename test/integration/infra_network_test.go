@@ -26,6 +26,7 @@ import (
 )
 
 func TestInfraNetwork_ClientServicePrimaryFamilyChange(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	for _, pool := range []string{"main", "read"} {
 		t.Run(pool, func(t *testing.T) {
 			namespace := newTestNamespace(t)
@@ -39,7 +40,7 @@ func TestInfraNetwork_ClientServicePrimaryFamilyChange(t *testing.T) {
 				key.Name = resourceidentity.ReadReplicaServiceName(cluster)
 			}
 			require.NoError(t, k8sClient.Create(ctx, cluster))
-			manager := networkingmanager.NewManager(k8sClient, k8sScheme, namespace, constants.PlatformKubernetes)
+			manager := networkingmanager.NewManager(newControllerClient(t), k8sScheme, "openbao-operator-system", constants.PlatformKubernetes)
 			require.NoError(t, manager.Reconcile(ctx, logr.Discard(), cluster))
 			service := &corev1.Service{}
 			require.NoError(t, k8sClient.Get(ctx, key, service))
