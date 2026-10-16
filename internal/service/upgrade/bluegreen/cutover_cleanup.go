@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -128,7 +129,7 @@ func (m *Manager) ensureBlueStatefulSetDeleted(
 		return phaseOutcome{}, true, fmt.Errorf("failed to get Blue StatefulSet: %w", err)
 	}
 
-	if err := m.client.Delete(ctx, blueStatefulSet); err != nil {
+	if err := m.client.Delete(ctx, blueStatefulSet, client.Preconditions{UID: &blueStatefulSet.UID}); err != nil {
 		return phaseOutcome{}, true, fmt.Errorf("failed to delete Blue StatefulSet: %w", err)
 	}
 

@@ -56,8 +56,15 @@ func (m *Manager) CleanupTenantResources(ctx context.Context, namespace string) 
 		},
 	}
 	for _, resource := range governanceResources {
+		if err := m.client.Get(ctx, client.ObjectKeyFromObject(resource.object), resource.object); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return fmt.Errorf("failed to get %s %s/%s before deletion: %w", resource.kind, namespace, resource.name, err)
+		}
+		uid := resource.object.GetUID()
 		m.logger.Info("Deleting tenant "+resource.kind, "namespace", namespace, "name", resource.name)
-		if err := m.client.Delete(ctx, resource.object); err != nil && !apierrors.IsNotFound(err) {
+		if err := m.client.Delete(ctx, resource.object, client.Preconditions{UID: &uid}); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete %s %s/%s: %w", resource.kind, namespace, resource.name, err)
 		}
 	}
@@ -100,7 +107,7 @@ func (m *Manager) deleteRoleBindingIfExists(ctx context.Context, namespace, name
 	}
 
 	m.logger.Info("Deleting "+logLabel, "namespace", namespace, "rolebinding", name)
-	if err := m.client.Delete(ctx, roleBinding); err != nil && !apierrors.IsNotFound(err) {
+	if err := m.client.Delete(ctx, roleBinding, client.Preconditions{UID: &roleBinding.UID}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete RoleBinding %s/%s: %w", namespace, name, err)
 	}
 	return nil
@@ -116,7 +123,7 @@ func (m *Manager) deleteRoleIfExists(ctx context.Context, namespace, name, logLa
 	}
 
 	m.logger.Info("Deleting "+logLabel, "namespace", namespace, "role", name)
-	if err := m.client.Delete(ctx, role); err != nil && !apierrors.IsNotFound(err) {
+	if err := m.client.Delete(ctx, role, client.Preconditions{UID: &role.UID}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete Role %s/%s: %w", namespace, name, err)
 	}
 	return nil

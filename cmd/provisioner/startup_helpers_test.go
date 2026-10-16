@@ -10,11 +10,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kubebao/openbao-operator/internal/platform/entrypoint"
 )
+
+func TestGovernanceReadsBypassCache(t *testing.T) {
+	options := newManagerOptions(metricsserver.Options{}, "", false)
+	require.Contains(t, options.Client.Cache.DisableFor, &corev1.ResourceQuota{})
+	require.Contains(t, options.Client.Cache.DisableFor, &corev1.LimitRange{})
+}
 
 func TestAdmissionStartupFailures(t *testing.T) {
 	t.Setenv("OPENBAO_UNSAFE_ADMISSION_DISABLED", "false")

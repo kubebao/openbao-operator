@@ -139,7 +139,7 @@ func (m *Manager) checkPodRevisionUpdated(
 		// forever after a failed retry because the StatefulSet controller does not replace
 		// an already-existing stale pod on its own. Force a fresh recreate instead.
 		if repairStalePod && desiredImage != "" && podImage != desiredImage {
-			if err := m.client.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
+			if err := m.client.Delete(ctx, pod, client.Preconditions{UID: &pod.UID}); err != nil && !apierrors.IsNotFound(err) {
 				return false, fmt.Errorf("failed to delete stale pod %s while waiting for revision update: %w", podName, err)
 			}
 			logger.Info("Deleted stale pod while waiting for revision update",

@@ -534,31 +534,33 @@ func TestCleanupTenantResources_HandlesNotFoundGracefully(t *testing.T) {
 	}
 }
 
-func TestCleanupTenantResources_DeletesGovernanceResourcesWithoutReadingThem(t *testing.T) {
+func TestCleanupTenantResourcesPinsGovernanceUIDs(t *testing.T) {
 	namespace := testNamespace
 	quota := GenerateTenantResourceQuota(namespace, nil)
+	quota.UID = "quota-uid"
 	limitRange := GenerateTenantLimitRange(namespace, nil)
-	k8sClient := fake.NewClientBuilder().
-		WithScheme(testScheme).
-		WithObjects(quota, limitRange).
+	limitRange.UID = "limits-uid"
+	var deleted int
+	k8sClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(quota, limitRange).
 		WithInterceptorFuncs(interceptor.Funcs{
-			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-				switch obj.(type) {
-				case *corev1.ResourceQuota, *corev1.LimitRange:
-					return errors.New("unexpected governance resource read")
-				default:
-					return c.Get(ctx, key, obj, opts...)
+			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				options := (&client.DeleteOptions{}).ApplyOptions(opts)
+				if options.Preconditions == nil || options.Preconditions.UID == nil || *options.Preconditions.UID != obj.GetUID() {
+					t.Fatalf("deletion must use the observed UID for %T", obj)
 				}
+				deleted++
+				return c.Delete(ctx, obj, opts...)
 			},
-		}).
-		Build()
+		}).Build()
 	manager, err := NewManager(k8sClient, logr.Discard())
 	if err != nil {
-		t.Fatalf("NewManager() failed: %v", err)
+		t.Fatal(err)
 	}
-
-	if err := manager.CleanupTenantResources(context.Background(), namespace); err != nil {
-		t.Fatalf("CleanupTenantResources() error = %v", err)
+	if err := manager.CleanupTenantResources(t.Context(), namespace); err != nil {
+		t.Fatal(err)
+	}
+	if deleted != 2 {
+		t.Fatalf("deleted %d resources, want 2", deleted)
 	}
 }
 
@@ -570,6 +572,7 @@ func TestCleanupTenantResources_ReturnsGovernanceDeleteError(t *testing.T) {
 	)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(testScheme).
+		WithObjects(GenerateTenantResourceQuota(testNamespace, nil)).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Delete: func(context.Context, client.WithWatch, client.Object, ...client.DeleteOption) error {
 				return deleteErr

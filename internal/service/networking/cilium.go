@@ -70,7 +70,7 @@ func (m *Manager) ensureCiliumAPIServerPolicy(ctx context.Context, logger logr.L
 			return desired, true, err
 		},
 		get: m.reader.Get,
-		delete: func(ctx context.Context, obj client.Object) error {
+		delete: func(ctx context.Context, obj client.Object, _ ...client.DeleteOption) error {
 			// Refuse to delete a replacement created after the ownership check.
 			uid, rv := obj.GetUID(), obj.GetResourceVersion()
 			return m.client.Delete(ctx, obj, client.Preconditions{UID: &uid, ResourceVersion: &rv})

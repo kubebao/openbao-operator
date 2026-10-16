@@ -55,6 +55,12 @@ The services share three contracts:
 - `internal/platform/resourceapply` provides owner-aware server-side apply behavior while service-specific exceptions stay
   with the owning service.
 
+Resource writes retain the UID and resource version observed during the ownership check. If the object is absent,
+the operator uses a create request that rejects a concurrent creation. A conditional metadata patch then transfers
+the operator's create field ownership to SSA so later reconciles can remove obsolete fields. This adds one request
+when a resource is first created. Existing resources use SSA with the observed UID and resource version. A conflict
+requires a fresh ownership check. Deletes also use the observed UID as a precondition.
+
 ## Apply the TLS ownership model
 
 | Mode | Certificate owner | Certificate service behavior |

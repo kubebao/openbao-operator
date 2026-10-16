@@ -116,6 +116,7 @@ func (m *Manager) deletePreUpgradeBackupJob(
 	propagation := metav1.DeletePropagationBackground
 	if err := m.client.Delete(ctx, job, &client.DeleteOptions{
 		PropagationPolicy: &propagation,
+		Preconditions:     &metav1.Preconditions{UID: &job.UID},
 	}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete job: %w", err)
 	}

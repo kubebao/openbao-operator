@@ -33,7 +33,7 @@ type optionalResourceOptions struct {
 	buildDesired func() (client.Object, bool, error)
 
 	get    func(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error
-	delete func(context.Context, client.Object) error
+	delete func(context.Context, client.Object, ...client.DeleteOption) error
 	apply  func(context.Context, client.Object) error
 
 	degradeOnCRDMissing bool
@@ -71,7 +71,8 @@ func reconcileOptionalResource(ctx context.Context, opts optionalResourceOptions
 			}
 		}
 
-		if err := opts.delete(ctx, empty); err != nil {
+		uid := empty.GetUID()
+		if err := opts.delete(ctx, empty, client.Preconditions{UID: &uid}); err != nil {
 			if operatorerrors.IsCRDMissingError(err) || apierrors.IsNotFound(err) {
 				return nil
 			}

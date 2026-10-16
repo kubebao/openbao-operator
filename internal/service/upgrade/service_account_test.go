@@ -72,7 +72,7 @@ func TestEnsureUpgradeServiceAccountApplyFailure(t *testing.T) {
 	cluster := newUpgradeTestCluster()
 	expected := errors.New("apply failed")
 	injector := robustness.NewInjector(map[robustness.Operation]robustness.Rule{
-		robustness.OpApply: robustness.Always(expected),
+		robustness.OpCreate: robustness.Always(expected),
 	})
 
 	k8sClient := fake.NewClientBuilder().
@@ -106,7 +106,7 @@ func TestEnsureUpgradeServiceAccount_TransientApplyFailureThenSuccess(t *testing
 	cluster := newUpgradeTestCluster()
 	expected := errors.New("transient apply failed")
 	injector := robustness.NewInjector(map[robustness.Operation]robustness.Rule{
-		robustness.OpApply: robustness.Once(expected),
+		robustness.OpCreate: robustness.Once(expected),
 	})
 
 	k8sClient := fake.NewClientBuilder().
@@ -171,14 +171,14 @@ func TestEnsureUpgradeServiceAccountSuccess(t *testing.T) {
 			}
 
 			cluster := newUpgradeTestCluster()
-			var capturedOptions client.ApplyOptions
+			var capturedOptions client.CreateOptions
 
 			k8sClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithInterceptorFuncs(interceptor.Funcs{
-					Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
-						capturedOptions = *(&client.ApplyOptions{}).ApplyOptions(opts)
-						return c.Apply(ctx, obj, opts...)
+					Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+						capturedOptions = *(&client.CreateOptions{}).ApplyOptions(opts)
+						return c.Create(ctx, obj, opts...)
 					},
 				}).
 				Build()
@@ -217,9 +217,6 @@ func TestEnsureUpgradeServiceAccountSuccess(t *testing.T) {
 
 			if capturedOptions.FieldManager != tt.wantFieldOwner {
 				t.Fatalf("FieldManager=%q, want %q", capturedOptions.FieldManager, tt.wantFieldOwner)
-			}
-			if capturedOptions.Force == nil || !*capturedOptions.Force {
-				t.Fatalf("Force=%v, want true", capturedOptions.Force)
 			}
 		})
 	}

@@ -9,8 +9,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/kubebao/openbao-operator/internal/adapter/kube"
-	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
 )
@@ -29,17 +27,14 @@ func ApplyOwned(ctx context.Context, c client.Client, scheme *runtime.Scheme, ow
 	if err := PrepareOwned(obj, resolvedOwner, scheme); err != nil {
 		return err
 	}
-	applyConfig, response, err := kube.ToApplyConfigurationWithResponse(obj, c)
+	response, err := ApplyObserved(ctx, c, obj, "")
 	if err != nil {
-		return fmt.Errorf("failed to convert object to ApplyConfiguration: %w", err)
-	}
-	if err := ApplyConfiguration(ctx, c, obj, applyConfig); err != nil {
 		return err
 	}
 	if hasAppliedOwnerProof(response, resolvedOwner) {
 		return nil
 	}
-	return EnsureOwnedResourceProofStamped(ctx, c, scheme, resolvedOwner, obj)
+	return EnsureOwnedResourceProofStamped(ctx, c, scheme, resolvedOwner, response)
 }
 
 func ResolveOwnerIdentity(ctx context.Context, c client.Client, owner client.Object) (client.Object, error) {
@@ -65,6 +60,9 @@ func ResolveOwnerIdentity(ctx context.Context, c client.Client, owner client.Obj
 	return liveOwner, nil
 }
 
+// EnsureOwnedResourceManageable checks ownership and records the observed UID
+// and resource version on obj. ApplyObserved uses that identity for the write.
+// An absent object has both fields cleared and must be created without an upsert.
 func EnsureOwnedResourceManageable(ctx context.Context, c client.Client, owner client.Object, obj client.Object) error {
 	if c == nil {
 		return fmt.Errorf("client is required")
@@ -82,6 +80,9 @@ func EnsureOwnedResourceManageable(ctx context.Context, c client.Client, owner c
 	prepareObjectForGet(existing, obj)
 	if err := c.Get(ctx, client.ObjectKeyFromObject(obj), existing); err != nil {
 		if apierrors.IsNotFound(err) {
+			obj.SetUID("")
+			obj.SetResourceVersion("")
+			obj.SetManagedFields(nil)
 			return nil
 		}
 		if operatorerrors.IsTransientKubernetesAPI(err) || apierrors.IsConflict(err) {
@@ -92,18 +93,13 @@ func EnsureOwnedResourceManageable(ctx context.Context, c client.Client, owner c
 	if err := resourceownership.RequireOwnerProof("manage", existing, owner); err != nil {
 		return err
 	}
+	if existing.GetResourceVersion() == "" {
+		return fmt.Errorf("observed resource %s/%s has no resource version", obj.GetNamespace(), obj.GetName())
+	}
+	obj.SetUID(existing.GetUID())
+	obj.SetResourceVersion(existing.GetResourceVersion())
+	obj.SetManagedFields(existing.GetManagedFields())
 	return nil
-}
-
-func ApplyUnowned(ctx context.Context, c client.Client, obj client.Object) (client.Object, error) {
-	applyConfig, response, err := kube.ToApplyConfigurationWithResponse(obj, c)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert object to ApplyConfiguration: %w", err)
-	}
-	if err := ApplyConfiguration(ctx, c, obj, applyConfig); err != nil {
-		return nil, err
-	}
-	return response, nil
 }
 
 func ApplyRetained(ctx context.Context, c client.Client, owner client.Object, obj client.Object) error {
@@ -120,14 +116,14 @@ func ApplyRetained(ctx context.Context, c client.Client, owner client.Object, ob
 	if err := EnsureOwnedResourceManageable(ctx, c, resolvedOwner, obj); err != nil {
 		return err
 	}
-	response, err := ApplyUnowned(ctx, c, obj)
+	response, err := ApplyObserved(ctx, c, obj, "")
 	if err != nil {
 		return err
 	}
 	if hasAppliedOwnerProof(response, resolvedOwner) {
 		return nil
 	}
-	return EnsureRetainedResourceProofStamped(ctx, c, resolvedOwner, obj)
+	return EnsureRetainedResourceProofStamped(ctx, c, resolvedOwner, response)
 }
 
 // Require server identity as well as owner proof before trusting the apply result.
@@ -158,6 +154,9 @@ func EnsureOwnedResourceProofStamped(ctx context.Context, c client.Client, schem
 	if err != nil {
 		return err
 	}
+	if err := requireUnchangedIdentity(obj, existing); err != nil {
+		return err
+	}
 	if resourceownership.HasOwnerProof(existing, owner) {
 		return nil
 	}
@@ -169,7 +168,10 @@ func EnsureOwnedResourceProofStamped(ctx context.Context, c client.Client, schem
 	if err := PrepareOwned(existing, owner, scheme); err != nil {
 		return err
 	}
-	if err := c.Patch(ctx, existing, client.MergeFrom(before)); err != nil {
+	if obj.GetUID() == "" {
+		return fmt.Errorf("cannot repair owner proof without the written resource UID")
+	}
+	if err := c.Patch(ctx, existing, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 		if operatorerrors.IsTransientKubernetesAPI(err) || apierrors.IsConflict(err) {
 			return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("failed to stamp owner proof on resource %s/%s: %w", obj.GetNamespace(), obj.GetName(), err))
 		}
@@ -183,6 +185,9 @@ func EnsureRetainedResourceProofStamped(ctx context.Context, c client.Client, ow
 	if err != nil {
 		return err
 	}
+	if err := requireUnchangedIdentity(obj, existing); err != nil {
+		return err
+	}
 	if resourceownership.HasOwnerProof(existing, owner) {
 		return nil
 	}
@@ -194,7 +199,10 @@ func EnsureRetainedResourceProofStamped(ctx context.Context, c client.Client, ow
 	if err := resourceownership.SetOwnerUIDAnnotation(existing, owner); err != nil {
 		return err
 	}
-	if err := c.Patch(ctx, existing, client.MergeFrom(before)); err != nil {
+	if obj.GetUID() == "" {
+		return fmt.Errorf("cannot repair retained owner proof without the written resource UID")
+	}
+	if err := c.Patch(ctx, existing, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 		if operatorerrors.IsTransientKubernetesAPI(err) || apierrors.IsConflict(err) {
 			return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("failed to stamp retained owner proof on resource %s/%s: %w", obj.GetNamespace(), obj.GetName(), err))
 		}
@@ -237,13 +245,9 @@ func prepareObjectForGet(existing client.Object, obj client.Object) {
 	existing.GetObjectKind().SetGroupVersionKind(gvk)
 }
 
-func ApplyConfiguration(ctx context.Context, c client.Client, obj client.Object, applyConfig runtime.ApplyConfiguration) error {
-	applyOpts := []client.ApplyOption{client.ForceOwnership, client.FieldOwner(constants.FieldOwnerOpenBaoOperator)}
-	if err := c.Apply(ctx, applyConfig, applyOpts...); err != nil {
-		if operatorerrors.IsTransientKubernetesAPI(err) || apierrors.IsConflict(err) {
-			return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("failed to apply resource %s/%s: %w", obj.GetNamespace(), obj.GetName(), err))
-		}
-		return fmt.Errorf("failed to apply resource %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+func requireUnchangedIdentity(expected, current client.Object) error {
+	if expected.GetUID() != "" && current.GetUID() != expected.GetUID() {
+		return operatorerrors.WrapTransientClusterState(fmt.Errorf("resource %s/%s was replaced after the write", expected.GetNamespace(), expected.GetName()))
 	}
 	return nil
 }

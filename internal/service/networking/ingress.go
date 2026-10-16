@@ -41,7 +41,7 @@ func (m *Manager) ensureIngress(ctx context.Context, logger logr.Logger, cluster
 			return desired, true, nil
 		},
 		get:    m.client.Get,
-		delete: func(ctx context.Context, obj client.Object) error { return m.client.Delete(ctx, obj) },
+		delete: m.client.Delete,
 		apply:  func(ctx context.Context, obj client.Object) error { return m.applyResource(ctx, obj, cluster) },
 	})
 }

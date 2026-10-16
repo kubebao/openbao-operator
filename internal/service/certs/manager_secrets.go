@@ -12,26 +12,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
-	"github.com/kubebao/openbao-operator/internal/adapter/kube"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceapply"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
 )
 
-// applySecret creates or patches a Secret using Server-Side Apply.
+// applySecret creates a missing Secret or applies to its observed identity.
 func (m *Manager) applySecret(ctx context.Context, secret *corev1.Secret) error {
 	secret.TypeMeta = metav1.TypeMeta{
 		APIVersion: "v1",
 		Kind:       "Secret",
 	}
 
-	applyConfig, err := kube.ToApplyConfiguration(secret, m.client)
-	if err != nil {
-		return fmt.Errorf("failed to convert secret to ApplyConfiguration: %w", err)
-	}
-
-	return m.client.Apply(ctx, applyConfig, client.FieldOwner("openbao-cert-manager"), client.ForceOwnership)
+	_, err := resourceapply.ApplyObserved(ctx, m.client, secret, "openbao-cert-manager")
+	return err
 }
 
 func (m *Manager) ensureManagedSecretMetadata(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, secret *corev1.Secret) error {
@@ -59,7 +54,7 @@ func (m *Manager) ensureManagedSecretMetadata(ctx context.Context, cluster *open
 		return nil
 	}
 
-	if err := m.client.Patch(ctx, secret, client.MergeFrom(before)); err != nil {
+	if err := m.client.Patch(ctx, secret, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("failed to patch Secret metadata %s/%s: %w", secret.Namespace, secret.Name, err)
 	}
 	return nil

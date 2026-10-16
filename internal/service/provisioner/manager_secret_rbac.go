@@ -162,7 +162,7 @@ func (m *Manager) ensureSecretsRole(ctx context.Context, namespace string, roleN
 			return fmt.Errorf("failed to get Role %s/%s: %w", namespace, roleName, err)
 		}
 		m.logger.Info("Deleting tenant secrets Role (no tenant resources reference Secrets)", "namespace", namespace, "role", roleName)
-		if err := m.client.Delete(ctx, existing); err != nil && !apierrors.IsNotFound(err) {
+		if err := m.client.Delete(ctx, existing, client.Preconditions{UID: &existing.UID}); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete Role %s/%s: %w", namespace, roleName, err)
 		}
 		return nil
@@ -199,7 +199,7 @@ func (m *Manager) ensureSecretsRoleBinding(ctx context.Context, namespace string
 			return fmt.Errorf("failed to get RoleBinding %s/%s: %w", namespace, roleBindingName, err)
 		}
 		m.logger.Info("Deleting tenant secrets RoleBinding (no tenant resources reference Secrets)", "namespace", namespace, "rolebinding", roleBindingName)
-		if err := m.client.Delete(ctx, existing); err != nil && !apierrors.IsNotFound(err) {
+		if err := m.client.Delete(ctx, existing, client.Preconditions{UID: &existing.UID}); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete RoleBinding %s/%s: %w", namespace, roleBindingName, err)
 		}
 		return nil

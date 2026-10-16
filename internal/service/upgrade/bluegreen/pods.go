@@ -94,7 +94,7 @@ func (m *Manager) cleanupGreenStatefulSet(ctx context.Context, logger logr.Logge
 		return fmt.Errorf("failed to get Green StatefulSet: %w", err)
 	}
 
-	if err := m.client.Delete(ctx, greenStatefulSet); err != nil {
+	if err := m.client.Delete(ctx, greenStatefulSet, client.Preconditions{UID: &greenStatefulSet.UID}); err != nil {
 		return fmt.Errorf("failed to delete Green StatefulSet: %w", err)
 	}
 

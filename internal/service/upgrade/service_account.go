@@ -9,7 +9,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
-	"github.com/kubebao/openbao-operator/internal/adapter/kube"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceapply"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
@@ -60,19 +59,10 @@ func EnsureUpgradeServiceAccount(ctx context.Context, c client.Client, cluster *
 		return err
 	}
 
-	applyConfig, err := kube.ToApplyConfiguration(sa, c)
+	response, err := resourceapply.ApplyObserved(ctx, c, sa, fieldOwner)
 	if err != nil {
-		return fmt.Errorf("failed to convert ServiceAccount to ApplyConfiguration: %w", err)
-	}
-
-	applyOpts := []client.ApplyOption{
-		client.ForceOwnership,
-		client.FieldOwner(fieldOwner),
-	}
-
-	if err := c.Apply(ctx, applyConfig, applyOpts...); err != nil {
 		return fmt.Errorf("failed to ensure upgrade ServiceAccount %s/%s: %w", cluster.Namespace, saName, err)
 	}
 
-	return resourceapply.EnsureRetainedResourceProofStamped(ctx, c, resolvedCluster, sa)
+	return resourceapply.EnsureRetainedResourceProofStamped(ctx, c, resolvedCluster, response)
 }

@@ -61,7 +61,11 @@ func TestResourceApplyRequestCounts(t *testing.T) {
 						}
 					}
 					t.Logf("requests: %v", counts)
-					require.Equal(t, map[string]float64{"get": 1, "apply": 1}, counts)
+					expected := map[string]float64{"get": 1, "apply": 1}
+					if phase == "create" {
+						expected = map[string]float64{"get": 1, "create": 1, "patch": 1}
+					}
+					require.Equal(t, expected, counts)
 					live := &corev1.ConfigMap{}
 					require.NoError(t, actor.Get(ctx, client.ObjectKeyFromObject(desired), live))
 					require.True(t, resourceownership.HasOwnerProof(live, owner))
@@ -122,6 +126,11 @@ func TestResourceApplyRepairsMissingResponseProof(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			desired := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"}, Data: map[string]string{"value": "desired"}}
 			t.Cleanup(func() { _ = actor.Delete(ctx, desired) })
+			if retained {
+				require.NoError(t, resourceapply.ApplyRetained(ctx, actor, owner, desired.DeepCopy()))
+			} else {
+				require.NoError(t, resourceapply.ApplyOwned(ctx, actor, k8sScheme, owner, desired.DeepCopy()))
+			}
 			wrapped := &applyResponseClient{Client: c, afterApply: func(response client.Object) {
 				live := &corev1.ConfigMap{}
 				require.NoError(t, actor.Get(ctx, client.ObjectKeyFromObject(desired), live))

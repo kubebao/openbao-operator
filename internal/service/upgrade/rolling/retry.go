@@ -11,6 +11,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -109,7 +110,7 @@ func (m *Manager) cleanupStepDownJobForRetry(ctx context.Context, logger logr.Lo
 		return fmt.Errorf("failed to get step-down Job %s/%s for retry cleanup: %w", cluster.Namespace, jobName, err)
 	}
 
-	if err := m.client.Delete(ctx, job); err != nil && !apierrors.IsNotFound(err) {
+	if err := m.client.Delete(ctx, job, client.Preconditions{UID: &job.UID}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete step-down Job %s/%s for retry cleanup: %w", cluster.Namespace, jobName, err)
 	}
 
@@ -193,7 +194,7 @@ func (m *Manager) resetRolloutPodForRetry(
 		return nil
 	}
 
-	if err := m.client.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
+	if err := m.client.Delete(ctx, pod, client.Preconditions{UID: &pod.UID}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete rollout pod %s/%s for retry reset: %w", cluster.Namespace, targetPod, err)
 	}
 

@@ -135,7 +135,8 @@ func (m *Manager) deleteOwnedObjectIfExists(ctx context.Context, logger logr.Log
 		return err
 	}
 
-	if err := m.client.Delete(ctx, obj); err != nil && !apierrors.IsNotFound(err) {
+	uid := obj.GetUID()
+	if err := m.client.Delete(ctx, obj, client.Preconditions{UID: &uid}); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete %s %s/%s: %w", kind, cluster.Namespace, name, err)
 	}
 
@@ -196,10 +197,11 @@ func (m *Manager) applyResource(ctx context.Context, obj client.Object, cluster 
 			}
 		}
 		unstructuredObj.SetGroupVersionKind(gvk)
-		if err := resourceapply.ApplyConfiguration(ctx, m.client, obj, client.ApplyConfigurationFromUnstructured(unstructuredObj)); err != nil {
+		response, err := resourceapply.ApplyObserved(ctx, m.client, unstructuredObj, "")
+		if err != nil {
 			return err
 		}
-		return resourceapply.EnsureOwnedResourceProofStamped(ctx, m.client, m.scheme, resolvedCluster, obj)
+		return resourceapply.EnsureOwnedResourceProofStamped(ctx, m.client, m.scheme, resolvedCluster, response)
 	}
 
 	return resourceapply.ApplyOwned(ctx, m.client, m.scheme, cluster, obj)

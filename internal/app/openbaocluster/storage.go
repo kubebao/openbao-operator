@@ -236,7 +236,7 @@ func ReconcileStorageResizeRestart(
 	}
 
 	logger.Info("Restarting pod to complete filesystem resize", "pod", targetPod.Name)
-	if err := deps.Resources.Client.Delete(ctx, targetPod); err != nil && !apierrors.IsNotFound(err) {
+	if err := deps.Resources.Client.Delete(ctx, targetPod, client.Preconditions{UID: &targetPod.UID}); err != nil && !apierrors.IsNotFound(err) {
 		if operatorerrors.IsTransientKubernetesAPI(err) || apierrors.IsConflict(err) {
 			return recon.Result{}, operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("failed to delete pod %s/%s for filesystem resize restart: %w", targetPod.Namespace, targetPod.Name, err))
 		}

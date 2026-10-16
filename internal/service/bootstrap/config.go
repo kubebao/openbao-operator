@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -178,7 +179,7 @@ func (m *Manager) ensureSelfInitConfigMap(ctx context.Context, logger logr.Logge
 		if err := resourceownership.RequireOwnerProof("delete self-init ConfigMap", configMap, cluster); err != nil {
 			return err
 		}
-		if err := m.client.Delete(ctx, configMap); err != nil {
+		if err := m.client.Delete(ctx, configMap, client.Preconditions{UID: &configMap.UID}); err != nil {
 			return fmt.Errorf("failed to delete self-init ConfigMap %s/%s: %w", cluster.Namespace, cmName, err)
 		}
 		return nil
@@ -260,7 +261,7 @@ func (m *Manager) ensureSelfInitConfigMap(ctx context.Context, logger logr.Logge
 		if err := resourceownership.RequireOwnerProof("delete self-init ConfigMap", configMap, cluster); err != nil {
 			return err
 		}
-		if err := m.client.Delete(ctx, configMap); err != nil {
+		if err := m.client.Delete(ctx, configMap, client.Preconditions{UID: &configMap.UID}); err != nil {
 			return fmt.Errorf("failed to delete self-init ConfigMap %s/%s: %w", cluster.Namespace, cmName, err)
 		}
 		return nil

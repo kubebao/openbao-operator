@@ -230,7 +230,7 @@ func (m *Manager) deleteRestoreJob(ctx context.Context, logger logr.Logger, rest
 	}
 
 	if job.DeletionTimestamp.IsZero() {
-		if err := m.client.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil && !apierrors.IsNotFound(err) {
+		if err := m.client.Delete(ctx, job, client.Preconditions{UID: &job.UID}, client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil && !apierrors.IsNotFound(err) {
 			return false, fmt.Errorf("failed to delete restore Job during deletion: %w", err)
 		}
 		logger.Info("Requested restore Job deletion before lock release", "job", job.Name)

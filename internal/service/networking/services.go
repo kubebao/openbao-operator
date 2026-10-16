@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -361,7 +362,7 @@ func (m *Manager) deleteServiceIfExists(ctx context.Context, cluster *openbaov1a
 		return err
 	}
 
-	if err := m.client.Delete(ctx, service); err != nil && !apierrors.IsNotFound(err) {
+	if err := m.client.Delete(ctx, service, client.Preconditions{UID: &service.UID}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 

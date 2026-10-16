@@ -42,7 +42,7 @@ func newGatewayOptionalResourceOptions(degradeOnCRDMissing bool, applyErr error)
 			}, true, nil
 		},
 		get:    func(_ context.Context, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error { return nil },
-		delete: func(_ context.Context, _ client.Object) error { return nil },
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error { return nil },
 		apply:  func(_ context.Context, _ client.Object) error { return applyErr },
 	}
 }
@@ -70,7 +70,7 @@ func TestReconcileOptionalResource_Disabled_NoopsWhenNotFound(t *testing.T) {
 			getCalls++
 			return apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "configmaps"}, "x")
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return nil
 		},
@@ -112,7 +112,7 @@ func TestReconcileOptionalResource_Disabled_DeletesWhenPresent(t *testing.T) {
 			getCalls++
 			return nil
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return nil
 		},
@@ -158,7 +158,7 @@ func TestReconcileOptionalResource_DisabledRejectsUnownedExistingResource(t *tes
 			obj.SetNamespace("default")
 			return nil
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return nil
 		},
@@ -199,7 +199,7 @@ func TestReconcileOptionalResource_Enabled_InvalidConfig_DeletesWhenPresent(t *t
 			getCalls++
 			return nil
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return nil
 		},
@@ -243,7 +243,7 @@ func TestReconcileOptionalResource_Enabled_ValidConfig_Applies(t *testing.T) {
 			getCalls++
 			return nil
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return nil
 		},
@@ -289,7 +289,7 @@ func TestReconcileOptionalResource_Enabled_BuildError_Propagates(t *testing.T) {
 			getCalls++
 			return nil
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return nil
 		},
@@ -349,7 +349,7 @@ func TestReconcileOptionalResource_CRDMissingOnApply_DoesNotDegradeWhenDisabled(
 			}, true, nil
 		},
 		get:    func(_ context.Context, _ client.ObjectKey, _ client.Object, _ ...client.GetOption) error { return nil },
-		delete: func(_ context.Context, _ client.Object) error { return nil },
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error { return nil },
 		apply:  func(_ context.Context, _ client.Object) error { return crdMissingErr },
 	}
 
@@ -387,7 +387,7 @@ func TestReconcileOptionalResource_CRDMissingOnDelete_IsIgnored(t *testing.T) {
 			getCalls++
 			return nil
 		},
-		delete: func(_ context.Context, _ client.Object) error {
+		delete: func(_ context.Context, _ client.Object, _ ...client.DeleteOption) error {
 			deleteCalls++
 			return crdMissingErr
 		},

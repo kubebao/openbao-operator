@@ -44,7 +44,7 @@ func (m *Manager) ensureBackendTLSPolicy(ctx context.Context, logger logr.Logger
 		if err := resourceownership.RequireOwnerProof("delete BackendTLSPolicy", backendTLSPolicy, cluster); err != nil {
 			return err
 		}
-		if err := m.client.Delete(ctx, backendTLSPolicy); err != nil && !apierrors.IsNotFound(err) {
+		if err := m.client.Delete(ctx, backendTLSPolicy, client.Preconditions{UID: &backendTLSPolicy.UID}); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete BackendTLSPolicy %s/%s: %w", cluster.Namespace, name, err)
 		}
 		return nil
@@ -84,7 +84,7 @@ func (m *Manager) ensureBackendTLSPolicy(ctx context.Context, logger logr.Logger
 		},
 		degradeOnCRDMissing: true,
 		get:                 m.client.Get,
-		delete:              func(ctx context.Context, obj client.Object) error { return m.client.Delete(ctx, obj) },
+		delete:              m.client.Delete,
 		apply:               func(ctx context.Context, obj client.Object) error { return m.applyResource(ctx, obj, cluster) },
 	})
 }
@@ -173,7 +173,7 @@ func (m *Manager) ensureGatewayCAConfigMap(ctx context.Context, logger logr.Logg
 		if err := resourceownership.RequireOwnerProof("delete Gateway CA ConfigMap", configMap, cluster); err != nil {
 			return err
 		}
-		if deleteErr := m.client.Delete(ctx, configMap); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+		if deleteErr := m.client.Delete(ctx, configMap, client.Preconditions{UID: &configMap.UID}); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
 			return fmt.Errorf("failed to delete Gateway CA ConfigMap %s/%s: %w", cluster.Namespace, configMapName, deleteErr)
 		}
 		return nil

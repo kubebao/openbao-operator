@@ -60,14 +60,14 @@ func TestApplyOwnedResolvesLiveOwnerUID(t *testing.T) {
 	}
 }
 
-func TestApplyUnownedDoesNotSetOwnerReference(t *testing.T) {
+func TestApplyObservedDoesNotSetOwnerReference(t *testing.T) {
 	scheme := newTestScheme(t)
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithReturnManagedFields().Build()
 
 	obj := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "cfg", Namespace: "default"}}
 
-	if _, err := ApplyUnowned(context.Background(), k8sClient, obj); err != nil {
-		t.Fatalf("ApplyUnowned() error = %v", err)
+	if _, err := ApplyObserved(context.Background(), k8sClient, obj, ""); err != nil {
+		t.Fatalf("ApplyObserved() error = %v", err)
 	}
 
 	stored := &corev1.ConfigMap{}

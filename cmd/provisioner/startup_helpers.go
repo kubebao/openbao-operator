@@ -35,6 +35,8 @@ func newManagerOptions(
 				DisableFor: []client.Object{
 					&corev1.ServiceAccount{},
 					&corev1.Namespace{},
+					&corev1.ResourceQuota{},
+					&corev1.LimitRange{},
 					&rbacv1.Role{},
 					&rbacv1.RoleBinding{},
 				},

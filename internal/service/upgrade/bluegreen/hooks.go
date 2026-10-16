@@ -521,7 +521,7 @@ func (m *Manager) deleteTerminalValidationHookJob(
 		}
 		return err
 	}
-	if err := m.client.Delete(ctx, job); client.IgnoreNotFound(err) != nil {
+	if err := m.client.Delete(ctx, job, client.Preconditions{UID: &job.UID}); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete terminal validation hook Job %s/%s: %w", job.Namespace, job.Name, err)
 	}
 	return nil
