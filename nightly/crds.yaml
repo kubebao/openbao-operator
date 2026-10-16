@@ -5194,6 +5194,51 @@ spec:
                             This payload is stored in the OpenBaoCluster resource and persisted in etcd;
                             it must not contain sensitive values such as tokens, passwords, or unseal keys.
                           x-kubernetes-preserve-unknown-fields: true
+                        dataFrom:
+                          additionalProperties:
+                            description: SelfInitDataSource supplies one string field
+                              of a raw self-init request.
+                            properties:
+                              secretKeyRef:
+                                description: SecretKeyRef selects a required Secret
+                                  key in the OpenBaoCluster namespace.
+                                properties:
+                                  key:
+                                    description: Key is the Secret data key. Its exact
+                                      contents are used without trimming.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[-._a-zA-Z0-9]+$
+                                    type: string
+                                  name:
+                                    description: Name is the Secret name. The submitting
+                                      identity must be authorized to get it.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretKeyRef
+                            type: object
+                          description: |-
+                            DataFrom maps top-level request fields to required keys in same-namespace
+                            Secrets. Values are read as strings during first self-initialization.
+                            Requires OpenBao 2.6.0 or newer. Use only with raw request payloads, not
+                            auditDevice, authMethod, secretEngine, policy, or their reserved API paths.
+                            Field names must match ^[A-Za-z_][A-Za-z0-9_-]*$. A field must not occur
+                            in both data and dataFrom.
+                            All requests together can reference at most two distinct Secrets. Mappings,
+                            including their request and field names, are immutable after cluster creation.
+                            Self-init must be enabled at creation and until initialization completes.
+                            Missing inputs block startup before OpenBao initializes, including when
+                            when is false or allowFailure is true. Changes after initialization do not
+                            update OpenBao. The operator does not read or copy the Secret values.
+                          maxProperties: 64
+                          type: object
                         headers:
                           additionalProperties:
                             items:

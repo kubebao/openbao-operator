@@ -5194,6 +5194,51 @@ spec:
                             This payload is stored in the OpenBaoCluster resource and persisted in etcd;
                             it must not contain sensitive values such as tokens, passwords, or unseal keys.
                           x-kubernetes-preserve-unknown-fields: true
+                        dataFrom:
+                          additionalProperties:
+                            description: SelfInitDataSource supplies one string field
+                              of a raw self-init request.
+                            properties:
+                              secretKeyRef:
+                                description: SecretKeyRef selects a required Secret
+                                  key in the OpenBaoCluster namespace.
+                                properties:
+                                  key:
+                                    description: Key is the Secret data key. Its exact
+                                      contents are used without trimming.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[-._a-zA-Z0-9]+$
+                                    type: string
+                                  name:
+                                    description: Name is the Secret name. The submitting
+                                      identity must be authorized to get it.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                            required:
+                            - secretKeyRef
+                            type: object
+                          description: |-
+                            DataFrom maps top-level request fields to required keys in same-namespace
+                            Secrets. Values are read as strings during first self-initialization.
+                            Requires OpenBao 2.6.0 or newer. Use only with raw request payloads, not
+                            auditDevice, authMethod, secretEngine, policy, or their reserved API paths.
+                            Field names must match ^[A-Za-z_][A-Za-z0-9_-]*$. A field must not occur
+                            in both data and dataFrom.
+                            All requests together can reference at most two distinct Secrets. Mappings,
+                            including their request and field names, are immutable after cluster creation.
+                            Self-init must be enabled at creation and until initialization completes.
+                            Missing inputs block startup before OpenBao initializes, including when
+                            when is false or allowFailure is true. Changes after initialization do not
+                            update OpenBao. The operator does not read or copy the Secret values.
+                          maxProperties: 64
+                          type: object
                         headers:
                           additionalProperties:
                             items:
@@ -10125,10 +10170,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261015-4c08486c7653
+          value: nightly-20261016-9989ea6480cd
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:c8d0a8fcd30bb45fd333b043c3ba9074aff05b8931df235990dafa580becdc39
+        image: ghcr.io/kubebao/openbao-operator@sha256:a6f2c86695e9a0040b89e23d14a2a08bff1ba43d594c031c550739a7d574c701
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10243,8 +10288,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261015-4c08486c7653
-        image: ghcr.io/kubebao/openbao-operator@sha256:c8d0a8fcd30bb45fd333b043c3ba9074aff05b8931df235990dafa580becdc39
+          value: nightly-20261016-9989ea6480cd
+        image: ghcr.io/kubebao/openbao-operator@sha256:a6f2c86695e9a0040b89e23d14a2a08bff1ba43d594c031c550739a7d574c701
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10359,7 +10404,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:71df31f013ae60eb423266e14891db3753db4276907db82d070f9ae088c028ae
+    openbao.org/admission-policy-fingerprint: sha256:f9ea866c4743f4f1c422909ff25c154267e84f645e276fb3bff19c321eed9179
   name: openbao-operator-openbao-lock-controller-statefulset-mutations
 spec:
   failurePolicy: Fail
@@ -10375,7 +10420,7 @@ spec:
       - statefulsets
   validations:
   - expression: |-
-      !variables.is_controller || object.spec.template.spec.volumes == oldObject.spec.template.spec.volumes || (variables.handoff &&
+      !variables.is_controller || object.spec.template.spec.volumes == oldObject.spec.template.spec.volumes || variables.bootstrap_input_cleanup || (variables.handoff &&
 
         object.spec.template.spec.volumes.filter(v, v.name != 'kube-api-access') == oldObject.spec.template.spec.volumes)
     message: OpenBao controller cannot modify StatefulSet volumes.
@@ -10389,7 +10434,15 @@ spec:
         .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ==
       (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
 
-        .map(c, {'name': c.name, 'command': c.command, 'args': c.args})
+        .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ||
+      (variables.bootstrap_input_cleanup &&
+
+        (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
+          .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ==
+        (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
+          .map(c, {'name': c.name, 'command': c.command,
+            'args': dyn(c.name == 'bao-config-init' ?
+              c.args.filter(a, !a.startsWith('--self-init-secret-file=/etc/bao/self-init-inputs/')) : c.args)}))
     message: OpenBao controller cannot modify init container commands or args.
   - expression: |-
       !variables.is_controller || (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
@@ -10397,7 +10450,15 @@ spec:
         .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
       (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
 
-        .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts})
+        .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ||
+      (variables.bootstrap_input_cleanup &&
+
+        (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
+          .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
+        (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
+          .map(c, {'name': c.name, 'securityContext': c.securityContext,
+            'volumeMounts': dyn(c.name == 'bao-config-init' ?
+              c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)}))
     message: OpenBao controller cannot modify init container securityContext or volumeMounts.
   - expression: |-
       !variables.is_controller || object.spec.template.spec.automountServiceAccountToken ==
@@ -10408,7 +10469,14 @@ spec:
       == oldObject.spec.template.spec.securityContext'
     message: OpenBao controller cannot modify pod securityContext.
   - expression: |-
-      !variables.is_controller || object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) == oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) || (variables.handoff &&
+      !variables.is_controller || object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) == oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) || (variables.bootstrap_input_cleanup &&
+
+        object.spec.template.spec.containers.map(c,
+          {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
+        oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext,
+          'volumeMounts': dyn(c.name == 'openbao' ?
+            c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)})) ||
+      (variables.handoff &&
 
         object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext,
           'volumeMounts': dyn(c.volumeMounts.filter(m, m.name != 'kube-api-access'))}) ==
@@ -10430,6 +10498,18 @@ spec:
     name: controller_principal
   - expression: request.userInfo.username == variables.controller_principal
     name: is_controller
+  - expression: |-
+      object.metadata.ownerReferences == oldObject.metadata.ownerReferences && oldObject.metadata.ownerReferences.exists(o,
+
+        o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
+      oldObject.spec.template.spec.volumes.exists(v,
+
+        v.name == 'self-init-inputs' && has(v.projected) &&
+        v.projected.sources.all(s, has(s.secret) && has(s.secret.optional) && s.secret.optional)) &&
+      object.spec.template.spec.volumes ==
+
+        oldObject.spec.template.spec.volumes.filter(v, v.name != 'self-init-inputs')
+    name: bootstrap_input_cleanup
   - expression: object.spec.template.spec.volumes.filter(v, v.name == 'kube-api-access')
     name: api_volumes
   - expression: |-
@@ -12092,7 +12172,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:ae757476316e68f16ac52a6452cb2880e8c0fb90b9c1108d31f87eb61cc82dae
+    openbao.org/admission-policy-fingerprint: sha256:7acf88d350f1ff57c3805c6604666104b6df8cd357157e3660ec680a6e0b9386
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -12457,6 +12537,59 @@ spec:
       is true.
   - expression: '!variables.has_self_init_request_controls || variables.self_init_request_controls_version_supported'
     message: spec.selfInit.requests headers and when require OpenBao >= 2.6.0.
+  - expression: '!has(object.spec.selfInit) || object.spec.selfInit.enabled == false
+      || !has(object.spec.selfInit.requests) || object.spec.selfInit.requests.all(r,
+      !has(r.dataFrom) || size(r.dataFrom) == 0) || variables.self_init_request_controls_version_supported'
+    message: spec.selfInit.requests dataFrom requires OpenBao >= 2.6.0.
+  - expression: |-
+      !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) || object.spec.selfInit.requests.all(r, !has(r.dataFrom) || size(r.dataFrom) == 0 ||
+
+        (!has(r.auditDevice) && !has(r.authMethod) && !has(r.secretEngine) && !has(r.policy) &&
+         !r.path.matches('^/*sys/(audit|auth|mounts|policies)/') &&
+         r.dataFrom.all(k, k.matches('^[A-Za-z_][A-Za-z0-9_-]*$'))))
+    message: Self-init dataFrom requires raw request payloads and field names that
+      are valid HCL identifiers.
+  - expression: |-
+      variables.self_init_input_requests.all(r,
+
+        r.dataFrom.all(k, r.dataFrom[k].secretKeyRef.name in variables.self_init_secret_names))
+    message: Self-init dataFrom supports at most two distinct Secrets per OpenBaoCluster.
+  - expression: |-
+      variables.self_init_input_requests.all(r,
+
+        variables.self_init_input_requests.filter(x, x.name == r.name).size() == 1)
+    message: Self-init dataFrom requires unique source-bearing request names, including
+      when self-init is disabled.
+  - expression: |-
+      oldObject == null || (size(variables.self_init_input_requests) == size(variables.old_self_init_input_requests) &&
+
+        variables.self_init_input_requests.all(r, variables.old_self_init_input_requests.exists(o,
+          o.name == r.name && o.dataFrom == r.dataFrom)))
+    message: Self-init dataFrom mappings and their request names are immutable after
+      cluster creation; repair inputs at the referenced Secret name and key.
+  - expression: size(variables.self_init_input_requests) == 0 || (oldObject != null
+      && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized)
+      || object.spec.selfInit.enabled
+    message: Self-init with dataFrom must be enabled at creation and until initialization
+      completes.
+  - expression: |-
+      (variables.is_operator_controller && oldObject != null && object.spec == oldObject.spec) || (oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized &&
+
+        has(oldObject.spec.selfInit) && has(oldObject.spec.selfInit.requests) &&
+        has(object.spec.selfInit) && has(object.spec.selfInit.requests) &&
+        object.spec.selfInit.requests == oldObject.spec.selfInit.requests) ||
+      variables.self_init_secret_names.all(n,
+
+        authorizer.group("").resource("secrets").namespace(request.namespace).
+          name(n).check("get").allowed())
+    message: Users configuring self-init dataFrom must be authorized to get every
+      referenced Secret.
+  - expression: |-
+      !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) || object.spec.selfInit.requests.all(r, !has(r.dataFrom) || r.dataFrom.all(k,
+
+        !r.dataFrom[k].secretKeyRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")))
+    message: Self-init dataFrom must not reference operator system Secrets (unseal-key,
+      root-token, tls-ca, tls-server).
   - expression: |-
       !has(object.spec.selfInit) || object.spec.selfInit.enabled == false || (!has(object.spec.selfInit.requests) ||
 
@@ -12777,6 +12910,37 @@ spec:
 
         (has(r.headers) && size(r.headers) > 0) || has(r.when))
     name: has_self_init_request_controls
+  - expression: |-
+      has(object.spec.selfInit) && has(object.spec.selfInit.requests) ?
+
+        object.spec.selfInit.requests.filter(r, has(r.dataFrom) && size(r.dataFrom) > 0) : []
+    name: self_init_input_requests
+  - expression: |-
+      oldObject != null && has(oldObject.spec.selfInit) && has(oldObject.spec.selfInit.requests) ?
+
+        oldObject.spec.selfInit.requests.filter(r, has(r.dataFrom) && size(r.dataFrom) > 0) : []
+    name: old_self_init_input_requests
+  - expression: |-
+      size(variables.self_init_input_requests) > 0 ?
+
+        variables.self_init_input_requests[0].dataFrom.map(k,
+          variables.self_init_input_requests[0].dataFrom[k].secretKeyRef.name)[0] : ''
+    name: self_init_first_secret
+  - expression: |-
+      variables.self_init_input_requests.filter(r,
+
+        r.dataFrom.exists(k, r.dataFrom[k].secretKeyRef.name != variables.self_init_first_secret))
+    name: self_init_other_secret_requests
+  - expression: |-
+      size(variables.self_init_other_secret_requests) > 0 ?
+
+        variables.self_init_other_secret_requests[0].dataFrom
+          .filter(k, variables.self_init_other_secret_requests[0].dataFrom[k].secretKeyRef.name != variables.self_init_first_secret)
+          .map(k, variables.self_init_other_secret_requests[0].dataFrom[k].secretKeyRef.name)[0] : ''
+    name: self_init_second_secret
+  - expression: '[variables.self_init_first_secret, variables.self_init_second_secret].filter(n,
+      n != '''')'
+    name: self_init_secret_names
   - expression: has(object.spec.backup)
     name: has_backup
   - expression: 'variables.has_backup && has(object.spec.backup.target.provider) &&
