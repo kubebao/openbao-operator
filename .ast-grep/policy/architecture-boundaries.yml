@@ -38,9 +38,11 @@ layerCoverage:
     platform:
       - platform/admission
       - platform/constants
+      - platform/cryptopolicy
       - platform/entrypoint
       - platform/errors
       - platform/hardenedcontract
+      - platform/kubernetestls
       - platform/logging
       - platform/observability
       - platform/openbaotls

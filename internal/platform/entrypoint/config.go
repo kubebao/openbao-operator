@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"github.com/kubebao/openbao-operator/internal/platform/kubernetestls"
 	"github.com/kubebao/openbao-operator/internal/platform/observability"
 )
 
@@ -27,6 +28,7 @@ func LoadConfig(kubeconfig string) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	config = kubernetestls.WithPolicy(config)
 	config.Wrap(observability.WrapKubernetesTransport)
 	return config, nil
 }

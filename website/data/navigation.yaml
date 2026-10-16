@@ -106,6 +106,8 @@ primary:
         url: docs/security/tenant-boundaries/
       - title: Secrets and credentials
         url: docs/security/secrets/
+      - title: Cryptography policy
+        url: docs/security/cryptography/
       - title: Admission guardrails
         url: docs/security/admission/
       - title: Workload security

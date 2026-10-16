@@ -48,7 +48,7 @@ func (v *ImageVerifier) resolveDigest(ctx context.Context, imageRef string, conf
 		return d.String(), nil
 	}
 
-	var ggcrOpts []ggcrremote.Option
+	ggcrOpts := []ggcrremote.Option{ggcrremote.WithTransport(imageRegistryTransport)}
 	if len(config.ImagePullSecrets) > 0 && v.reader != nil {
 		keychain, err := v.buildKeychain(ctx, config.ImagePullSecrets, config.Namespace)
 		if err != nil {

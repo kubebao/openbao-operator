@@ -30,6 +30,7 @@ import (
 	"gocloud.dev/blob/s3blob"
 	"gocloud.dev/gcerrors"
 
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/port/blobstore"
 )
@@ -407,6 +408,9 @@ func buildHTTPClient(caCert []byte, insecureSkipVerify, validateEndpointRequests
 		if !certPool.AppendCertsFromPEM(caCert) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
 		}
+		if err := cryptopolicy.ValidatePEMCertificates(caCert); err != nil {
+			return nil, fmt.Errorf("CA key policy: %w", err)
+		}
 	}
 
 	transport.TLSClientConfig = &tls.Config{
@@ -415,6 +419,7 @@ func buildHTTPClient(caCert []byte, insecureSkipVerify, validateEndpointRequests
 		MinVersion:         tls.VersionTLS12,
 	}
 
+	cryptopolicy.ConfigureTLS(transport.TLSClientConfig)
 	client := &http.Client{
 		Transport: transport,
 		Timeout:   DefaultUploadTimeout,

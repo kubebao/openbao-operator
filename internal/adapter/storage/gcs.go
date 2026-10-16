@@ -17,13 +17,19 @@ import (
 	"cloud.google.com/go/storage"
 	"gocloud.dev/blob/gcsblob"
 	"gocloud.dev/gcp"
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	"github.com/kubebao/openbao-operator/internal/port/blobstore"
 )
 
 const gcsRWScope = "https://www.googleapis.com/auth/devstorage.read_write"
+
+// Token exchanges use system trust and the same TLS policy as object requests.
+// Storage emulator settings must not weaken authentication to Google endpoints.
+var gcsCredentialHTTPClient = &http.Client{Transport: cryptopolicy.NewHTTPTransport()}
 
 // GCSClientConfig holds configuration for Google Cloud Storage.
 type GCSClientConfig struct {
@@ -98,7 +104,8 @@ func OpenGCSBucket(ctx context.Context, cfg GCSClientConfig) (blobstore.BlobStor
 	}
 
 	// Production mode: use full authentication
-	creds, err := buildGCSCredentials(ctx, cfg.CredentialsJSON)
+	credentialContext := context.WithValue(ctx, oauth2.HTTPClient, gcsCredentialHTTPClient)
+	creds, err := buildGCSCredentials(credentialContext, cfg.CredentialsJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +172,9 @@ func buildGCSHTTPClient(cfg GCSClientConfig) (*http.Client, error) {
 		if !certPool.AppendCertsFromPEM(cfg.CACert) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
 		}
+		if err := cryptopolicy.ValidatePEMCertificates(cfg.CACert); err != nil {
+			return nil, fmt.Errorf("CA key policy: %w", err)
+		}
 	}
 
 	tlsConfig := &tls.Config{
@@ -172,6 +182,7 @@ func buildGCSHTTPClient(cfg GCSClientConfig) (*http.Client, error) {
 		InsecureSkipVerify: cfg.InsecureSkipVerify, // #nosec G402 -- Intentional for emulator support
 		MinVersion:         tls.VersionTLS12,
 	}
+	cryptopolicy.ConfigureTLS(tlsConfig)
 	transport.TLSClientConfig = tlsConfig
 
 	client := &http.Client{

@@ -17,6 +17,7 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 )
 
 func (m *Manager) validateTransitUnsealPrerequisites(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster) error {
@@ -285,7 +286,7 @@ func validateTransitCAPEM(data []byte) error {
 	if !pool.AppendCertsFromPEM(data) {
 		return fmt.Errorf("expected one or more PEM certificates")
 	}
-	return nil
+	return cryptopolicy.ValidatePEMCertificates(data)
 }
 
 func validateTransitClientKeyPairPEM(certPEM, keyPEM []byte) error {

@@ -19,6 +19,7 @@ The operator coordinates sensitive infrastructure; it does not make every identi
   <a href="threat-model/"><strong>Threat model</strong><p>Assets, actors, boundaries, assumptions, and controls.</p></a>
   <a href="tenant-boundaries/"><strong>Tenant boundaries</strong><p>Namespace introduction, controller authority, user bindings, and cleanup.</p></a>
   <a href="secrets/"><strong>Secrets and credentials</strong><p>Generated bootstrap material, referenced credentials, retention, and access.</p></a>
+  <a href="cryptography/"><strong>Cryptography policy</strong><p>Key sizes, TLS ciphers, certificate validation, and provider boundaries.</p></a>
   <a href="admission/"><strong>Admission guardrails</strong><p>Required policies, protected intent, and fail-closed behavior.</p></a>
   <a href="workload/"><strong>Workload security</strong><p>Pod contexts, token projection, writable paths, and job limits.</p></a>
   <a href="supply-chain/"><strong>Supply chain</strong><p>Signature verification, digest pinning, image credentials, and remaining gaps.</p></a>

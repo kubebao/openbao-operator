@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
 
@@ -53,6 +54,7 @@ func NewClient(config portopenbao.ClientConfig) (*Client, error) {
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
+	cryptopolicy.ConfigureTLS(tlsConfig)
 
 	// Set ServerName explicitly when the operator needs to verify against a
 	// stable TLS identity instead of the connection hostname (for example, ACME
@@ -69,6 +71,9 @@ func NewClient(config portopenbao.ClientConfig) (*Client, error) {
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(config.CACert) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		if err := cryptopolicy.ValidatePEMCertificates(config.CACert); err != nil {
+			return nil, fmt.Errorf("CA key policy: %w", err)
 		}
 		tlsConfig.RootCAs = pool
 	}
@@ -128,6 +133,7 @@ func newClientWithState(config portopenbao.ClientConfig, state *clientState) (*C
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
+	cryptopolicy.ConfigureTLS(tlsConfig)
 
 	if config.TLSServerName != "" {
 		tlsConfig.ServerName = config.TLSServerName
@@ -140,6 +146,9 @@ func newClientWithState(config portopenbao.ClientConfig, state *clientState) (*C
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(config.CACert) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+		if err := cryptopolicy.ValidatePEMCertificates(config.CACert); err != nil {
+			return nil, fmt.Errorf("CA key policy: %w", err)
 		}
 		tlsConfig.RootCAs = pool
 	}

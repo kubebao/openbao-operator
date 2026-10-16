@@ -15,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 )
 
 const (
@@ -269,7 +271,7 @@ func newHTTPClient(
 			// Use insecure fallback with manual certificate verification for loopback connections
 			tlsConfig := &tls.Config{ // nosemgrep
 				MinVersion: tls.VersionTLS12,
-				// #nosec G402 -- InsecureSkipVerify is required for certificate acquisition phase or TLS handshake retries, but we perform manual certificate verification via VerifyPeerCertificate to ensure we're connecting to the expected loopback service.
+				// #nosec G402 -- ACME acquisition omits CA/name authentication; the dial guard confines traffic to loopback, and the callback checks dates and key strength.
 				InsecureSkipVerify: true, // nosemgrep
 				VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 					return verifyLoopbackCertificate(rawCerts)
@@ -289,7 +291,7 @@ func newHTTPClient(
 				DisableKeepAlives:     true,
 			}
 
-			return &http.Client{Transport: transport}, nil
+			return newProbeHTTPClient(transport, timeout, true), nil
 		}
 		// Empty CA file means use system roots (e.g., for public ACME CAs like Let's Encrypt)
 		roots = nil
@@ -310,7 +312,7 @@ func newHTTPClient(
 				// Fallback for non-ACME loopback probes when CA file is missing
 				tlsConfig := &tls.Config{ // nosemgrep
 					MinVersion: tls.VersionTLS12,
-					// #nosec G402 -- InsecureSkipVerify is required for loopback fallback, but we perform manual certificate verification via VerifyPeerCertificate to ensure we're connecting to the expected loopback service.
+					// #nosec G402 -- ACME acquisition omits CA/name authentication; the dial guard confines traffic to loopback, and the callback checks dates and key strength.
 					InsecureSkipVerify: true, // nosemgrep
 					VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 						return verifyLoopbackCertificate(rawCerts)
@@ -330,7 +332,7 @@ func newHTTPClient(
 					DisableKeepAlives:     true,
 				}
 
-				return &http.Client{Transport: transport}, nil
+				return newProbeHTTPClient(transport, timeout, true), nil
 			} else {
 				return nil, fmt.Errorf("failed to read CA file %q: %w", caFile, err)
 			}
@@ -339,6 +341,9 @@ func newHTTPClient(
 			roots = x509.NewCertPool()
 			if !roots.AppendCertsFromPEM(caPEM) {
 				return nil, fmt.Errorf("failed to parse CA PEM from %q", caFile)
+			}
+			if err := cryptopolicy.ValidatePEMCertificates(caPEM); err != nil {
+				return nil, fmt.Errorf("CA file key policy: %w", err)
 			}
 		}
 	}
@@ -364,9 +369,32 @@ func newHTTPClient(
 		DisableKeepAlives:     true,
 	}
 
+	return newProbeHTTPClient(transport, timeout, false), nil
+}
+
+func newProbeHTTPClient(transport *http.Transport, timeout time.Duration, loopbackFallback bool) *http.Client {
+	cryptopolicy.ConfigureTLS(transport.TLSClientConfig)
+	if loopbackFallback {
+		dialer := &net.Dialer{Timeout: timeout, ControlContext: restrictLoopbackDial}
+		transport.DialContext = dialer.DialContext
+	}
 	return &http.Client{
 		Transport: transport,
-	}, nil
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
+func restrictLoopbackDial(_ context.Context, _ string, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("invalid loopback probe dial address: %w", err)
+	}
+	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+		return fmt.Errorf("ACME probe fallback requires a loopback dial address")
+	}
+	return nil
 }
 
 func tcpDial(ctx context.Context, address string) error {
@@ -413,6 +441,9 @@ func verifyLoopbackCertificate(rawCerts [][]byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse peer certificate: %w", err)
 	}
+	if err := cryptopolicy.ValidatePublicKey(cert.PublicKey); err != nil {
+		return fmt.Errorf("loopback certificate key policy: %w", err)
+	}
 
 	now := time.Now()
 	if now.Before(cert.NotBefore) {
@@ -422,19 +453,8 @@ func verifyLoopbackCertificate(rawCerts [][]byte) error {
 		return fmt.Errorf("certificate expired (notAfter=%s)", cert.NotAfter.Format(time.RFC3339))
 	}
 
-	// For loopback connections, we allow self-signed certificates during initial
-	// ACME certificate acquisition. Once the ACME certificate is obtained, it will
-	// be CA-issued and this check will pass. This is safe because:
-	// 1. We're only connecting to localhost (loopback)
-	// 2. We still verify the certificate is valid (not expired, proper dates)
-	// 3. The certificate will be replaced with the proper ACME certificate once obtained
-	// For non-loopback connections or after ACME acquisition, we expect CA-issued certs.
-	// Note: CheckSignatureFrom returns nil if the cert is self-signed (can verify itself)
-	if err := cert.CheckSignatureFrom(cert); err == nil {
-		// Self-signed certificate - allow it for loopback during ACME acquisition
-		// The certificate validity (dates) has already been checked above
-		return nil
-	}
-
+	// Acquisition accepts temporary self-signed and CA-issued certificates without
+	// CA/name authentication. The transport confines every dial to loopback and
+	// rejects redirects; these date and key checks do not establish server identity.
 	return nil
 }

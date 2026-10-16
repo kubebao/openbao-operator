@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
+	"github.com/kubebao/openbao-operator/internal/platform/kubernetestls"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 )
 
@@ -23,7 +24,7 @@ func DiscoverConfig(ctx context.Context, cfg *rest.Config, baseURL string) (*por
 	}
 	wellKnownURL := baseURL + oidcWellKnownConfigurationPath
 
-	transport, err := rest.TransportFor(cfg)
+	transport, err := rest.TransportFor(kubernetestls.WithPolicy(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}

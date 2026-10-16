@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"k8s.io/client-go/rest"
+
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 )
 
 const defaultOIDCHTTPTimeout = 10 * time.Second
@@ -24,7 +26,10 @@ func issuerJWKSRediscoveryURL(ctx context.Context, issuerURL string) (string, bo
 	}
 
 	wellKnownURL := strings.TrimRight(issuerURL, "/") + oidcWellKnownConfigurationPath
-	oidcConfig, err := fetchOIDCWellKnown(ctx, &http.Client{Timeout: defaultOIDCHTTPTimeout}, wellKnownURL)
+	transport := cryptopolicy.NewHTTPTransport()
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport, Timeout: defaultOIDCHTTPTimeout}
+	oidcConfig, err := fetchOIDCWellKnown(ctx, client, wellKnownURL)
 	if err != nil || oidcConfig == nil || oidcConfig.JWKSURI == "" {
 		return "", false
 	}

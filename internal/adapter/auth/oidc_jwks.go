@@ -15,6 +15,8 @@ import (
 
 	"k8s.io/client-go/rest"
 
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
+	"github.com/kubebao/openbao-operator/internal/platform/kubernetestls"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 )
 
@@ -41,7 +43,7 @@ func FetchJWKSKeys(ctx context.Context, cfg *rest.Config, jwksURL string) ([]str
 		return nil, fmt.Errorf("jwks URL is required")
 	}
 
-	transport, err := rest.TransportFor(cfg)
+	transport, err := rest.TransportFor(kubernetestls.WithPolicy(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}
@@ -51,7 +53,9 @@ func FetchJWKSKeys(ctx context.Context, cfg *rest.Config, jwksURL string) ([]str
 }
 
 func fetchJWKSKeysPublic(ctx context.Context, jwksURL string) ([]string, error) {
-	httpClient := &http.Client{Timeout: defaultOIDCHTTPTimeout}
+	transport := cryptopolicy.NewHTTPTransport()
+	defer transport.CloseIdleConnections()
+	httpClient := &http.Client{Transport: transport, Timeout: defaultOIDCHTTPTimeout}
 	return fetchJWKSKeysWithClient(ctx, httpClient, jwksURL)
 }
 
@@ -134,6 +138,9 @@ func pemPublicKeyFromX5C(encodedCert string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse jwk x5c certificate: %w", err)
 	}
+	if err := cryptopolicy.ValidatePublicKey(cert.PublicKey); err != nil {
+		return "", fmt.Errorf("jwk x5c key policy: %w", err)
+	}
 	pubDER, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal jwk x5c public key: %w", err)
@@ -162,6 +169,9 @@ func pemPublicKeyFromRSA(key jwkKey) (string, error) {
 	pubKey := &rsa.PublicKey{
 		N: new(big.Int).SetBytes(nBytes),
 		E: exponent,
+	}
+	if err := cryptopolicy.ValidatePublicKey(pubKey); err != nil {
+		return "", fmt.Errorf("jwk RSA key policy: %w", err)
 	}
 	pubDER, err := x509.MarshalPKIXPublicKey(pubKey)
 	if err != nil {
@@ -197,6 +207,9 @@ func pemPublicKeyFromEC(key jwkKey) (string, error) {
 		Curve: curve,
 		X:     new(big.Int).SetBytes(xBytes),
 		Y:     new(big.Int).SetBytes(yBytes),
+	}
+	if err := cryptopolicy.ValidatePublicKey(pubKey); err != nil {
+		return "", fmt.Errorf("jwk EC key policy: %w", err)
 	}
 	pubDER, err := x509.MarshalPKIXPublicKey(pubKey)
 	if err != nil {

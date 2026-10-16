@@ -19,6 +19,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"gocloud.dev/blob/azureblob"
 
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	"github.com/kubebao/openbao-operator/internal/port/blobstore"
 )
 
@@ -182,6 +183,9 @@ func buildAzureHTTPClient(cfg AzureClientConfig) (*http.Client, error) {
 		if !certPool.AppendCertsFromPEM(cfg.CACert) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
 		}
+		if err := cryptopolicy.ValidatePEMCertificates(cfg.CACert); err != nil {
+			return nil, fmt.Errorf("CA key policy: %w", err)
+		}
 	}
 
 	transport.TLSClientConfig = &tls.Config{
@@ -190,6 +194,7 @@ func buildAzureHTTPClient(cfg AzureClientConfig) (*http.Client, error) {
 		MinVersion:         tls.VersionTLS12,
 	}
 
+	cryptopolicy.ConfigureTLS(transport.TLSClientConfig)
 	client := &http.Client{
 		Transport: transport,
 		Timeout:   DefaultUploadTimeout,

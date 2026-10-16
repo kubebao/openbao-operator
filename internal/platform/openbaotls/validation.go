@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
 
@@ -23,6 +24,9 @@ func ValidateCABundle(pemBytes []byte) error {
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(pemBytes) {
 		return fmt.Errorf("ca.crt is not valid PEM certificate data")
+	}
+	if err := cryptopolicy.ValidatePEMCertificates(pemBytes); err != nil {
+		return fmt.Errorf("ca.crt key policy: %w", err)
 	}
 	return nil
 }
@@ -43,8 +47,12 @@ func ValidateServerSecret(secret *corev1.Secret) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("tls.key is missing or empty")
 	}
 
-	if _, err := tls.X509KeyPair(certPEM, keyPEM); err != nil {
+	pair, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
 		return nil, fmt.Errorf("tls.crt/tls.key do not form a valid key pair: %w", err)
+	}
+	if err := cryptopolicy.ValidateTLSCertificate(&pair); err != nil {
+		return nil, fmt.Errorf("tls.crt key policy: %w", err)
 	}
 
 	cert, err := parseLeafCertificate(certPEM)

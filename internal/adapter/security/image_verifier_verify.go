@@ -16,6 +16,7 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/signature"
 	"github.com/sigstore/sigstore-go/pkg/root"
 
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/port/imageverify"
 )
@@ -31,7 +32,9 @@ func (v *ImageVerifier) verifyImageSignature(
 		return fmt.Errorf("failed to parse digest reference: %w", err)
 	}
 
-	var remoteOpts []ociremote.Option
+	remoteOpts := []ociremote.Option{
+		ociremote.WithRemoteOptions(ggcrremote.WithTransport(imageRegistryTransport)),
+	}
 	if len(config.ImagePullSecrets) > 0 && v.reader != nil {
 		keychain, err := v.buildKeychain(ctx, config.ImagePullSecrets, config.Namespace)
 		if err != nil {
@@ -90,6 +93,13 @@ func (v *ImageVerifier) buildCheckOpts(
 		verifier, err := signature.LoadPublicKeyRaw([]byte(config.PublicKey), crypto.SHA256)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load public key: %w", err)
+		}
+		publicKey, err := verifier.PublicKey()
+		if err != nil {
+			return nil, fmt.Errorf("read image verification public key: %w", err)
+		}
+		if err := cryptopolicy.ValidatePublicKey(publicKey); err != nil {
+			return nil, fmt.Errorf("image verification key policy: %w", err)
 		}
 		co.SigVerifier = verifier
 		co.IgnoreTlog = config.IgnoreTlog

@@ -39,7 +39,7 @@ func (v *ImageVerifier) loadTrustedRootSnapshot(ctx context.Context) (trustedRoo
 	}
 
 	v.logger.V(1).Info("Using embedded trusted_root.json")
-	trustedRoot, err := root.NewTrustedRootFromJSON(embeddedTrustedRootJSON)
+	trustedRoot, err := parseTrustedRootWithPolicy(embeddedTrustedRootJSON)
 	if err != nil {
 		return trustedRootSnapshot{}, fmt.Errorf("failed to parse embedded trusted_root.json: %w", err)
 	}
@@ -53,7 +53,7 @@ func (v *ImageVerifier) loadTrustedRootSnapshotFromConfigMap(ctx context.Context
 	}
 
 	v.logger.Info("Loading trusted root from ConfigMap", "configmap", name, "namespace", namespace)
-	trustedRoot, err := root.NewTrustedRootFromJSON(trustedRootJSON)
+	trustedRoot, err := parseTrustedRootWithPolicy(trustedRootJSON)
 	if err != nil {
 		return trustedRootSnapshot{}, fmt.Errorf("failed to parse %s from ConfigMap %s/%s: %w", trustedRootConfigMapKey, namespace, name, err)
 	}

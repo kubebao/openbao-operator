@@ -13,6 +13,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/platform/cryptopolicy"
 	"github.com/kubebao/openbao-operator/internal/platform/entrypoint"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
@@ -135,7 +136,7 @@ func buildMetricsServerOptions(cfg runConfig) metricsserver.Options {
 
 func buildTLSOptions(enableHTTP2 bool) []func(*tls.Config) {
 	if enableHTTP2 {
-		return nil
+		return []func(*tls.Config){cryptopolicy.ConfigureServerTLS}
 	}
 
 	disableHTTP2 := func(c *tls.Config) {
@@ -143,5 +144,5 @@ func buildTLSOptions(enableHTTP2 bool) []func(*tls.Config) {
 		c.NextProtos = []string{"http/1.1"}
 	}
 
-	return []func(*tls.Config){disableHTTP2}
+	return []func(*tls.Config){cryptopolicy.ConfigureServerTLS, disableHTTP2}
 }
