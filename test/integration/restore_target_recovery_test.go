@@ -21,6 +21,7 @@ import (
 )
 
 func TestRestoreTargetRecoverySurvivesManagerReplacement(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	for _, tc := range []struct {
 		name    string
 		edit    func(*api.OpenBaoRestore)
@@ -92,7 +93,7 @@ func TestRestoreTargetRecoverySurvivesManagerReplacement(t *testing.T) {
 					},
 				},
 			}
-			require.NoError(t, k8sClient.Create(ctx, pvc))
+			require.NoError(t, controller.Create(ctx, pvc))
 			status.Target.UID = cluster.UID
 			status.Target.DataPVCUID = pvc.UID
 			if status.Target.Cleanup == api.RestoreTargetCleanupComplete {
