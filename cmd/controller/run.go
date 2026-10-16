@@ -94,7 +94,7 @@ func Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unable to initialize controller runtime: %w", err)
 	}
 
-	if err := setupControllers(mgr, processRuntime); err != nil {
+	if err := setupControllers(ctx, mgr, processRuntime); err != nil {
 		return fmt.Errorf("unable to register controllers: %w", err)
 	}
 

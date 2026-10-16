@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ import (
 	appopenbaorestore "github.com/kubebao/openbao-operator/internal/app/openbaorestore"
 	openbaorestorecontroller "github.com/kubebao/openbao-operator/internal/controller/openbaorestore"
 	"github.com/kubebao/openbao-operator/internal/platform/admission"
+	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 )
 
 func TestOpenBaoRestore_SetupWithManager_InitializesRestoreStatusFromPending(t *testing.T) {
@@ -114,6 +116,11 @@ func setAdmissionReady(t *testing.T) {
 
 func startOpenBaoRestoreManager(t *testing.T) client.Client {
 	t.Helper()
+	return startOpenBaoRestoreManagerWith(t, nil, nil)
+}
+
+func startOpenBaoRestoreManagerWith(t *testing.T, seed func(client.Client), delegate appopenbaorestore.RestoreReconciler) client.Client {
+	t.Helper()
 
 	scheme := newIntegrationScheme(t)
 	testEnv := &envtest.Environment{
@@ -134,6 +141,9 @@ func startOpenBaoRestoreManager(t *testing.T) client.Client {
 
 	liveClient, err := client.New(cfg, client.Options{Scheme: scheme})
 	require.NoError(t, err)
+	if seed != nil {
+		seed(liveClient)
+	}
 
 	mgrOptions := ctrl.Options{
 		Scheme:                 scheme,
@@ -155,7 +165,10 @@ func startOpenBaoRestoreManager(t *testing.T) client.Client {
 			Recorder:  mgr.GetEventRecorder("openbaorestore"),
 		}),
 	}
-	require.NoError(t, reconciler.SetupWithManager(mgr))
+	if delegate != nil {
+		reconciler.RestoreReconciler = delegate
+	}
+	require.NoError(t, reconciler.SetupWithManager(t.Context(), mgr))
 
 	managerCtx, cancel := context.WithCancel(context.Background())
 	managerErr := make(chan error, 1)
@@ -219,4 +232,81 @@ func createNamespace(t *testing.T, ctx context.Context, c client.Client, name st
 	require.NoError(t, c.Create(ctx, &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 	}))
+}
+
+// Keep persisted states unchanged so this test observes metric watches rather
+// than depending on restore execution or transition side effects.
+type preserveRestoreState struct{}
+
+func (preserveRestoreState) Reconcile(context.Context, logr.Logger, *openbaov1alpha1.OpenBaoRestore) (recon.Result, error) {
+	return recon.Result{}, nil
+}
+
+func TestOpenBaoRestore_StateMetricsWatchLifecycle(t *testing.T) {
+	t.Setenv("OPENBAO_UNSAFE_ADMISSION_DISABLED", "true")
+	const namespace = "restore-metrics-watch"
+	var held, completed *openbaov1alpha1.OpenBaoRestore
+	liveClient := startOpenBaoRestoreManagerWith(t, func(c client.Client) {
+		createNamespace(t, t.Context(), c, namespace)
+		create := func(name, cluster string, phase openbaov1alpha1.RestorePhase) *openbaov1alpha1.OpenBaoRestore {
+			restore := &openbaov1alpha1.OpenBaoRestore{
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+				Spec: openbaov1alpha1.OpenBaoRestoreSpec{
+					Cluster: cluster,
+					Source: openbaov1alpha1.RestoreSource{
+						Target: openbaov1alpha1.BackupTarget{Endpoint: "https://objectstore.example.com", Bucket: "backups"},
+						Key:    "snapshot.snap",
+					},
+				},
+			}
+			require.NoError(t, c.Create(t.Context(), restore))
+			restore.Status.Phase = phase
+			require.NoError(t, c.Status().Update(t.Context(), restore))
+			return restore
+		}
+		held = create("a-held", "target", openbaov1alpha1.RestorePhaseUnknown)
+		completed = create("z-success", "target", openbaov1alpha1.RestorePhaseCompleted)
+		create("unrelated", "other", openbaov1alpha1.RestorePhaseCompleted)
+	}, preserveRestoreState{})
+	// Existing requests must initialize the metric when the manager starts.
+	waitForRestoreState(t, namespace, "target", 4, true)
+	waitForRestoreState(t, namespace, "other", 2, true)
+	require.NoError(t, liveClient.Delete(t.Context(), held))
+	waitForRestoreState(t, namespace, "target", 2, true)
+
+	completed.Status.Phase = openbaov1alpha1.RestorePhaseUnknown
+	require.NoError(t, liveClient.Status().Update(t.Context(), completed))
+	waitForRestoreState(t, namespace, "target", 4, true)
+	completed.Status.AdministratorDisposition = openbaov1alpha1.RestoreAdministratorAbandon
+	require.NoError(t, liveClient.Status().Update(t.Context(), completed))
+	waitForRestoreState(t, namespace, "target", 7, true)
+
+	require.NoError(t, liveClient.Delete(t.Context(), completed))
+	waitForRestoreState(t, namespace, "target", 0, false)
+	waitForRestoreState(t, namespace, "other", 2, true)
+}
+
+func waitForRestoreState(t *testing.T, namespace, cluster string, want float64, exists bool) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		families, err := controllermetrics.Registry.Gather()
+		if err != nil {
+			return false
+		}
+		for _, family := range families {
+			if family.GetName() != "openbao_restore_state" {
+				continue
+			}
+			for _, metric := range family.GetMetric() {
+				labels := make(map[string]string)
+				for _, label := range metric.GetLabel() {
+					labels[label.GetName()] = label.GetValue()
+				}
+				if labels["namespace"] == namespace && labels["name"] == cluster {
+					return exists && metric.GetGauge().GetValue() == want
+				}
+			}
+		}
+		return !exists
+	}, 10*time.Second, 50*time.Millisecond)
 }

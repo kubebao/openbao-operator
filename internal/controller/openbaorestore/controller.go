@@ -73,14 +73,6 @@ func (r *OpenBaoRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}()
 
 	logger := log.FromContext(ctx).WithName("openbaorestore")
-	defer func() {
-		var requests openbaov1alpha1.OpenBaoRestoreList
-		if listErr := r.List(ctx, &requests, client.InNamespace(req.Namespace)); listErr != nil {
-			logger.Error(listErr, "Failed to observe restore state metrics")
-			return
-		}
-		observability.ObserveRestoreStates(req.Namespace, requests.Items)
-	}()
 
 	if r.RestoreReconciler == nil {
 		return ctrl.Result{}, fmt.Errorf("restore reconciler is not configured")
@@ -144,9 +136,13 @@ func (r *OpenBaoRestoreReconciler) pauseForAdmissionDependencyLoss(ctx context.C
 // uses namespace-scoped RBAC via tenant Roles. Owns/Watches would require cluster-wide
 // list/watch permissions on Jobs, which we don't have. Instead, the restore manager
 // uses direct API calls (GET) and RequeueAfter polling to monitor job status.
-func (r *OpenBaoRestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *OpenBaoRestoreReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	if r.RestoreReconciler == nil {
 		return fmt.Errorf("restore reconciler is not configured")
+	}
+
+	if err := setupRestoreStateMetrics(ctx, mgr); err != nil {
+		return fmt.Errorf("set up restore state metrics: %w", err)
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).

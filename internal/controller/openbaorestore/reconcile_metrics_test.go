@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	controllermetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
@@ -42,7 +43,15 @@ func TestRestoreReconcileMetrics_Lifecycle(t *testing.T) {
 			key := client.ObjectKey{Namespace: "metrics", Name: t.Name()}
 			scheme := runtime.NewScheme()
 			require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
-			builder := fake.NewClientBuilder().WithScheme(scheme)
+			restoreLists := 0
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+				List: func(ctx context.Context, cached client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+					if _, ok := list.(*openbaov1alpha1.OpenBaoRestoreList); ok {
+						restoreLists++
+					}
+					return cached.List(ctx, list, opts...)
+				},
+			})
 			if !tc.absent {
 				restore := &openbaov1alpha1.OpenBaoRestore{ObjectMeta: metav1.ObjectMeta{
 					Namespace: key.Namespace, Name: key.Name,
@@ -62,6 +71,7 @@ func TestRestoreReconcileMetrics_Lifecycle(t *testing.T) {
 			result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 			require.ErrorIs(t, err, tc.err)
 			require.Equal(t, tc.result.RequeueAfter, result.RequeueAfter)
+			require.Zero(t, restoreLists, "restore polling must not list requests for metric updates")
 			counts := reconcileMetricCounts(t, key, controllerNameOpenBaoRestore)
 			if tc.clear {
 				require.Empty(t, counts)

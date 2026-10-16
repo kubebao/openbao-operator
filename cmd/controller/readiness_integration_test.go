@@ -52,7 +52,7 @@ func TestControllerReadinessCacheAndWatchContract(t *testing.T) {
 			mgr, err := ctrl.NewManager(managerConfig, options)
 			require.NoError(t, err)
 			observed := &managerprobe.WarmupObserver{Manager: mgr}
-			require.NoError(t, setupControllers(observed, readinessControllerRuntime(t, mgr, singleTenant)))
+			require.NoError(t, setupControllers(t.Context(), observed, readinessControllerRuntime(t, mgr, singleTenant)))
 			require.NoError(t, addManagerHealthChecks(t.Context(), mgr, singleTenant))
 			managerprobe.Start(t, mgr)
 			select {
@@ -92,7 +92,7 @@ func TestControllerStandbyReadinessAdmissionLifecycle(t *testing.T) {
 	managerprobe.HoldLeadership(t, kubeClient, options.LeaderElectionID)
 	mgr, err := ctrl.NewManager(config, options)
 	require.NoError(t, err)
-	require.NoError(t, setupControllers(mgr, readinessControllerRuntime(t, mgr, false)))
+	require.NoError(t, setupControllers(t.Context(), mgr, readinessControllerRuntime(t, mgr, false)))
 	require.NoError(t, addManagerHealthChecks(t.Context(), mgr, false))
 	managerprobe.Start(t, mgr)
 	managerprobe.AdmissionLifecycle(t, mgr, address)

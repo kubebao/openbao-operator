@@ -249,7 +249,7 @@ func TestOpenBaoRestoreReconciler_DeletingRecoveryAdmission(t *testing.T) {
 }
 
 func TestOpenBaoRestoreReconciler_SetupWithManager_RequiresRestoreReconciler(t *testing.T) {
-	err := (&OpenBaoRestoreReconciler{}).SetupWithManager(nil)
+	err := (&OpenBaoRestoreReconciler{}).SetupWithManager(t.Context(), nil)
 
 	require.EqualError(t, err, "restore reconciler is not configured")
 }

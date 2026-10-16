@@ -1,32 +1,36 @@
 package observability
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
+import api "github.com/kubebao/openbao-operator/api/v1alpha1"
 
-	api "github.com/kubebao/openbao-operator/api/v1alpha1"
-)
-
-// ObserveRestoreStates rebuilds the namespace's gauges from cached requests. An
-// unresolved execution takes precedence; otherwise the newest request wins.
-// Reconciliation order and controller restarts do not change that selection.
-func ObserveRestoreStates(namespace string, requests []api.OpenBaoRestore) {
-	selected := make(map[string]*api.OpenBaoRestore)
+// ObserveClusterRestoreState updates one target cluster's gauge from its cached
+// requests. An unresolved execution takes precedence; otherwise the newest
+// request wins. An empty selection removes only this target's series.
+func ObserveClusterRestoreState(namespace, cluster string, requests []api.OpenBaoRestore) {
+	var selected *api.OpenBaoRestore
 	for i := range requests {
 		request := &requests[i]
-		if request.Namespace != namespace || request.Spec.Cluster == "" {
+		if request.Namespace != namespace || request.Spec.Cluster != cluster || cluster == "" {
 			continue
 		}
-
-		previous := selected[request.Spec.Cluster]
-		if previous == nil || preferRestoreState(request, previous) {
-			selected[request.Spec.Cluster] = request
+		if selected == nil || preferRestoreState(request, selected) {
+			selected = request
 		}
 	}
-
-	restoreStateGauge.DeletePartialMatch(prometheus.Labels{"namespace": namespace})
-	for cluster, request := range selected {
-		NewRestoreMetrics(namespace, cluster).setState(observedRestoreState(request))
+	if selected == nil {
+		restoreStateGauge.DeleteLabelValues(namespace, cluster)
+		return
 	}
+	NewRestoreMetrics(namespace, cluster).setState(observedRestoreState(selected))
+}
+
+// RestoreStateChanged reports whether an update affects the target, selection
+// priority, or published state. Other status and metadata updates need no refresh.
+func RestoreStateChanged(previous, current *api.OpenBaoRestore) bool {
+	return previous.Namespace != current.Namespace || previous.Name != current.Name ||
+		previous.Spec.Cluster != current.Spec.Cluster ||
+		!previous.CreationTimestamp.Equal(&current.CreationTimestamp) ||
+		unresolvedRestore(previous) != unresolvedRestore(current) ||
+		observedRestoreState(previous) != observedRestoreState(current)
 }
 
 func preferRestoreState(request, previous *api.OpenBaoRestore) bool {

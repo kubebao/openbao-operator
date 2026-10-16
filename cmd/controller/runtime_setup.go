@@ -141,7 +141,7 @@ func buildControllerProcessRuntime(
 	}, nil
 }
 
-func setupControllers(mgr ctrl.Manager, runtime controllerProcessRuntime) error {
+func setupControllers(ctx context.Context, mgr ctrl.Manager, runtime controllerProcessRuntime) error {
 	if runtime.openBaoRuntime.Raft == nil {
 		return fmt.Errorf("OpenBaoCluster Raft runtime is required")
 	}
@@ -176,7 +176,7 @@ func setupControllers(mgr ctrl.Manager, runtime controllerProcessRuntime) error 
 			ClientConfig:          runtime.openBaoRuntime.SmartClientConfig,
 			RecoveryClientFor:     runtime.restoreRecoveryClientFor,
 		}),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(ctx, mgr); err != nil {
 		return fmt.Errorf("unable to create controller %s: %w", controllerNameOpenBaoRestore, err)
 	}
 

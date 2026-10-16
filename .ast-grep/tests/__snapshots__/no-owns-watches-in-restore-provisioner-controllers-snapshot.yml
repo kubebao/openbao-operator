@@ -10,3 +10,23 @@ snapshots:
       style: primary
       start: 47
       end: 139
+  ? |
+    package p
+    func setup(mgr any) error {
+      return ctrl.NewControllerManagedBy(mgr).Owns(&openbaov1alpha1.OpenBaoRestore{}).Complete(nil)
+    }
+  : labels:
+    - source: ctrl.NewControllerManagedBy(mgr).Owns(&openbaov1alpha1.OpenBaoRestore{})
+      style: primary
+      start: 47
+      end: 119
+  ? |
+    package p
+    func setup(mgr any) error {
+      return ctrl.NewControllerManagedBy(mgr).Watches(&batchv1.Job{}, enqueue).Complete(nil)
+    }
+  : labels:
+    - source: ctrl.NewControllerManagedBy(mgr).Watches(&batchv1.Job{}, enqueue)
+      style: primary
+      start: 47
+      end: 112

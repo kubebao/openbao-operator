@@ -16,7 +16,9 @@ rule:
         - pattern: $F($A, $B)
         - pattern: $F($A, $B, $C)
         - pattern: $F($A, $B, $C, $D)
+    - not:
+        pattern: $BUILDER.Watches(&openbaov1alpha1.OpenBaoRestore{}, $$$ARGS)
 constraints:
   F:
     regex: '\.(Owns|Watches)$'
-note: Multi-tenant zero-trust mode avoids cluster-wide list/watch on child resources for these controllers.
+note: Multi-tenant zero-trust mode avoids cluster-wide list/watch on child resources. The OpenBaoRestore CRD already has list/watch permission and may share its informer with restore metrics.

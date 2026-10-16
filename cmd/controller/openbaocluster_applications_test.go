@@ -17,13 +17,13 @@ import (
 )
 
 func TestSetupControllersRequiresRaftRuntime(t *testing.T) {
-	err := setupControllers(nil, controllerProcessRuntime{})
+	err := setupControllers(t.Context(), nil, controllerProcessRuntime{})
 
 	assert.EqualError(t, err, "OpenBaoCluster Raft runtime is required")
 }
 
 func TestSetupControllersRequiresInitializationManager(t *testing.T) {
-	err := setupControllers(nil, controllerProcessRuntime{
+	err := setupControllers(t.Context(), nil, controllerProcessRuntime{
 		openBaoRuntime: appopenbaocluster.RuntimeOpenBaoConfig{
 			Raft: raft.NewManager(kubernetesfake.NewClientset(), nil, nil),
 		},
