@@ -3,12 +3,14 @@
 package integration
 
 import (
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	authorizationv1 "k8s.io/api/authorization/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,6 +18,7 @@ import (
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/service/networking"
 	"github.com/kubebao/openbao-operator/internal/service/provisioner"
 )
@@ -93,6 +96,23 @@ func TestCiliumAPIServerPolicyLifecycle(t *testing.T) {
 	requireAdmissionDenied(t, controller.Create(ctx, rogue))
 	cluster.Spec.Network.APIServerEgress = nil
 	require.NoError(t, k8sClient.Update(ctx, cluster))
+	// A controller upgraded before RBAC must retry cleanup after permissions return.
+	legacyRole := provisioner.GenerateTenantRole(namespace)
+	legacyRole.Rules = slices.DeleteFunc(legacyRole.Rules, func(rule rbacv1.PolicyRule) bool {
+		return slices.Contains(rule.APIGroups, "cilium.io")
+	})
+	applyClientObject(t, provisionerClient, legacyRole)
+	require.Eventually(t, func() bool {
+		return apierrors.IsForbidden(controller.Get(ctx, client.ObjectKeyFromObject(before), policy))
+	}, 5*time.Second, 100*time.Millisecond)
+	err = manager.Reconcile(ctx, logr.Discard(), cluster)
+	require.True(t, apierrors.IsForbidden(err), "%v", err)
+	require.NotErrorIs(t, err, operatorerrors.ErrPermanentConfig)
+	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(before), policy))
+	applyClientObject(t, provisionerClient, provisioner.GenerateTenantRole(namespace))
+	require.Eventually(t, func() bool {
+		return controller.Get(ctx, client.ObjectKeyFromObject(before), policy) == nil
+	}, 5*time.Second, 100*time.Millisecond)
 	require.NoError(t, manager.Reconcile(ctx, logr.Discard(), cluster))
 	require.True(t, apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(before), before)))
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(external), external))

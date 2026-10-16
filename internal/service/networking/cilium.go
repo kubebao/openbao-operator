@@ -77,7 +77,8 @@ func (m *Manager) ensureCiliumAPIServerPolicy(ctx context.Context, logger logr.L
 		},
 		apply: func(ctx context.Context, obj client.Object) error { return m.applyResource(ctx, obj, cluster) },
 	})
-	if err != nil && (operatorerrors.IsCRDMissingError(err) || apierrors.IsForbidden(err)) {
+	if err != nil && (operatorerrors.IsCRDMissingError(err) ||
+		(apierrors.IsForbidden(err) && ciliumAPIServerEnabled(cluster))) {
 		return operatorerrors.WrapPermanentConfig(fmt.Errorf("%w: cannot manage the namespaced Cilium API server policy; install the CiliumNetworkPolicy API and grant the operator get/create/patch/delete permissions required by spec.network.apiServerEgress: %w", ErrAPIServerNetworkConfigurationInvalid, err))
 	}
 	return err

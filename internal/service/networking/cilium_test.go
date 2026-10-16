@@ -141,3 +141,48 @@ func TestCiliumAPIServerDisablePreservesUnownedPolicy(t *testing.T) {
 	current.SetGroupVersionKind(obj.GroupVersionKind())
 	require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), current))
 }
+
+func TestCiliumAPIServerDisableRetriesForbiddenCleanup(t *testing.T) {
+	for _, verb := range []string{"get", "delete"} {
+		t.Run(verb, func(t *testing.T) {
+			cluster := ciliumTestCluster()
+			obj, err := buildCiliumAPIServerPolicy(cluster)
+			require.NoError(t, err)
+			require.NoError(t, resourceapply.PrepareOwned(obj, cluster, testScheme))
+			cluster.Spec.Network.APIServerEgress = nil
+			blocked := true
+			reads := 0
+			forbidden := apierrors.NewForbidden(schema.GroupResource{
+				Group: "cilium.io", Resource: "ciliumnetworkpolicies",
+			}, obj.GetName(), nil)
+			c := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(obj).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						reads++
+						if blocked && verb == "get" {
+							return forbidden
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+					Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+						if blocked && verb == "delete" {
+							return forbidden
+						}
+						return c.Delete(ctx, obj, opts...)
+					},
+				}).Build()
+			m := NewManager(c, testScheme, "operator", "")
+			err = m.ensureCiliumAPIServerPolicy(context.Background(), logr.Discard(), cluster)
+			require.True(t, apierrors.IsForbidden(err), "%v", err)
+			require.NotErrorIs(t, err, operatorerrors.ErrPermanentConfig)
+			shouldRequeue, _ := operatorerrors.ShouldRequeue(err)
+			require.True(t, shouldRequeue)
+			require.Positive(t, reads, "cleanup must read the policy before deciding whether deletion is safe")
+			current := newCiliumAPIServerPolicy(cluster)
+			blocked = false
+			require.NoError(t, c.Get(context.Background(), client.ObjectKeyFromObject(obj), current))
+			require.NoError(t, m.ensureCiliumAPIServerPolicy(context.Background(), logr.Discard(), cluster))
+			require.True(t, apierrors.IsNotFound(c.Get(context.Background(), client.ObjectKeyFromObject(obj), current)))
+		})
+	}
+}
