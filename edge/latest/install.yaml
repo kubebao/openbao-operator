@@ -519,6 +519,46 @@ spec:
                                   More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                                 type: object
                             type: object
+                          service:
+                            description: |-
+                              Service configures an optional ClusterIP Service for the destination.
+                              When omitted, the target has only its internal headless Service.
+                            properties:
+                              ipFamilies:
+                                description: |-
+                                  IPFamilies selects the Service IP families in primary-first order.
+                                  The primary family cannot change after the Service is created.
+                                items:
+                                  description: |-
+                                    IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                                    to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                                  enum:
+                                  - IPv4
+                                  - IPv6
+                                  type: string
+                                maxItems: 2
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              ipFamilyPolicy:
+                                description: |-
+                                  IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                                  When omitted, Kubernetes uses its default Service policy.
+                                  Two IP families require PreferDualStack or RequireDualStack.
+                                enum:
+                                - SingleStack
+                                - PreferDualStack
+                                - RequireDualStack
+                                type: string
+                            type: object
+                            x-kubernetes-validations:
+                            - message: ipFamilies must not contain duplicate families
+                              rule: '!has(self.ipFamilies) || size(self.ipFamilies)
+                                != 2 || self.ipFamilies[0] != self.ipFamilies[1]'
+                            - message: Two IP families require PreferDualStack or
+                                RequireDualStack
+                              rule: '!has(self.ipFamilies) || size(self.ipFamilies)
+                                != 2 || (has(self.ipFamilyPolicy) && self.ipFamilyPolicy
+                                != ''SingleStack'')'
                           serviceAccount:
                             description: ServiceAccount configures credentials supplied
                               through workload identity.
@@ -3224,12 +3264,44 @@ spec:
                           Enabled controls whether the operator creates a dedicated Service for the
                           read-replica pool.
                         type: boolean
+                      ipFamilies:
+                        description: |-
+                          IPFamilies selects the Service IP families in primary-first order.
+                          The primary family cannot change after the Service is created.
+                        items:
+                          description: |-
+                            IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                            to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                          enum:
+                          - IPv4
+                          - IPv6
+                          type: string
+                        maxItems: 2
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      ipFamilyPolicy:
+                        description: |-
+                          IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                          When omitted, Kubernetes uses its default Service policy.
+                          Two IP families require PreferDualStack or RequireDualStack.
+                        enum:
+                        - SingleStack
+                        - PreferDualStack
+                        - RequireDualStack
+                        type: string
                       type:
                         description: |-
                           Type is the Kubernetes Service type, for example "ClusterIP" or
                           "LoadBalancer".
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: ipFamilies must not contain duplicate families
+                      rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
+                        self.ipFamilies[0] != self.ipFamilies[1]'
+                    - message: Two IP families require PreferDualStack or RequireDualStack
+                      rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
+                        (has(self.ipFamilyPolicy) && self.ipFamilyPolicy != ''SingleStack'')'
                   storage:
                     description: Storage configures read-replica-specific storage
                       overrides.
@@ -5350,11 +5422,43 @@ spec:
                     description: Annotations are additional annotations to apply to
                       the Service.
                     type: object
+                  ipFamilies:
+                    description: |-
+                      IPFamilies selects the Service IP families in primary-first order.
+                      The primary family cannot change after the Service is created.
+                    items:
+                      description: |-
+                        IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                        to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                      enum:
+                      - IPv4
+                      - IPv6
+                      type: string
+                    maxItems: 2
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  ipFamilyPolicy:
+                    description: |-
+                      IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                      When omitted, Kubernetes uses its default Service policy.
+                      Two IP families require PreferDualStack or RequireDualStack.
+                    enum:
+                    - SingleStack
+                    - PreferDualStack
+                    - RequireDualStack
+                    type: string
                   type:
                     description: Type is the Kubernetes Service type, for example
                       "ClusterIP" or "LoadBalancer".
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: ipFamilies must not contain duplicate families
+                  rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0]
+                    != self.ipFamilies[1]'
+                - message: Two IP families require PreferDualStack or RequireDualStack
+                  rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 || (has(self.ipFamilyPolicy)
+                    && self.ipFamilyPolicy != ''SingleStack'')'
               serviceAccount:
                 description: ServiceAccount configures the Kubernetes ServiceAccount
                   used by the OpenBao Pods.
@@ -7779,6 +7883,44 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
+                  service:
+                    description: |-
+                      Service configures an optional ClusterIP Service for the destination.
+                      When omitted, the target has only its internal headless Service.
+                    properties:
+                      ipFamilies:
+                        description: |-
+                          IPFamilies selects the Service IP families in primary-first order.
+                          The primary family cannot change after the Service is created.
+                        items:
+                          description: |-
+                            IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+                            to express the family of an IP expressed by a type (e.g. service.spec.ipFamilies).
+                          enum:
+                          - IPv4
+                          - IPv6
+                          type: string
+                        maxItems: 2
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      ipFamilyPolicy:
+                        description: |-
+                          IPFamilyPolicy selects single-stack or dual-stack Service allocation.
+                          When omitted, Kubernetes uses its default Service policy.
+                          Two IP families require PreferDualStack or RequireDualStack.
+                        enum:
+                        - SingleStack
+                        - PreferDualStack
+                        - RequireDualStack
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: ipFamilies must not contain duplicate families
+                      rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
+                        self.ipFamilies[0] != self.ipFamilies[1]'
+                    - message: Two IP families require PreferDualStack or RequireDualStack
+                      rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
+                        (has(self.ipFamilyPolicy) && self.ipFamilyPolicy != ''SingleStack'')'
                   serviceAccount:
                     description: ServiceAccount configures credentials supplied through
                       workload identity.
@@ -10170,10 +10312,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-9989ea6480cd
+          value: edge-9eccb1750fec
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:a6f2c86695e9a0040b89e23d14a2a08bff1ba43d594c031c550739a7d574c701
+        image: ghcr.io/kubebao/openbao-operator@sha256:27f6737bfcc41fc0f585220aca341f9d08efe8474ab52ccf475d261b1d5400c4
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10288,8 +10430,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-9989ea6480cd
-        image: ghcr.io/kubebao/openbao-operator@sha256:a6f2c86695e9a0040b89e23d14a2a08bff1ba43d594c031c550739a7d574c701
+          value: edge-9eccb1750fec
+        image: ghcr.io/kubebao/openbao-operator@sha256:27f6737bfcc41fc0f585220aca341f9d08efe8474ab52ccf475d261b1d5400c4
         livenessProbe:
           httpGet:
             path: /healthz
