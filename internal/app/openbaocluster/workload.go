@@ -48,6 +48,7 @@ func DefaultWorkloadResultPolicy() WorkloadResultPolicy {
 			constants.ReasonImageVersionMismatch:                        {},
 			constants.ReasonOIDCBootstrapConfigurationInvalid:           {},
 			constants.ReasonAPIServerNetworkConfigurationInvalid:        {},
+			constants.ReasonServiceIPFamilyChangeNotSupported:           {},
 			constants.ReasonStorageInvalidSize:                          {},
 			constants.ReasonStorageShrinkNotSupported:                   {},
 			constants.ReasonStorageResizeNotSupported:                   {},

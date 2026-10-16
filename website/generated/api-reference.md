@@ -1682,7 +1682,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
 | `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 | `enabled` _boolean_ | Enabled controls whether the operator creates a dedicated Service for the<br />read-replica pool. |  | Optional: \{\} <br /> |
 | `type` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#servicetype-v1-core)_ | Type is the Kubernetes Service type, for example "ClusterIP" or<br />"LoadBalancer". |  | Optional: \{\} <br /> |
@@ -1883,7 +1883,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
 | `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 
 
@@ -2284,7 +2284,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
 | `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 | `type` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#servicetype-v1-core)_ | Type is the Kubernetes Service type, for example "ClusterIP" or "LoadBalancer". |  | Optional: \{\} <br /> |
 | `annotations` _object (keys:string, values:string)_ | Annotations are additional annotations to apply to the Service. |  | Optional: \{\} <br /> |
@@ -3599,7 +3599,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
 | `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 
 

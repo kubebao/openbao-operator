@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -95,5 +96,10 @@ func (m *Manager) Reconcile(ctx context.Context, logger logr.Logger, cluster *op
 }
 
 func (m *Manager) applyResource(ctx context.Context, obj client.Object, cluster *openbaov1alpha1.OpenBaoCluster) error {
+	if service, ok := obj.(*corev1.Service); ok {
+		if err := m.validateServicePrimaryIPFamily(ctx, service); err != nil {
+			return err
+		}
+	}
 	return resourceapply.ApplyOwned(ctx, m.client, m.scheme, cluster, obj)
 }

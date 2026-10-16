@@ -49,9 +49,12 @@ spec:
 
 `RequireDualStack` requires a dual-stack Kubernetes cluster. `PreferDualStack` also works on a single-stack cluster
 when you omit `ipFamilies`. Use `SingleStack` with `ipFamilies: [IPv6]` to request an IPv6-only client Service on a
-cluster that supports that family. Choose the primary family before creating the Service; Kubernetes does not allow
-changing an existing Service's primary family. External load balancers and edge controllers must support the selected
-families independently.
+cluster that supports that family. Two entries in `ipFamilies` require `PreferDualStack` or `RequireDualStack`.
+Choose the primary family before creating the Service; Kubernetes does not allow changing an existing Service's primary
+family. If the requested primary family differs from the allocated family, the operator reports
+`Degraded=True` with reason `ServiceIPFamilyChangeNotSupported`. Keep the allocated family first in `ipFamilies`, or omit
+`ipFamilies` to retain it. The operator does not delete and recreate the Service. External load balancers and edge
+controllers must support the selected families independently.
 
 Use `/32` for a single IPv4 endpoint and `/128` for a single IPv6 endpoint in NetworkPolicy CIDR rules. Specify literal
 IPv6 URL endpoints with brackets. DNS endpoints can resolve to either family. Certificate verification still uses the
@@ -60,7 +63,7 @@ configured TLS server name; selecting an IP family does not add IP SANs to an ex
 The Cilium API-server policy requirement below applies to IPv4, IPv6, and dual-stack clusters. A configured allow-list
 does not prove that the CNI permits traffic.
 
-Network tests cover IPv4, IPv6, and both dual-stack primary-family orders with Cilium. They verify OperatorManaged
+Scheduled network tests cover IPv6 and both dual-stack primary-family orders with Cilium. They verify OperatorManaged
 and External TLS, peer discovery, client Services, and workload and lifecycle Job egress policy. IPv6 lifecycle tests
 cover scaling, restart, rolling upgrade, S3 and Azure backup and restore, and GCS backup through storage emulators.
 Cloud load balancers, other CNIs, ACME issuance over IPv6, and storage-driver compatibility require separate qualification.

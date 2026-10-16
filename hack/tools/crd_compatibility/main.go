@@ -596,9 +596,9 @@ func isOptionalServiceIPFamilyValidation(node schemaNode, added, removed []strin
 			Message: "ipFamilies must not contain duplicate families",
 		},
 		{
-			Rule: "!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || " +
-				"!has(self.ipFamilies) || size(self.ipFamilies) <= 1",
-			Message: "SingleStack accepts at most one IP family",
+			Rule: "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || " +
+				"(has(self.ipFamilyPolicy) && self.ipFamilyPolicy != 'SingleStack')",
+			Message: "Two IP families require PreferDualStack or RequireDualStack",
 		},
 	})
 	return allowed[added[0]] && allowed[added[1]]

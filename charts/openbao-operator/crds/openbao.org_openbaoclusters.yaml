@@ -545,6 +545,7 @@ spec:
                                 description: |-
                                   IPFamilyPolicy selects single-stack or dual-stack Service allocation.
                                   When omitted, Kubernetes uses its default Service policy.
+                                  Two IP families require PreferDualStack or RequireDualStack.
                                 enum:
                                 - SingleStack
                                 - PreferDualStack
@@ -555,10 +556,11 @@ spec:
                             - message: ipFamilies must not contain duplicate families
                               rule: '!has(self.ipFamilies) || size(self.ipFamilies)
                                 != 2 || self.ipFamilies[0] != self.ipFamilies[1]'
-                            - message: SingleStack accepts at most one IP family
-                              rule: '!has(self.ipFamilyPolicy) || self.ipFamilyPolicy
-                                != ''SingleStack'' || !has(self.ipFamilies) || size(self.ipFamilies)
-                                <= 1'
+                            - message: Two IP families require PreferDualStack or
+                                RequireDualStack
+                              rule: '!has(self.ipFamilies) || size(self.ipFamilies)
+                                != 2 || (has(self.ipFamilyPolicy) && self.ipFamilyPolicy
+                                != ''SingleStack'')'
                           serviceAccount:
                             description: ServiceAccount configures credentials supplied
                               through workload identity.
@@ -3283,6 +3285,7 @@ spec:
                         description: |-
                           IPFamilyPolicy selects single-stack or dual-stack Service allocation.
                           When omitted, Kubernetes uses its default Service policy.
+                          Two IP families require PreferDualStack or RequireDualStack.
                         enum:
                         - SingleStack
                         - PreferDualStack
@@ -3298,9 +3301,9 @@ spec:
                     - message: ipFamilies must not contain duplicate families
                       rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
                         self.ipFamilies[0] != self.ipFamilies[1]'
-                    - message: SingleStack accepts at most one IP family
-                      rule: '!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != ''SingleStack''
-                        || !has(self.ipFamilies) || size(self.ipFamilies) <= 1'
+                    - message: Two IP families require PreferDualStack or RequireDualStack
+                      rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 ||
+                        (has(self.ipFamilyPolicy) && self.ipFamilyPolicy != ''SingleStack'')'
                   storage:
                     description: Storage configures read-replica-specific storage
                       overrides.
@@ -5440,6 +5443,7 @@ spec:
                     description: |-
                       IPFamilyPolicy selects single-stack or dual-stack Service allocation.
                       When omitted, Kubernetes uses its default Service policy.
+                      Two IP families require PreferDualStack or RequireDualStack.
                     enum:
                     - SingleStack
                     - PreferDualStack
@@ -5454,9 +5458,9 @@ spec:
                 - message: ipFamilies must not contain duplicate families
                   rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0]
                     != self.ipFamilies[1]'
-                - message: SingleStack accepts at most one IP family
-                  rule: '!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != ''SingleStack''
-                    || !has(self.ipFamilies) || size(self.ipFamilies) <= 1'
+                - message: Two IP families require PreferDualStack or RequireDualStack
+                  rule: '!has(self.ipFamilies) || size(self.ipFamilies) != 2 || (has(self.ipFamilyPolicy)
+                    && self.ipFamilyPolicy != ''SingleStack'')'
               serviceAccount:
                 description: ServiceAccount configures the Kubernetes ServiceAccount
                   used by the OpenBao Pods.

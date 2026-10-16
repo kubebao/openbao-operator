@@ -801,7 +801,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
 | `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 
 

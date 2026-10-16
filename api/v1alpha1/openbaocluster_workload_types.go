@@ -33,10 +33,11 @@ type StorageConfig struct {
 
 // ServiceConfig controls how the main OpenBao Service is exposed.
 // +kubebuilder:validation:XValidation:rule="!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]",message="ipFamilies must not contain duplicate families"
-// +kubebuilder:validation:XValidation:rule="!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || !has(self.ipFamilies) || size(self.ipFamilies) <= 1",message="SingleStack accepts at most one IP family"
+// +kubebuilder:validation:XValidation:rule="!has(self.ipFamilies) || size(self.ipFamilies) != 2 || (has(self.ipFamilyPolicy) && self.ipFamilyPolicy != 'SingleStack')",message="Two IP families require PreferDualStack or RequireDualStack"
 type ServiceConfig struct {
 	// IPFamilyPolicy selects single-stack or dual-stack Service allocation.
 	// When omitted, Kubernetes uses its default Service policy.
+	// Two IP families require PreferDualStack or RequireDualStack.
 	// +kubebuilder:validation:Enum=SingleStack;PreferDualStack;RequireDualStack
 	// +optional
 	IPFamilyPolicy *corev1.IPFamilyPolicy `json:"ipFamilyPolicy,omitempty"`
@@ -58,10 +59,11 @@ type ServiceConfig struct {
 // ReadReplicaServiceConfig controls the optional read-only Service for the
 // read-replica pool.
 // +kubebuilder:validation:XValidation:rule="!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]",message="ipFamilies must not contain duplicate families"
-// +kubebuilder:validation:XValidation:rule="!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || !has(self.ipFamilies) || size(self.ipFamilies) <= 1",message="SingleStack accepts at most one IP family"
+// +kubebuilder:validation:XValidation:rule="!has(self.ipFamilies) || size(self.ipFamilies) != 2 || (has(self.ipFamilyPolicy) && self.ipFamilyPolicy != 'SingleStack')",message="Two IP families require PreferDualStack or RequireDualStack"
 type ReadReplicaServiceConfig struct {
 	// IPFamilyPolicy selects single-stack or dual-stack Service allocation.
 	// When omitted, Kubernetes uses its default Service policy.
+	// Two IP families require PreferDualStack or RequireDualStack.
 	// +kubebuilder:validation:Enum=SingleStack;PreferDualStack;RequireDualStack
 	// +optional
 	IPFamilyPolicy *corev1.IPFamilyPolicy `json:"ipFamilyPolicy,omitempty"`

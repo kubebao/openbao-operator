@@ -389,9 +389,9 @@ func TestOptionalServiceIPFamilyValidationRequiresExactReviewedRules(t *testing.
 			after.CEL = []celRule{
 				{Rule: "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || self.ipFamilies[0] != self.ipFamilies[1]",
 					Message: "ipFamilies must not contain duplicate families"},
-				{Rule: "!has(self.ipFamilyPolicy) || self.ipFamilyPolicy != 'SingleStack' || " +
-					"!has(self.ipFamilies) || size(self.ipFamilies) <= 1",
-					Message: "SingleStack accepts at most one IP family"},
+				{Rule: "!has(self.ipFamilies) || size(self.ipFamilies) != 2 || " +
+					"(has(self.ipFamilyPolicy) && self.ipFamilyPolicy != 'SingleStack')",
+					Message: "Two IP families require PreferDualStack or RequireDualStack"},
 			}
 			assertChange(t, compareSnapshots([]schemaNode{before}, []schemaNode{after}),
 				impactCompatible, "cel-optional-feature-validation", path)

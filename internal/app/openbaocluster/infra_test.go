@@ -869,6 +869,7 @@ func TestInfraReconciler_MapManagerReconcileError(t *testing.T) {
 		{name: "oidc bootstrap audience mismatch", err: bootstrapmanager.ErrOIDCBootstrapAudienceMismatch, wantReason: constants.ReasonOIDCBootstrapConfigurationInvalid},
 		{name: "gateway api missing", err: networkingmanager.ErrGatewayAPIMissing, wantReason: constants.ReasonGatewayAPIMissing},
 		{name: "api server network invalid", err: networkingmanager.ErrAPIServerNetworkConfigurationInvalid, wantReason: constants.ReasonAPIServerNetworkConfigurationInvalid},
+		{name: "Service primary IP family change", err: networkingmanager.ErrServiceIPFamilyChangeNotSupported, wantReason: constants.ReasonServiceIPFamilyChangeNotSupported},
 		{name: "prerequisites missing", err: workloadsvc.ErrStatefulSetPrerequisitesMissing, wantReason: constants.ReasonPrerequisitesMissing},
 		{name: "acme domain not resolvable", err: networkingmanager.ErrACMEDomainNotResolvable, wantReason: constants.ReasonACMEDomainNotResolvable},
 		{name: "acme gateway not configured", err: networkingmanager.ErrACMEGatewayNotConfiguredForPassthrough, wantReason: constants.ReasonACMEGatewayNotConfiguredForPassthrough},

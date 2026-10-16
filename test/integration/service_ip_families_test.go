@@ -8,11 +8,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 )
+
+func TestKubernetesService_TwoFamiliesNeedDualStackPolicy(t *testing.T) {
+	namespace := newTestNamespace(t)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "missing-dual-policy", Namespace: namespace},
+		Spec: corev1.ServiceSpec{
+			IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+			Ports:      []corev1.ServicePort{{Port: 8200}},
+		},
+	}
+	err := k8sClient.Create(ctx, service, client.DryRunAll)
+	requireInvalidRequest(t, err)
+	require.ErrorContains(t, err, "SingleStack")
+}
 
 func TestCRD_ServiceIPFamilies(t *testing.T) {
 	namespace := newTestNamespace(t)
@@ -25,13 +40,16 @@ func TestCRD_ServiceIPFamilies(t *testing.T) {
 			wantError string
 		}{
 			{name: "legacy Service configuration"},
+			{name: "one family with default policy", families: []corev1.IPFamily{corev1.IPv6Protocol}},
 			{name: "IPv6 single stack", policy: corev1.IPFamilyPolicySingleStack, families: []corev1.IPFamily{corev1.IPv6Protocol}},
 			{name: "IPv6 primary dual stack", policy: corev1.IPFamilyPolicyRequireDualStack, families: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}},
 			{name: "IPv4 primary dual stack", policy: corev1.IPFamilyPolicyPreferDualStack, families: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}},
 			{name: "unknown policy", policy: "Unknown", wantError: "ipFamilyPolicy"},
 			{name: "unknown family", policy: corev1.IPFamilyPolicySingleStack, families: []corev1.IPFamily{"Unknown"}, wantError: "ipFamilies"},
 			{name: "duplicate families", policy: corev1.IPFamilyPolicyRequireDualStack, families: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv6Protocol}, wantError: "duplicate"},
-			{name: "single stack with two families", policy: corev1.IPFamilyPolicySingleStack, families: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}, wantError: "SingleStack"},
+			{name: "single stack with two families", policy: corev1.IPFamilyPolicySingleStack, families: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}, wantError: "Two IP families require"},
+			{name: "IPv6 primary without dual-stack policy", families: []corev1.IPFamily{corev1.IPv6Protocol, corev1.IPv4Protocol}, wantError: "Two IP families require"},
+			{name: "IPv4 primary without dual-stack policy", families: []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}, wantError: "Two IP families require"},
 		} {
 			t.Run(pool+"/"+tt.name, func(t *testing.T) {
 				cluster := newMinimalClusterObj(namespace, fmt.Sprintf("families-%s-%d", pool, index))

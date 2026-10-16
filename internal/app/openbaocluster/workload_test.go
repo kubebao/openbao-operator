@@ -9,6 +9,7 @@ import (
 	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 
 	"github.com/go-logr/logr"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	"github.com/kubebao/openbao-operator/internal/service/configuration"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,14 @@ import (
 
 type autopilotRuntimeStub struct {
 	reconcileFunc func(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error
+}
+
+func TestServiceIPFamilyChangeWaitsForConfigurationCorrection(t *testing.T) {
+	result, handled := workloadResultForError(errors.New("primary IP family change"),
+		&openbaov1alpha1.ControllerErrorStatus{Reason: constants.ReasonServiceIPFamilyChangeNotSupported},
+		DefaultWorkloadResultPolicy())
+	require.True(t, handled)
+	require.Zero(t, result.RequeueAfter)
 }
 
 func (s autopilotRuntimeStub) ReconcileAutopilotConfig(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error {

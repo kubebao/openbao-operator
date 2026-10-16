@@ -13,6 +13,7 @@ const (
 	ReasonGatewayAPIMissing                    = "GatewayAPIMissing"
 	ReasonOIDCBootstrapConfigurationInvalid    = "OIDCBootstrapConfigurationInvalid"
 	ReasonAPIServerNetworkConfigurationInvalid = "APIServerNetworkConfigurationInvalid"
+	ReasonServiceIPFamilyChangeNotSupported    = "ServiceIPFamilyChangeNotSupported"
 
 	ReasonACMEDomainNotResolvable                = "ACMEDomainNotResolvable"
 	ReasonACMEGatewayNotConfiguredForPassthrough = "ACMEGatewayNotConfiguredForPassthrough"
