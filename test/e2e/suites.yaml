@@ -931,6 +931,7 @@ suites:
       - lifecycle-job-owner-proof
       - bluegreen-operation-identity
       - bluegreen-replica-drift
+      - rolling-retry-rendered-target
     ci:
       lanes:
         - upgrade-rolling

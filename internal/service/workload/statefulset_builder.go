@@ -68,8 +68,11 @@ func buildStatefulSetForSpec(cluster *openbaov1alpha1.OpenBaoCluster, configCont
 
 	statefulSetName := statefulSetNameForSpec(cluster, spec)
 	// Stamp only StatefulSet metadata, so a source generation change alone does
-	// not roll Pods. SSA publishes this marker atomically with the rendered template.
-	statefulSetAnnotations := map[string]string{constants.AnnotationClusterGeneration: strconv.FormatInt(cluster.Generation, 10)}
+	// not roll Pods. SSA publishes these markers atomically with the rendered template.
+	statefulSetAnnotations := map[string]string{
+		constants.AnnotationClusterGeneration: strconv.FormatInt(cluster.Generation, 10),
+		constants.AnnotationResolvedMainImage: getContainerImage(cluster, spec.Image),
+	}
 	if cluster.Spec.Maintenance != nil && cluster.Spec.Maintenance.Enabled {
 		statefulSetAnnotations[constants.AnnotationMaintenance] = maintenanceAnnotationEnabledValue
 	}

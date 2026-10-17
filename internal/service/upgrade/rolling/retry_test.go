@@ -458,6 +458,10 @@ func TestPrepareFailedUpgradeRetry_DeletesStaleCompletedPod(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Name,
 			Namespace: cluster.Namespace,
+			Annotations: map[string]string{
+				constants.AnnotationClusterGeneration: "0",
+				constants.AnnotationResolvedMainImage: "openbao/openbao:2.5.0",
+			},
 		},
 		Status: appsv1.StatefulSetStatus{
 			UpdateRevision: "rev-good",
@@ -619,6 +623,10 @@ func TestPrepareFailedUpgradeRetry_SuccessClearsFailureAndRemovesRetrySignal(t *
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cluster.Name,
 					Namespace: cluster.Namespace,
+					Annotations: map[string]string{
+						constants.AnnotationClusterGeneration: "0",
+						constants.AnnotationResolvedMainImage: "openbao/openbao:2.5.0",
+					},
 				},
 				Status: appsv1.StatefulSetStatus{
 					UpdateRevision: "rev-good",

@@ -8,6 +8,8 @@ const (
 	AnnotationConfigHash = "openbao.org/config-hash"
 	// AnnotationClusterGeneration records the OpenBaoCluster generation used to render a StatefulSet.
 	AnnotationClusterGeneration = "openbao.org/cluster-generation"
+	// AnnotationResolvedMainImage records the main image published with the StatefulSet template.
+	AnnotationResolvedMainImage = "openbao.org/resolved-main-image"
 	// AnnotationMaintenance is the annotation key used to put a cluster into maintenance mode.
 	AnnotationMaintenance = "openbao.org/maintenance"
 	// AnnotationMaintenanceAllowed is the annotation key used to check if maintenance is allowed.

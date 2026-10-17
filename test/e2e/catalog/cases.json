@@ -2756,7 +2756,8 @@
     "generatedId": "upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
     "caseLabel": "upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
     "coverage": [
-      "lifecycle-job-owner-proof"
+      "lifecycle-job-owner-proof",
+      "rolling-retry-rendered-target"
     ],
     "file": "test/e2e/Upgrade_Strategies_test.go",
     "type": "It",
@@ -2775,7 +2776,8 @@
       "recovery",
       "case:upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
       "e2e-anchor",
-      "covers:lifecycle-job-owner-proof"
+      "covers:lifecycle-job-owner-proof",
+      "covers:rolling-retry-rendered-target"
     ],
     "domainLabels": [
       "upgrade",

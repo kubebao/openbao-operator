@@ -154,7 +154,11 @@ func TestPrepareFailedUpgradeRetry_EmitsRetryEvents(t *testing.T) {
 		},
 	}, cluster)
 	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AnnotationClusterGeneration: "0"},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.AnnotationClusterGeneration: "0",
+				constants.AnnotationResolvedMainImage: "openbao/openbao:2.5.0",
+			},
 			Name:      cluster.Name,
 			Namespace: cluster.Namespace,
 		},

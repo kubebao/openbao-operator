@@ -135,16 +135,18 @@ func (m *Manager) resetRolloutPodsForRetry(ctx context.Context, logger logr.Logg
 		return fmt.Errorf("failed to get StatefulSet %s/%s for retry pod reset: %w", cluster.Namespace, statefulSetName, err)
 	}
 
-	desiredImage := strings.TrimSpace(baoContainerImage(sts.Spec.Template.Spec.Containers))
-	specImage := strings.TrimSpace(cluster.Spec.Image)
-	if specImage != "" && desiredImage != specImage {
-		logger.Info("Waiting for StatefulSet template to reflect retry target image before resetting failed pods",
-			"statefulSetImage", desiredImage,
-			"specImage", specImage)
+	resolvedImage := strings.TrimSpace(sts.Annotations[constants.AnnotationResolvedMainImage])
+	templateImage := strings.TrimSpace(baoContainerImage(sts.Spec.Template.Spec.Containers))
+	if !statefulSetTemplateCurrent(sts, cluster) || resolvedImage == "" || templateImage != resolvedImage {
+		logger.Info("Waiting for StatefulSet template to reflect retry target before resetting failed pods",
+			"clusterGeneration", cluster.Generation,
+			"statefulSetGeneration", sts.Generation,
+			"observedGeneration", sts.Status.ObservedGeneration,
+			"resolvedImage", resolvedImage,
+			"templateImage", templateImage)
 		return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf(
-			"StatefulSet template still references %q while retry target image is %q",
-			desiredImage,
-			specImage,
+			"StatefulSet template has not observed the rendered retry target for cluster generation %d",
+			cluster.Generation,
 		))
 	}
 

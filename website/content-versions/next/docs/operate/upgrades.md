@@ -141,6 +141,11 @@ kubectl -n <namespace> patch openbaocluster <name> --type merge -p "{
 }"
 {{< /command >}}
 
+Before resetting failed Pods, the operator waits for the StatefulSet to reflect the current cluster generation
+and for the StatefulSet controller to observe that template. The Bao container image must match the resolved
+image recorded by workload reconciliation, including a verified digest when image verification succeeds.
+If the image differs or the resolved-image annotation is missing, the retry waits for workload reconciliation.
+
 Each request is edge-triggered: use a new non-empty value. For blue-green rollback repair failures, use
 [Recover a failed rollback](../recover-failed-rollback/) instead of retrying blindly.
 

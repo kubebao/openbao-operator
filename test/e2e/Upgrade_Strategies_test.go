@@ -1259,6 +1259,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 			"case:upgrade-strategies-recovers-a-failed-rolling-upgrade-after-5a3c4b87",
 			"e2e-anchor",
 			"covers:lifecycle-job-owner-proof",
+			"covers:rolling-retry-rendered-target",
 		), func() {
 			var failedPartition int32
 
@@ -1370,6 +1371,14 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				g.Expect(updated.Status.Upgrade.Failure).To(BeNil())
 				g.Expect(updated.Status.UpgradeRequests).NotTo(BeNil())
 				g.Expect(updated.Status.UpgradeRequests.LastHandledRetry).To(Equal(retryToken))
+				sts := &appsv1.StatefulSet{}
+				g.Expect(admin.Get(ctx, types.NamespacedName{
+					Name: upgrade.StableVoterStatefulSetName(updated), Namespace: tenantNamespace,
+				}, sts)).To(Succeed())
+				g.Expect(sts.Annotations[constants.AnnotationClusterGeneration]).To(Equal(strconv.FormatInt(updated.Generation, 10)))
+				g.Expect(sts.Annotations[constants.AnnotationResolvedMainImage]).To(Equal(targetImage))
+				g.Expect(sts.Status.ObservedGeneration).To(BeNumerically(">=", sts.Generation))
+				g.Expect(sts.Spec.Template.Spec.Containers[0].Image).To(Equal(targetImage))
 
 				job := &batchv1.Job{}
 				err := admin.Get(ctx, types.NamespacedName{Name: staleJob.Name, Namespace: tenantNamespace}, job)

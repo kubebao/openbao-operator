@@ -344,6 +344,43 @@ func TestBuildStatefulSet_SourceGenerationDoesNotRollPods(t *testing.T) {
 	}
 }
 
+func TestBuildStatefulSet_ResolvedMainImageMatchesTemplate(t *testing.T) {
+	t.Setenv(constants.EnvOpenBaoImageRepo, "example.org/openbao")
+	const digest = "example.org/openbao@sha256:verified"
+	const tag = "example.org/openbao:2.6.4"
+	for _, tc := range []struct {
+		name          string
+		specImage     string
+		resolvedImage string
+		wantImage     string
+	}{
+		{name: "verified tag", specImage: tag, resolvedImage: digest, wantImage: digest},
+		{name: "digest input", specImage: digest, resolvedImage: digest, wantImage: digest},
+		{name: "verification disabled", specImage: tag, wantImage: tag},
+		{name: "Warn fallback", specImage: tag, resolvedImage: tag, wantImage: tag},
+		{name: "default repository override", wantImage: tag},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cluster := newMinimalCluster("resolved-image", "default")
+			cluster.Spec.Version = "2.6.4"
+			cluster.Spec.Image = tc.specImage
+			sts, err := buildStatefulSetWithRevision(cluster, "test-config", true, tc.resolvedImage, "", "", constants.PlatformKubernetes)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := sts.Annotations[constants.AnnotationResolvedMainImage]; got != tc.wantImage {
+				t.Fatalf("resolved image marker = %q, want %q", got, tc.wantImage)
+			}
+			if got := sts.Spec.Template.Spec.Containers[0].Image; got != tc.wantImage {
+				t.Fatalf("rendered image = %q, want %q", got, tc.wantImage)
+			}
+			if _, exists := sts.Spec.Template.Annotations[constants.AnnotationResolvedMainImage]; exists {
+				t.Fatal("resolved image marker must be StatefulSet metadata only")
+			}
+		})
+	}
+}
+
 func TestFreshRestorePodHasNoKubernetesCredential(t *testing.T) {
 	cluster := newMinimalCluster("fresh", "recovery")
 	cluster.Annotations = map[string]string{constants.AnnotationRestoreOrigin: "request"}

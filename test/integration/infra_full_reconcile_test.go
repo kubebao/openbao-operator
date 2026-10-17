@@ -60,6 +60,9 @@ func TestInfraFullReconcile_StatefulSet_SSAAndIdempotency(t *testing.T) {
 	if got := sts.Annotations[constants.AnnotationClusterGeneration]; got != strconv.FormatInt(cluster.Generation, 10) {
 		t.Fatalf("wrong initial source generation: %q", got)
 	}
+	if got := sts.Annotations[constants.AnnotationResolvedMainImage]; got != cluster.Spec.Image {
+		t.Fatalf("wrong initial resolved image: %q", got)
+	}
 	// Infra and AdminOps can see the new cluster spec before the old StatefulSet
 	// changes. The marker must stay old until the new template is SSA-applied.
 	if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster); err != nil {
@@ -126,6 +129,9 @@ func TestInfraFullReconcile_StatefulSet_SSAAndIdempotency(t *testing.T) {
 
 	if got := updated.Annotations[constants.AnnotationClusterGeneration]; got != strconv.FormatInt(cluster.Generation, 10) {
 		t.Fatalf("applied template lacks current generation: %q", got)
+	}
+	if got := updated.Annotations[constants.AnnotationResolvedMainImage]; got != cluster.Spec.Image {
+		t.Fatalf("applied template lacks current resolved image: %q", got)
 	}
 	if updated.Annotations["example.com/external-annotation"] != testTrueString {
 		t.Fatalf("expected external annotation to be preserved, got %#v", updated.Annotations)

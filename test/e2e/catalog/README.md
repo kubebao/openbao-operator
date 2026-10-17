@@ -14,7 +14,7 @@ Notes:
 - Files: `26`
 - Specs: `101`
 - Explicit case IDs: `101`
-- Coverage tags: `58`
+- Coverage tags: `59`
 
 ## Suites
 
@@ -95,6 +95,7 @@ Notes:
 | `recoverability-secret-retention` | 1 |
 | `restart-at` | 1 |
 | `restore-static-token-secret-identity` | 1 |
+| `rolling-retry-rendered-target` | 1 |
 | `scale-reconcile` | 1 |
 | `secret-regeneration` | 1 |
 | `self-init-secret-inputs` | 1 |
