@@ -72,6 +72,15 @@ func scaleDownResumeClusterChanges() []scaleDownResumeClusterChange {
 		{name: "rolling attempt", mutate: func(c *openbaov1alpha1.OpenBaoCluster) {
 			c.Status.Upgrade = &openbaov1alpha1.UpgradeProgress{FromVersion: "2.5.5", TargetVersion: c.Spec.Version, CurrentPartition: 3}
 		}},
+		{name: "rolling execution ID", setup: func(f *scaleDownResumeFixture) {
+			started := metav1.NewTime(time.Unix(100, 0))
+			f.cluster.Status.Upgrade = &openbaov1alpha1.UpgradeProgress{
+				ExecutionID: "attempt-1", FromVersion: "2.5.5", TargetVersion: f.cluster.Spec.Version,
+				CurrentPartition: 3, StartedAt: &started,
+			}
+		}, mutate: func(c *openbaov1alpha1.OpenBaoCluster) {
+			c.Status.Upgrade.ExecutionID = "attempt-2"
+		}},
 		{name: "break glass", mutate: func(c *openbaov1alpha1.OpenBaoCluster) {
 			c.Status.BreakGlass = &openbaov1alpha1.BreakGlassStatus{Active: true}
 		}},

@@ -119,7 +119,7 @@ func TestScaleDownResumeClusterDecisionRealAPI(t *testing.T) {
 		for _, during := range []bool{false, true} {
 			for _, change := range scaleDownResumeClusterChanges() {
 				switch change.name {
-				case "status observations", "lock renewal", "spec retarget", "active voter revision", "restore hold", "reader drain cancelled":
+				case "status observations", "lock renewal", "spec retarget", "active voter revision", "restore hold", "reader drain cancelled", "rolling execution ID":
 				default:
 					continue
 				}

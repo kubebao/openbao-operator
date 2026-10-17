@@ -30,6 +30,7 @@ type scaleDownResumeDecision struct {
 	operation                             openbaov1alpha1.ClusterOperation
 	holder, acquiredAt, restoreOrigin     string
 	fromVersion, targetVersion, startedAt string
+	executionID                           string
 	partition                             int32
 }
 
@@ -56,6 +57,7 @@ func (r *infraReconciler) scaleDownResumeDecision(cluster *openbaov1alpha1.OpenB
 	}
 	if rolling := cluster.Status.Upgrade; rolling != nil {
 		decision.rolling, decision.fromVersion, decision.targetVersion = true, rolling.FromVersion, rolling.TargetVersion
+		decision.executionID = rolling.ExecutionID
 		decision.partition = rolling.CurrentPartition
 		if rolling.StartedAt != nil {
 			decision.startedAt = rolling.StartedAt.UTC().Format(time.RFC3339Nano)
