@@ -62,6 +62,7 @@ Covers: _none_
 Labels: `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `e2e-anchor`
 
 Recorded checkpoints:
+- Recording the managed Blue workload and its retained data claims
 - Writing a secret before upgrade
 - Ensuring the external Service exists for zero-downtime probing
 - Continuously probing Service availability during the full Blue/Green upgrade
@@ -70,6 +71,7 @@ Recorded checkpoints:
 - Waiting for pre-upgrade snapshot job to complete
 - Waiting for upgrade to complete
 - Verifying upgrade completed successfully with snapshots
+- Verifying only the retired Blue workload is removed and its data claims remain
 - Verifying Service availability remained continuous during the upgrade
 - Verifying critical blue/green executor actions completed successfully
 - Verifying secret persists after upgrade

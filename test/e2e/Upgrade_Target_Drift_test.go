@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,8 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
+	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
 	e2ehelpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
 )
@@ -96,7 +99,8 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 					BlueGreen: &openbaov1alpha1.BlueGreenConfig{
 						AutoPromote: true,
 						Verification: &openbaov1alpha1.VerificationConfig{
-							MinSyncDuration: "15s",
+							// Keep both targets before promotion while checking abort cleanup.
+							MinSyncDuration: "5m",
 						},
 					},
 				},
@@ -150,6 +154,23 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 	), func() {
 		clusterKey := types.NamespacedName{Name: driftCluster.Name, Namespace: tenantNamespace}
 		var staleGreenRevision string
+		staleGreenClaims := make(map[string]types.UID)
+
+		By("recording Blue ownership and data before the aborted upgrade")
+		beforeUpgrade := &openbaov1alpha1.OpenBaoCluster{}
+		Expect(admin.Get(ctx, clusterKey, beforeUpgrade)).To(Succeed())
+		blueName := upgrade.StableVoterStatefulSetName(beforeUpgrade)
+		originalBlue := &appsv1.StatefulSet{}
+		Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: blueName}, originalBlue)).To(Succeed())
+		Expect(resourceownership.HasManagedControllerOwnerProof(originalBlue, beforeUpgrade,
+			openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"))).To(BeTrue())
+		blueClaims := make(map[string]types.UID)
+		for ordinal := int32(0); ordinal < beforeUpgrade.Spec.Replicas; ordinal++ {
+			name := fmt.Sprintf("data-%s-%d", blueName, ordinal)
+			claim := &corev1.PersistentVolumeClaim{}
+			Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: name}, claim)).To(Succeed())
+			blueClaims[name] = claim.UID
+		}
 
 		By("starting a blue/green upgrade")
 		Eventually(func(g Gomega) {
@@ -174,10 +195,20 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 				Equal(openbaov1alpha1.PhaseSyncing),
 			))
 			revision := updated.Status.BlueGreen.GreenRevision
+			green := &appsv1.StatefulSet{}
 			g.Expect(admin.Get(ctx, types.NamespacedName{
 				Name:      fmt.Sprintf("%s-%s", driftCluster.Name, revision),
 				Namespace: tenantNamespace,
-			}, &appsv1.StatefulSet{})).To(Succeed())
+			}, green)).To(Succeed())
+			g.Expect(resourceownership.HasManagedControllerOwnerProof(green, updated,
+				openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"))).To(BeTrue())
+			g.Expect(green.Spec.Template.Labels[constants.LabelOpenBaoRevision]).To(Equal(revision))
+			for ordinal := int32(0); ordinal < updated.Spec.Replicas; ordinal++ {
+				name := fmt.Sprintf("data-%s-%d", green.Name, ordinal)
+				claim := &corev1.PersistentVolumeClaim{}
+				g.Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: name}, claim)).To(Succeed())
+				staleGreenClaims[name] = claim.UID
+			}
 			staleGreenRevision = revision
 		}, 10*time.Minute, framework.DefaultPollInterval).Should(Succeed())
 
@@ -199,6 +230,20 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 			}, &appsv1.StatefulSet{})
 			return apierrors.IsNotFound(err)
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(BeTrue())
+
+		By("verifying abort preserves Blue and both revisions' recorded data claims")
+		preservedBlue := &appsv1.StatefulSet{}
+		Expect(admin.Get(ctx, client.ObjectKeyFromObject(originalBlue), preservedBlue)).To(Succeed())
+		Expect(preservedBlue.UID).To(Equal(originalBlue.UID))
+		Expect(preservedBlue.DeletionTimestamp).To(BeNil())
+		for _, claims := range []map[string]types.UID{blueClaims, staleGreenClaims} {
+			for name, uid := range claims {
+				claim := &corev1.PersistentVolumeClaim{}
+				Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: name}, claim)).To(Succeed())
+				Expect(claim.UID).To(Equal(uid))
+				Expect(claim.DeletionTimestamp).To(BeNil())
+			}
+		}
 
 		By("verifying the stale target is abandoned before any rollback")
 		Eventually(func(g Gomega) {

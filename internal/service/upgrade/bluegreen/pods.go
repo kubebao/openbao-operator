@@ -15,6 +15,8 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
 )
 
 // isPodReady checks if a pod is in Ready condition.
@@ -82,11 +84,28 @@ func (m *Manager) cleanupGreenStatefulSet(ctx context.Context, logger logr.Logge
 		return nil
 	}
 
-	greenRevision := cluster.Status.BlueGreen.GreenRevision
+	greenRevision := strings.TrimSpace(cluster.Status.BlueGreen.GreenRevision)
+	if greenRevision == "" {
+		return nil
+	}
+	if greenRevision == strings.TrimSpace(cluster.Status.BlueGreen.BlueRevision) {
+		return fmt.Errorf("cannot retire the active Blue revision during Green cleanup")
+	}
+	if err := resourceownership.RequireOwnerUID(cluster); err != nil {
+		return fmt.Errorf("delete Green StatefulSet: %w", err)
+	}
+	greenName := fmt.Sprintf("%s-%s", cluster.Name, greenRevision)
+	if greenName == resourceidentity.ReadReplicaStatefulSetName(cluster) {
+		return fmt.Errorf("cannot retire the read-replica workload during Green cleanup")
+	}
+	reader := m.reader
+	if reader == nil {
+		reader = m.client
+	}
 	greenStatefulSet := &appsv1.StatefulSet{}
-	if err := m.client.Get(ctx, types.NamespacedName{
+	if err := reader.Get(ctx, types.NamespacedName{
 		Namespace: cluster.Namespace,
-		Name:      fmt.Sprintf("%s-%s", cluster.Name, greenRevision),
+		Name:      greenName,
 	}, greenStatefulSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil // Already deleted
@@ -94,10 +113,22 @@ func (m *Manager) cleanupGreenStatefulSet(ctx context.Context, logger logr.Logge
 		return fmt.Errorf("failed to get Green StatefulSet: %w", err)
 	}
 
-	if err := m.client.Delete(ctx, greenStatefulSet, client.Preconditions{UID: &greenStatefulSet.UID}); err != nil {
-		return fmt.Errorf("failed to delete Green StatefulSet: %w", err)
+	if err := resourceownership.RequireManagedControllerOwnerProof("delete Green StatefulSet", greenStatefulSet, cluster,
+		openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster")); err != nil {
+		return err
+	}
+	if greenStatefulSet.Spec.Template.Labels[constants.LabelOpenBaoRevision] != greenRevision {
+		return fmt.Errorf("StatefulSet %s does not identify the discarded Green revision", greenName)
+	}
+	if greenStatefulSet.DeletionTimestamp == nil {
+		err := m.client.Delete(ctx, greenStatefulSet, client.Preconditions{
+			UID: &greenStatefulSet.UID, ResourceVersion: &greenStatefulSet.ResourceVersion,
+		})
+		if client.IgnoreNotFound(err) != nil {
+			return fmt.Errorf("failed to delete Green StatefulSet: %w", err)
+		}
 	}
 
-	logger.Info("Cleaned up Green StatefulSet", "greenRevision", greenRevision)
+	logger.Info("Requested Green StatefulSet deletion", "greenRevision", greenRevision)
 	return nil
 }

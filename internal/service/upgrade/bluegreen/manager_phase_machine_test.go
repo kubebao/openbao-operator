@@ -574,12 +574,7 @@ func TestHandlePhaseSyncing_Branches(t *testing.T) {
 		blueRevision := cluster.Status.BlueGreen.BlueRevision
 		greenRevision := cluster.Status.BlueGreen.GreenRevision
 		waitSyncedJob := succeededExecutorJob(cluster, ActionWaitGreenSynced)
-		greenStatefulSet := &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cluster.Name + "-" + cluster.Status.BlueGreen.GreenRevision,
-				Namespace: cluster.Namespace,
-			},
-		}
+		greenStatefulSet := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.GreenRevision)
 		client := fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithStatusSubresource(&openbaov1alpha1.OpenBaoCluster{}).
@@ -735,12 +730,7 @@ func TestHandlePhaseCleanup_Branches(t *testing.T) {
 		markPodReadyUnsealed(greenPod)
 		greenPod.Labels[portopenbao.LabelActive] = testBoolTrue
 		job := succeededExecutorJob(cluster, ActionRemoveBluePeers)
-		blueStatefulSet := &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cluster.Name + "-" + cluster.Status.BlueGreen.BlueRevision,
-				Namespace: cluster.Namespace,
-			},
-		}
+		blueStatefulSet := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.BlueRevision)
 		manager := &Manager{
 			client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(greenPod, job, blueStatefulSet).Build(),
 			scheme: scheme,

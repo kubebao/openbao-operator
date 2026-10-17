@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -331,12 +330,7 @@ func TestManager_MaybeHandleTargetRevisionDrift(t *testing.T) {
 			Message:   "blue/green upgrade phase Syncing",
 		}
 
-		greenWorkload := &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cluster.Name + "-green-old",
-				Namespace: cluster.Namespace,
-			},
-		}
+		greenWorkload := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.GreenRevision)
 
 		client := fake.NewClientBuilder().
 			WithScheme(scheme).

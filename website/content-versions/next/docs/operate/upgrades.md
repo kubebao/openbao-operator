@@ -164,6 +164,11 @@ original replica count in `status.blueGreen`. Changes to `spec.replicas` do not 
 checks or rollback quorum. When resuming an older operation without these fields, the operator recovers its image and
 replica counts from the existing StatefulSets; it stops if those inputs cannot be recovered.
 
+Before deleting a retired Blue or aborted Green StatefulSet, the operator verifies its current-cluster controller
+owner reference, `openbao.org/owner-uid` annotation, and Pod-template revision. An ownership or revision mismatch
+stops cleanup and preserves the StatefulSet. For an unrevisioned Blue workload, the operator also checks
+`status.blueGreen.blueControllerRevision` when that field is recorded.
+
 ## Verify the result
 
 {{< command label="verify" title="Watch upgrade state" >}}

@@ -32,6 +32,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
@@ -1658,6 +1659,22 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 			"e2e-anchor",
 			"case:upgrade-bluegreen-snapshot-promotion",
 		), func() {
+			By("Recording the managed Blue workload and its retained data claims")
+			beforeUpgrade := &openbaov1alpha1.OpenBaoCluster{}
+			Expect(admin.Get(ctx, client.ObjectKeyFromObject(upgradeCluster), beforeUpgrade)).To(Succeed())
+			blueName := upgrade.StableVoterStatefulSetName(beforeUpgrade)
+			originalBlue := &appsv1.StatefulSet{}
+			Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: blueName}, originalBlue)).To(Succeed())
+			Expect(resourceownership.HasManagedControllerOwnerProof(originalBlue, beforeUpgrade,
+				openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"))).To(BeTrue())
+			blueClaims := make(map[string]types.UID)
+			for ordinal := int32(0); ordinal < beforeUpgrade.Spec.Replicas; ordinal++ {
+				claim := &corev1.PersistentVolumeClaim{}
+				name := fmt.Sprintf("data-%s-%d", blueName, ordinal)
+				Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: name}, claim)).To(Succeed())
+				blueClaims[name] = claim.UID
+			}
+
 			By("Writing a secret before upgrade")
 			secretPath := "secret/bluegreen-upgrade-test"
 			secretData := map[string]string{"foo": "bar", "version": "v1"}
@@ -1867,6 +1884,27 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				g.Expect(updated.Status.BlueGreen.Phase).To(Equal(openbaov1alpha1.PhaseIdle))
 				g.Expect(updated.Status.BlueGreen.PreUpgradeSnapshotJobName).NotTo(BeEmpty(), "snapshot job name should be preserved")
 			}, 30*time.Minute, 30*time.Second).Should(Succeed())
+
+			By("Verifying only the retired Blue workload is removed and its data claims remain")
+			Eventually(func(g Gomega) {
+				err := admin.Get(ctx, client.ObjectKeyFromObject(originalBlue), &appsv1.StatefulSet{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				for name, uid := range blueClaims {
+					claim := &corev1.PersistentVolumeClaim{}
+					g.Expect(admin.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: name}, claim)).To(Succeed())
+					g.Expect(claim.UID).To(Equal(uid))
+					g.Expect(claim.DeletionTimestamp).To(BeNil())
+				}
+				current := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(upgradeCluster), current)).To(Succeed())
+				promoted := &appsv1.StatefulSet{}
+				g.Expect(admin.Get(ctx, types.NamespacedName{
+					Namespace: tenantNamespace, Name: upgrade.StableVoterStatefulSetName(current),
+				}, promoted)).To(Succeed())
+				g.Expect(resourceownership.HasManagedControllerOwnerProof(promoted, current,
+					openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"))).To(BeTrue())
+				g.Expect(promoted.Spec.Template.Labels[constants.LabelOpenBaoRevision]).To(Equal(current.Status.BlueGreen.BlueRevision))
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 			stopProbe()
 			<-probeDone

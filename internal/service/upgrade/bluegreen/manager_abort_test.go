@@ -226,12 +226,7 @@ func TestMaybeAbortUpgrade_OnlyDeletesGreenBeforePromotion(t *testing.T) {
 					Terminated: &corev1.ContainerStateTerminated{ExitCode: 137},
 				},
 			}}
-			greenStatefulSet := &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cluster.Name + "-green",
-					Namespace: cluster.Namespace,
-				},
-			}
+			greenStatefulSet := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.GreenRevision)
 
 			client := fake.NewClientBuilder().
 				WithScheme(scheme).
@@ -281,12 +276,7 @@ func TestMaybeAbortUpgrade_CleansUpGreenAndReleasesLock(t *testing.T) {
 			Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"},
 		},
 	}}
-	greenStatefulSet := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Name + "-green",
-			Namespace: cluster.Namespace,
-		},
-	}
+	greenStatefulSet := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.GreenRevision)
 
 	client := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -383,12 +373,7 @@ func TestTriggerRollbackOrAbort_EarlyAndLatePhase(t *testing.T) {
 		cluster := newBlueGreenCluster()
 		cluster.Status.BlueGreen.Phase = openbaov1alpha1.PhaseSyncing
 		cluster.Status.BlueGreen.GreenRevision = "green"
-		greenStatefulSet := &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cluster.Name + "-green",
-				Namespace: cluster.Namespace,
-			},
-		}
+		greenStatefulSet := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.GreenRevision)
 		client := fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithObjects(cluster, greenStatefulSet).

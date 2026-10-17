@@ -258,17 +258,13 @@ func TestCleanupGreenStatefulSet_TableDriven(t *testing.T) {
 				t.Fatalf("add appsv1 scheme: %v", err)
 			}
 
+			tt.cluster.UID = "cluster-a-uid"
 			builder := fake.NewClientBuilder().WithScheme(scheme)
 			var stsName string
 			if tt.cluster.Status.BlueGreen != nil && tt.cluster.Status.BlueGreen.GreenRevision != "" {
 				stsName = tt.cluster.Name + "-" + tt.cluster.Status.BlueGreen.GreenRevision
 				if tt.withGreenStatefulSet {
-					builder = builder.WithObjects(&appsv1.StatefulSet{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      stsName,
-							Namespace: tt.cluster.Namespace,
-						},
-					})
+					builder = builder.WithObjects(newManagedCleanupStatefulSet(tt.cluster, tt.cluster.Status.BlueGreen.GreenRevision))
 				}
 			}
 

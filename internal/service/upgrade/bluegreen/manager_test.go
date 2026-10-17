@@ -72,6 +72,7 @@ func TestEnsureIdleAndCleanupGreen_CleansStaleGreenAndReleasesLock(t *testing.T)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
+			UID:       "test-uid",
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
 			Version:  "2.4.4",
@@ -95,12 +96,7 @@ func TestEnsureIdleAndCleanupGreen_CleansStaleGreenAndReleasesLock(t *testing.T)
 		},
 	}
 
-	greenStatefulSet := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-green",
-			Namespace: "default",
-		},
-	}
+	greenStatefulSet := newManagedCleanupStatefulSet(cluster, cluster.Status.BlueGreen.GreenRevision)
 
 	clientBuilder := fake.NewClientBuilder().
 		WithScheme(scheme).
