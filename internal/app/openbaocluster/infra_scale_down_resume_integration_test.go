@@ -22,6 +22,7 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
 
 // These private recovery fixtures keep API-server UID/RV preconditions next to
@@ -102,6 +103,89 @@ func TestScaleDownResumeRealAPIPreconditions(t *testing.T) {
 	}
 }
 
+func TestScaleDownResumeClusterDecisionRealAPI(t *testing.T) {
+	testEnv := &envtest.Environment{CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases")}, ErrorIfCRDPathMissing: true}
+	cfg, err := testEnv.Start()
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, testEnv.Stop()) })
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
+	live, err := client.New(cfg, client.Options{Scheme: scheme})
+	require.NoError(t, err)
+	index := 0
+	for _, readReplica := range []bool{false, true} {
+		for _, during := range []bool{false, true} {
+			for _, change := range scaleDownResumeClusterChanges() {
+				switch change.name {
+				case "status observations", "lock renewal", "spec retarget", "active voter revision", "restore hold", "reader drain cancelled":
+				default:
+					continue
+				}
+				name := fmt.Sprintf("%s/during=%t/reader=%t", change.name, during, readReplica)
+				t.Run(name, func(t *testing.T) {
+					readers := int32(-1)
+					if readReplica {
+						readers = 1
+					}
+					f := newScaleDownResumeFixture(t, readReplica, readers)
+					if change.setup != nil {
+						change.setup(f)
+					}
+					ns := fmt.Sprintf("scale-decision-%d", index)
+					index++
+					require.NoError(t, live.Create(t.Context(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}))
+					createScaleDownResumeAPIFixture(t, live, f, ns)
+					update := func() {
+						current := &openbaov1alpha1.OpenBaoCluster{}
+						require.NoError(t, live.Get(t.Context(), client.ObjectKeyFromObject(f.cluster), current))
+						change.mutate(current)
+						if change.metadata {
+							require.NoError(t, live.Update(t.Context(), current))
+						} else {
+							require.NoError(t, live.Status().Update(t.Context(), current))
+						}
+						require.NotEqual(t, f.cluster.ResourceVersion, current.ResourceVersion)
+						if change.name == "spec retarget" {
+							require.Greater(t, current.Generation, f.cluster.Generation)
+						} else {
+							require.Equal(t, f.cluster.Generation, current.Generation)
+						}
+					}
+					if during {
+						f.membership.read = func(call int) (*portopenbao.RaftConfigurationResponse, error) {
+							if call == 2 {
+								update()
+							}
+							return f.membership.config, nil
+						}
+					} else {
+						update()
+					}
+					r := &infraReconciler{deps: InfraDependencies{Kubernetes: InfraKubernetesRuntime{Client: live, APIReader: live}, ScaleDown: InfraScaleDownRuntime{Membership: f.membership}}}
+					resumed, resumeErr := r.resumeRemovedPeerScaleDown(t.Context(), logr.Discard(), f.cluster, f.sts, f.desired, readReplica)
+					if change.allowed {
+						require.NoError(t, resumeErr)
+						require.True(t, resumed)
+					} else {
+						require.Error(t, resumeErr)
+						require.False(t, resumed)
+					}
+					stored := &appsv1.StatefulSet{}
+					require.NoError(t, live.Get(t.Context(), client.ObjectKeyFromObject(f.sts), stored))
+					want := *f.sts.Spec.Replicas
+					if change.allowed {
+						want--
+					}
+					require.Equal(t, want, *stored.Spec.Replicas)
+					require.Equal(t, f.sts.Spec.Template, stored.Spec.Template)
+				})
+			}
+		}
+	}
+}
+
 func createScaleDownResumeAPIFixture(t *testing.T, c client.Client, f *scaleDownResumeFixture, namespace string) {
 	t.Helper()
 	cluster := f.cluster
@@ -114,7 +198,9 @@ func createScaleDownResumeAPIFixture(t *testing.T, c client.Client, f *scaleDown
 	cluster.Spec.TLS = openbaov1alpha1.TLSConfig{Enabled: true, RotationPeriod: "720h"}
 	cluster.Spec.Storage = openbaov1alpha1.StorageConfig{Size: "1Gi"}
 	cluster.Spec.InitContainer = &openbaov1alpha1.InitContainerConfig{Image: "openbao/openbao-init:test"}
+	status := cluster.Status
 	require.NoError(t, c.Create(t.Context(), cluster))
+	cluster.Status = status
 	cluster.Status.Initialized = true
 	require.NoError(t, c.Status().Update(t.Context(), cluster))
 	workloads := map[string]*appsv1.StatefulSet{}

@@ -61,7 +61,9 @@ If peer removal succeeds but the replica update is interrupted, the removed Pod 
 can finish that decrement after authenticated Raft observations confirm that the selected peer is absent and every
 retained member has the expected role, address, health, and ready Pod. Recovery changes only the replica count, then
 requeues before applying other workload changes. Unavailable or ambiguous observations keep the workload unchanged.
-This recovery applies to voters and read replicas.
+This recovery applies to voters and read replicas. Status observations and operation-lock renewals do not block it.
+The operator checks the scale decision and operation identity again before changing the replica count. A changed
+operation, active restore hold, or break-glass state blocks recovery.
 
 {{< command label="apply" title="Set the voter count" >}}
 kubectl -n <namespace> patch openbaocluster <name> --type merge -p '{

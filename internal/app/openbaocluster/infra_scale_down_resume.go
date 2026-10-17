@@ -56,10 +56,10 @@ func (r *infraReconciler) resumeRemovedPeerScaleDown(
 	if err := reader.Get(ctx, client.ObjectKeyFromObject(cluster), currentCluster); err != nil {
 		return false, fmt.Errorf("read current cluster before scale-down resume: %w", err)
 	}
-	if cluster.UID == "" || currentCluster.UID != cluster.UID ||
-		currentCluster.ResourceVersion != cluster.ResourceVersion || !currentCluster.DeletionTimestamp.IsZero() {
-		return false, fmt.Errorf("cluster identity or state changed before scale-down resume")
+	if err := r.validateScaleDownResumeCluster(cluster, currentCluster, observed.Name, desired, readReplica); err != nil {
+		return false, err
 	}
+	cluster = currentCluster
 	sts := &appsv1.StatefulSet{}
 	if err := reader.Get(ctx, client.ObjectKeyFromObject(observed), sts); err != nil {
 		return false, fmt.Errorf("read current workload before scale-down resume: %w", err)
@@ -97,12 +97,12 @@ func (r *infraReconciler) resumeRemovedPeerScaleDown(
 	if err := validateScaleDownResumeMembership(cluster, confirmed, autopilot, victim, retained); err != nil {
 		return false, err
 	}
-	if err := reader.Get(ctx, client.ObjectKeyFromObject(cluster), currentCluster); err != nil {
+	confirmedCluster := &openbaov1alpha1.OpenBaoCluster{}
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(cluster), confirmedCluster); err != nil {
 		return false, fmt.Errorf("confirm cluster identity before scale-down resume: %w", err)
 	}
-	if currentCluster.UID != cluster.UID || currentCluster.ResourceVersion != cluster.ResourceVersion ||
-		!currentCluster.DeletionTimestamp.IsZero() {
-		return false, fmt.Errorf("cluster state changed during scale-down resume")
+	if err := r.validateScaleDownResumeCluster(cluster, confirmedCluster, sts.Name, desired, readReplica); err != nil {
+		return false, err
 	}
 	if err := patchResumedReplicaCount(ctx, r.deps.Kubernetes.Client, sts, next); err != nil {
 		return false, err

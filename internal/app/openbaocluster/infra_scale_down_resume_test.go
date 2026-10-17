@@ -60,7 +60,7 @@ func newScaleDownResumeFixture(t *testing.T, readReplica bool, readers int32) *s
 	t.Helper()
 	cluster := &openbaov1alpha1.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "resume", Namespace: "default", UID: "cluster-uid", ResourceVersion: "10"},
-		Spec:       openbaov1alpha1.OpenBaoClusterSpec{Replicas: 1, Image: "openbao:new"},
+		Spec:       openbaov1alpha1.OpenBaoClusterSpec{Replicas: 1, Image: "openbao:new", Version: "2.6.4"},
 		Status:     openbaov1alpha1.OpenBaoClusterStatus{Initialized: true},
 	}
 	if readers >= 0 {
