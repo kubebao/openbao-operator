@@ -25,7 +25,7 @@
 <a href=/next/docs/operate/>Operate OpenBao</a>
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
 <span aria-current=page>Run planned maintenance</span></nav><aside class="version-notice version-notice-next" aria-label="Documentation version notice"><strong>Next · Unreleased</strong>
-<span>Tracks unreleased behavior on main. Do not use it as a stable production contract.</span></aside><article class=doc-article><header class=article-header><h1>Run planned maintenance</h1><p class=article-lede>Drain, scale, restart, or pause a cluster without bypassing quorum and admission safeguards.</p><p class=page-meta>Updated 17 October 2026 · 4 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#check-quorum-and-disruption-protection>Check quorum and disruption protection</a></li><li><a href=#scale-with-the-parent-resource>Scale with the parent resource</a></li><li><a href=#request-a-rolling-restart>Request a rolling restart</a></li><li><a href=#authorize-direct-maintenance-only-when-required>Authorize direct maintenance only when required</a></li><li><a href=#pause-reconciliation-for-a-bounded-repair>Pause reconciliation for a bounded repair</a></li><li><a href=#close-the-window>Close the window</a></li></ul></nav></details><div class=article-content><p>Use the parent <code>OpenBaoCluster</code> controls for planned work. Directly changing operator-managed StatefulSets, Pods, or
+<span>Tracks unreleased behavior on main. Do not use it as a stable production contract.</span></aside><article class=doc-article><header class=article-header><h1>Run planned maintenance</h1><p class=article-lede>Drain, scale, restart, or pause a cluster without bypassing quorum and admission safeguards.</p><p class=page-meta>Updated 17 October 2026 · 5 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#check-quorum-and-disruption-protection>Check quorum and disruption protection</a></li><li><a href=#scale-with-the-parent-resource>Scale with the parent resource</a></li><li><a href=#request-a-rolling-restart>Request a rolling restart</a></li><li><a href=#authorize-direct-maintenance-only-when-required>Authorize direct maintenance only when required</a></li><li><a href=#pause-reconciliation-for-a-bounded-repair>Pause reconciliation for a bounded repair</a></li><li><a href=#close-the-window>Close the window</a></li></ul></nav></details><div class=article-content><p>Use the parent <code>OpenBaoCluster</code> controls for planned work. Directly changing operator-managed StatefulSets, Pods, or
 PVCs bypasses lifecycle coordination and is normally blocked by admission.</p><h2 id=check-quorum-and-disruption-protection>Check quorum and disruption protection</h2><p>For three or more voter replicas, the operator creates <code>&lt;cluster>-pdb</code> with <code>maxUnavailable: 1</code>. It does not create a
 voter PodDisruptionBudget for one or two replicas because one voluntary eviction would already break quorum.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Check placement and the disruption budget</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; get pods -l openbao.org/cluster=&lt;name&gt; -o wide
 kubectl -n &lt;namespace&gt; get pdb &lt;name&gt;-pdb -o yaml
@@ -35,7 +35,24 @@ do not. Keep enough voters across independent failure domains.</div></div></asid
 <code>SIGKILL</code> if the child remains alive after 25 seconds. Managed OpenBao Pods use the default 30-second termination grace
 period. Forced deletion or a shorter grace period can prevent OpenBao from completing shutdown.</p><h2 id=scale-with-the-parent-resource>Scale with the parent resource</h2><p>Change <code>spec.replicas</code>, not the StatefulSet. During a voter scale-down, the operator removes the highest ordinal one
 step at a time, steps it down if it is the leader, removes its Raft peer, and waits for the StatefulSet to settle before
-the next decrement.</p><div class=command-block><div class=command-head><div><span>apply</span><p>Set the voter count</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; patch openbaocluster &lt;name&gt; --type merge -p &#39;{
+the next decrement.</p><p>If peer removal succeeds but the replica update is interrupted, the removed process can remain Ready. If a
+separate disruption leaves the removed Pod terminating, the operator can finish that decrement after authenticated
+Raft observations confirm that the selected peer is absent and every retained member has the expected role,
+address, health, and ready Pod.</p><p>Recovery changes only the replica count, then requeues before applying other workload changes. Unavailable or
+ambiguous observations keep the workload unchanged. For a terminating victim, recovery requires the same
+highest-ordinal Pod UID, StatefulSet owner, and current revision. Only that target workload can have one fewer
+current replica; companion workloads retain their normal checks.</p><p>Recovery compares two authenticated configurations that bracket fresh retained-member health checks. The member
+IDs, normalized addresses, roles, and leader must match. OpenBao 2.6.4 returns a zero configuration index, so
+recovery treats zero as unavailable metadata. A changed index still blocks recovery when either observation
+supplies a nonzero value. These observations do not establish a committed configuration epoch. Recovery assumes
+operator-managed membership without concurrent native membership changes. Matching observations cannot exclude a
+change that is reverted between reads.</p><p><a href=https://github.com/hashicorp/raft/blob/v1.7.3/configuration.go#L139-L160>Raft permits one uncommitted membership change at a
+time</a>. Interrupted voter recovery
+requires enough healthy retained voters for a majority of the pre-decrement voter count. This permits recovery
+from three voters to two. Interrupted recovery from two voters to one remains blocked and requires manual
+recovery. Read-replica recovery retains every voter and requires the voter workload to be settled and healthy.</p><p>This recovery applies to voters and read replicas. Status observations and operation-lock renewals do not block
+it. The operator checks the scale decision and operation identity again before changing the replica count. A
+changed operation, active restore hold, or break-glass state blocks recovery.</p><div class=command-block><div class=command-head><div><span>apply</span><p>Set the voter count</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; patch openbaocluster &lt;name&gt; --type merge -p &#39;{
   &#34;spec&#34;: {
     &#34;replicas&#34;: 3
   }
