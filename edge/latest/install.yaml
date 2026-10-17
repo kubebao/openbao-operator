@@ -7453,6 +7453,12 @@ spec:
                       value.
                     format: int32
                     type: integer
+                  executionID:
+                    description: |-
+                      ExecutionID identifies the current rolling upgrade attempt.
+                      It remains stable across controller restarts and changes when a retry is accepted.
+                      Older in-flight upgrades can omit it until an explicit retry is accepted.
+                    type: string
                   failure:
                     description: |-
                       Failure is the structured rolling-upgrade failure status.
@@ -10336,10 +10342,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-5f4ec605ad69
+          value: edge-506ccaf5066e
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:a7966810d1314bc113154cea0442184a9a7ede30c4d161639d2ae14d1781cddd
+        image: ghcr.io/kubebao/openbao-operator@sha256:a296f72baa26a13f00d469f519a3923ed947fee55c6e78bd4db61b67eae55d87
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10454,8 +10460,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-5f4ec605ad69
-        image: ghcr.io/kubebao/openbao-operator@sha256:a7966810d1314bc113154cea0442184a9a7ede30c4d161639d2ae14d1781cddd
+          value: edge-506ccaf5066e
+        image: ghcr.io/kubebao/openbao-operator@sha256:a296f72baa26a13f00d469f519a3923ed947fee55c6e78bd4db61b67eae55d87
         livenessProbe:
           httpGet:
             path: /healthz
