@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -154,6 +155,77 @@ func TestRollingAttemptRetirementWaitsBeforeRetryAndRetarget(t *testing.T) {
 				require.Nil(t, cluster.Status.Upgrade.Failure)
 			}
 			require.Equal(t, 1, deletes)
+		})
+	}
+}
+
+func TestRollingAttemptRetirementConflictPreservesRetryAndRetargetCheckpoint(t *testing.T) {
+	for _, action := range []upgradeAction{upgradeRetry, upgradeRetarget} {
+		t.Run(string(action), func(t *testing.T) {
+			cluster := retryExecutionCluster()
+			cluster.Status.UpgradeRequests = &api.UpgradeRequestStatus{LastHandledRetry: "retry-1"}
+			if action == upgradeRetarget {
+				cluster.Spec.Version = "2.7.1"
+			}
+			job := managedRollingJob(&batchv1.Job{ObjectMeta: metav1.ObjectMeta{
+				Name: rollingStepDownJobName(cluster, "execution-2"), Namespace: cluster.Namespace,
+				UID: "old-executor",
+			}, Status: batchv1.JobStatus{Active: 1}}, cluster)
+			base := fake.NewClientBuilder().WithScheme(newRollingEventTestScheme(t)).
+				WithObjects(withoutUpgradeStatus(cluster), job).
+				WithStatusSubresource(&api.OpenBaoCluster{}, &batchv1.Job{}).Build()
+			seedUpgradeStatus(t, base, cluster)
+			before := cluster.DeepCopy()
+			conflictErr := apierrors.NewConflict(batchv1.Resource("jobs"), job.Name, errors.New("status changed"))
+			deletes := 0
+			c := interceptor.NewClient(base, interceptor.Funcs{
+				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if _, isJob := obj.(*batchv1.Job); isJob {
+						t.Fatal("executor retirement must use the live reader")
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+				Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+					deletes++
+					current := &batchv1.Job{}
+					require.NoError(t, base.Get(ctx, client.ObjectKeyFromObject(job), current))
+					options := &client.DeleteOptions{}
+					options.ApplyOptions(opts)
+					require.Equal(t, metav1.DeletePropagationForeground, *options.PropagationPolicy)
+					require.Equal(t, current.UID, *options.Preconditions.UID)
+					require.Equal(t, current.ResourceVersion, *options.Preconditions.ResourceVersion)
+					if deletes == 1 {
+						current.Status.Active++
+						require.NoError(t, base.Status().Update(ctx, current))
+						require.NotEqual(t, obj.GetResourceVersion(), current.ResourceVersion)
+						return conflictErr
+					}
+					return c.Delete(ctx, obj, opts...)
+				},
+			})
+			m := &Manager{client: c, reader: base, adminOpsMutator: testAdminOpsMutator(c)}
+			decision := upgradeDecision{action: action, retryRequest: "retry-2"}
+			err := m.applyUpgradeDecision(t.Context(), logr.Discard(), cluster, decision)
+			require.ErrorIs(t, err, operatorerrors.ErrTransientKubernetesAPI)
+			require.True(t, apierrors.IsConflict(err))
+			require.Equal(t, before.Status, cluster.Status)
+			require.NoError(t, base.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+			require.Equal(t, before.Status, cluster.Status, "conflict must preserve the persisted checkpoint")
+			require.True(t, upgrade.RetryRequestPending(cluster))
+			require.NoError(t, base.Get(t.Context(), client.ObjectKeyFromObject(job), job))
+			require.Nil(t, job.DeletionTimestamp)
+			require.Equal(t, 1, deletes)
+
+			// The next reconcile reads the changed Job and retries both preconditions.
+			require.NoError(t, m.applyUpgradeDecision(t.Context(), logr.Discard(), cluster, decision))
+			require.Equal(t, 2, deletes)
+			if action == upgradeRetarget {
+				require.Nil(t, cluster.Status.Upgrade)
+			} else {
+				require.NotEqual(t, before.Status.Upgrade.ExecutionID, cluster.Status.Upgrade.ExecutionID)
+				require.Nil(t, cluster.Status.Upgrade.Failure)
+				require.False(t, upgrade.RetryRequestPending(cluster))
+			}
 		})
 	}
 }

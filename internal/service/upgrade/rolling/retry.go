@@ -132,6 +132,9 @@ func (m *Manager) retireStepDownJob(ctx context.Context, logger logr.Logger, clu
 	if job.DeletionTimestamp == nil {
 		if err := m.client.Delete(ctx, job, client.Preconditions{UID: &job.UID, ResourceVersion: &job.ResourceVersion},
 			client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil && !apierrors.IsNotFound(err) {
+			if apierrors.IsConflict(err) {
+				return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("step-down Job changed before retirement: %w", err))
+			}
 			return fmt.Errorf("failed to retire step-down Job %s/%s: %w", cluster.Namespace, jobName, err)
 		}
 	}
