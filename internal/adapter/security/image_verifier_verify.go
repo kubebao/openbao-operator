@@ -87,6 +87,7 @@ func (v *ImageVerifier) buildCheckOpts(
 	co := &cosign.CheckOpts{
 		RegistryClientOpts: remoteOpts,
 		NewBundleFormat:    newBundleFormat,
+		ClaimVerifier:      cosign.SimpleClaimVerifier,
 	}
 
 	if config.PublicKey != "" {

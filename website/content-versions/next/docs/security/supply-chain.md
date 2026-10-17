@@ -11,6 +11,7 @@ verifiedBy:
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/adapter/security/cluster_image_verification.go
   - internal/adapter/security/image_verifier.go
+  - internal/adapter/security/image_verifier_verify.go
   - internal/adapter/security/workload_labels.go
   - internal/app/openbaocluster/infra_images.go
   - internal/service/backup/job.go
@@ -21,6 +22,10 @@ verifiedBy:
 The controller resolves configured images to digests, verifies signatures against the selected trust policy, and uses
 the verified digest in managed workloads. Keep the OpenBao server and operator helper images as separate trust
 surfaces because they have different publishers and release identities.
+
+For legacy Cosign signatures, the signed claim must contain the resolved image digest. For Sigstore bundles, an
+in-toto subject must contain that digest. Verification rejects a missing or different digest even when the signature
+is valid.
 
 ## Configure both trust surfaces
 
