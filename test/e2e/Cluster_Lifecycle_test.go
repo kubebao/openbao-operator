@@ -302,12 +302,22 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					}
 					before := current.DeepCopy()
 					controllerutil.RemoveFinalizer(current, finalizer)
-					return client.IgnoreNotFound(c.Patch(ctx, current, client.MergeFrom(before)))
+					return client.IgnoreNotFound(c.Patch(ctx, current, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})))
 				})
 			}
 			DeferCleanup(releaseFinalizer)
-			controllerutil.AddFinalizer(pod, finalizer)
-			Expect(c.Update(ctx, pod)).To(Succeed())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &corev1.Pod{}
+				if err := c.Get(ctx, podKey, current); err != nil {
+					return err
+				}
+				if current.UID != pod.UID {
+					return fmt.Errorf("target Pod changed before shutdown finalizer was added")
+				}
+				before := current.DeepCopy()
+				controllerutil.AddFinalizer(current, finalizer)
+				return c.Patch(ctx, current, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{}))
+			})).To(Succeed())
 
 			By("deleting the Pod with its normal termination grace period")
 			Expect(c.Delete(ctx, pod)).To(Succeed())
