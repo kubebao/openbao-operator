@@ -1349,17 +1349,17 @@
   },
   {
     "id": "scale-down-read-replica-interruption",
-    "generatedId": "scale-down-recovery-finishes-a-read-replica-decrement-after-e2186dac",
+    "generatedId": "scale-down-recovery-finishes-a-read-replica-decrement-with-d7710c95",
     "caseLabel": "scale-down-read-replica-interruption",
     "coverage": [
       "interrupted-scale-down"
     ],
     "file": "test/e2e/Scale_Down_Recovery_test.go",
     "type": "It",
-    "name": "finishes a read-replica decrement after native peer removal",
+    "name": "finishes a read-replica decrement with the removed victim held terminating",
     "path": [
       "Scale-down recovery",
-      "finishes a read-replica decrement after native peer removal"
+      "finishes a read-replica decrement with the removed victim held terminating"
     ],
     "labels": [
       "lifecycle",
@@ -1383,17 +1383,17 @@
   },
   {
     "id": "scale-down-voter-interruption",
-    "generatedId": "scale-down-recovery-finishes-a-voter-decrement-after-native-7ab90e6d",
+    "generatedId": "scale-down-recovery-finishes-a-voter-decrement-with-the-6b7f4696",
     "caseLabel": "scale-down-voter-interruption",
     "coverage": [
       "interrupted-scale-down"
     ],
     "file": "test/e2e/Scale_Down_Recovery_test.go",
     "type": "It",
-    "name": "finishes a voter decrement after native peer removal",
+    "name": "finishes a voter decrement with the removed victim held terminating",
     "path": [
       "Scale-down recovery",
-      "finishes a voter decrement after native peer removal"
+      "finishes a voter decrement with the removed victim held terminating"
     ],
     "labels": [
       "lifecycle",

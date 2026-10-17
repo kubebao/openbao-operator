@@ -57,13 +57,33 @@ Change `spec.replicas`, not the StatefulSet. During a voter scale-down, the oper
 step at a time, steps it down if it is the leader, removes its Raft peer, and waits for the StatefulSet to settle before
 the next decrement.
 
-If peer removal succeeds but the replica update is interrupted, the removed Pod can become unready. The operator
-can finish that decrement after authenticated Raft observations confirm that the selected peer is absent and every
-retained member has the expected role, address, health, and ready Pod. Recovery changes only the replica count, then
-requeues before applying other workload changes. Unavailable or ambiguous observations keep the workload unchanged.
-This recovery applies to voters and read replicas. Status observations and operation-lock renewals do not block it.
-The operator checks the scale decision and operation identity again before changing the replica count. A changed
-operation, active restore hold, or break-glass state blocks recovery.
+If peer removal succeeds but the replica update is interrupted, the removed process can remain Ready. In the
+native OpenBao 2.6.4 voter test, it also becomes Ready again after a restart with retained data. If a separate
+disruption leaves the removed Pod terminating, the operator can finish that decrement after authenticated Raft
+observations confirm that the selected peer is absent and every retained member has the expected role, address,
+health, and ready Pod.
+
+Recovery changes only the replica count, then requeues before applying other workload changes. Unavailable or
+ambiguous observations keep the workload unchanged. For a terminating victim, recovery requires the same
+highest-ordinal Pod UID, StatefulSet owner, and current revision. Only that target workload can have one fewer
+current replica; companion workloads retain their normal checks.
+
+Recovery compares two authenticated configurations that bracket fresh retained-member health checks. The member
+IDs, normalized addresses, roles, and leader must match. OpenBao 2.6.4 returns a zero configuration index, so
+recovery treats zero as unavailable metadata. A changed index still blocks recovery when either observation
+supplies a nonzero value. These observations do not establish a committed configuration epoch. Recovery assumes
+operator-managed membership without concurrent native membership changes. Matching observations cannot exclude a
+change that is reverted between reads.
+
+[Raft permits one uncommitted membership change at a
+time](https://github.com/hashicorp/raft/blob/v1.7.3/configuration.go#L139-L160). Interrupted voter recovery
+requires enough healthy retained voters for a majority of the pre-decrement voter count. This permits recovery
+from three voters to two. Interrupted recovery from two voters to one remains blocked and requires manual
+recovery. Read-replica recovery retains every voter and requires the voter workload to be settled and healthy.
+
+This recovery applies to voters and read replicas. Status observations and operation-lock renewals do not block
+it. The operator checks the scale decision and operation identity again before changing the replica count. A
+changed operation, active restore hold, or break-glass state blocks recovery.
 
 {{< command label="apply" title="Set the voter count" >}}
 kubectl -n <namespace> patch openbaocluster <name> --type merge -p '{

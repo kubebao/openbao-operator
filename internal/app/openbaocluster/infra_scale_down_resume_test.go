@@ -28,11 +28,13 @@ import (
 )
 
 type scaleDownMembershipStub struct {
-	config *portopenbao.RaftConfigurationResponse
-	health *portopenbao.RaftAutopilotStateResponse
-	read   func(int) (*portopenbao.RaftConfigurationResponse, error)
-	calls  int
-	err    error
+	config      *portopenbao.RaftConfigurationResponse
+	health      *portopenbao.RaftAutopilotStateResponse
+	read        func(int) (*portopenbao.RaftConfigurationResponse, error)
+	readHealth  func(int) (*portopenbao.RaftAutopilotStateResponse, error)
+	healthCalls int
+	calls       int
+	err         error
 }
 
 func (s *scaleDownMembershipStub) ReadRaftConfiguration(context.Context, logr.Logger, *openbaov1alpha1.OpenBaoCluster) (*portopenbao.RaftConfigurationResponse, error) {
@@ -44,6 +46,10 @@ func (s *scaleDownMembershipStub) ReadRaftConfiguration(context.Context, logr.Lo
 }
 
 func (s *scaleDownMembershipStub) ReadRaftAutopilotState(context.Context, logr.Logger, *openbaov1alpha1.OpenBaoCluster) (*portopenbao.RaftAutopilotStateResponse, error) {
+	s.healthCalls++
+	if s.readHealth != nil {
+		return s.readHealth(s.healthCalls)
+	}
 	return s.health, s.err
 }
 
@@ -188,7 +194,6 @@ func TestScaleDownResumeRejectsUncertainState(t *testing.T) {
 		{"membership unavailable", func(f *scaleDownResumeFixture) { f.membership.err = errors.New("offline") }},
 		{"membership absent", func(f *scaleDownResumeFixture) { f.membership.config = nil }},
 		{"empty membership", func(f *scaleDownResumeFixture) { f.membership.config.Config.Servers = nil }},
-		{"missing configuration index", func(f *scaleDownResumeFixture) { f.membership.config.Config.Index = 0 }},
 		{"foreign workload", func(f *scaleDownResumeFixture) { f.sts.OwnerReferences[0].UID = "foreign" }},
 		{"missing provenance", func(f *scaleDownResumeFixture) { f.sts.Annotations = nil }},
 		{"unobserved workload", func(f *scaleDownResumeFixture) { f.sts.Status.ObservedGeneration-- }},

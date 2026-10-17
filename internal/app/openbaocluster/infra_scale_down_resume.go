@@ -67,7 +67,8 @@ func (r *infraReconciler) resumeRemovedPeerScaleDown(
 	if sts.UID != observed.UID || sts.ResourceVersion != observed.ResourceVersion {
 		return false, fmt.Errorf("workload changed before scale-down resume")
 	}
-	if err := validateScaleDownResumeWorkload(cluster, sts); err != nil {
+	terminatingVictim, err := scaleDownResumeTargetVictim(ctx, reader, cluster, sts)
+	if err != nil {
 		return false, err
 	}
 	next := *sts.Spec.Replicas - 1
@@ -75,26 +76,14 @@ func (r *infraReconciler) resumeRemovedPeerScaleDown(
 	if err != nil {
 		return false, err
 	}
+	// Raft permits one pending configuration change. Preserve a majority of
+	// the pre-decrement voter population even if the latest observed removal
+	// is not committed. This fence applies to every interrupted voter resume.
+	if !readReplica && next < *sts.Spec.Replicas/2+1 {
+		return false, fmt.Errorf("interrupted voter scale down requires a retained pre-decrement majority; manual recovery is required")
+	}
 	victim := fmt.Sprintf("%s-%d", sts.Name, *sts.Spec.Replicas-1)
-	config, err := r.deps.ScaleDown.Membership.ReadRaftConfiguration(ctx, logger, cluster)
-	if err != nil {
-		return false, fmt.Errorf("observe membership before scale-down resume: %w", err)
-	}
-	autopilot, err := r.deps.ScaleDown.Membership.ReadRaftAutopilotState(ctx, logger, cluster)
-	if err != nil {
-		return false, fmt.Errorf("observe retained member health before scale-down resume: %w", err)
-	}
-	if err := validateScaleDownResumeMembership(cluster, config, autopilot, victim, retained); err != nil {
-		return false, err
-	}
-	confirmed, err := r.deps.ScaleDown.Membership.ReadRaftConfiguration(ctx, logger, cluster)
-	if err != nil {
-		return false, fmt.Errorf("confirm membership before scale-down resume: %w", err)
-	}
-	if confirmed == nil || confirmed.Config.Index != config.Config.Index {
-		return false, fmt.Errorf("observed Raft membership changed during scale-down resume")
-	}
-	if err := validateScaleDownResumeMembership(cluster, confirmed, autopilot, victim, retained); err != nil {
+	if err := r.confirmScaleDownResumeMembership(ctx, logger, cluster, victim, retained); err != nil {
 		return false, err
 	}
 	confirmedCluster := &openbaov1alpha1.OpenBaoCluster{}
@@ -103,6 +92,15 @@ func (r *infraReconciler) resumeRemovedPeerScaleDown(
 	}
 	if err := r.validateScaleDownResumeCluster(cluster, confirmedCluster, sts.Name, desired, readReplica); err != nil {
 		return false, err
+	}
+	if terminatingVictim != nil {
+		confirmedVictim, err := readScaleDownResumeTerminatingVictim(ctx, reader, sts)
+		if err != nil {
+			return false, err
+		}
+		if confirmedVictim.UID != terminatingVictim.UID {
+			return false, fmt.Errorf("terminating scale-down victim changed during observation")
+		}
 	}
 	if err := patchResumedReplicaCount(ctx, r.deps.Kubernetes.Client, sts, next); err != nil {
 		return false, err
@@ -166,6 +164,50 @@ func scaleDownResumeRetainedPods(
 }
 
 func validateScaleDownResumeWorkload(cluster *openbaov1alpha1.OpenBaoCluster, sts *appsv1.StatefulSet) error {
+	if err := validateScaleDownResumeWorkloadIdentity(cluster, sts); err != nil {
+		return err
+	}
+	if sts.Status.CurrentReplicas != *sts.Spec.Replicas {
+		return fmt.Errorf("workload current replica count is not settled for scale-down resume")
+	}
+	return nil
+}
+
+// Only the target can have one fewer current replica. StatefulSet status omits
+// terminating Pods from CurrentReplicas but retains them in Replicas. Pin the
+// exact highest ordinal so another missing or stale Pod cannot explain the gap.
+func scaleDownResumeTargetVictim(
+	ctx context.Context, reader client.Reader, cluster *openbaov1alpha1.OpenBaoCluster, sts *appsv1.StatefulSet,
+) (*corev1.Pod, error) {
+	if err := validateScaleDownResumeWorkloadIdentity(cluster, sts); err != nil {
+		return nil, err
+	}
+	if sts.Status.CurrentReplicas == *sts.Spec.Replicas {
+		return nil, nil
+	}
+	if *sts.Spec.Replicas < 1 || sts.Status.CurrentReplicas != *sts.Spec.Replicas-1 {
+		return nil, fmt.Errorf("workload current replica deficit is not one terminating scale-down victim")
+	}
+	return readScaleDownResumeTerminatingVictim(ctx, reader, sts)
+}
+
+func readScaleDownResumeTerminatingVictim(ctx context.Context, reader client.Reader, sts *appsv1.StatefulSet) (*corev1.Pod, error) {
+	pod := &corev1.Pod{}
+	key := client.ObjectKey{Namespace: sts.Namespace, Name: fmt.Sprintf("%s-%d", sts.Name, *sts.Spec.Replicas-1)}
+	if err := reader.Get(ctx, key, pod); err != nil {
+		return nil, fmt.Errorf("read terminating scale-down victim: %w", err)
+	}
+	owner := metav1.GetControllerOfNoCopy(pod)
+	if pod.UID == "" || pod.DeletionTimestamp.IsZero() || owner == nil ||
+		owner.UID != sts.UID || owner.Name != sts.Name || owner.Kind != "StatefulSet" ||
+		owner.APIVersion != appsv1.SchemeGroupVersion.String() ||
+		pod.Labels[appsv1.StatefulSetRevisionLabel] != sts.Status.CurrentRevision {
+		return nil, fmt.Errorf("scale-down victim lacks current terminating identity, ownership or revision")
+	}
+	return pod, nil
+}
+
+func validateScaleDownResumeWorkloadIdentity(cluster *openbaov1alpha1.OpenBaoCluster, sts *appsv1.StatefulSet) error {
 	if err := resourceownership.RequireManagedControllerOwnerProof("resume scale down", sts, cluster,
 		openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster")); err != nil {
 		return err
@@ -175,7 +217,7 @@ func validateScaleDownResumeWorkload(cluster *openbaov1alpha1.OpenBaoCluster, st
 		sts.Spec.ServiceName != resourceidentity.HeadlessServiceName(cluster) ||
 		sts.Status.ObservedGeneration < sts.Generation || (*sts.Spec.Replicas > 0 && sts.Status.CurrentRevision == "") ||
 		sts.Status.CurrentRevision != sts.Status.UpdateRevision ||
-		sts.Status.Replicas != *sts.Spec.Replicas || sts.Status.CurrentReplicas != *sts.Spec.Replicas {
+		sts.Status.Replicas != *sts.Spec.Replicas {
 		return fmt.Errorf("workload identity or observed revision is not current for scale-down resume")
 	}
 	return nil
@@ -207,7 +249,7 @@ func validateScaleDownResumeMembership(
 	cluster *openbaov1alpha1.OpenBaoCluster, config *portopenbao.RaftConfigurationResponse,
 	autopilot *portopenbao.RaftAutopilotStateResponse, victim string, retained map[string]bool,
 ) error {
-	if config == nil || config.Config.Index == 0 || len(config.Config.Servers) == 0 || autopilot == nil ||
+	if config == nil || len(config.Config.Servers) == 0 || autopilot == nil ||
 		autopilot.Leader == "" || len(retained) == 0 {
 		return fmt.Errorf("authoritative membership and retained member health are required for scale-down resume")
 	}

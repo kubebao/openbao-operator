@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -166,12 +167,7 @@ path "sys/storage/raft/remove-peer" {
 		_, err = command(fmt.Sprintf("bao write sys/storage/raft/remove-peer server_id=%q", victim))
 		Expect(err).NotTo(HaveOccurred())
 
-		By("observing the removed victim unready while every retained native member remains healthy")
-		Eventually(func(g Gomega) {
-			pod := &corev1.Pod{}
-			g.Expect(f.Client.Get(ctx, client.ObjectKey{Namespace: f.Namespace, Name: victim}, pod)).To(Succeed())
-			g.Expect(pod.DeletionTimestamp).To(BeNil())
-			g.Expect(isPodReady(pod)).To(BeFalse())
+		assertRetainedMembership := func(g Gomega) {
 			config, health, err := readState()
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(config.Config.Servers).To(HaveLen(retainedMembers))
@@ -185,11 +181,125 @@ path "sys/storage/raft/remove-peer" {
 				}
 			}
 			g.Expect(voters).To(Equal(retainedVoters))
+		}
+		By("confirming native peer removal and retained member health before terminating only the victim")
+		Eventually(assertRetainedMembership, 3*time.Minute, 5*time.Second).Should(Succeed())
+		victimKey := client.ObjectKey{Namespace: f.Namespace, Name: victim}
+		victimPod := &corev1.Pod{}
+		Expect(f.Client.Get(ctx, victimKey, victimPod)).To(Succeed())
+		victimUID := victimPod.UID
+		owner := metav1.GetControllerOf(victimPod)
+		Expect(owner).NotTo(BeNil())
+		Expect(owner.UID).To(Equal(initial.UID))
+		Expect(owner.Name).To(Equal(initial.Name))
+		Expect(owner.Kind).To(Equal("StatefulSet"))
+		Expect(owner.APIVersion).To(Equal(appsv1.SchemeGroupVersion.String()))
+		readClaims := func(pod *corev1.Pod) (map[string]types.UID, error) {
+			claims := map[string]types.UID{}
+			for _, volume := range pod.Spec.Volumes {
+				if volume.PersistentVolumeClaim == nil {
+					continue
+				}
+				pvc := &corev1.PersistentVolumeClaim{}
+				key := client.ObjectKey{Namespace: f.Namespace, Name: volume.PersistentVolumeClaim.ClaimName}
+				if err := f.Client.Get(ctx, key, pvc); err != nil {
+					return nil, err
+				}
+				if pvc.DeletionTimestamp != nil || pvc.Status.Phase != corev1.ClaimBound {
+					return nil, fmt.Errorf("victim claim %s is not retained and bound", pvc.Name)
+				}
+				claims[pvc.Name] = pvc.UID
+			}
+			return claims, nil
+		}
+		retainedClaims := map[string]map[string]types.UID{}
+		for name := range retainedUIDs {
+			pod := &corev1.Pod{}
+			Expect(f.Client.Get(ctx, client.ObjectKey{Namespace: f.Namespace, Name: name}, pod)).To(Succeed())
+			claims, err := readClaims(pod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(claims).To(HaveKey("data-" + name))
+			retainedClaims[name] = claims
+		}
+		victimClaims, err := readClaims(victimPod)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(victimClaims).To(HaveKey("data-" + victim))
+		// In the native OpenBao 2.6.4 voter experiment, removal and restart
+		// alone let the unsealed standby become Ready again. Hold the terminated
+		// victim to model a separate persistent termination interruption without
+		// changing readiness or retained data.
+		const holdFinalizer = "test.openbao.org/scale-down-hold"
+		cfg, err := ctrlconfig.GetConfig()
+		Expect(err).NotTo(HaveOccurred())
+		controllerUser := fmt.Sprintf("system:serviceaccount:%s:openbao-operator-controller", operatorNamespace)
+		controllerGroups := []string{"system:serviceaccounts", "system:serviceaccounts:" + operatorNamespace, "system:authenticated"}
+		setHold := func(callCtx context.Context, held bool) error {
+			return e2ehelpers.RunWithImpersonation(callCtx, cfg, f.Client.Scheme(), controllerUser, controllerGroups,
+				func(controller client.Client) error {
+					return scaleRecoverySetFinalizer(callCtx, controller, victimKey, victimUID, holdFinalizer, held)
+				})
+		}
+		// Register cleanup before adding the finalizer. Never release a replacement
+		// Pod or another actor's finalizers, including after a failed assertion.
+		DeferCleanup(func() {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			pod := &corev1.Pod{}
+			if err := f.Client.Get(cleanupCtx, victimKey, pod); apierrors.IsNotFound(err) {
+				return
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+			}
+			if pod.UID == victimUID {
+				Expect(setHold(cleanupCtx, false)).To(Succeed())
+			}
+		})
+		By("holding and deleting only the removed victim through the controller principal")
+		Expect(setHold(ctx, true)).To(Succeed())
+		Expect(e2ehelpers.RunWithImpersonation(ctx, cfg, f.Client.Scheme(), controllerUser, controllerGroups,
+			func(controller client.Client) error {
+				return controller.Delete(ctx, victimPod, client.Preconditions{UID: &victimUID})
+			})).To(Succeed())
+		assertTerminatedVictim := func(g Gomega) {
+			pod := &corev1.Pod{}
+			g.Expect(f.Client.Get(ctx, victimKey, pod)).To(Succeed())
+			g.Expect(pod.UID).To(Equal(victimUID))
+			g.Expect(pod.DeletionTimestamp.IsZero()).To(BeFalse())
+			g.Expect(pod.Finalizers).To(ContainElement(holdFinalizer))
+			g.Expect(metav1.GetControllerOf(pod)).To(Equal(owner))
+			g.Expect(pod.Labels[appsv1.StatefulSetRevisionLabel]).To(Equal(initial.Status.CurrentRevision))
+			terminated := false
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Name == constants.ContainerBao {
+					g.Expect(status.State.Terminated).NotTo(BeNil())
+					terminated = true
+				}
+			}
+			g.Expect(terminated).To(BeTrue(), "the native OpenBao container must have stopped")
+			g.Expect(isPodReady(pod)).To(BeFalse())
+			claims, err := readClaims(pod)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(claims).To(Equal(victimClaims))
+		}
+		assertInterruptedWorkload := func(g Gomega) {
+			assertTerminatedVictim(g)
 			observed := &appsv1.StatefulSet{}
 			g.Expect(f.Client.Get(ctx, workloadKey, observed)).To(Succeed())
+			g.Expect(observed.UID).To(Equal(initial.UID))
+			g.Expect(observed.Spec.Template).To(Equal(initial.Spec.Template))
 			g.Expect(observed.Spec.Replicas).To(HaveValue(Equal(current)))
+			g.Expect(observed.Status.Replicas).To(Equal(current))
+			g.Expect(observed.Status.CurrentReplicas).To(Equal(current - 1))
 			g.Expect(observed.Status.ReadyReplicas).To(Equal(current - 1))
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+		}
+		By("observing real container termination and a stable held victim with retained data")
+		Eventually(assertInterruptedWorkload, 3*time.Minute, time.Second).Should(Succeed())
+		Eventually(assertRetainedMembership, 3*time.Minute, 5*time.Second).Should(Succeed())
+		// Only cheap fresh reads run inside this window. Native JWT Pods above
+		// and below cannot consume the interval without repeated victim samples.
+		Consistently(assertInterruptedWorkload, 15*time.Second, time.Second).Should(Succeed())
+		Eventually(assertRetainedMembership, 3*time.Minute, 5*time.Second).Should(Succeed())
+		assertInterruptedWorkload(NewWithT(GinkgoT()))
 
 		By("resuming with one fewer desired replica and preserving the workload template and surviving Pods")
 		Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
@@ -201,21 +311,35 @@ path "sys/storage/raft/remove-peer" {
 			cluster.Spec.Replicas--
 		}
 		Expect(f.Client.Patch(ctx, cluster, client.MergeFrom(before))).To(Succeed())
+		By("proving the replica-only decrement completes while the exact victim is still held")
 		Eventually(func(g Gomega) {
+			assertTerminatedVictim(g)
 			observed := &appsv1.StatefulSet{}
 			g.Expect(f.Client.Get(ctx, workloadKey, observed)).To(Succeed())
 			g.Expect(observed.UID).To(Equal(initial.UID))
 			g.Expect(observed.Spec.Replicas).To(HaveValue(Equal(current - 1)))
 			g.Expect(observed.Spec.Template).To(Equal(initial.Spec.Template), "recovery must not apply a different image or template")
+		}, 3*time.Minute, framework.DefaultPollInterval).Should(Succeed())
+		By("releasing only the test finalizer and waiting for retained members to settle")
+		Expect(setHold(ctx, false)).To(Succeed())
+		Eventually(func(g Gomega) {
+			observed := &appsv1.StatefulSet{}
+			g.Expect(f.Client.Get(ctx, workloadKey, observed)).To(Succeed())
+			g.Expect(observed.UID).To(Equal(initial.UID))
+			g.Expect(observed.Spec.Replicas).To(HaveValue(Equal(current - 1)))
+			g.Expect(observed.Spec.Template).To(Equal(initial.Spec.Template))
 			g.Expect(observed.Status.ReadyReplicas).To(Equal(current - 1))
 			g.Expect(observed.Status.ObservedGeneration).To(BeNumerically(">=", observed.Generation))
 			removed := &corev1.Pod{}
-			g.Expect(apierrors.IsNotFound(f.Client.Get(ctx, client.ObjectKey{Namespace: f.Namespace, Name: victim}, removed))).To(BeTrue())
+			g.Expect(apierrors.IsNotFound(f.Client.Get(ctx, victimKey, removed))).To(BeTrue())
 			for name, uid := range retainedUIDs {
 				pod := &corev1.Pod{}
 				g.Expect(f.Client.Get(ctx, client.ObjectKey{Namespace: f.Namespace, Name: name}, pod)).To(Succeed())
 				g.Expect(pod.UID).To(Equal(uid))
 				g.Expect(isPodReady(pod)).To(BeTrue())
+				claims, err := readClaims(pod)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(claims).To(Equal(retainedClaims[name]))
 			}
 		}, 5*time.Minute, framework.DefaultPollInterval).Should(Succeed())
 		f.WaitForCondition(cluster.Name, openbaov1alpha1.ConditionAvailable, metav1.ConditionTrue)
@@ -241,10 +365,10 @@ path "sys/storage/raft/remove-peer" {
 			Expect(health.Servers[peer.NodeID].Healthy).To(BeTrue())
 		}
 	}
-	It("finishes a voter decrement after native peer removal", Label(
+	It("finishes a voter decrement with the removed victim held terminating", Label(
 		"case:scale-down-voter-interruption", "covers:interrupted-scale-down",
 	), func(ctx SpecContext) { run(ctx, false) })
-	It("finishes a read-replica decrement after native peer removal", Label(
+	It("finishes a read-replica decrement with the removed victim held terminating", Label(
 		"case:scale-down-read-replica-interruption", "covers:interrupted-scale-down",
 	), func(ctx SpecContext) { run(ctx, true) })
 })
@@ -296,4 +420,41 @@ export BAO_TOKEN
 		return "", fmt.Errorf("authenticated scale-down client failed: %s", result.Logs)
 	}
 	return strings.TrimSpace(result.Logs), nil
+}
+
+// scaleRecoverySetFinalizer changes only this fixture's finalizer on the pinned
+// Pod. Both UID and resourceVersion protect the metadata-only patch.
+func scaleRecoverySetFinalizer(ctx context.Context, c client.Client, key client.ObjectKey, uid types.UID, finalizer string, held bool) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		pod := &corev1.Pod{}
+		if err := c.Get(ctx, key, pod); err != nil {
+			if !held && apierrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		if pod.UID != uid || uid == "" {
+			return fmt.Errorf("scale-down victim identity changed before finalizer update")
+		}
+		finalizers := make([]string, 0, len(pod.Finalizers)+1)
+		for _, existing := range pod.Finalizers {
+			if existing != finalizer {
+				finalizers = append(finalizers, existing)
+			}
+		}
+		if held {
+			finalizers = append(finalizers, finalizer)
+		}
+		payload, err := json.Marshal(map[string]interface{}{"metadata": map[string]interface{}{
+			"uid": string(uid), "resourceVersion": pod.ResourceVersion, "finalizers": finalizers,
+		}})
+		if err != nil {
+			return err
+		}
+		if err := c.Patch(ctx, pod, client.RawPatch(types.MergePatchType, payload)); !held && apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			return err
+		}
+	})
 }
