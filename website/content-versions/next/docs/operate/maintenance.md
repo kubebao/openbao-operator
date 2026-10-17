@@ -57,11 +57,10 @@ Change `spec.replicas`, not the StatefulSet. During a voter scale-down, the oper
 step at a time, steps it down if it is the leader, removes its Raft peer, and waits for the StatefulSet to settle before
 the next decrement.
 
-If peer removal succeeds but the replica update is interrupted, the removed process can remain Ready. In the
-native OpenBao 2.6.4 voter test, it also becomes Ready again after a restart with retained data. If a separate
-disruption leaves the removed Pod terminating, the operator can finish that decrement after authenticated Raft
-observations confirm that the selected peer is absent and every retained member has the expected role, address,
-health, and ready Pod.
+If peer removal succeeds but the replica update is interrupted, the removed process can remain Ready. If a
+separate disruption leaves the removed Pod terminating, the operator can finish that decrement after authenticated
+Raft observations confirm that the selected peer is absent and every retained member has the expected role,
+address, health, and ready Pod.
 
 Recovery changes only the replica count, then requeues before applying other workload changes. Unavailable or
 ambiguous observations keep the workload unchanged. For a terminating victim, recovery requires the same
