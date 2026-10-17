@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	defaultBaselinePath = "api/stability/baselines/0.5.0.json"
+	defaultBaselinePath = "api/stability/baselines/0.5.2.json"
 	defaultCurrentDir   = "config/crd/bases"
 	defaultTarget       = "next"
 	impactBreaking      = "breaking"

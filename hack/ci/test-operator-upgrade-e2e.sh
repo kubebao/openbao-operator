@@ -5,6 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HARNESS="${ROOT_DIR}/hack/ci/operator-upgrade-e2e.sh"
 digest="sha256:$(printf '%064d' 0)"
 
+expected="Operator upgrade E2E harness verified: 0.5.2 -> 0.6.0-e2e (API migration fixtures: 0.5.0 -> 0.5.1)"
+actual="$(OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true bash "${HARNESS}")"
+if [[ "${actual}" != "${expected}" ]]; then
+  echo "operator upgrade defaults do not qualify the latest stable source: ${actual}" >&2
+  exit 1
+fi
+
+OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true \
+  OPERATOR_UPGRADE_E2E_TARGET_RELEASE=0.6.0-rc.1 \
+  OPERATOR_UPGRADE_E2E_TARGET_VERSION=0.6.0-rc.1 \
+  bash "${HARNESS}" >/dev/null
+
 for owner in dc-tec kubebao; do
   OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true \
     OPERATOR_UPGRADE_E2E_HARDENED_INIT_IMAGE="ghcr.io/${owner}/openbao-init@${digest}" \

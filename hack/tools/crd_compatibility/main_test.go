@@ -13,6 +13,32 @@ import (
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
+func TestSupportedBaselineProtectsReleasedFields(t *testing.T) {
+	t.Parallel()
+	baseline, err := loadSnapshot(filepath.Join("..", "..", "..", defaultBaselinePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if baseline.Release != "0.5.2" ||
+		baseline.SourceSHA256 != "d72469358ae4b6dc1264c98b61671226ddcefca1a73952ead877a6910ac2ea69" {
+		t.Fatalf("supported baseline must match the published 0.5.2 CRD bundle: %+v", baseline)
+	}
+	path := "spec.configuration.listener.proxyProtocolAuthorizedAddrs"
+	var retained []schemaNode
+	found := false
+	for _, node := range baseline.Nodes {
+		if node.Kind == openBaoClusterKind && node.Path == path {
+			found = true
+			continue
+		}
+		retained = append(retained, node)
+	}
+	if !found {
+		t.Fatalf("supported baseline does not protect released field %s", path)
+	}
+	assertChange(t, compareSnapshots(baseline.Nodes, retained), impactBreaking, "field-removed", path)
+}
+
 func TestCompareSnapshotsClassifiesChanges(t *testing.T) {
 	t.Parallel()
 

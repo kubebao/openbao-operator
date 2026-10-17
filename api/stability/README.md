@@ -61,10 +61,11 @@ go run ./hack/tools/api_inventory --format markdown
 
 ## CRD compatibility gate
 
-`baselines/0.5.0.json` is the supported baseline. It records the normalized schemas
-from the [released 0.5.0 CRD bundle](https://github.com/kubebao/openbao-operator/releases/download/0.5.0/crds.yaml),
-whose SHA-256 digest is `58bf30cec5c7a98e931f25a80c60deaa5bbcad3df7e57d227445d4b0a0f62af8`.
-Keep `baselines/0.4.2.json` for historical comparisons.
+`baselines/0.5.2.json` is the supported baseline. It records the normalized schemas
+from the [released 0.5.2 CRD bundle](https://github.com/kubebao/openbao-operator/releases/download/0.5.2/crds.yaml),
+whose SHA-256 digest is `d72469358ae4b6dc1264c98b61671226ddcefca1a73952ead877a6910ac2ea69`.
+Keep the older baselines for historical comparisons. Runtime upgrade qualification
+starts from 0.5.2; the separate 0.5.0-to-0.5.1 API migration fixtures remain unchanged.
 
 Run the inventory and compatibility gate with:
 
