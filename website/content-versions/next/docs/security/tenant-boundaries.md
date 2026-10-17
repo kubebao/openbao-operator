@@ -13,6 +13,8 @@ verifiedBy:
   - internal/service/provisioner/manager_cleanup.go
   - internal/service/provisioner/rbac.go
   - internal/service/networking/manager.go
+  - config/policy/openbao-validate-openbaocluster.yaml
+  - test/integration/cloud_identity_test.go
   - config/rbac/openbaocluster_admin_role.yaml
   - config/rbac/openbaocluster_editor_role.yaml
   - config/rbac/openbaotenant_editor_role.yaml
@@ -88,6 +90,10 @@ or modify Kubernetes RBAC.
 
 Protected operations such as restore, network publication, custom executable use, cloud identity, and image trust
 roots require separate delegated verbs. Do not add those permissions to the ordinary editor binding for convenience.
+
+The `usecloudidentities` verb applies to cloud identity annotations and labels in both `spec.podMetadata` and
+`spec.readReplicas.template.metadata`. Admission checks these fields on creation and update, including when
+`spec.readReplicas.replicas` is zero. Unrelated Pod metadata does not require this delegation.
 
 ## Verify the effective boundary
 
