@@ -148,6 +148,7 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 
 	It("abandons an outdated green revision without rolling back", Label(
 		"case:bluegreen-target-drift-restart",
+		"e2e-anchor",
 		"covers:bluegreen-drift",
 		"covers:target-revision-drift",
 		"covers:stale-green-cleanup",

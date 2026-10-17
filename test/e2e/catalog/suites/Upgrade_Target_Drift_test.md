@@ -8,7 +8,7 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 
 | Case ID | Spec | State | Covers | Labels |
 | --- | --- | --- | --- | --- |
-| `bluegreen-target-drift-restart` | abandons an outdated green revision without rolling back | active | `bluegreen-drift`, `target-revision-drift`, `stale-green-cleanup` | `upgrade`, `bluegreen`, `slow` |
+| `bluegreen-target-drift-restart` | abandons an outdated green revision without rolling back | active | `bluegreen-drift`, `target-revision-drift`, `stale-green-cleanup` | `upgrade`, `bluegreen`, `slow`, `e2e-anchor` |
 
 ## `bluegreen-target-drift-restart`
 
@@ -20,7 +20,7 @@ Generated fallback ID: `upgrade-target-drift-abandons-an-outdated-green-revision
 
 Covers: `bluegreen-drift`, `target-revision-drift`, `stale-green-cleanup`
 
-Labels: `upgrade`, `bluegreen`, `slow`
+Labels: `upgrade`, `bluegreen`, `slow`, `e2e-anchor`
 
 Recorded checkpoints:
 - recording Blue ownership and data before the aborted upgrade
