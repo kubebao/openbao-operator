@@ -10,6 +10,7 @@ MIGRATION_FIXTURE_DIR="${ROOT_DIR}/test/fixtures/api-migration"
 source "${FIXTURE_DIR}/versions.env"
 
 FROM_VERSION="${OPERATOR_UPGRADE_E2E_FROM_VERSION:-${OPERATOR_UPGRADE_BASELINE}}"
+BASELINE_CHART="${OPERATOR_UPGRADE_E2E_BASELINE_CHART:-${OPERATOR_UPGRADE_BASELINE_CHART}}"
 MIGRATION_FROM_VERSION="${OPERATOR_UPGRADE_MIGRATION_BASELINE}"
 MIGRATION_TO_VERSION="${OPERATOR_UPGRADE_MIGRATION_TARGET}"
 TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-${OPERATOR_UPGRADE_TARGET_RELEASE}}"
@@ -353,7 +354,12 @@ verify_harness() {
     exit 1
   fi
 
-  echo "Operator upgrade E2E harness verified: ${FROM_VERSION} -> ${TARGET_VERSION} (API migration fixtures: ${MIGRATION_FROM_VERSION} -> ${MIGRATION_TO_VERSION})"
+  if ! [[ "${BASELINE_CHART}" =~ ^oci://ghcr\.io/(dc-tec|kubebao)/charts/openbao-operator$ ]]; then
+    echo "operator upgrade baseline chart must use the official OCI chart coordinates: ${BASELINE_CHART}" >&2
+    exit 1
+  fi
+
+  echo "Operator upgrade E2E harness verified: ${FROM_VERSION} -> ${TARGET_VERSION} (baseline chart: ${BASELINE_CHART}; API migration fixtures: ${MIGRATION_FROM_VERSION} -> ${MIGRATION_TO_VERSION})"
 }
 
 verify_harness
@@ -506,7 +512,7 @@ echo "Installing cert-manager..." >&2
 
 echo "Installing released operator ${FROM_VERSION}..." >&2
 echo "Install client: $("${HELM_INSTALL_BIN}" version --short)" >&2
-"${HELM_INSTALL_BIN}" install openbao-operator oci://ghcr.io/dc-tec/charts/openbao-operator \
+"${HELM_INSTALL_BIN}" install openbao-operator "${BASELINE_CHART}" \
   --version "${FROM_VERSION}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --create-namespace \
