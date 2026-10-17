@@ -75,7 +75,12 @@ capabilities, uses RuntimeDefault seccomp, inherits <code>spec.imagePullSecrets<
 }&#34;</code></pre></div><p>Before resetting failed Pods, the operator waits for the StatefulSet to reflect the current cluster generation
 and for the StatefulSet controller to observe that template. The Bao container image must match the resolved
 image recorded by workload reconciliation, including a verified digest when image verification succeeds.
-If the image differs or the resolved-image annotation is missing, the retry waits for workload reconciliation.</p><p>Each request is edge-triggered: use a new non-empty value. For blue-green rollback repair failures, use
+If the image differs or the resolved-image annotation is missing, the retry waits for workload reconciliation.</p><p>The operator records each rolling attempt in <code>status.upgrade.executionID</code>. Controller restarts preserve this value.
+A new upgrade or accepted retry uses a new value, so retained leader step-down Jobs cannot satisfy a later attempt.
+Before accepting a retry or changing the target version, the operator waits for the previous step-down Job and its Pods
+to terminate. Progress created by an older operator can resume with its existing Jobs only when their ownership,
+action, and creation time identify the current attempt. If that evidence is missing, the operator holds the upgrade;
+inspect <code>status.upgrade.failure</code>, resolve the cause, and submit a new retry request.</p><p>Each request is edge-triggered: use a new non-empty value. For blue-green rollback repair failures, use
 <a href=../recover-failed-rollback/>Recover a failed rollback</a> instead of retrying blindly.</p><p>A blue-green upgrade can only roll back before the <code>Cleanup</code> phase, because <code>Cleanup</code> removes Blue peers from Raft.
 From <code>Cleanup</code> onward, the operator refuses <code>spec.upgrade.requests.rollback</code> and automatic rollback with a
 <code>RollbackRefused</code> warning event. It retries the current phase, and applies any spec change made during that time
