@@ -11,6 +11,7 @@ verifiedBy:
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/adapter/security/cluster_image_verification.go
   - internal/adapter/security/image_verifier.go
+  - internal/adapter/security/image_verifier_keychain.go
   - internal/adapter/security/image_verifier_verify.go
   - internal/adapter/security/workload_labels.go
   - internal/app/openbaocluster/infra_images.go
@@ -77,6 +78,16 @@ model; use it only as part of an explicit disconnected or private signing design
 `spec.imagePullSecrets` is used by kubelets. The `imagePullSecrets` inside each verification block is used by the
 controller to resolve and verify a private image. In multi-tenant mode, the controller receives name-scoped `get`
 access only to the verification Secrets referenced in active tenant resources.
+
+Verification accepts both `kubernetes.io/dockerconfigjson` and `kubernetes.io/dockercfg` Secrets. Registry keys can
+include an HTTP(S) scheme, an exact port, a repository path prefix, or hostname globs. Docker Hub's `docker.io`,
+`index.docker.io`, and `registry-1.docker.io` names share credentials, including the historical
+`https://index.docker.io/v1/` key. Hostname globs match one DNS label. Append `/` to a path prefix to restrict it to
+that directory. Malformed credentials produce a verification error.
+
+More specific repository paths take precedence over their parent paths. For the same normalized scope, a later
+Secret in the verification block overrides an earlier Secret. The controller does not retry other credentials after
+a registry rejects authentication.
 
 See [Use private registries](../../configure/air-gapped/) before promoting images into a disconnected environment.
 

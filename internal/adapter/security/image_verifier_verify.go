@@ -35,7 +35,7 @@ func (v *ImageVerifier) verifyImageSignature(
 	remoteOpts := []ociremote.Option{
 		ociremote.WithRemoteOptions(ggcrremote.WithTransport(imageRegistryTransport)),
 	}
-	if len(config.ImagePullSecrets) > 0 && v.reader != nil {
+	if len(config.ImagePullSecrets) > 0 {
 		keychain, err := v.buildKeychain(ctx, config.ImagePullSecrets, config.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to build keychain for image pull secrets: %w", err)
