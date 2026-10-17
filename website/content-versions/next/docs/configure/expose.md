@@ -119,6 +119,10 @@ With `tls.mode: External`, create these same-namespace Secrets before expecting 
 | `<cluster>-tls-ca` | `ca.crt` |
 | `<cluster>-tls-server` | `tls.crt`, `tls.key` |
 
+Put the leaf certificate first in `tls.crt`, followed by its intermediate certificates. `tls.key` must match the leaf
+certificate. Store trust anchors in the `ca.crt` key of `<cluster>-tls-ca`. Certificates in `tls.crt` do not become
+trust anchors.
+
 The server certificate must chain to `ca.crt` and cover `openbao-cluster-<cluster>.local`. It must also cover each
 enabled Ingress or Gateway hostname and every entry in `spec.tls.extraSANs`. Values that parse as IP addresses must be
 IP SANs; all other values must be DNS SANs. The operator validates this contract but does not issue or rotate External

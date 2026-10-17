@@ -82,14 +82,20 @@ func ValidateExternalServerSecret(cluster *openbaov1alpha1.OpenBaoCluster, caSec
 	if !roots.AppendCertsFromPEM(caPEM) {
 		return fmt.Errorf("CA Secret ca.crt is not valid PEM certificate data")
 	}
+	// ValidateServerSecret checks the full serving chain. Use certificates after
+	// the leaf for chain building while retaining ca.crt as the only trust pool.
+	_, intermediatePEM := pemDecodeCertificate(serverSecret.Data["tls.crt"])
+	intermediates := x509.NewCertPool()
+	intermediates.AppendCertsFromPEM(intermediatePEM)
 
 	serverName := portopenbao.ComputeTLSServerName(cluster)
 	if serverName == "" {
 		return fmt.Errorf("failed to determine internal TLS server name")
 	}
 	if _, err := cert.Verify(x509.VerifyOptions{
-		DNSName: serverName,
-		Roots:   roots,
+		DNSName:       serverName,
+		Roots:         roots,
+		Intermediates: intermediates,
 	}); err != nil {
 		return fmt.Errorf("server certificate is not trusted for %q: %w", serverName, err)
 	}
