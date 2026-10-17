@@ -13,6 +13,7 @@ verifiedBy:
   - internal/service/workload/maintenance.go
   - internal/service/workload/pdb.go
   - internal/app/openbaocluster/infra_scale_down.go
+  - internal/app/openbaocluster/infra_scale_down_resume.go
   - cmd/bao-wrapper/process_runner.go
 ---
 
@@ -55,6 +56,12 @@ period. Forced deletion or a shorter grace period can prevent OpenBao from compl
 Change `spec.replicas`, not the StatefulSet. During a voter scale-down, the operator removes the highest ordinal one
 step at a time, steps it down if it is the leader, removes its Raft peer, and waits for the StatefulSet to settle before
 the next decrement.
+
+If peer removal succeeds but the replica update is interrupted, the removed Pod can become unready. The operator
+can finish that decrement after authenticated Raft observations confirm that the selected peer is absent and every
+retained member has the expected role, address, health, and ready Pod. Recovery changes only the replica count, then
+requeues before applying other workload changes. Unavailable or ambiguous observations keep the workload unchanged.
+This recovery applies to voters and read replicas.
 
 {{< command label="apply" title="Set the voter count" >}}
 kubectl -n <namespace> patch openbaocluster <name> --type merge -p '{

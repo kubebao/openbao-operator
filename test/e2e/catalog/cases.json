@@ -1348,6 +1348,74 @@
     "suiteTitle": ""
   },
   {
+    "id": "scale-down-read-replica-interruption",
+    "generatedId": "scale-down-recovery-finishes-a-read-replica-decrement-after-e2186dac",
+    "caseLabel": "scale-down-read-replica-interruption",
+    "coverage": [
+      "interrupted-scale-down"
+    ],
+    "file": "test/e2e/Scale_Down_Recovery_test.go",
+    "type": "It",
+    "name": "finishes a read-replica decrement after native peer removal",
+    "path": [
+      "Scale-down recovery",
+      "finishes a read-replica decrement after native peer removal"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "scaling",
+      "recovery",
+      "case:scale-down-read-replica-interruption",
+      "covers:interrupted-scale-down"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "scaling",
+      "recovery"
+    ],
+    "steps": null,
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
+    "id": "scale-down-voter-interruption",
+    "generatedId": "scale-down-recovery-finishes-a-voter-decrement-after-native-7ab90e6d",
+    "caseLabel": "scale-down-voter-interruption",
+    "coverage": [
+      "interrupted-scale-down"
+    ],
+    "file": "test/e2e/Scale_Down_Recovery_test.go",
+    "type": "It",
+    "name": "finishes a voter decrement after native peer removal",
+    "path": [
+      "Scale-down recovery",
+      "finishes a voter decrement after native peer removal"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "scaling",
+      "recovery",
+      "case:scale-down-voter-interruption",
+      "covers:interrupted-scale-down"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "scaling",
+      "recovery"
+    ],
+    "steps": null,
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "admission-runtime-binding-loss",
     "generatedId": "security-guardrails-pauses-managed-resource-reconciliation-when-a-ee48afbc",
     "caseLabel": "admission-runtime-binding-loss",

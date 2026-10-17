@@ -2,7 +2,6 @@ package openbaocluster
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -94,6 +93,7 @@ type InfraPodRuntime struct {
 type InfraScaleDownRuntime struct {
 	Runtime            initmanagerport.ScaleDownRuntime
 	ReadReplicaRuntime initmanagerport.ReadReplicaScaleDownRuntime
+	Membership         StatusMembershipRuntime
 }
 
 // InfraDependencies provides external dependencies for infrastructure reconciliation.
@@ -151,14 +151,12 @@ func (r *infraReconciler) Reconcile(ctx context.Context, logger logr.Logger, clu
 	switch {
 	case err == nil:
 		currentSTSFound = true
+		if r.handleInterruptedScaleDown(ctx, logger, cluster, currentSTS, spec.Replicas, false) {
+			return recon.Result{RequeueAfter: infraRequeueShort}, nil
+		}
 		appliedReplicas, err := r.handleScaleDownSafety(ctx, cluster, spec.Replicas, currentSTS)
 		if err != nil {
-			if operatorerrors.IsPermanent(err) && errors.Is(err, operatorerrors.ErrPermanentPrerequisitesMissing) {
-				logger.Info("Scale down safety check requires user intervention", "reason", err.Error())
-				return recon.Result{}, nil
-			}
-			logger.Info("Scale down safety check blocked reconciliation", "reason", err.Error())
-			return recon.Result{RequeueAfter: infraRequeueShort}, nil
+			return scaleDownWaitResult(logger, err, false), nil
 		}
 		spec.Replicas = appliedReplicas
 		stagedScaleDown = cluster.Status.Initialized && spec.Replicas > cluster.Spec.Replicas
@@ -175,14 +173,12 @@ func (r *infraReconciler) Reconcile(ctx context.Context, logger logr.Logger, clu
 	case err == nil:
 		readCurrentSTSFound = true
 		declaredReadReplicas := readSpec.Replicas
+		if r.handleInterruptedScaleDown(ctx, logger, cluster, readCurrentSTS, declaredReadReplicas, true) {
+			return recon.Result{RequeueAfter: infraRequeueShort}, nil
+		}
 		appliedReplicas, err := r.handleReadReplicaScaleDownSafety(ctx, cluster, declaredReadReplicas, readCurrentSTS)
 		if err != nil {
-			if operatorerrors.IsPermanent(err) && errors.Is(err, operatorerrors.ErrPermanentPrerequisitesMissing) {
-				logger.Info("Read-replica scale down requires user intervention", "reason", err.Error())
-				return recon.Result{}, nil
-			}
-			logger.Info("Read-replica scale down blocked reconciliation", "reason", err.Error())
-			return recon.Result{RequeueAfter: infraRequeueShort}, nil
+			return scaleDownWaitResult(logger, err, true), nil
 		}
 		readSpec.Replicas = appliedReplicas
 		stagedReadReplicaScaleDown = cluster.Status.Initialized && readSpec.Replicas > declaredReadReplicas

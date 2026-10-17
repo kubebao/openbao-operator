@@ -2,12 +2,16 @@ package openbaocluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
+	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 )
 
 func (r *infraReconciler) handleScaleDownSafety(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, desiredReplicas int32, currentSTS *appsv1.StatefulSet) (int32, error) {
@@ -117,4 +121,13 @@ func statefulSetSettledAtReplicas(sts *appsv1.StatefulSet, replicas int32) bool 
 		return false
 	}
 	return sts.Status.CurrentReplicas == replicas
+}
+
+func scaleDownWaitResult(logger logr.Logger, err error, readReplica bool) recon.Result {
+	if operatorerrors.IsPermanent(err) && errors.Is(err, operatorerrors.ErrPermanentPrerequisitesMissing) {
+		logger.Info("Scale down requires user intervention", "readReplica", readReplica, "reason", err.Error())
+		return recon.Result{}
+	}
+	logger.Info("Scale down safety check blocked reconciliation", "readReplica", readReplica, "reason", err.Error())
+	return recon.Result{RequeueAfter: infraRequeueShort}
 }

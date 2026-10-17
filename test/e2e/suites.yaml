@@ -531,6 +531,27 @@ suites:
     nightly:
       policy: primary-version-full
 
+  - id: scale-down-recovery
+    title: "Scale-down recovery"
+    owner: core
+    riskTier: critical
+    isolation: parallel-safe
+    files:
+      - test/e2e/Scale_Down_Recovery_test.go
+    labels:
+      - lifecycle
+      - cluster
+      - scaling
+      - recovery
+    coverage:
+      - interrupted-scale-down
+    ci:
+      lanes:
+        - core
+      pullRequest: changed-paths
+    nightly:
+      policy: primary-version-full
+
   - id: self-init-secret-inputs
     title: "Self-init Secret inputs"
     owner: core

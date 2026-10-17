@@ -125,6 +125,7 @@ func NewRuntimeApplications(config RuntimeApplicationsConfig) *Applications {
 			ScaleDown: InfraScaleDownRuntime{
 				Runtime:            config.OpenBao.Raft,
 				ReadReplicaRuntime: config.OpenBao.Raft,
+				Membership:         config.OpenBao.Raft,
 			},
 		}),
 		NewStorageReconciler(StorageDependencies{
