@@ -326,13 +326,16 @@ bao policy write %s /tmp/policy.hcl
 
 func newStaleRollingStepDownJob(cluster *openbaov1alpha1.OpenBaoCluster, podName, image string) *batchv1.Job {
 	var backoffLimit int32
+	runID := upgrade.RollingStepDownRunID(cluster, podName)
 
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      upgrade.ExecutorJobName(cluster.Name, upgrade.ExecutorActionRollingStepDownLeader, podName, "", ""),
+			Name:      upgrade.ExecutorJobName(cluster.Name, upgrade.ExecutorActionRollingStepDownLeader, runID, upgrade.StableVoterRevision(cluster), ""),
 			Namespace: cluster.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationOpenBaoOwnerUID: string(cluster.UID),
+				upgradeActionAnnotationKey:          string(upgrade.ExecutorActionRollingStepDownLeader),
+				upgradeRunIDAnnotationKey:           runID,
 			},
 			Labels: map[string]string{
 				constants.LabelOpenBaoCluster:        cluster.Name,
@@ -383,6 +386,19 @@ func newStaleRollingStepDownJob(cluster *openbaov1alpha1.OpenBaoCluster, podName
 			},
 		},
 	}
+}
+
+func createRollingStepDownFixtureJob(ctx context.Context, admin client.Client, job *batchv1.Job) error {
+	cfg, err := ctrlconfig.GetConfig()
+	if err != nil {
+		return err
+	}
+	controllerUser := fmt.Sprintf("system:serviceaccount:%s:openbao-operator-controller", operatorNamespace)
+	controllerGroups := []string{
+		"system:serviceaccounts", "system:serviceaccounts:" + operatorNamespace, "system:authenticated",
+	}
+	return e2ehelpers.RunWithImpersonation(ctx, cfg, admin.Scheme(), controllerUser, controllerGroups,
+		func(controllerClient client.Client) error { return controllerClient.Create(ctx, job) })
 }
 
 // === Tests ===
@@ -1320,29 +1336,12 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 			By("Injecting a stale deterministic step-down job for the retry cleanup path")
 			targetPod := fmt.Sprintf("%s-%d", recoveryCluster.Name, failedPartition-1)
+			Expect(admin.Get(ctx, client.ObjectKeyFromObject(recoveryCluster), recoveryCluster)).To(Succeed())
+			failedExecutionID := recoveryCluster.Status.Upgrade.ExecutionID
+			Expect(failedExecutionID).NotTo(BeEmpty())
 			staleJob := newStaleRollingStepDownJob(recoveryCluster, targetPod, initialImage)
 			Expect(validateManagedLifecycleJobOwnerProof(staleJob, recoveryCluster)).To(Succeed())
-			cfg, err := ctrlconfig.GetConfig()
-			Expect(err).NotTo(HaveOccurred())
-			controllerUser := fmt.Sprintf(
-				"system:serviceaccount:%s:openbao-operator-controller",
-				operatorNamespace,
-			)
-			controllerGroups := []string{
-				"system:serviceaccounts",
-				fmt.Sprintf("system:serviceaccounts:%s", operatorNamespace),
-				"system:authenticated",
-			}
-			Expect(e2ehelpers.RunWithImpersonation(
-				ctx,
-				cfg,
-				admin.Scheme(),
-				controllerUser,
-				controllerGroups,
-				func(controllerClient client.Client) error {
-					return controllerClient.Create(ctx, staleJob)
-				},
-			)).To(Succeed())
+			Expect(createRollingStepDownFixtureJob(ctx, admin, staleJob)).To(Succeed())
 			staleJobUID := staleJob.UID
 
 			By("Restoring the target image and requesting a rolling retry")
@@ -1369,6 +1368,8 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				g.Expect(admin.Get(ctx, types.NamespacedName{Name: recoveryCluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
 				g.Expect(updated.Status.Upgrade).NotTo(BeNil())
 				g.Expect(updated.Status.Upgrade.Failure).To(BeNil())
+				g.Expect(updated.Status.Upgrade.ExecutionID).NotTo(BeEmpty())
+				g.Expect(updated.Status.Upgrade.ExecutionID).NotTo(Equal(failedExecutionID))
 				g.Expect(updated.Status.UpgradeRequests).NotTo(BeNil())
 				g.Expect(updated.Status.UpgradeRequests.LastHandledRetry).To(Equal(retryToken))
 				sts := &appsv1.StatefulSet{}

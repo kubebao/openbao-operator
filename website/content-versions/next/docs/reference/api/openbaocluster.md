@@ -2701,6 +2701,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `executionID` _string_ | ExecutionID identifies the current rolling upgrade attempt.<br />It remains stable across controller restarts and changes when a retry is accepted.<br />Older in-flight upgrades can omit it until an explicit retry is accepted. |  | Optional: \{\} <br /> |
 | `targetVersion` _string_ | TargetVersion is the version being upgraded to. |  |  |
 | `fromVersion` _string_ | FromVersion is the version being upgraded from. |  |  |
 | `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartedAt is when the upgrade began. |  | Optional: \{\} <br /> |

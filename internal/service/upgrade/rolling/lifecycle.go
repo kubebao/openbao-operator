@@ -6,12 +6,14 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	"github.com/kubebao/openbao-operator/internal/port/adminops"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
+	"github.com/kubebao/openbao-operator/internal/service/upgrade/core"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade/raftops"
 )
 
@@ -38,6 +40,10 @@ func (m *Manager) patchStatusSSA(ctx context.Context, cluster *openbaov1alpha1.O
 	}
 
 	if err := m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.Status.Upgrade != nil && cluster.Status.Upgrade != nil &&
+			obj.Status.Upgrade.ExecutionID != cluster.Status.Upgrade.ExecutionID {
+			return rollingAttemptChanged()
+		}
 		obj.Status.Upgrade = cluster.Status.Upgrade
 		return nil
 	}, adminops.ForceOwnershipOnConflict); err != nil {
@@ -45,6 +51,36 @@ func (m *Manager) patchStatusSSA(ctx context.Context, cluster *openbaov1alpha1.O
 	}
 
 	return nil
+}
+
+func (m *Manager) clearRetargetedUpgrade(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster) error {
+	if m.adminOpsMutator == nil {
+		return fmt.Errorf("adminops status mutator is required")
+	}
+	expected := cluster.Status.Upgrade.DeepCopy()
+	if err := m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if !equality.Semantic.DeepEqual(obj.Status.Upgrade, expected) {
+			return rollingAttemptChanged()
+		}
+		core.ClearUpgrade(&obj.Status)
+		return nil
+	}, adminops.ForceOwnership); err != nil {
+		return fmt.Errorf("failed to clear retired rolling upgrade: %w", err)
+	}
+	return nil
+}
+
+func rollingAttemptChanged() error {
+	return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("rolling upgrade attempt changed; reconcile current progress before continuing"))
+}
+
+func (m *Manager) failUnpersistedExecution(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster) error {
+	cause := fmt.Errorf("rolling execution identity was not persisted; install the matching OpenBaoCluster CRD and submit a new retry request")
+	core.SetUpgradeFailed(&cluster.Status, upgrade.ReasonUpgradeFailed, cause.Error())
+	if err := m.patchUpgradeStatus(ctx, cluster); err != nil {
+		return fmt.Errorf("%w: failed to hold rolling upgrade: %w", cause, err)
+	}
+	return cause
 }
 
 func (m *Manager) waitForFinalizationConverged(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (bool, error) {

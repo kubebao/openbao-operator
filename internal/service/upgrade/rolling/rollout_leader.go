@@ -52,6 +52,9 @@ func (m *Manager) stepDownLeader(ctx context.Context, logger logr.Logger, cluste
 	if cluster.Status.Upgrade == nil {
 		return false, fmt.Errorf("upgrade state is nil")
 	}
+	if cluster.Status.Upgrade.ExecutionID == "" && (cluster.Status.Upgrade.StartedAt == nil || cluster.Status.Upgrade.StartedAt.IsZero()) {
+		return false, fmt.Errorf("legacy rolling upgrade has no start time; set %s to a new value to retry", upgrade.RequestRetryFieldPath)
+	}
 
 	stableRevision := upgrade.StableVoterRevision(cluster)
 	jobName := rollingStepDownJobName(cluster, podName)
@@ -72,6 +75,11 @@ func (m *Manager) stepDownLeader(ctx context.Context, logger logr.Logger, cluste
 			jobExists = false
 		} else {
 			return false, fmt.Errorf("failed to get step-down Job %s/%s: %w", cluster.Namespace, jobName, err)
+		}
+	}
+	if jobExists {
+		if err := upgrade.ValidateRollingStepDownJob(cluster, stepDownJob, upgrade.RollingStepDownRunID(cluster, podName)); err != nil {
+			return false, err
 		}
 	}
 
@@ -106,7 +114,7 @@ func (m *Manager) stepDownLeader(ctx context.Context, logger logr.Logger, cluste
 		logger,
 		cluster,
 		upgrade.ExecutorActionRollingStepDownLeader,
-		podName,
+		upgrade.RollingStepDownRunID(cluster, podName),
 		stableRevision,
 		"",
 		m.clientConfig,
@@ -215,7 +223,7 @@ func rollingStepDownJobName(cluster *openbaov1alpha1.OpenBaoCluster, podName str
 	return upgrade.ExecutorJobName(
 		cluster.Name,
 		upgrade.ExecutorActionRollingStepDownLeader,
-		podName,
+		upgrade.RollingStepDownRunID(cluster, podName),
 		upgrade.StableVoterRevision(cluster),
 		"",
 	)

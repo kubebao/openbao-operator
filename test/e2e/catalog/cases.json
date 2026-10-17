@@ -2513,6 +2513,46 @@
     "suiteTitle": ""
   },
   {
+    "id": "rolling-consecutive-execution-identity",
+    "generatedId": "upgrade-rolling-execution-completes-consecutive-upgrades-while-prior-step-32eaae65",
+    "caseLabel": "rolling-consecutive-execution-identity",
+    "coverage": [
+      "rolling-execution-identity"
+    ],
+    "file": "test/e2e/Upgrade_Rolling_Execution_test.go",
+    "type": "It",
+    "name": "completes consecutive upgrades while prior step-down Jobs remain",
+    "path": [
+      "Rolling execution identity",
+      "completes consecutive upgrades while prior step-down Jobs remain"
+    ],
+    "labels": [
+      "upgrade",
+      "upgrades",
+      "rolling",
+      "cluster",
+      "slow",
+      "case:rolling-consecutive-execution-identity",
+      "covers:rolling-execution-identity",
+      "e2e-anchor"
+    ],
+    "domainLabels": [
+      "upgrade",
+      "upgrades",
+      "rolling",
+      "cluster",
+      "slow",
+      "e2e-anchor"
+    ],
+    "steps": [
+      "Retaining successful prior-attempt Jobs for every ordinal before the next upgrade"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "upgrade-bluegreen-retry-identity",
     "generatedId": "upgrade-strategies-holds-in-syncing-and-creates-fresh-d60f290d",
     "caseLabel": "upgrade-bluegreen-retry-identity",

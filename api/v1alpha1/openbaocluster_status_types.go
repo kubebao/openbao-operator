@@ -23,6 +23,11 @@ import (
 
 // UpgradeProgress tracks the state of an in-progress upgrade.
 type UpgradeProgress struct {
+	// ExecutionID identifies the current rolling upgrade attempt.
+	// It remains stable across controller restarts and changes when a retry is accepted.
+	// Older in-flight upgrades can omit it until an explicit retry is accepted.
+	// +optional
+	ExecutionID string `json:"executionID,omitempty"`
 	// TargetVersion is the version being upgraded to.
 	TargetVersion string `json:"targetVersion"`
 	// FromVersion is the version being upgraded from.

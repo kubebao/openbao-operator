@@ -448,6 +448,10 @@ resources:
       - path: status.upgrade
         classification: informational
         owner: upgrade-status
+      - path: status.upgrade.executionID
+        classification: informational
+        omission: legacy in-flight upgrade keeps legacy Job names until an explicit retry
+        rationale: Internal rolling attempt identity prevents retained Jobs from satisfying a later upgrade.
       - path: status.upgradeRequests
         classification: informational
         owner: upgrade-status

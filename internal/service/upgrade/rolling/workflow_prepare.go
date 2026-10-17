@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -94,11 +95,22 @@ func (m *Manager) startUpgradeExecutionIfNeeded(
 	fromVersion, toVersion, replicas := cluster.Status.CurrentVersion, cluster.Spec.Version, cluster.Spec.Replicas
 	logger.Info("Initializing upgrade", "from", fromVersion, "to", toVersion, "replicas", replicas)
 	core.SetUpgradeStarted(&cluster.Status, fromVersion, toVersion, replicas)
+	executionID := string(uuid.NewUUID())
+	cluster.Status.Upgrade.ExecutionID = executionID
 	if err := m.setStatefulSetPartition(ctx, cluster, replicas); err != nil {
 		return fmt.Errorf("failed to lock StatefulSet partition: %w", err)
 	}
 	if err := m.patchUpgradeStatus(ctx, cluster); err != nil {
 		return fmt.Errorf("failed to update status after initializing upgrade: %w", err)
+	}
+	if cluster.Status.Upgrade == nil {
+		return rollingAttemptChanged()
+	}
+	if cluster.Status.Upgrade.ExecutionID == "" {
+		return m.failUnpersistedExecution(ctx, cluster)
+	}
+	if cluster.Status.Upgrade.ExecutionID != executionID {
+		return rollingAttemptChanged()
 	}
 
 	if metrics != nil {
@@ -116,7 +128,10 @@ func (m *Manager) applyUpgradeDecision(ctx context.Context, logger logr.Logger, 
 		logger.Info("Spec.Version changed during upgrade; clearing upgrade state and starting fresh",
 			"previousTarget", cluster.Status.Upgrade.TargetVersion,
 			"newTarget", cluster.Spec.Version)
-		core.ClearUpgrade(&cluster.Status)
+		if err := m.retireStepDownJob(ctx, logger, cluster); err != nil {
+			return err
+		}
+		return m.clearRetargetedUpgrade(ctx, cluster)
 	case upgradeRetry:
 		return m.prepareFailedUpgradeRetry(ctx, logger, cluster, decision.retryRequest)
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	openbaoapi "github.com/kubebao/openbao-operator/internal/platform/testutil/openbao"
+	"github.com/kubebao/openbao-operator/internal/port/adminops"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 	upgradecore "github.com/kubebao/openbao-operator/internal/service/upgrade/core"
@@ -1306,7 +1307,11 @@ func TestVersionMismatchDuringUpgrade(t *testing.T) {
 				},
 			}
 			decision := decideUpgrade(cluster)
-			if err := (&Manager{}).applyUpgradeDecision(t.Context(), logr.Discard(), cluster, decision); err != nil {
+			manager := &Manager{adminOpsMutator: func(_ context.Context, obj *openbaov1alpha1.OpenBaoCluster,
+				mutate func(*openbaov1alpha1.OpenBaoCluster) error, _ adminops.OwnershipPolicy) error {
+				return mutate(obj)
+			}}
+			if err := manager.applyUpgradeDecision(t.Context(), logr.Discard(), cluster, decision); err != nil {
 				t.Fatal(err)
 			}
 			if (cluster.Status.Upgrade == nil) != tt.shouldClearState {

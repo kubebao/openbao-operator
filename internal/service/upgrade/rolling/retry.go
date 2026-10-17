@@ -7,10 +7,13 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -31,7 +34,7 @@ func (m *Manager) prepareFailedUpgradeRetry(ctx context.Context, logger logr.Log
 		"currentPartition", cluster.Status.Upgrade.CurrentPartition)
 	m.emitNormalEvent(cluster, upgrade.ReasonRollingRetryRequested, "Rolling upgrade retry requested for target version %s", cluster.Status.Upgrade.TargetVersion)
 
-	if err := m.cleanupStepDownJobForRetry(ctx, logger, cluster); err != nil {
+	if err := m.retireStepDownJob(ctx, logger, cluster); err != nil {
 		return err
 	}
 	if err := m.resetRolloutPodsForRetry(ctx, logger, cluster); err != nil {
@@ -53,17 +56,33 @@ func (m *Manager) patchRetryStatusSSA(ctx context.Context, cluster *openbaov1alp
 	if m.adminOpsMutator == nil {
 		return fmt.Errorf("adminops status mutator is required")
 	}
+	expected := cluster.Status.Upgrade.DeepCopy()
+	executionID := string(uuid.NewUUID())
 
 	if err := m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.Status.UpgradeRequests != nil && obj.Status.UpgradeRequests.LastHandledRetry == retryRequest {
+			return nil
+		}
+		if !equality.Semantic.DeepEqual(obj.Status.Upgrade, expected) ||
+			(expected != nil && obj.Spec.Version != expected.TargetVersion) {
+			return rollingAttemptChanged()
+		}
 		if obj.Status.Upgrade == nil {
 			upgrade.MarkRetryRequestHandled(&obj.Status, retryRequest)
 			return nil
 		}
 		clearUpgradeFailureForRetry(obj)
+		obj.Status.Upgrade.ExecutionID = executionID
 		upgrade.MarkRetryRequestHandled(&obj.Status, retryRequest)
 		return nil
 	}, adminops.ForceOwnership); err != nil {
 		return fmt.Errorf("failed to apply cleared retry status: %w", err)
+	}
+	if expected != nil && cluster.Status.Upgrade == nil {
+		return rollingAttemptChanged()
+	}
+	if expected != nil && cluster.Status.Upgrade.ExecutionID == "" {
+		return m.failUnpersistedExecution(ctx, cluster)
 	}
 	if retryFailureFieldsRemain(cluster) {
 		return fmt.Errorf("failed to clear failed rolling-upgrade state via SSA")
@@ -82,7 +101,7 @@ func retryFailureFieldsRemain(cluster *openbaov1alpha1.OpenBaoCluster) bool {
 		cluster.Status.Upgrade.LastStepDownTime != nil
 }
 
-func (m *Manager) cleanupStepDownJobForRetry(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error {
+func (m *Manager) retireStepDownJob(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error {
 	if cluster == nil || cluster.Status.Upgrade == nil {
 		return nil
 	}
@@ -110,11 +129,20 @@ func (m *Manager) cleanupStepDownJobForRetry(ctx context.Context, logger logr.Lo
 		return fmt.Errorf("failed to get step-down Job %s/%s for retry cleanup: %w", cluster.Namespace, jobName, err)
 	}
 
-	if err := m.client.Delete(ctx, job, client.Preconditions{UID: &job.UID}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete step-down Job %s/%s for retry cleanup: %w", cluster.Namespace, jobName, err)
+	if job.DeletionTimestamp == nil {
+		if err := m.client.Delete(ctx, job, client.Preconditions{UID: &job.UID, ResourceVersion: &job.ResourceVersion},
+			client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to retire step-down Job %s/%s: %w", cluster.Namespace, jobName, err)
+		}
+	}
+	if err := m.jobReader().Get(ctx, jobKey, &batchv1.Job{}); !apierrors.IsNotFound(err) {
+		if err != nil {
+			return fmt.Errorf("failed to confirm step-down Job retirement: %w", err)
+		}
+		return operatorerrors.WrapTransientKubernetesAPI(fmt.Errorf("waiting for step-down Job %s/%s and its Pods to terminate", cluster.Namespace, jobName))
 	}
 
-	logger.Info("Deleted stale step-down Job before retry", "job", jobName, "pod", targetPod)
+	logger.Info("Retired step-down Job before replacing upgrade attempt", "job", jobName, "pod", targetPod)
 	return nil
 }
 

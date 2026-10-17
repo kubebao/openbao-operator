@@ -3,12 +3,14 @@ package rolling
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +27,8 @@ import (
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 )
 
+const lifecycleApply = "apply"
+
 func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 	const partitionWrite = "partition"
 	t.Parallel()
@@ -33,7 +37,7 @@ func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 		if completing {
 			operation = "complete"
 		}
-		for _, failure := range []string{"none", partitionWrite, "apply", "read-back"} {
+		for _, failure := range []string{"none", partitionWrite, lifecycleApply, "read-back"} {
 			if completing && failure == partitionWrite {
 				continue
 			}
@@ -74,9 +78,9 @@ func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 						return c.Patch(ctx, obj, patch, opts...)
 					},
 					SubResourceApply: func(ctx context.Context, c client.Client, subresource string, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
-						writes = append(writes, "apply")
+						writes = append(writes, lifecycleApply)
 						assertNotReported()
-						if failure == "apply" {
+						if failure == lifecycleApply {
 							return writeErr
 						}
 						err := c.SubResource(subresource).Apply(ctx, obj, opts...)
@@ -125,8 +129,8 @@ func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 					wantWrites = nil
 				}
 				if failure != partitionWrite {
-					wantWrites = append(wantWrites, "apply")
-					if failure != "apply" {
+					wantWrites = append(wantWrites, lifecycleApply)
+					if failure != lifecycleApply {
 						wantWrites = append(wantWrites, "read-back")
 					}
 				}
@@ -137,12 +141,98 @@ func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 					require.Nil(t, stored.Status.Upgrade)
 				} else {
 					require.NotNil(t, stored.Status.Upgrade)
+					if !completing {
+						require.NotEmpty(t, stored.Status.Upgrade.ExecutionID)
+					}
 					require.Equal(t, "2.5.5", stored.Status.Upgrade.FromVersion)
 					require.Equal(t, "2.6.2", stored.Status.Upgrade.TargetVersion)
 				}
 				require.Equal(t, "2.5.5", stored.Status.CurrentVersion, "the status controller owns the observed version")
 			})
 		}
+	}
+}
+
+func TestRollingExecutionCheckpointFailurePreventsExecutorEffects(t *testing.T) {
+	for _, failure := range []string{"none", lifecycleApply, "read-back", "identity-pruned"} {
+		t.Run(failure, func(t *testing.T) {
+			cluster, objects := rollingLifecycleObjects(false)
+			cluster.UID = "checkpoint-cluster"
+			cluster.Spec.Replicas = 3
+			cluster.Status.Initialized = true
+			cluster.Spec.Upgrade = &openbaov1alpha1.UpgradeConfig{Image: "executor:test", JWTAuthRole: "upgrade"}
+			sts := objects[0].(*appsv1.StatefulSet)
+			sts.Status.ReadyReplicas = 3
+			sts.Spec.Template.Spec.Containers = []corev1.Container{{Name: constants.ContainerBao, Image: "target"}}
+			sts.Status.UpdateRevision = "target"
+			pod := objects[1].(*corev1.Pod)
+			pod.Spec.Containers = []corev1.Container{{Name: constants.ContainerBao, Image: "old"}}
+			pod.Labels[portopenbao.LabelActive] = "false"
+			for ordinal := 1; ordinal < 3; ordinal++ {
+				sibling := pod.DeepCopy()
+				sibling.Name = fmt.Sprintf("%s-%d", cluster.Name, ordinal)
+				if ordinal == 2 {
+					sibling.Labels[portopenbao.LabelActive] = "true"
+				}
+				objects = append(objects, sibling)
+			}
+			base := fake.NewClientBuilder().WithScheme(newRollingEventTestScheme(t)).
+				WithObjects(append(objects, cluster)...).WithStatusSubresource(&openbaov1alpha1.OpenBaoCluster{}).Build()
+			writeErr := errors.New("injected execution checkpoint failure")
+			applied, jobCreates := false, 0
+			c := interceptor.NewClient(base, interceptor.Funcs{
+				SubResourceApply: func(ctx context.Context, c client.Client, subresource string, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+					if failure == lifecycleApply {
+						return writeErr
+					}
+					err := c.SubResource(subresource).Apply(ctx, obj, opts...)
+					applied = err == nil
+					return err
+				},
+				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if _, ok := obj.(*openbaov1alpha1.OpenBaoCluster); ok && applied && failure == "read-back" {
+						return writeErr
+					}
+					err := c.Get(ctx, key, obj, opts...)
+					if current, ok := obj.(*openbaov1alpha1.OpenBaoCluster); ok && err == nil && applied && failure == "identity-pruned" {
+						current.Status.Upgrade.ExecutionID = ""
+					}
+					return err
+				},
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*batchv1.Job); ok {
+						jobCreates++
+						stored := &openbaov1alpha1.OpenBaoCluster{}
+						require.NoError(t, base.Get(ctx, client.ObjectKeyFromObject(cluster), stored))
+						require.NotEmpty(t, stored.Status.Upgrade.ExecutionID, "attempt checkpoint must precede executor creation")
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			})
+			m := newManagerWithClientFactory(c, newRollingEventTestScheme(t), nil,
+				func(portopenbao.ClientConfig) (portopenbao.ClusterActions, error) {
+					return &openbaoapi.MockClusterActions{
+						IsHealthyFunc: func(context.Context) (bool, error) { return true, nil },
+						IsLeaderFunc:  func(context.Context) (bool, error) { return true, nil },
+					}, nil
+				}, nil).WithAdminOpsStatusMutator(testAdminOpsMutator(c))
+			_, err := m.Reconcile(t.Context(), logr.Discard(), cluster)
+			switch failure {
+			case "none":
+				require.NoError(t, err)
+				require.Equal(t, 1, jobCreates)
+			case "identity-pruned":
+				require.ErrorContains(t, err, "execution identity was not persisted")
+				require.Zero(t, jobCreates)
+				require.NotNil(t, cluster.Status.Upgrade.Failure, "the failure must hold subsequent reconciles")
+				_, err = m.Reconcile(t.Context(), logr.Discard(), cluster)
+				require.NoError(t, err)
+				require.Zero(t, jobCreates)
+			default:
+				require.ErrorIs(t, err, writeErr)
+				require.Zero(t, jobCreates)
+			}
+		})
 	}
 }
 

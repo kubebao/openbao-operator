@@ -942,6 +942,29 @@ suites:
     nightly:
       policy: primary-version-full
 
+  - id: rolling-execution
+    title: "Rolling execution identity"
+    owner: upgrade
+    riskTier: critical
+    isolation: parallel-safe
+    files:
+      - test/e2e/Upgrade_Rolling_Execution_test.go
+    labels:
+      - upgrade
+      - upgrades
+      - rolling
+      - cluster
+      - slow
+      - e2e-anchor
+    coverage:
+      - rolling-execution-identity
+    ci:
+      lanes:
+        - upgrade-rolling
+      pullRequest: changed-paths
+    nightly:
+      policy: primary-version-full
+
   - id: upgrade-gateway
     title: "Upgrade Strategies: Gateway API"
     owner: upgrade

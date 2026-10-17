@@ -7454,6 +7454,12 @@ spec:
                       value.
                     format: int32
                     type: integer
+                  executionID:
+                    description: |-
+                      ExecutionID identifies the current rolling upgrade attempt.
+                      It remains stable across controller restarts and changes when a retry is accepted.
+                      Older in-flight upgrades can omit it until an explicit retry is accepted.
+                    type: string
                   failure:
                     description: |-
                       Failure is the structured rolling-upgrade failure status.

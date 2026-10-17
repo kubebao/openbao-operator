@@ -57,6 +57,7 @@ func TestRollingRetryRequiresObservedRenderedTarget(t *testing.T) {
 			mutateStatus := adminopsstatus.NewMutator(controller, controller)
 			require.NoError(t, mutateStatus(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
 				obj.Status.Upgrade = &openbaov1alpha1.UpgradeProgress{
+					ExecutionID: "initial-execution",
 					FromVersion: obj.Status.CurrentVersion, TargetVersion: obj.Spec.Version, CurrentPartition: 3,
 					Failure: &openbaov1alpha1.ControllerErrorStatus{Reason: upgrade.ReasonPodNotReady},
 				}
@@ -122,6 +123,7 @@ func TestRollingRetryRequiresObservedRenderedTarget(t *testing.T) {
 				require.ErrorIs(t, err, operatorerrors.ErrTransientKubernetesAPI)
 				require.Nil(t, pod.DeletionTimestamp)
 				require.NotNil(t, stored.Status.Upgrade.Failure)
+				require.Equal(t, "initial-execution", stored.Status.Upgrade.ExecutionID)
 				require.True(t, upgrade.RetryRequestPending(stored))
 				return
 			}
@@ -130,6 +132,8 @@ func TestRollingRetryRequiresObservedRenderedTarget(t *testing.T) {
 			require.ErrorIs(t, err, operatorerrors.ErrTransientClusterState)
 			require.NotNil(t, pod.DeletionTimestamp)
 			require.Nil(t, stored.Status.Upgrade.Failure)
+			require.NotEmpty(t, stored.Status.Upgrade.ExecutionID)
+			require.NotEqual(t, "initial-execution", stored.Status.Upgrade.ExecutionID)
 			require.NotNil(t, stored.Status.UpgradeRequests)
 			require.Equal(t, "retry-now", stored.Status.UpgradeRequests.LastHandledRetry)
 		})

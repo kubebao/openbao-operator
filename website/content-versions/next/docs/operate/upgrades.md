@@ -146,6 +146,13 @@ and for the StatefulSet controller to observe that template. The Bao container i
 image recorded by workload reconciliation, including a verified digest when image verification succeeds.
 If the image differs or the resolved-image annotation is missing, the retry waits for workload reconciliation.
 
+The operator records each rolling attempt in `status.upgrade.executionID`. Controller restarts preserve this value.
+A new upgrade or accepted retry uses a new value, so retained leader step-down Jobs cannot satisfy a later attempt.
+Before accepting a retry or changing the target version, the operator waits for the previous step-down Job and its Pods
+to terminate. Progress created by an older operator can resume with its existing Jobs only when their ownership,
+action, and creation time identify the current attempt. If that evidence is missing, the operator holds the upgrade;
+inspect `status.upgrade.failure`, resolve the cause, and submit a new retry request.
+
 Each request is edge-triggered: use a new non-empty value. For blue-green rollback repair failures, use
 [Recover a failed rollback](../recover-failed-rollback/) instead of retrying blindly.
 

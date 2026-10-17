@@ -11,10 +11,10 @@ Notes:
 
 ## Summary
 
-- Files: `26`
-- Specs: `101`
-- Explicit case IDs: `101`
-- Coverage tags: `59`
+- Files: `27`
+- Specs: `102`
+- Explicit case IDs: `102`
+- Coverage tags: `60`
 
 ## Suites
 
@@ -39,6 +39,7 @@ Notes:
 | [Tenant Isolation](suites/Tenant_Isolation_test.md) | 6 | 6 | 0 | `security`, `tenant`, `tenancy`, `critical`, `single-tenant` | `test/e2e/Tenant_Isolation_test.go` |
 | [Upgrade Strategies: Gateway API](suites/Upgrade_Gateway_test.md) | 2 | 2 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `gateway`, `requires-gateway-api`, `tls-passthrough`, `bluegreen`, `e2e-anchor` | `test/e2e/Upgrade_Gateway_test.go` |
 | [Upgrade Strategies: Operation Lock Contention](suites/Upgrade_Operation_Lock_test.md) | 3 | 3 | 0 | `upgrade`, `backup`, `operation-lock`, `slow`, `e2e-anchor` | `test/e2e/Upgrade_Operation_Lock_test.go` |
+| [Rolling execution identity](suites/Upgrade_Rolling_Execution_test.md) | 1 | 1 | 0 | `upgrade`, `upgrades`, `rolling`, `cluster`, `slow`, `e2e-anchor` | `test/e2e/Upgrade_Rolling_Execution_test.go` |
 | [Upgrade Strategies](suites/Upgrade_Strategies_test.md) | 10 | 10 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `e2e-anchor`, `failure`, `rollback`, `rolling`, `recovery`, `snapshot`, `read-replicas`, `read-replicas-rolling`, `chaos` | `test/e2e/Upgrade_Strategies_test.go` |
 | [Upgrade Strategy Switching](suites/Upgrade_Strategy_Switch_test.md) | 1 | 1 | 0 | `upgrade`, `rolling`, `bluegreen`, `slow` | `test/e2e/Upgrade_Strategy_Switch_test.go` |
 | [Upgrade Strategies: Blue/Green Drift](suites/Upgrade_Target_Drift_test.md) | 1 | 1 | 0 | `upgrade`, `bluegreen`, `slow` | `test/e2e/Upgrade_Target_Drift_test.go` |
@@ -95,6 +96,7 @@ Notes:
 | `recoverability-secret-retention` | 1 |
 | `restart-at` | 1 |
 | `restore-static-token-secret-identity` | 1 |
+| `rolling-execution-identity` | 1 |
 | `rolling-retry-rendered-target` | 1 |
 | `scale-reconcile` | 1 |
 | `secret-regeneration` | 1 |

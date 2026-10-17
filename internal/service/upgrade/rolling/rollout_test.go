@@ -48,6 +48,7 @@ func TestStepDownLeader_DoesNotTimeoutFromUpgradeStart(t *testing.T) {
 		},
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
+				ExecutionID:   "test-execution",
 				TargetVersion: "2.5.0",
 				FromVersion:   "2.4.4",
 				StartedAt:     &startedLongAgo,
@@ -55,10 +56,11 @@ func TestStepDownLeader_DoesNotTimeoutFromUpgradeStart(t *testing.T) {
 		},
 	}
 
-	jobName := upgrade.ExecutorJobName(name, upgrade.ExecutorActionRollingStepDownLeader, podName, "", "")
+	jobName := rollingStepDownJobName(cluster, podName)
 	job := managedRollingJob(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              jobName,
+			Annotations:       map[string]string{"openbao.org/upgrade-action": string(upgrade.ExecutorActionRollingStepDownLeader), "openbao.org/upgrade-run-id": upgrade.RollingStepDownRunID(cluster, podName)},
 			Namespace:         ns,
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-10 * time.Second)),
 		},
@@ -101,16 +103,18 @@ func TestStepDownLeader_TimesOutBasedOnJobAge(t *testing.T) {
 		},
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
+				ExecutionID:   "test-execution",
 				TargetVersion: "2.5.0",
 				FromVersion:   "2.4.4",
 			},
 		},
 	}
 
-	jobName := upgrade.ExecutorJobName(name, upgrade.ExecutorActionRollingStepDownLeader, podName, "", "")
+	jobName := rollingStepDownJobName(cluster, podName)
 	job := managedRollingJob(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              jobName,
+			Annotations:       map[string]string{"openbao.org/upgrade-action": string(upgrade.ExecutorActionRollingStepDownLeader), "openbao.org/upgrade-run-id": upgrade.RollingStepDownRunID(cluster, podName)},
 			Namespace:         ns,
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-(upgrade.DefaultStepDownTimeout + time.Second))),
 		},
@@ -162,16 +166,18 @@ func TestStepDownLeader_FailsWhenSucceededJobStillLeavesTargetAsLeader(t *testin
 		},
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
+				ExecutionID:   "test-execution",
 				TargetVersion: "2.5.0",
 				FromVersion:   "2.4.4",
 			},
 		},
 	}
 
-	jobName := upgrade.ExecutorJobName(name, upgrade.ExecutorActionRollingStepDownLeader, podName, "", "")
+	jobName := rollingStepDownJobName(cluster, podName)
 	job := managedRollingJob(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              jobName,
+			Annotations:       map[string]string{"openbao.org/upgrade-action": string(upgrade.ExecutorActionRollingStepDownLeader), "openbao.org/upgrade-run-id": upgrade.RollingStepDownRunID(cluster, podName)},
 			Namespace:         ns,
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-(upgrade.DefaultStepDownTimeout + 30*time.Second))),
 		},
@@ -244,16 +250,18 @@ func TestStepDownLeader_VerifiesTransferViaAPIWhenLabelsLag(t *testing.T) {
 		},
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
+				ExecutionID:   "test-execution",
 				TargetVersion: "2.5.0",
 				FromVersion:   "2.4.4",
 			},
 		},
 	}
 
-	jobName := upgrade.ExecutorJobName(name, upgrade.ExecutorActionRollingStepDownLeader, podName, "", "")
+	jobName := rollingStepDownJobName(cluster, podName)
 	job := managedRollingJob(&batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              jobName,
+			Annotations:       map[string]string{"openbao.org/upgrade-action": string(upgrade.ExecutorActionRollingStepDownLeader), "openbao.org/upgrade-run-id": upgrade.RollingStepDownRunID(cluster, podName)},
 			Namespace:         ns,
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-5 * time.Second)),
 		},
@@ -329,6 +337,7 @@ func TestStepDownLeader_SkipsJobWhenTargetPodIsNotLeader(t *testing.T) {
 		},
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
+				ExecutionID:   "test-execution",
 				TargetVersion: "2.5.0",
 				FromVersion:   "2.4.4",
 			},
@@ -394,6 +403,7 @@ func TestStepDownLeader_PassesStableRevisionToExecutorJob(t *testing.T) {
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			BlueGreen: &openbaov1alpha1.BlueGreenStatus{BlueRevision: stableRevision},
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
+				ExecutionID:   "test-execution",
 				TargetVersion: "2.6.2",
 				FromVersion:   "2.5.5",
 			},

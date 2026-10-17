@@ -3,6 +3,7 @@ package upgrade
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -320,6 +321,7 @@ func ptrInt64Value(p *int64) int64 {
 }
 
 func TestEnsureExecutorJob_CreateAlreadyExists(t *testing.T) {
+	started := metav1.NewTime(time.Now().Add(-time.Second))
 	scheme := runtime.NewScheme()
 	require.NoError(t, openbaov1alpha1.AddToScheme(scheme))
 	require.NoError(t, batchv1.AddToScheme(scheme))
@@ -337,6 +339,7 @@ func TestEnsureExecutorJob_CreateAlreadyExists(t *testing.T) {
 				JWTAuthRole: "upgrade-role",
 			},
 		},
+		Status: openbaov1alpha1.OpenBaoClusterStatus{Upgrade: &openbaov1alpha1.UpgradeProgress{StartedAt: &started}},
 	}
 
 	k8sClient := fake.NewClientBuilder().
@@ -344,6 +347,7 @@ func TestEnsureExecutorJob_CreateAlreadyExists(t *testing.T) {
 		WithInterceptorFuncs(interceptor.Funcs{
 			Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
 				if _, ok := obj.(*batchv1.Job); ok {
+					obj.SetCreationTimestamp(metav1.Now())
 					if err := c.Create(ctx, obj, opts...); err != nil {
 						return err
 					}

@@ -351,6 +351,7 @@ func TestPatchRetryStatusSSA_ApplyPayloadOmitsClearedFailureFields(t *testing.T)
 			Name:      "retry-cluster",
 			Namespace: "default",
 		},
+		Spec: openbaov1alpha1.OpenBaoClusterSpec{Version: "2.5.0"},
 		Status: openbaov1alpha1.OpenBaoClusterStatus{
 			Upgrade: &openbaov1alpha1.UpgradeProgress{
 				TargetVersion:    "2.5.0",

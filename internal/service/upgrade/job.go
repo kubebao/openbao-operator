@@ -162,7 +162,7 @@ func ensureUpgradeExecutorJob(
 					return nil, fmt.Errorf("upgrade Job create collided with an untrusted existing Job: %w", readErr)
 				}
 				logger.V(1).Info("Upgrade executor Job already exists after create attempt; ownership verified", "job", jobName)
-				return executorResultFromJob(existing), nil
+				return observedExecutorResult(cluster, existing, action, runID)
 			}
 			return nil, fmt.Errorf("failed to create upgrade Job %s/%s: %w", cluster.Namespace, jobName, err)
 		}
@@ -173,6 +173,15 @@ func ensureUpgradeExecutorJob(
 		}, nil
 	}
 
+	return observedExecutorResult(cluster, job, action, runID)
+}
+
+func observedExecutorResult(cluster *openbaov1alpha1.OpenBaoCluster, job *batchv1.Job, action ExecutorAction, runID string) (*executorJobResult, error) {
+	if action == ExecutorActionRollingStepDownLeader {
+		if err := ValidateRollingStepDownJob(cluster, job, runID); err != nil {
+			return nil, err
+		}
+	}
 	return executorResultFromJob(job), nil
 }
 
