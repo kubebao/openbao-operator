@@ -85,6 +85,11 @@ include an HTTP(S) scheme, an exact port, a repository path prefix, or hostname 
 `https://index.docker.io/v1/` key. Hostname globs match one DNS label. Append `/` to a path prefix to restrict it to
 that directory. Malformed credentials produce a verification error.
 
+Before path matching, the controller removes one leading `/v1/` or `/v2/`, following
+[Kubernetes credential normalization](https://github.com/kubernetes/kubernetes/blob/f78e722310e50bcaca9276be22276d9e91d91308/pkg/credentialprovider/keyring.go#L152-L166).
+It matches the remaining path as a literal prefix. For example, `registry.example/v1/team/` matches
+`registry.example/team/image`.
+
 The longest matching repository path takes precedence. For equally scoped paths, an exact hostname takes
 precedence over a hostname glob. For the same normalized scope, a later Secret in the verification block overrides
 an earlier Secret. The controller does not retry other credentials after a registry rejects authentication.
