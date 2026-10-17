@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	platformconstants "github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -275,6 +276,64 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(logs).To(ContainSubstring("total_lines="))
 			}, framework.DefaultLongWaitTimeout, 10*time.Second).Should(Succeed())
+		})
+
+		It("terminates OpenBao gracefully when deleting a Pod", Label(
+			"case:wrapper-graceful-pod-termination",
+		), func() {
+			podKey := types.NamespacedName{Name: clusterName + "-0", Namespace: f.Namespace}
+			pod := &corev1.Pod{}
+			Expect(c.Get(ctx, podKey, pod)).To(Succeed())
+			Expect(pod.Annotations).To(HaveKeyWithValue(platformconstants.AnnotationMaintenance, "true"))
+			Expect(pod.Spec.Containers[0].Command).To(Equal([]string{platformconstants.PathWrapperBinary}))
+			Expect(pod.Spec.TerminationGracePeriodSeconds).To(HaveValue(Equal(int64(30))))
+			oldUID := pod.UID
+
+			By("retaining the terminating Pod until its child exit status can be inspected")
+			const finalizer = "e2e.openbao.org/observe-termination"
+			releaseFinalizer := func() error {
+				return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					current := &corev1.Pod{}
+					if err := c.Get(ctx, podKey, current); err != nil {
+						return client.IgnoreNotFound(err)
+					}
+					if current.UID != oldUID {
+						return nil
+					}
+					before := current.DeepCopy()
+					controllerutil.RemoveFinalizer(current, finalizer)
+					return client.IgnoreNotFound(c.Patch(ctx, current, client.MergeFrom(before)))
+				})
+			}
+			DeferCleanup(releaseFinalizer)
+			controllerutil.AddFinalizer(pod, finalizer)
+			Expect(c.Update(ctx, pod)).To(Succeed())
+
+			By("deleting the Pod with its normal termination grace period")
+			Expect(c.Delete(ctx, pod)).To(Succeed())
+			Eventually(func(g Gomega) {
+				terminated := &corev1.Pod{}
+				g.Expect(c.Get(ctx, podKey, terminated)).To(Succeed())
+				g.Expect(terminated.UID).To(Equal(oldUID))
+				var exit *corev1.ContainerStateTerminated
+				for _, status := range terminated.Status.ContainerStatuses {
+					if status.Name == platformconstants.ContainerBao {
+						exit = status.State.Terminated
+					}
+				}
+				g.Expect(exit).NotTo(BeNil(), "OpenBao container must terminate before finalizer release")
+				g.Expect(exit.ExitCode).To(Equal(int32(0)), "OpenBao must complete its signal handler")
+			}, time.Minute, time.Second).Should(Succeed())
+
+			By("releasing the Pod and waiting for its replacement to become ready")
+			Expect(releaseFinalizer()).To(Succeed())
+			Eventually(func(g Gomega) {
+				replacement := &corev1.Pod{}
+				g.Expect(c.Get(ctx, podKey, replacement)).To(Succeed())
+				g.Expect(replacement.UID).NotTo(Equal(oldUID))
+				g.Expect(podReady(replacement)).To(BeTrue())
+			}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			f.WaitForCondition(clusterName, openbaov1alpha1.ConditionAvailable, metav1.ConditionTrue)
 		})
 
 		It("expands storage by increasing spec.storage.size (if supported)", Label(

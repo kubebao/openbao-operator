@@ -379,6 +379,41 @@
     "suiteTitle": ""
   },
   {
+    "id": "wrapper-graceful-pod-termination",
+    "generatedId": "cluster-lifecycle-terminates-openbao-gracefully-when-deleting-a-0a25963e",
+    "caseLabel": "wrapper-graceful-pod-termination",
+    "file": "test/e2e/Cluster_Lifecycle_test.go",
+    "type": "It",
+    "name": "terminates OpenBao gracefully when deleting a Pod",
+    "path": [
+      "Cluster Lifecycle",
+      "Tenant + Cluster lifecycle (Self-Init)",
+      "terminates OpenBao gracefully when deleting a Pod"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "critical",
+      "tenant",
+      "case:wrapper-graceful-pod-termination"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "critical",
+      "tenant"
+    ],
+    "steps": [
+      "retaining the terminating Pod until its child exit status can be inspected",
+      "deleting the Pod with its normal termination grace period",
+      "releasing the Pod and waiting for its replacement to become ready"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
     "generatedId": "cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",
     "caseLabel": "cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f",

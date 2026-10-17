@@ -12,8 +12,8 @@ Notes:
 ## Summary
 
 - Files: `26`
-- Specs: `100`
-- Explicit case IDs: `100`
+- Specs: `101`
+- Explicit case IDs: `101`
 - Coverage tags: `58`
 
 ## Suites
@@ -21,7 +21,7 @@ Notes:
 | Suite | Cases | Tracked | Pending | Labels | Source |
 | --- | ---: | ---: | ---: | --- | --- |
 | [Cluster Lifecycle: Deletion Policy](suites/Cluster_DeletionPolicy_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `deletion` | `test/e2e/Cluster_DeletionPolicy_test.go` |
-| [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 8 | 8 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
+| [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 9 | 9 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
 | [Cluster Networking](suites/Cluster_Networking_test.md) | 2 | 2 | 0 | `networking`, `critical`, `e2e-anchor` | `test/e2e/Cluster_Networking_test.go` |
 | [Hardened profile (External TLS + Transit auto-unseal + SelfInit)](suites/Cluster_Profile_Hardened_test.md) | 5 | 5 | 0 | `profile-hardened`, `security`, `cluster`, `upgrade`, `bluegreen`, `hardened`, `rolling` | `test/e2e/Cluster_Profile_Hardened_test.go` |
 | [Cluster Runtime Controls](suites/Cluster_Runtime_Controls_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `runtime` | `test/e2e/Cluster_Runtime_Controls_test.go` |

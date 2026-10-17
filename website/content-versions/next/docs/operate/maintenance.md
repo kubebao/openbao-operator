@@ -13,6 +13,7 @@ verifiedBy:
   - internal/service/workload/maintenance.go
   - internal/service/workload/pdb.go
   - internal/app/openbaocluster/infra_scale_down.go
+  - cmd/bao-wrapper/process_runner.go
 ---
 
 Use the parent `OpenBaoCluster` controls for planned work. Directly changing operator-managed StatefulSets, Pods, or
@@ -44,6 +45,10 @@ kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
 {{< /command >}}
 
 Do not use `--disable-eviction` to bypass the PDB during routine maintenance.
+
+During normal Pod termination, the wrapper forwards `SIGTERM` to OpenBao and waits for it to exit. It sends
+`SIGKILL` if the child remains alive after 25 seconds. Managed OpenBao Pods use the default 30-second termination grace
+period. Forced deletion or a shorter grace period can prevent OpenBao from completing shutdown.
 
 ## Scale with the parent resource
 

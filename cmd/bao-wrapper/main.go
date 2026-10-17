@@ -2,18 +2,27 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
-	"os/signal"
+	"os/exec"
 	"syscall"
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
-	if err := run(ctx); err != nil {
+	if err := run(context.Background()); err != nil {
 		log.Printf("Error: %v", err)
-		os.Exit(1)
+		os.Exit(processExitCode(err))
 	}
+}
+
+func processExitCode(err error) int {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+			return 128 + int(status.Signal())
+		}
+		return exitErr.ExitCode()
+	}
+	return 1
 }
