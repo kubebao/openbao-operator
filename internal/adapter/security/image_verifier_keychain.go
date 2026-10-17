@@ -65,7 +65,7 @@ func (v *ImageVerifier) buildKeychain(ctx context.Context, imagePullSecrets []co
 	if len(combined) == 0 {
 		return nil, nil
 	}
-	// Kubernetes uses reverse-sorted keys to prefer more specific repository paths.
+	// Keep credential selection deterministic when matching scopes have equal specificity.
 	index := slices.Sorted(maps.Keys(combined))
 	slices.Reverse(index)
 	return &dockerConfigKeychain{auths: combined, index: index}, nil
@@ -150,6 +150,9 @@ func (k *dockerConfigKeychain) Resolve(resource authn.Resource) (authn.Authentic
 	if err != nil {
 		return nil, fmt.Errorf("parse registry resource: %w", err)
 	}
+	var selected authn.AuthConfig
+	longestPath := -1
+	exactHost := false
 	for _, registry := range k.index {
 		scope, err := url.Parse("https://" + registry)
 		if err != nil {
@@ -158,12 +161,22 @@ func (k *dockerConfigKeychain) Resolve(resource authn.Resource) (authn.Authentic
 		if !registryScopeMatches(scope, target) {
 			continue
 		}
-		credentials := k.auths[registry]
-		// Use the decoded fields so padded and unpadded auth values behave identically.
-		credentials.Auth = ""
-		return authn.FromConfig(credentials), nil
+		// Prefer the longest matching path, then an exact hostname over a hostname glob.
+		matchesExactHost := strings.EqualFold(scope.Hostname(), target.Hostname())
+		if len(scope.Path) < longestPath ||
+			(len(scope.Path) == longestPath && (!matchesExactHost || exactHost)) {
+			continue
+		}
+		selected = k.auths[registry]
+		longestPath = len(scope.Path)
+		exactHost = matchesExactHost
 	}
-	return authn.Anonymous, nil
+	if longestPath == -1 {
+		return authn.Anonymous, nil
+	}
+	// Use the decoded fields so padded and unpadded auth values behave identically.
+	selected.Auth = ""
+	return authn.FromConfig(selected), nil
 }
 
 // registryScopeMatches follows Kubernetes credential-provider matching: exact ports,

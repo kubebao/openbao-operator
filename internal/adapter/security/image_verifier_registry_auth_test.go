@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -29,13 +30,14 @@ import (
 
 func TestImageVerifierAuthenticatedRegistry(t *testing.T) {
 	for _, tt := range []struct {
-		name           string
-		secretType     corev1.SecretType
-		urlKey         bool
-		scope          string
-		password       string
-		wantErr        bool
-		wantAuthHeader bool
+		name             string
+		secretType       corev1.SecretType
+		urlKey           bool
+		scope            string
+		password         string
+		wantErr          bool
+		wantAuthHeader   bool
+		wildcardFallback bool
 	}{
 		{
 			name: "dockerconfigjson scoped URL", secretType: corev1.SecretTypeDockerConfigJson,
@@ -48,6 +50,10 @@ func TestImageVerifierAuthenticatedRegistry(t *testing.T) {
 		{
 			name: "dockercfg host port", secretType: corev1.SecretTypeDockercfg,
 			password: "test-password", wantAuthHeader: true,
+		},
+		{
+			name: "exact hostname before wildcard credentials", secretType: corev1.SecretTypeDockerConfigJson,
+			password: "test-password", wantAuthHeader: true, wildcardFallback: true,
 		},
 		{
 			name: "unmatched path sends no credentials", secretType: corev1.SecretTypeDockerConfigJson,
@@ -64,9 +70,16 @@ func TestImageVerifierAuthenticatedRegistry(t *testing.T) {
 			if !tt.urlKey {
 				registryKey = strings.TrimPrefix(registryKey, "http://")
 			}
-			secret := newImagePullSecret(t, "tenant-a", "registry", tt.secretType, map[string]map[string]string{
+			auths := map[string]map[string]string{
 				registryKey + tt.scope: {"auth": base64.StdEncoding.EncodeToString([]byte("reader:" + tt.password))},
-			})
+			}
+			if tt.wildcardFallback {
+				registryURL, err := url.Parse(registry.server.URL)
+				require.NoError(t, err)
+				wildcardKey := registryURL.Hostname() + "*:" + registryURL.Port() + tt.scope
+				auths[wildcardKey] = map[string]string{"username": "reader", "password": "incorrect-password"}
+			}
+			secret := newImagePullSecret(t, "tenant-a", "registry", tt.secretType, auths)
 			verifier := NewImageVerifier(logr.Discard(), newTrustedRootTestClient(t, secret), nil)
 			result, err := verifier.Verify(context.Background(), registry.imageRef, imageverify.VerifyConfig{
 				PublicKey: registry.publicKey, IgnoreTlog: true, Namespace: secret.Namespace,

@@ -85,9 +85,9 @@ include an HTTP(S) scheme, an exact port, a repository path prefix, or hostname 
 `https://index.docker.io/v1/` key. Hostname globs match one DNS label. Append `/` to a path prefix to restrict it to
 that directory. Malformed credentials produce a verification error.
 
-More specific repository paths take precedence over their parent paths. For the same normalized scope, a later
-Secret in the verification block overrides an earlier Secret. The controller does not retry other credentials after
-a registry rejects authentication.
+The longest matching repository path takes precedence. For equally scoped paths, an exact hostname takes
+precedence over a hostname glob. For the same normalized scope, a later Secret in the verification block overrides
+an earlier Secret. The controller does not retry other credentials after a registry rejects authentication.
 
 See [Use private registries](../../configure/air-gapped/) before promoting images into a disconnected environment.
 

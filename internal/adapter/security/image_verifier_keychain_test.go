@@ -126,6 +126,59 @@ func TestImageVerifierKeychainAuthFormats(t *testing.T) {
 	}
 }
 
+func TestImageVerifierKeychainScopePrecedence(t *testing.T) {
+	for _, secretType := range []corev1.SecretType{corev1.SecretTypeDockerConfigJson, corev1.SecretTypeDockercfg} {
+		t.Run(string(secretType), func(t *testing.T) {
+			for _, tt := range []struct {
+				name      string
+				preferred string
+				fallback  string
+				target    string
+			}{
+				{
+					name:      "exact hostname before trailing wildcard",
+					preferred: "foo.example.com", fallback: "foo.example.com*", target: "foo.example.com/team/image",
+				},
+				{
+					name:      "exact hostname with port and equal path",
+					preferred: "foo.example.com:5443/team/", fallback: "foo.example.com*:5443/team/",
+					target: "foo.example.com:5443/team/image",
+				},
+				{
+					name:      "longer wildcard path before exact hostname",
+					preferred: "*.example.com/team/", fallback: "foo.example.com", target: "foo.example.com/team/image",
+				},
+				{
+					name:      "longer exact path before wildcard hostname",
+					preferred: "foo.example.com/team/sub/", fallback: "foo.example.com*/team/",
+					target: "foo.example.com/team/sub/image",
+				},
+				{
+					name:      "wildcard ties retain deterministic key ordering",
+					preferred: "foo*.example.com/team/", fallback: "*.example.com/team/", target: "foo.example.com/team/image",
+				},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					secret := newImagePullSecret(t, "tenant-a", "registry", secretType, map[string]map[string]string{
+						tt.preferred: {"username": "preferred", "password": "password"},
+						tt.fallback:  {"username": "fallback", "password": "password"},
+					})
+					verifier := NewImageVerifier(logr.Discard(), newTrustedRootTestClient(t, secret), nil)
+					keychain, err := verifier.buildKeychain(context.Background(), []corev1.LocalObjectReference{{Name: secret.Name}}, secret.Namespace)
+					require.NoError(t, err)
+					resource, err := name.NewRepository(tt.target)
+					require.NoError(t, err)
+					auth, err := keychain.Resolve(resource)
+					require.NoError(t, err)
+					config, err := auth.Authorization()
+					require.NoError(t, err)
+					require.Equal(t, "preferred", config.Username)
+				})
+			}
+		})
+	}
+}
+
 func TestImageVerifierKeychainSecretPrecedence(t *testing.T) {
 	first := newImagePullSecret(t, "tenant-a", "first", corev1.SecretTypeDockerConfigJson, map[string]map[string]string{
 		"https://private.example/v1/": {"username": "first", "password": "password"},
@@ -133,7 +186,8 @@ func TestImageVerifierKeychainSecretPrecedence(t *testing.T) {
 		"other.example":               {"username": "fallback", "password": "password"},
 	})
 	last := newImagePullSecret(t, "tenant-a", "last", corev1.SecretTypeDockercfg, map[string]map[string]string{
-		"private.example": {"username": "last", "password": "password"},
+		"private.example":  {"username": "last", "password": "password"},
+		"private.example*": {"username": "wildcard", "password": "password"},
 	})
 	otherNamespace := newImagePullSecret(t, "tenant-b", "last", corev1.SecretTypeDockercfg, map[string]map[string]string{
 		"private.example": {"username": "wrong-namespace", "password": "password"},
