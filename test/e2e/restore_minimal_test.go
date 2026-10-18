@@ -17,6 +17,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -444,4 +445,29 @@ func prepareMinimalDestinationNetwork(ctx context.Context, c client.Client, name
 		},
 	}
 	Expect(c.Create(ctx, helper)).To(Succeed())
+	if framework.APIServerEgressForNetworkProfile() == nil {
+		return
+	}
+	// Restore destinations retain administrator-managed isolation. Cilium's
+	// CIDR rules exclude API-server nodes, so executors need an entity allowance.
+	apiServer := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "cilium.io/v2",
+		"kind":       "CiliumNetworkPolicy",
+		"metadata": map[string]interface{}{
+			"name": "prepared-executor-api", "namespace": namespace,
+		},
+		"spec": map[string]interface{}{
+			"endpointSelector": map[string]interface{}{
+				"matchLabels": map[string]interface{}{constants.LabelOpenBaoComponent: "restore"},
+			},
+			"enableDefaultDeny": map[string]interface{}{"ingress": false, "egress": false},
+			"egress": []interface{}{map[string]interface{}{
+				"toEntities": []interface{}{"kube-apiserver"},
+				"toPorts": []interface{}{map[string]interface{}{
+					"ports": []interface{}{map[string]interface{}{"port": "6443", "protocol": "TCP"}},
+				}},
+			}},
+		},
+	}}
+	Expect(c.Create(ctx, apiServer)).To(Succeed())
 }

@@ -20,7 +20,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -29,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
 )
 
@@ -153,6 +156,46 @@ func TestE2EFixtureRestoreApprovalAndStorageAreNamespaceOwned(t *testing.T) {
 		require.Contains(t, minimalRestoreStorageEndpoint(pair[1]), "."+pair[1]+".svc:")
 	}
 	require.NotEqual(t, minimalRestoreStorageEndpoint("source-a"), minimalRestoreStorageEndpoint("source-b"))
+}
+
+func TestE2EFixtureRestoreAPIServerEgressIsScopedToCiliumExecutors(t *testing.T) {
+	for _, profile := range []string{"", "ipv4", "ipv6", "dual-ipv4", "dual-ipv6"} {
+		t.Run("profile="+profile, func(t *testing.T) {
+			RegisterTestingT(t)
+			t.Setenv("E2E_NETWORK_PROFILE", profile)
+			scheme := runtime.NewScheme()
+			require.NoError(t, networkingv1.AddToScheme(scheme))
+			gvk := schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumNetworkPolicy"}
+			scheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+			scheme.AddKnownTypeWithName(gvk.GroupVersion().WithKind("CiliumNetworkPolicyList"), &unstructured.UnstructuredList{})
+			c := fake.NewClientBuilder().WithScheme(scheme).Build()
+			prepareMinimalDestinationNetwork(t.Context(), c, "destination", "source", "storage")
+
+			policies := &unstructured.UnstructuredList{}
+			policies.SetGroupVersionKind(gvk.GroupVersion().WithKind("CiliumNetworkPolicyList"))
+			require.NoError(t, c.List(t.Context(), policies))
+			if profile == "" {
+				require.Empty(t, policies.Items, "ordinary Kind runs must not require the Cilium API")
+				return
+			}
+			require.Len(t, policies.Items, 1)
+			policy := policies.Items[0]
+			require.Equal(t, "destination", policy.GetNamespace())
+			require.Empty(t, policy.GetOwnerReferences(), "destination isolation remains administrator-managed")
+			require.Equal(t, map[string]interface{}{
+				"endpointSelector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{constants.LabelOpenBaoComponent: "restore"},
+				},
+				"enableDefaultDeny": map[string]interface{}{"ingress": false, "egress": false},
+				"egress": []interface{}{map[string]interface{}{
+					"toEntities": []interface{}{"kube-apiserver"},
+					"toPorts": []interface{}{map[string]interface{}{
+						"ports": []interface{}{map[string]interface{}{"port": "6443", "protocol": "TCP"}},
+					}},
+				}},
+			}, policy.Object["spec"])
+		})
+	}
 }
 
 func TestE2EFixtureUpgradeStorageIsNamespaceOwned(t *testing.T) {
