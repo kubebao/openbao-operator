@@ -1,0 +1,37 @@
+{
+  "artifacts": {
+    "checksums_bundle": "checksums.txt.bundle",
+    "checksums_txt": "checksums.txt",
+    "crds_yaml": "crds.yaml",
+    "install_yaml": "install.yaml",
+    "provenance_index": "provenance-index.json"
+  },
+  "channel": "edge",
+  "chart": {
+    "digest": "sha256:ea96e1bb50071dcf6d3607c190c3da78a8e09313f02327911d770a44d0bcc808",
+    "ref": "ghcr.io/kubebao/charts-edge/openbao-operator",
+    "version": "0.0.0-edge.39122571943.1.g8af6bce9b1ce"
+  },
+  "generated_at": "2026-10-18T11:58:36Z",
+  "images": {
+    "backup_executor": {
+      "digest": "sha256:ef95b2bcff437ea632a18be808e6eea01a4feef368c8321eb9733509e1d54f1f",
+      "ref": "ghcr.io/kubebao/openbao-backup"
+    },
+    "config_init": {
+      "digest": "sha256:51339d0ed49cfbb4fbec733458e600b1535269555998ff29f9b7def1777cee6e",
+      "ref": "ghcr.io/kubebao/openbao-init"
+    },
+    "manager": {
+      "digest": "sha256:0ccc340ae3b4c7aedd88729afc93e3d0b1ec0e27827aaffbeb5cf1ff0912036e",
+      "ref": "ghcr.io/kubebao/openbao-operator"
+    },
+    "upgrade_executor": {
+      "digest": "sha256:3e2e429b1d6ce516af8dbb44dea0f9f3c369f45f3d405dd96e7633ae7752f9d5",
+      "ref": "ghcr.io/kubebao/openbao-upgrade"
+    }
+  },
+  "sha": "8af6bce9b1cef72ea1eff1cc2a3ec00368cf0895",
+  "short_sha": "8af6bce9b1ce",
+  "version": "edge-8af6bce9b1ce"
+}
