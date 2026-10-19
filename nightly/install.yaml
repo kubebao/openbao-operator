@@ -7453,6 +7453,12 @@ spec:
                       value.
                     format: int32
                     type: integer
+                  executionID:
+                    description: |-
+                      ExecutionID identifies the current rolling upgrade attempt.
+                      It remains stable across controller restarts and changes when a retry is accepted.
+                      Older in-flight upgrades can omit it until an explicit retry is accepted.
+                    type: string
                   failure:
                     description: |-
                       Failure is the structured rolling-upgrade failure status.
@@ -10336,10 +10342,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261017-1eacea5ccc0d
+          value: nightly-20261019-8af6bce9b1ce
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:2c11118175c1aea45366740ee77d17f2d0462ccfc3e13c0840006558927bcf26
+        image: ghcr.io/kubebao/openbao-operator@sha256:0ccc340ae3b4c7aedd88729afc93e3d0b1ec0e27827aaffbeb5cf1ff0912036e
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10454,8 +10460,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261017-1eacea5ccc0d
-        image: ghcr.io/kubebao/openbao-operator@sha256:2c11118175c1aea45366740ee77d17f2d0462ccfc3e13c0840006558927bcf26
+          value: nightly-20261019-8af6bce9b1ce
+        image: ghcr.io/kubebao/openbao-operator@sha256:0ccc340ae3b4c7aedd88729afc93e3d0b1ec0e27827aaffbeb5cf1ff0912036e
         livenessProbe:
           httpGet:
             path: /healthz
@@ -12384,7 +12390,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:7acf88d350f1ff57c3805c6604666104b6df8cd357157e3660ec680a6e0b9386
+    openbao.org/admission-policy-fingerprint: sha256:e4b7cc39dd7a99cd310c54386c90cf22a74109781aa8b5ef0851faf5e2d518b7
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -13428,6 +13434,21 @@ spec:
         ))
     name: has_main_workload_cloud_identity_metadata
   - expression: |-
+      has(object.spec.readReplicas) && has(object.spec.readReplicas.template) && has(object.spec.readReplicas.template.metadata) && (
+
+        (has(object.spec.readReplicas.template.metadata.annotations) &&
+          object.spec.readReplicas.template.metadata.annotations.exists(key,
+            key.startsWith("eks.amazonaws.com/") ||
+            key.startsWith("iam.amazonaws.com/") ||
+            key.startsWith("iam.gke.io/") ||
+            key.startsWith("azure.workload.identity/"))) ||
+        (has(object.spec.readReplicas.template.metadata.labels) &&
+          object.spec.readReplicas.template.metadata.labels.exists(key,
+            key.startsWith("azure.workload.identity/") ||
+            key == "aadpodidbinding"))
+      )
+    name: has_read_replica_cloud_identity_metadata
+  - expression: |-
       !has(object.spec.backup) ? "" : (has(object.spec.backup.target.s3) && has(object.spec.backup.target.s3.roleArn)
 
         ? object.spec.backup.target.s3.roleArn.trim()
@@ -13446,7 +13467,8 @@ spec:
           ))
       )
     name: has_backup_cloud_identity_metadata
-  - expression: variables.has_main_workload_cloud_identity_metadata || variables.has_backup_cloud_identity_metadata
+  - expression: variables.has_main_workload_cloud_identity_metadata || variables.has_read_replica_cloud_identity_metadata
+      || variables.has_backup_cloud_identity_metadata
     name: has_cloud_identity_metadata
   - expression: |-
       has(object.spec.imageVerification) && (
