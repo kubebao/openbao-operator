@@ -120,8 +120,9 @@ func (r *openBaoClusterWorkloadReconciler) reconcileCluster(
 	)
 	if appErr == nil &&
 		cluster.Status.Workload != nil &&
-		cluster.Status.Workload.LastError == nil &&
-		(!r.parent.SingleTenantMode || portauth.PolicyReconciliationEnabled(cluster)) {
+		cluster.Status.Workload.LastError == nil {
+		// Pods are not watched in either mode. Refresh an idle workload so later
+		// terminal status or finalizer changes can complete a pending deletion.
 		refresh := steadyStateStatusRefreshRequeueAfter(time.Now())
 		if appResult.RequeueAfter <= 0 {
 			appResult.RequeueAfter = refresh

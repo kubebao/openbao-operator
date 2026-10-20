@@ -75,7 +75,7 @@ func TestOpenBaoClusterAdminOpsReconcilerReconcile_UsesAPIReaderWhenAvailable(t 
 	}
 }
 
-func TestOpenBaoClusterWorkloadReconciler_MultiTenantSteadyStateRequeue(t *testing.T) {
+func TestOpenBaoClusterWorkloadReconciler_SteadyStateRequeue(t *testing.T) {
 	permanentErr := operatorerrors.WithReason(
 		constants.ReasonImageVersionMismatch,
 		operatorerrors.WrapPermanentConfig(errors.New("image version does not match spec.version")),
@@ -92,6 +92,11 @@ func TestOpenBaoClusterWorkloadReconciler_MultiTenantSteadyStateRequeue(t *testi
 		{
 			name:      "successful steady state requeues",
 			wantDelay: constants.RequeueStandard,
+		},
+		{
+			name:         "single tenant without policy repair requeues",
+			singleTenant: true,
+			wantDelay:    constants.RequeueStandard,
 		},
 		{
 			name:        "handled permanent error does not requeue",

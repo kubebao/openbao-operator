@@ -100,6 +100,77 @@ func TestSetupWithManager_SingleTenantRecreatesDeletedConfigMap(t *testing.T) {
 	}, 20*time.Second, 200*time.Millisecond, "expected single-tenant Owns() watch to recreate deleted ConfigMap")
 }
 
+func TestSetupWithManager_SingleTenantCompletesTerminalPodDeletion(t *testing.T) {
+	originalStandard, originalShort := constants.RequeueStandard, constants.RequeueShort
+	constants.RequeueStandard, constants.RequeueShort = 200*time.Millisecond, 100*time.Millisecond
+	t.Cleanup(func() {
+		constants.RequeueStandard, constants.RequeueShort = originalStandard, originalShort
+	})
+
+	for _, scenario := range []string{"terminal-status", "finalizer-removal"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := t.Context()
+			namespace := "cleanup-" + scenario
+			c := startOpenBaoClusterManager(t, namespace, true)
+			cluster := newManagerTestCluster(namespace, "cleanup")
+			cluster.Spec.ReconcilePolicies = false
+			require.NoError(t, c.Create(ctx, cluster))
+			waitForClusterFinalizer(t, ctx, c, cluster)
+			waitForManagedConfigMap(t, ctx, c, namespace, cluster.Name)
+
+			sts := &appsv1.StatefulSet{}
+			require.Eventually(t, func() bool {
+				return c.Get(ctx, client.ObjectKeyFromObject(cluster), sts) == nil
+			}, 10*time.Second, 100*time.Millisecond)
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sts.Name + "-0", Namespace: namespace, Labels: sts.Spec.Template.Labels,
+					OwnerReferences: []metav1.OwnerReference{
+						*metav1.NewControllerRef(sts, appsv1.SchemeGroupVersion.WithKind("StatefulSet")),
+					},
+				},
+				Spec: corev1.PodSpec{NodeName: "test-node", Containers: []corev1.Container{
+					{Name: "openbao", Image: "example.com/openbao:test"},
+				}},
+			}
+			if scenario == "finalizer-removal" {
+				pod.Finalizers = []string{"test.openbao.org/hold"}
+			}
+			require.NoError(t, c.Create(ctx, pod))
+			pod.Status.Phase = corev1.PodRunning
+			require.NoError(t, c.Status().Update(ctx, pod))
+			require.NoError(t, c.Delete(ctx, pod, client.GracePeriodSeconds(600)))
+			key, uid := client.ObjectKeyFromObject(pod), pod.UID
+			assertRetained := func() {
+				t.Helper()
+				require.Never(t, func() bool {
+					current := &corev1.Pod{}
+					return apierrors.IsNotFound(c.Get(ctx, key, current))
+				}, time.Second, 50*time.Millisecond)
+				require.NoError(t, c.Get(ctx, key, pod))
+				require.Equal(t, uid, pod.UID)
+				require.NotNil(t, pod.DeletionTimestamp)
+				require.NotNil(t, pod.DeletionGracePeriodSeconds)
+				require.EqualValues(t, 600, *pod.DeletionGracePeriodSeconds)
+			}
+			// Drain initial child events and retries while deletion is ineligible.
+			// The only later writes affect the Pod, which has no workload watch.
+			assertRetained()
+			pod.Status.Phase = corev1.PodFailed
+			require.NoError(t, c.Status().Update(ctx, pod))
+			if scenario == "finalizer-removal" {
+				assertRetained()
+				require.Equal(t, []string{"test.openbao.org/hold"}, pod.Finalizers)
+				pod.Finalizers = nil
+				require.NoError(t, c.Update(ctx, pod))
+			}
+			require.Eventually(t, func() bool {
+				return apierrors.IsNotFound(c.Get(ctx, key, &corev1.Pod{}))
+			}, 5*time.Second, 100*time.Millisecond, "periodic workload refresh must complete Pod deletion")
+		})
+	}
+}
+
 func TestSetupWithManager_MultiTenantRecreatesDeletedChildrenOnPoll(t *testing.T) {
 	ctx := context.Background()
 	namespace := "multi-tenant-poll-test"
