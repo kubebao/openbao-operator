@@ -70,7 +70,7 @@ knowledge_base:
           .agents/rules/code-style.md,
           .agents/rules/error-handling.md,
           .agents/rules/naming-conventions.md,
-          .agents/rules/security.md
+          .agents/rules/security-practices.md
         applyTo: "**/*.go"
       - files: ".agents/rules/kubernetes-patterns.md"
         applyTo: "internal/controller/**/*.go"

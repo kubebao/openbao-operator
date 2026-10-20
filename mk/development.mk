@@ -154,13 +154,18 @@ test-ci-tools: ## Test CI job expectations, diff routing, timing reports, E2E pl
 		./.github/scripts
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_e2e_*.py'
 
-.PHONY: verify-vendor
-verify-vendor: ## Verify vendor/ is synchronized with go.mod/go.sum.
+.PHONY: vendor
+vendor: ## Regenerate vendor/ and its project-owned OSV policies.
 	@GOFLAGS="-mod=mod" go mod vendor
+	@install -m 0644 hack/security/osv/go-tuf.toml vendor/github.com/theupdateframework/go-tuf/osv-scanner.toml
+	@install -m 0644 hack/security/osv/vendor-github.toml vendor/github.com/osv-scanner.toml
+
+.PHONY: verify-vendor
+verify-vendor: vendor ## Verify vendor/ is synchronized with modules and project-owned OSV policies.
 	@{ \
 		git diff --exit-code -- vendor; \
 	} || { \
-		echo "vendor/ is out of date. Run 'go mod vendor' and commit the result."; \
+		echo "vendor/ is out of date. Run 'make vendor' and commit the result."; \
 		git --no-pager diff -- vendor; \
 		exit 1; \
 	}

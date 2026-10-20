@@ -1,0 +1,55 @@
+# Project-owned policy, copied into vendor by make vendor.
+# Source: hack/security/osv/go-tuf.toml. See SECURITY.md for the assessment.
+# Applies only beside the upstream go-tuf requirements-test.txt manifest.
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-1872"
+ignoreUntil = 2027-01-20
+reason = """
+requests==2.31.0 belongs to the vendored Go TUF library's upstream Python test
+suite. The operator's builds, tests, images, and CI do not install or execute
+these requirements. This exception does not apply to first-party Python
+manifests. Reassess if these upstream tests become part of a project workflow.
+"""
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-1873"
+ignoreUntil = 2027-01-20
+reason = """
+requests==2.31.0 belongs to the vendored Go TUF library's upstream Python test
+suite. The operator's builds, tests, images, and CI do not install or execute
+these requirements. This exception does not apply to first-party Python
+manifests. Reassess if these upstream tests become part of a project workflow.
+"""
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2275"
+ignoreUntil = 2027-01-20
+reason = """
+requests==2.31.0 belongs to the vendored Go TUF library's upstream Python test
+suite. The operator's builds, tests, images, and CI do not install or execute
+these requirements. This exception does not apply to first-party Python
+manifests. Reassess if these upstream tests become part of a project workflow.
+"""
+
+[[IgnoredVulns]]
+id = "GHSA-77hh-43cm-v8j6"
+ignoreUntil = 2027-01-20
+reason = """
+tuf==3.1.0 is Python TUF used by the vendored Go TUF library's upstream Python
+test suite. It is not the Go TUF dependency. The operator's builds, tests,
+images, and CI do not install or execute these requirements. This exception
+does not apply to first-party Python manifests. Reassess if these upstream
+tests become part of a project workflow.
+"""
+
+[[IgnoredVulns]]
+id = "GHSA-qp9x-wp8f-qgjj"
+ignoreUntil = 2027-01-20
+reason = """
+tuf==3.1.0 is Python TUF used by the vendored Go TUF library's upstream Python
+test suite. It is not the Go TUF dependency. The operator's builds, tests,
+images, and CI do not install or execute these requirements. This exception
+does not apply to first-party Python manifests. Reassess if these upstream
+tests become part of a project workflow.
+"""

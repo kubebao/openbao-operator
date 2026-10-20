@@ -221,6 +221,9 @@ func TestSecurityPolicyChangesRequireSecurityChecks(t *testing.T) {
 		".semgrep/tests/example.go",
 		".semgrepignore",
 		".govulnignore",
+		"osv-scanner.toml",
+		"hack/security/osv/go-tuf.toml",
+		"hack/security/osv/vendor-github.toml",
 		".trivyignore",
 		".trivy.yaml",
 		".github/workflows/example.yml",
@@ -259,6 +262,33 @@ func TestSecurityPolicyChangesRequireSecurityChecks(t *testing.T) {
 				results["security"] = jobResult{Result: jobSkipped}
 				if err := validateResults(plan, "sha", results); err == nil || !strings.Contains(err.Error(), "security:") {
 					t.Fatalf("skipped security checks accepted for %s from %s: %v", path, head, err)
+				}
+			}
+		})
+	}
+}
+
+func TestOSVPolicyChangesRequireVendorVerification(t *testing.T) {
+	t.Parallel()
+	for _, path := range []string{
+		"osv-scanner.toml",
+		"hack/security/osv/go-tuf.toml",
+		"hack/security/osv/vendor-github.toml",
+	} {
+		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+			routing, err := runRouting(t, "normal", path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, head := range []string{"owner/repo", "fork/repo"} {
+				plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "sha",
+					prEvent(head), routing)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !plan.Checks["verify-vendor"] {
+					t.Fatalf("OSV policy change %s from %s does not require vendor verification", path, head)
 				}
 			}
 		})

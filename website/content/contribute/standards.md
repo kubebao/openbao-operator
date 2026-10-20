@@ -51,6 +51,7 @@ Never edit generated output by hand.
 | Changed source | Owning command |
 | --- | --- |
 | Go API types | `make manifests generate` |
+| Go module versions and OSV policy sources | `make vendor` |
 | API comments or shapes | `make api-reference` |
 | Served CRD stability decisions | `make update-api-stability-inventory` |
 | Chart CRD, admission, policy, or RBAC inputs | `make helm-sync` |

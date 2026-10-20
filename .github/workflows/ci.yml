@@ -187,7 +187,7 @@ jobs:
             echo "docs=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|config/|test/|website/generated/api-reference\.md|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(ci/|perfcheck/|dev/install-ast-grep\.sh|tools/|helm(chart|values)/|boilerplate\.go\.txt)|\.golangci\.yml)'; then
+          if changed_matches '^(internal/|cmd/|api/|config/|test/|website/generated/api-reference\.md|go\.(mod|sum)$|vendor/|Makefile|mk/|hack/(ci/|security/osv/|perfcheck/|dev/install-ast-grep\.sh|tools/|helm(chart|values)/|boilerplate\.go\.txt)|\.golangci\.yml|osv-scanner\.toml$)'; then
             echo "go_quality=true" >> "${GITHUB_OUTPUT}"
           else
             echo "go_quality=false" >> "${GITHUB_OUTPUT}"
@@ -217,7 +217,7 @@ jobs:
             echo "config_compat=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(internal/|cmd/|api/|config/|charts/|Dockerfile(\..*)?$|test/e2e/images/|hack/(ci/|tools/)|hack/dev/tool-versions\.env$|go\.(mod|sum)$|vendor/|website/assets/js/|\.github/((workflows|actions|scripts)/|(dependabot|dependency-review-config)\.yml$)|\.semgrep/|\.(semgrepignore|govulnignore)$|\.trivyignore|\.trivy\.yaml|Makefile|mk/)'; then
+          if changed_matches '^(internal/|cmd/|api/|config/|charts/|Dockerfile(\..*)?$|test/e2e/images/|hack/(ci/|tools/|security/osv/)|hack/dev/tool-versions\.env$|go\.(mod|sum)$|vendor/|website/assets/js/|\.github/((workflows|actions|scripts)/|(dependabot|dependency-review-config)\.yml$)|\.semgrep/|\.(semgrepignore|govulnignore)$|\.trivyignore|\.trivy\.yaml|osv-scanner\.toml$|Makefile|mk/)'; then
             echo "security_scan=true" >> "${GITHUB_OUTPUT}"
           else
             echo "security_scan=false" >> "${GITHUB_OUTPUT}"

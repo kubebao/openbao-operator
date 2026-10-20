@@ -20,6 +20,7 @@ This includes the committed Go `vendor/` tree.
 
 ```sh
 make verify-generated   # CI-equivalent check, no file modifications expected
+make vendor             # regenerate dependencies and project-owned OSV policies
 make verify-vendor      # vendor/ matches go.mod and go.sum
 make manifests generate # CRDs + deepcopy (controller-gen)
 make helm-sync          # charts/openbao-operator (CRDs + install.yaml.tpl)
@@ -34,7 +35,7 @@ make test-update-golden # internal/adapter/config/testdata golden HCL
 - Touching `api/` or `config/crd/`: run `make manifests generate` (and usually `make helm-sync`).
 - Intentionally changing served CRD fields or `api/stability/v1alpha1.yaml`: run
   `make update-api-stability-inventory` and review `api/stability/v1alpha1-paths.tsv`.
-- Touching `go.mod` or `go.sum`: run `make verify-vendor` (or `go mod vendor`) and commit `vendor/` updates.
+- Touching `go.mod`, `go.sum`, or `hack/security/osv/`: run `make vendor`, verify with `make verify-vendor`, and commit `vendor/` updates.
 - Touching `dist/install.yaml` or `charts/openbao-operator/`: run `make helm-sync`.
 - Touching `.ast-grep/policy/architecture-boundaries.yml`: run `make generate-ast-rules verify-arch-policy`.
 - Touching `internal/service/provisioner/rbac.go` or `hack/gen-rbac/`: run `make rbac-sync`.

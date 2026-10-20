@@ -1,0 +1,13 @@
+# Applies to the root go.mod, not to manifests in child directories.
+# See SECURITY.md for the applicability assessment and review requirements.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+ignoreUntil = 2027-01-20
+reason = """
+The advisory affects golang.org/x/crypto/openpgp and its subpackages, not every
+package in golang.org/x/crypto. Rekor v1.5.4 uses the maintained ProtonMail fork.
+The deprecated packages are absent from vendor and the production dependency
+graph. The production govulncheck gate remains enabled without this exception.
+Reassess if the deprecated packages return or the advisory scope changes.
+"""

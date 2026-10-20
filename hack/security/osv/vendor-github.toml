@@ -1,0 +1,15 @@
+# Project-owned policy, copied into vendor by make vendor.
+# Source: hack/security/osv/vendor-github.toml. See SECURITY.md for the assessment.
+# Applies to the source-fingerprint result for the vendor/github.com directory.
+
+[[IgnoredVulns]]
+id = "CVE-2025-8556"
+ignoreUntil = 2027-01-20
+reason = """
+OSV's vendored-source heuristic identifies the aggregate vendor/github.com
+directory as CIRCL commit 3bef500f2b925f150815a360b90081021e082939 (v1.3.3).
+The actual Go module and regenerated vendor tree use CIRCL v1.6.3; the advisory
+is fixed in v1.6.1. The affected FourQ package is absent from vendor and the
+production dependency graph. This exception does not apply to go.mod version
+matches. Reassess if the vendored version or advisory scope changes.
+"""
