@@ -111,7 +111,7 @@ the project migrates their setup steps incrementally.
 Docs-only changes normally avoid broad cluster E2E. Backup, upgrade, security, provisioner, admission, controller-critical, or seal-path changes expand into targeted shards. Maintainers can request the full E2E set with the repository's CI label.
 
 The required `API Contract` job rejects unclassified API fields, stale inventory snapshots, and breaking or
-review-required schema changes against the released 0.5.0 CRDs. It runs for contract-related changes, pushes to
+review-required schema changes against the released 0.5.2 CRDs. It runs for contract-related changes, pushes to
 `main`, and manual CI runs. Release validation runs the same gate before image builds and publication.
 `make report-crd-compatibility` produces a diagnostic report without weakening the required gate.
 

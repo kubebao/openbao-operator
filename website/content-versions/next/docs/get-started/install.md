@@ -23,8 +23,8 @@ Next tracks unreleased behavior on `main`. Use the edge channel for an executabl
 source when you are developing the operator. Do not treat either path as a stable production contract.
 
 {{< callout type="warning" title="Use stable documentation for production" >}}
-The edge channel advances after successful `main` validation. Each chart version identifies one verified candidate. Use the current stable documentation
-and a pinned release for production. OpenBao Operator 0.5.0 is the current stable release.
+The edge channel advances after successful `main` validation. Each chart version identifies one verified candidate.
+Use the current stable manual and a pinned release for production.
 {{< /callout >}}
 
 ## Before you begin
