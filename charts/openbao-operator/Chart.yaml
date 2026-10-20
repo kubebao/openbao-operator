@@ -26,20 +26,20 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
-  artifacthub.io/prerelease: 'false'
+  artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: 'true'
   artifacthub.io/changes: |
-    - kind: fixed
-      description: "release: backport compatible fixes for 0.5.2"
+    - kind: security
+      description: "security: reject compromised CA keys with Go 1.27.3"
   artifacthub.io/images: |
     - name: openbao-operator
-      image: ghcr.io/kubebao/openbao-operator:0.5.2
+      image: ghcr.io/kubebao/openbao-operator:0.5.3
     - name: openbao-init
-      image: ghcr.io/kubebao/openbao-init:0.5.2
+      image: ghcr.io/kubebao/openbao-init:0.5.3
     - name: openbao-backup
-      image: ghcr.io/kubebao/openbao-backup:0.5.2
+      image: ghcr.io/kubebao/openbao-backup:0.5.3
     - name: openbao-upgrade
-      image: ghcr.io/kubebao/openbao-upgrade:0.5.2
+      image: ghcr.io/kubebao/openbao-upgrade:0.5.3
   artifacthub.io/crds: |
     - kind: OpenBaoCluster
       version: v1alpha1
