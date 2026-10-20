@@ -265,6 +265,12 @@ func syncPolicies(opts options) error {
 					return fmt.Errorf("add namespace Pod Security label mode to %q: %w", inputFile, err)
 				}
 			}
+			if inputFile == "openbao-lock-managed-resource-mutations.yaml" {
+				transformed, err = addPVCBindingSyncCallers(transformed)
+				if err != nil {
+					return fmt.Errorf("add PVC binding sync callers to %q: %w", inputFile, err)
+				}
+			}
 			parts = append(parts, transformed)
 		}
 
@@ -343,6 +349,16 @@ func transformPolicyToHelm(content string) string {
 		`'{{ include "openbao-operator.provisionerServiceAccountName" . }}'`)
 
 	return content
+}
+
+func addPVCBindingSyncCallers(content string) (string, error) {
+	const marker = "    - name: pvc_binding_sync_callers\n      expression: >-\n        {}"
+	if strings.Count(content, marker) != 1 {
+		return "", fmt.Errorf("expected exactly one default PVC binding sync caller variable")
+	}
+	const replacement = "    - name: pvc_binding_sync_callers\n" +
+		"      expression: {{ include \"openbao-operator.pvcBindingSyncCallers\" . | quote }}"
+	return strings.Replace(content, marker, replacement, 1), nil
 }
 
 func addNamespacePodSecurityLabelPolicyMode(content string) (string, error) {

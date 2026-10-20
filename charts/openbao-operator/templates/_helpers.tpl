@@ -150,3 +150,13 @@ The release namespace is always included. Users may extend the deny set via:
 {{- end -}}
 {{- join " ||\n" $clauses -}}
 {{- end -}}
+
+{{/* Exact virtual-API usernames mapped to their approved PVC namespaces. */}}
+{{- define "openbao-operator.pvcBindingSyncCallers" -}}
+{{- $callers := dict -}}
+{{- range .Values.admissionPolicies.pvcBindingSync.allowedCallers -}}
+{{- $namespaces := default (list) (get $callers .username) -}}
+{{- $_ := set $callers .username (concat $namespaces .namespaces | uniq) -}}
+{{- end -}}
+{{- toJson $callers -}}
+{{- end -}}

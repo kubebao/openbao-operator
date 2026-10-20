@@ -502,6 +502,41 @@
           "description": "Enable ValidatingAdmissionPolicies for resource protection. Setting this to false is treated as UNSAFE MODE (operator runs without admission guardrails).",
           "default": true
         },
+        "pvcBindingSync": {
+          "type": "object",
+          "description": "Platform-managed allowance for constrained PVC binding synchronization",
+          "additionalProperties": false,
+          "properties": {
+            "allowedCallers": {
+              "type": "array",
+              "default": [],
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["username", "namespaces"],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[^*\\r\\n]+$"
+                  },
+                  "namespaces": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 63,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": ["allowedCallers"]
+        },
         "maintenanceBreakGlassGroups": {
           "type": "array",
           "description": "Deprecated and no longer used. Maintenance authorization now comes from Kubernetes RBAC via the custom `maintenance` verb on `openbaoclusters.openbao.org`.",

@@ -59,6 +59,54 @@ silently.
 Use [operator authorization](../../get-started/operator-authorization/) for grant examples and
 [tenant boundaries](../tenant-boundaries/) for the controller/provisioner authority split.
 
+## Allow scoped PVC binding synchronization
+
+Some virtual Kubernetes clusters copy a host PVC binding into the virtual PVC through the main resource endpoint.
+For example, vCluster 0.37.3 uses `kubernetes-super-admin` for this internal update. The managed-resource mutation
+lock rejects that caller by default. The host PVC can be `Bound` while the virtual PVC remains `Pending`.
+
+A platform administrator can allow constrained binding updates for exact caller and namespace pairs. For Helm,
+add the observed caller and target namespace to your installation values:
+
+```yaml
+admissionPolicies:
+  enabled: true
+  pvcBindingSync:
+    allowedCallers:
+      - username: kubernetes-super-admin
+        namespaces:
+          - openbao-demo
+```
+
+The default caller list is empty. Usernames and namespace names match exactly; wildcards and group grants are not
+supported. Use the identity observed in the virtual API audit log. The syncer's host-cluster ServiceAccount can
+differ from the identity it uses inside the virtual cluster.
+
+The allowance applies only to updates of existing operator-managed PVCs with stored owner-UID provenance. It can
+set an empty `spec.volumeName` and add these binding annotations:
+
+- `pv.kubernetes.io/bind-completed` with value `yes`;
+- `pv.kubernetes.io/bound-by-controller` with value `yes`; and
+- `volume.beta.kubernetes.io/storage-provisioner` with a nonempty value.
+
+Existing volume bindings and annotation values cannot change. Labels, owner references, finalizers, provenance,
+status, and all other PVC spec fields must remain unchanged. The allowance does not grant PVC creation or deletion,
+resize, or access to other managed resource kinds. The policy does not match the PVC `/status` subresource.
+
+{{< callout type="note" title="Trust the configured identity within the declared scope" >}}
+Admission applies this allowance to every request from the configured identity in the listed namespaces. It cannot
+distinguish a syncer from a person using the same identity. The syncer remains responsible for supplying the correct
+host-derived volume mapping. Keep admission enabled and grant only the required caller and namespaces.
+{{< /callout >}}
+
+For Kustomize, adapt `config/overlays/pvc-binding-sync/kustomization.yaml`. Its replacement sets the named
+`pvc_binding_sync_callers` policy variable without replacing the other checks. The generated ConfigMap is a build
+input; the policy does not read it at runtime. Rebuild and reapply the overlay after changing the caller list.
+
+After applying the configuration, verify that the virtual PVC becomes `Bound` and the syncer no longer reports
+mutation-lock denials for that PVC. Existing retry backoff can delay synchronization. Removing the configured caller
+blocks later binding updates; it does not undo an existing binding.
+
 ## Verify the installed guardrails
 
 {{< command label="inspect" title="List policies and enforcing bindings" >}}

@@ -283,6 +283,13 @@ admissionPolicies:
   # -- `OPENBAO_UNSAFE_ADMISSION_DISABLED=true` so the operator can start without
   # -- admission guardrails. Intended only for development/break-glass scenarios.
   enabled: true
+  # -- Allow only constrained PVC binding updates from exact caller/namespace pairs.
+  # -- Empty by default. This does not grant access to other managed resources.
+  pvcBindingSync:
+    allowedCallers: []
+    # - username: kubernetes-super-admin
+    #   namespaces:
+    #     - openbao-demo
   # Provisioner RBAC policy configuration (multi-tenant mode).
   #
   # These lists are used to deny the Provisioner from creating/updating/deleting
