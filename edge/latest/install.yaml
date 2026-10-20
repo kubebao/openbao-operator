@@ -10342,10 +10342,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-05915b02b572
+          value: edge-04683dbfcf30
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:09f6b85b58bfc9d3092b179c09e5f895c1f95012bbbab1120442429c66ee87b5
+        image: ghcr.io/kubebao/openbao-operator@sha256:19d401a49140de4df0f818a7fbf62bc2219c76cf13f135794d4879d7498bf24f
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10460,8 +10460,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-05915b02b572
-        image: ghcr.io/kubebao/openbao-operator@sha256:09f6b85b58bfc9d3092b179c09e5f895c1f95012bbbab1120442429c66ee87b5
+          value: edge-04683dbfcf30
+        image: ghcr.io/kubebao/openbao-operator@sha256:19d401a49140de4df0f818a7fbf62bc2219c76cf13f135794d4879d7498bf24f
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10710,7 +10710,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:0d1171ae607befe8ddcd0eeb34543e8c5797856221a5ce83bb82f6a060481596
+    openbao.org/admission-policy-fingerprint: sha256:6f6ebf453a49abdb282c8f335b8650206a9fd80e8a24fb84045b9e1a30261a6b
   name: openbao-operator-openbao-lock-managed-resource-mutations
 spec:
   failurePolicy: Fail
@@ -10870,14 +10870,16 @@ spec:
       && request.resource.resource == "pods" && (request.operation == "CREATE" ||
       request.operation == "DELETE")) || (variables.is_statefulset_controller && request.resource.resource
       == "persistentvolumeclaims" && request.operation == "CREATE") || variables.is_storage_pvc_binding_update
-      || (variables.is_kube_system_controller && variables.is_endpoints_controller_request)
-      || variables.is_kube_system_service_metadata_update || (variables.is_pod_request
-      && variables.is_kubelet_node && request.operation == "DELETE") || variables.is_service_registration_label_update
-      || variables.is_kube_system_pod_finalizer_update || variables.is_kube_system_job_finalizer_update
-      || variables.maintenance_authorized'
+      || variables.is_pvc_binding_sync_update || (variables.is_kube_system_controller
+      && variables.is_endpoints_controller_request) || variables.is_kube_system_service_metadata_update
+      || (variables.is_pod_request && variables.is_kubelet_node && request.operation
+      == "DELETE") || variables.is_service_registration_label_update || variables.is_kube_system_pod_finalizer_update
+      || variables.is_kube_system_job_finalizer_update || variables.maintenance_authorized'
     message: Direct modification of OpenBao-managed resources is prohibited; modify
       the parent OpenBaoCluster/OpenBaoTenant instead.
   variables:
+  - expression: '{}'
+    name: pvc_binding_sync_callers
   - expression: '''openbao-operator-system'''
     name: operator_namespace
   - expression: '''openbao-operator-controller'''
@@ -11184,6 +11186,62 @@ spec:
         (has(object.spec.volumeName) && object.spec.volumeName != "" && (!has(oldObject.spec.volumeName) || oldObject.spec.volumeName == ""))
       )
     name: is_storage_pvc_binding_update
+  - expression: |-
+      variables.pvc_binding_sync_callers.exists(username,
+
+        username == request.userInfo.username && request.namespace in variables.pvc_binding_sync_callers[username])
+    name: is_pvc_binding_sync_caller
+  - expression: |-
+      object != null && oldObject != null && object.spec.accessModes == oldObject.spec.accessModes && object.spec.resources == oldObject.spec.resources && (has(object.spec.storageClassName) == has(oldObject.spec.storageClassName) &&
+
+        (!has(object.spec.storageClassName) || object.spec.storageClassName == oldObject.spec.storageClassName)) &&
+      (has(object.spec.volumeMode) == has(oldObject.spec.volumeMode) &&
+
+        (!has(object.spec.volumeMode) || object.spec.volumeMode == oldObject.spec.volumeMode)) &&
+      (has(object.spec.selector) == has(oldObject.spec.selector) &&
+
+        (!has(object.spec.selector) || object.spec.selector == oldObject.spec.selector)) &&
+      (has(object.spec.dataSource) == has(oldObject.spec.dataSource) &&
+
+        (!has(object.spec.dataSource) || object.spec.dataSource == oldObject.spec.dataSource)) &&
+      (has(object.spec.dataSourceRef) == has(oldObject.spec.dataSourceRef) &&
+
+        (!has(object.spec.dataSourceRef) || object.spec.dataSourceRef == oldObject.spec.dataSourceRef)) &&
+      (has(object.spec.volumeAttributesClassName) == has(oldObject.spec.volumeAttributesClassName) &&
+
+        (!has(object.spec.volumeAttributesClassName) ||
+          object.spec.volumeAttributesClassName == oldObject.spec.volumeAttributesClassName)) &&
+      (
+
+        (!has(object.spec.volumeName) && !has(oldObject.spec.volumeName)) ||
+        (has(object.spec.volumeName) && has(oldObject.spec.volumeName) &&
+          object.spec.volumeName == oldObject.spec.volumeName) ||
+        (has(object.spec.volumeName) && object.spec.volumeName != "" &&
+          (!has(oldObject.spec.volumeName) || oldObject.spec.volumeName == ""))
+      )
+    name: pvc_binding_sync_preserves_spec
+  - expression: |-
+      variables.is_pvc_request && request.operation == "UPDATE" && (!has(request.subResource) || request.subResource == "") && variables.is_pvc_binding_sync_caller && object != null && oldObject != null && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && variables.has_old_owner_uid_annotation && variables.has_current_owner_uid_annotation && oldObject.metadata.annotations["openbao.org/owner-uid"] != "" && object.metadata.annotations["openbao.org/owner-uid"] == oldObject.metadata.annotations["openbao.org/owner-uid"] && object.metadata.labels == oldObject.metadata.labels && (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
+
+        (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
+      (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
+
+        (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)) &&
+      variables.pvc_old_annotations.all(k, v,
+
+        k in variables.pvc_new_annotations && variables.pvc_new_annotations[k] == v) &&
+      variables.pvc_new_annotations.all(k, v,
+
+        (k in variables.pvc_old_annotations && variables.pvc_old_annotations[k] == v) ||
+        (!(k in variables.pvc_old_annotations) &&
+          ((k in ["pv.kubernetes.io/bind-completed", "pv.kubernetes.io/bound-by-controller"] && v == "yes") ||
+            (k in ["volume.beta.kubernetes.io/storage-provisioner",
+              "volume.kubernetes.io/storage-provisioner", "volume.kubernetes.io/selected-node"] && v != "")))) &&
+      (has(object.status) == has(oldObject.status) &&
+
+        (!has(object.status) || object.status == oldObject.status)) &&
+      variables.pvc_binding_sync_preserves_spec
+    name: is_pvc_binding_sync_update
   - expression: |-
       request.operation == "DELETE" ?
 
