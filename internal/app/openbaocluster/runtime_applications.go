@@ -91,6 +91,7 @@ func NewRuntimeApplications(config RuntimeApplicationsConfig) *Applications {
 	}
 
 	workloadReconcilers := []SubReconciler{
+		NewTerminalPodCleanupReconciler(config.Kubernetes.Client, config.Kubernetes.APIReader),
 		NewCertificatesReconciler(CertificatesDependencies{
 			Client:   config.Kubernetes.Client,
 			Scheme:   config.Kubernetes.Scheme,

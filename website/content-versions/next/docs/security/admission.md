@@ -12,6 +12,8 @@ verifiedBy:
   - internal/controller/openbaorestore/controller.go
   - internal/platform/admission/check.go
   - internal/platform/entrypoint/flags.go
+  - internal/service/workload/pod_deletion.go
+  - test/integration/terminal_pod_cleanup_test.go
 ---
 
 The operator treats its `ValidatingAdmissionPolicy` objects and bindings as runtime dependencies. They validate custom
@@ -110,6 +112,34 @@ input; the policy does not read it at runtime. Rebuild and reapply the overlay a
 After applying the configuration, verify that the virtual PVC becomes `Bound` and the syncer no longer reports
 mutation-lock denials for that PVC. Existing retry backoff can delay synchronization. Removing the configured caller
 blocks later binding updates; it does not undo an existing binding.
+
+## Complete deletion of terminal workload Pods
+
+The operator can complete a previously requested deletion of a managed workload Pod. This handles virtual-cluster
+cleanup paths where the host Pod has stopped, but admission rejects the syncer's delete of the virtual Pod.
+The syncer does not receive additional Pod permissions.
+
+Cleanup requires all of these conditions:
+
+- The stored Pod has a deletion timestamp and phase `Succeeded` or `Failed`.
+- No regular, init, or ephemeral container reports a running state.
+- The Pod has no finalizers.
+- Live reads confirm the Pod's StatefulSet controller UID and the StatefulSet's OpenBaoCluster ownership and owner-UID
+  provenance.
+- The current OpenBaoCluster has the expected UID, has a profile, is not paused or deleting, and has no restore hold.
+
+The operator requests deletion with zero grace and both Pod UID and resource-version preconditions. A replacement
+Pod or concurrent Pod change causes the delete to fail. The operator reevaluates current state on a later reconcile.
+It never clears finalizers or starts deletion of a running or pending Pod. Admission and tenant onboarding gates
+still apply.
+
+Cleanup runs before other workload steps and handles at most one Pod per reconcile. It uses existing namespace
+permissions and the operator controller identity. It does not require a syncer allowlist or host-cluster credentials.
+It relies on the virtual API's Pod status; a deletion timestamp or `NotReady` condition alone does not establish that
+containers have stopped. Unknown or nonterminal status remains blocked.
+
+This cleanup requires a live ownership chain. It does not adopt orphan Pods or override cluster deletion, pause,
+restore holds, or finalizer handling. It is not a general force-deletion or host-node fencing mechanism.
 
 ## Verify the installed guardrails
 

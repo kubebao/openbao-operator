@@ -113,12 +113,14 @@ func TestNewRuntimeApplicationsWiresExplicitRaftRuntime(t *testing.T) {
 		},
 	})
 
-	require.Len(t, applications.config.WorkloadReconcilers, 6)
-	infra, ok := applications.config.WorkloadReconcilers[1].(*infraReconciler)
+	require.Len(t, applications.config.WorkloadReconcilers, 7)
+	_, cleanupFirst := applications.config.WorkloadReconcilers[0].(*terminalPodCleanupReconciler)
+	require.True(t, cleanupFirst)
+	infra, ok := applications.config.WorkloadReconcilers[2].(*infraReconciler)
 	require.True(t, ok)
 	assert.Same(t, raftRuntime, infra.deps.ScaleDown.Runtime)
 	assert.Same(t, raftRuntime, infra.deps.ScaleDown.ReadReplicaRuntime)
-	autopilot, ok := applications.config.WorkloadReconcilers[5].(*autopilotConfigReconciler)
+	autopilot, ok := applications.config.WorkloadReconcilers[6].(*autopilotConfigReconciler)
 	require.True(t, ok)
 	assert.Same(t, raftRuntime, autopilot.autopilotRuntime)
 	assert.Same(t, raftRuntime, applications.config.StatusDependencies.MembershipRuntime)
@@ -161,4 +163,11 @@ func TestRestoreHoldStopsManagement(t *testing.T) {
 	_, err = app.ReconcileAdminOps(t.Context(), logr.Discard(), cluster.DeepCopy(), cluster, nil)
 	require.NoError(t, err)
 	require.ErrorContains(t, app.HandleDeletion(t.Context(), logr.Discard(), cluster), "held")
+}
+
+func TestTerminalPodCleanupRequiresUncachedReader(t *testing.T) {
+	r := NewTerminalPodCleanupReconciler(nil, nil)
+	result, err := r.Reconcile(t.Context(), logr.Discard(), &openbaov1alpha1.OpenBaoCluster{})
+	require.NoError(t, err)
+	require.Zero(t, result.RequeueAfter)
 }
