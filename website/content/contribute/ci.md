@@ -11,6 +11,7 @@ verifiedBy:
   - .github/workflows/ci.yml
   - .github/workflows/nightly.yml
   - .github/workflows/release.yml
+  - .github/workflows/scorecard.yml
   - hack/tools/ci_checks/main.go
   - hack/tools/ci_report/main.go
   - hack/tools/e2e_plan/selection.go
@@ -29,6 +30,14 @@ Pull-request CI routes checks by changed path and risk. Nightly and release work
 CodeQL uses GitHub default setup to analyze Actions, Go, JavaScript/TypeScript, and Python. Repository security
 settings control its languages and query suite. View its findings in the repository
 [code scanning alerts](https://github.com/kubebao/openbao-operator/security/code-scanning).
+
+OpenSSF Scorecard runs on pushes to `main` and weekly. It publishes repository security findings to the
+[Scorecard viewer](https://scorecard.dev/viewer/?uri=github.com/kubebao/openbao-operator) and GitHub Code Scanning.
+The `openssf-scorecard` artifact retains the SARIF report for seven days. The workflow uses the default GitHub token;
+it does not require a personal access token.
+
+Scorecard is advisory. Its score is not a required pull-request check or a release gate. Review findings against
+the repository's code, workflows, and settings before changing controls or exceptions.
 
 Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
 path-based checks. A failed diff stops routing. Initial pushes with an all-zero prior SHA classify every tracked path.

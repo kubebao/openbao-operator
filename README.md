@@ -8,6 +8,7 @@
 **Secure lifecycle management for OpenBao on Kubernetes.**
 
 [![CI](https://github.com/kubebao/openbao-operator/actions/workflows/ci.yml/badge.svg)](https://github.com/kubebao/openbao-operator/actions/workflows/ci.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15732/badge)](https://www.bestpractices.dev/projects/15732)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/kubebao/openbao-operator?filename=go.mod&label=Go&logo=go&logoColor=white)](https://github.com/kubebao/openbao-operator/blob/main/go.mod)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/Docs-Live-green)](https://docs.kubebao.org/)
