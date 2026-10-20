@@ -2,6 +2,13 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.5.3](https://github.com/kubebao/openbao-operator/compare/0.5.2...0.5.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* **security:** reject compromised CA keys with Go 1.27.3 ([#879](https://github.com/kubebao/openbao-operator/issues/879)) ([7922c39](https://github.com/kubebao/openbao-operator/commit/7922c39ac2ba1deceae93c0b52740cff9d1fbdad))
+
 ## [0.5.2](https://github.com/kubebao/openbao-operator/compare/0.5.1...0.5.2) (2026-10-13)
 
 
