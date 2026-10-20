@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoRestore API.
 eyebrow: Reference · Generated API
 weight: 2
 verifiedBy:
-  - api/v1alpha1 at 0.5.2
-  - website/generated/api-reference.md at 0.5.2
+  - api/v1alpha1 at 0.5.3
+  - website/generated/api-reference.md at 0.5.3
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.5.2` for the `0.5.x` documentation line.
+This page is synchronized from the generated API reference at `0.5.3` for the `0.5.x` documentation line.
 {{< /callout >}}
 
 
