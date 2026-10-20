@@ -4,7 +4,7 @@
   state: "Current stable"
   showNotice: false
   sourceRef: "0.5.3"
-  fallbackSourceRef: "7130da6b9397a45480c1d003e613e0aab1ae346e"
+  fallbackSourceRef: "16048e2c7bed48a69b489939794534f6a2e3c1bb"
   editRef: "main"
   contentRoot: "website/content"
   editable: true
