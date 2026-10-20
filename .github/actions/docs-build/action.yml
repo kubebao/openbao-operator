@@ -4,6 +4,10 @@ description: Build and validate the canonical Hugo documentation site without No
 runs:
   using: composite
   steps:
+    - name: Test documentation publisher
+      shell: bash
+      run: bash hack/docs/test-publish-gh-pages.sh
+
     - name: Install pinned Hugo
       shell: bash
       run: |

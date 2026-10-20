@@ -37,7 +37,7 @@ else
   popd >/dev/null
 fi
 
-rsync -a --delete \
+rsync -a --checksum --delete \
   --exclude '.git' \
   --exclude 'edge' \
   --exclude 'nightly' \
