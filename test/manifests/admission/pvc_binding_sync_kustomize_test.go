@@ -13,9 +13,10 @@ import (
 )
 
 func TestKustomizePVCBindingSyncOverlay(t *testing.T) {
-	binary, err := exec.LookPath("kustomize")
-	if err != nil {
-		binary = "../../../bin/kustomize"
+	binary := "../../../bin/kustomize"
+	if _, err := exec.LookPath(binary); err != nil {
+		binary, err = exec.LookPath("kustomize")
+		require.NoError(t, err, "run make kustomize to install the repo-managed tool")
 	}
 	output, err := exec.Command(binary, "build", "../../../config/overlays/pvc-binding-sync").CombinedOutput()
 	require.NoError(t, err, "%s", output)

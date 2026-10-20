@@ -72,11 +72,11 @@ vet-tagged: ## Run go vet against integration and E2E tagged code without a clus
 	GOFLAGS="$(GOFLAGS_VENDOR)" go vet -tags=e2e ./test/e2e/...
 
 .PHONY: test
-test: manifests generate fmt vet ## Run unit tests (fast, no envtest).
+test: manifests generate fmt vet kustomize ## Run unit tests (fast, no envtest).
 	GOFLAGS="$(GOFLAGS_VENDOR)" go test $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list ./... | grep -vx '$(E2E_SUITE_PACKAGE)') -coverprofile cover.out
 
 .PHONY: test-sum
-test-sum: manifests generate fmt vet gotestsum ## Run unit tests with gotestsum output and JUnit XML.
+test-sum: manifests generate fmt vet kustomize gotestsum ## Run unit tests with gotestsum output and JUnit XML.
 	@mkdir -p "$(TEST_ARTIFACT_DIR)"
 	GOFLAGS="$(GOFLAGS_VENDOR)" "$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" --junitfile "$(TEST_ARTIFACT_DIR)/unit.xml" -- -coverprofile "$(TEST_ARTIFACT_DIR)/unit.cover.out" $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list ./... | grep -vx '$(E2E_SUITE_PACKAGE)')
 
