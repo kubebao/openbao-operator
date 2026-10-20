@@ -18,6 +18,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	clusterapp "github.com/kubebao/openbao-operator/internal/app/openbaocluster"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 	"github.com/kubebao/openbao-operator/internal/service/workload"
 )
 
@@ -112,6 +113,46 @@ func TestTerminalPodCleanupApplication(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, result.RequeueAfter)
 	require.True(t, apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(pod), &corev1.Pod{})))
+}
+
+type terminalCleanupContinuation struct{ called bool }
+
+func (r *terminalCleanupContinuation) Reconcile(context.Context, logr.Logger, *openbaov1alpha1.OpenBaoCluster) (recon.Result, error) {
+	r.called = true
+	return recon.Result{}, nil
+}
+
+func TestTerminalPodCleanupConflictDoesNotBlockWorkload(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
+	cluster, _, pod := createTerminalCleanupFixture(t, "failed")
+	operator := newControllerClient(t)
+	conflicted := false
+	writer := interceptor.NewClient(operator, interceptor.Funcs{
+		Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+			current := &corev1.Pod{}
+			require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(pod), current))
+			current.Annotations = map[string]string{"test.openbao.org/race": "changed"}
+			require.NoError(t, c.Update(ctx, current))
+			err := c.Delete(ctx, obj, opts...)
+			conflicted = apierrors.IsConflict(err)
+			return err
+		},
+	})
+	next := &terminalCleanupContinuation{}
+	app := clusterapp.NewApplications(clusterapp.ApplicationsConfig{
+		Client: operator, WorkloadPolicy: clusterapp.DefaultWorkloadResultPolicy(),
+		WorkloadReconcilers: []clusterapp.SubReconciler{
+			clusterapp.NewTerminalPodCleanupReconciler(writer, operator), next,
+		},
+	})
+	_, err := app.ReconcileWorkload(ctx, logr.Discard(), cluster.DeepCopy(), cluster, nil)
+	require.NoError(t, err)
+	require.True(t, conflicted, "the delete must produce an API-server precondition conflict")
+	require.True(t, next.called, "cleanup failure must not block later workload steps")
+	stored := &corev1.Pod{}
+	require.NoError(t, operator.Get(ctx, client.ObjectKeyFromObject(pod), stored))
+	require.Equal(t, pod.UID, stored.UID)
+	require.Nil(t, cluster.Status.Workload.LastError)
 }
 
 func createTerminalCleanupFixture(t *testing.T, scenario string) (*openbaov1alpha1.OpenBaoCluster, *appsv1.StatefulSet, *corev1.Pod) {

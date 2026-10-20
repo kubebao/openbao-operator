@@ -137,7 +137,8 @@ Cleanup runs before other workload steps and handles at most one Pod per reconci
 permissions and the operator controller identity. It does not require a syncer allowlist or host-cluster credentials.
 Successful idle workload reconciliation schedules periodic checks in both tenant modes, even when policy
 reconciliation is disabled. These checks handle later Pod status and finalizer changes without a Pod watch.
-It relies on the virtual API's Pod status; a deletion timestamp or `NotReady` condition alone does not establish that
+Cleanup failures are logged and retried during later workload reconciliation. They do not block other workload steps.
+Cleanup relies on the virtual API's Pod status; a deletion timestamp or `NotReady` condition alone does not establish that
 containers have stopped. Unknown or nonterminal status remains blocked.
 
 This cleanup requires a live ownership chain. It does not adopt orphan Pods or override cluster deletion, pause,

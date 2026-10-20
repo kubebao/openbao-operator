@@ -30,7 +30,8 @@ func (r *terminalPodCleanupReconciler) Reconcile(ctx context.Context, logger log
 	}
 	requested, err := r.manager.CompleteTerminatedPodDeletion(ctx, logger, cluster)
 	if err != nil {
-		return recon.Result{}, err
+		logger.Error(err, "Failed to complete terminated Pod deletion")
+		return recon.Result{}, nil
 	}
 	if requested {
 		return recon.Result{RequeueAfter: constants.RequeueShort}, nil
