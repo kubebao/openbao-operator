@@ -39,6 +39,11 @@ it does not require a personal access token.
 Scorecard is advisory. Its score is not a required pull-request check or a release gate. Review findings against
 the repository's code, workflows, and settings before changing controls or exceptions.
 
+KubeBao's organization Actions policy allows the Scorecard and SARIF-upload actions at specific commit revisions.
+Before merging an update to either action pin, add the reviewed revision to the organization Actions allowlist.
+Repository settings cannot override this inherited policy. A blocked action causes a workflow startup failure
+before any jobs run.
+
 Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
 path-based checks. A failed diff stops routing. Initial pushes with an all-zero prior SHA classify every tracked path.
 Renames classify both the previous and current paths.
