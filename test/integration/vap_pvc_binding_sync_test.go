@@ -213,6 +213,11 @@ func TestVAP_PVCBindingSync(t *testing.T) {
 			&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "sync-secret", Namespace: namespace, Labels: probe.Labels}},
 			&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "sync-pod", Namespace: namespace, Labels: probe.Labels},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app", Image: "example.com/app:test"}}}},
+			&rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: "sync-role", Namespace: namespace, Labels: probe.Labels}},
+			&rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "sync-binding", Namespace: namespace, Labels: probe.Labels},
+				RoleRef:    rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: "sync-role"},
+			},
 		} {
 			requirePVCSyncDenied(t, syncer.Create(ctx, obj, client.DryRunAll))
 		}
