@@ -48,7 +48,7 @@ const (
 	fingerprintOpenBaoValidateOpenBaoRestore       = "sha256:4031663c07f1bd884a1a2fd386168fbec7221b0450355b753a2d2643439870bf"
 	fingerprintProtectRestoreExecution             = "sha256:c9af55789ddce38e9c2227b2b4b527abea0af9094e82a56eaa4cc2f17a5b8e69"
 	fingerprintOpenBaoValidateOpenBaoCluster       = "sha256:e4b7cc39dd7a99cd310c54386c90cf22a74109781aa8b5ef0851faf5e2d518b7"
-	fingerprintOpenBaoLockManagedResourceMutations = "sha256:176146be6db3785b3bc68a57427f0966c88347de7ee6989cf4e4326d036c3a37"
+	fingerprintOpenBaoLockManagedResourceMutations = "sha256:6f6ebf453a49abdb282c8f335b8650206a9fd80e8a24fb84045b9e1a30261a6b"
 
 	dependencyOpenBaoValidateOpenBaoCluster             = "openbao-validate-openbaocluster"
 	dependencyOpenBaoValidateOpenBaoTenant              = "openbao-validate-openbao-tenant"

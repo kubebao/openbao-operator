@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:176146be6db3785b3bc68a57427f0966c88347de7ee6989cf4e4326d036c3a37
+    openbao.org/admission-policy-fingerprint: sha256:6f6ebf453a49abdb282c8f335b8650206a9fd80e8a24fb84045b9e1a30261a6b
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -498,7 +498,8 @@ spec:
           (k in variables.pvc_old_annotations && variables.pvc_old_annotations[k] == v) ||
           (!(k in variables.pvc_old_annotations) &&
             ((k in ["pv.kubernetes.io/bind-completed", "pv.kubernetes.io/bound-by-controller"] && v == "yes") ||
-              (k == "volume.beta.kubernetes.io/storage-provisioner" && v != "")))) &&
+              (k in ["volume.beta.kubernetes.io/storage-provisioner",
+                "volume.kubernetes.io/storage-provisioner", "volume.kubernetes.io/selected-node"] && v != "")))) &&
         (has(object.status) == has(oldObject.status) &&
           (!has(object.status) || object.status == oldObject.status)) &&
         variables.pvc_binding_sync_preserves_spec

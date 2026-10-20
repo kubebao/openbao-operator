@@ -45,15 +45,17 @@ func TestPVCBindingSyncMutationBoundaries(t *testing.T) {
 		boundVolume     = "pv-host"
 		bindingComplete = "yes"
 		otherValue      = "other"
+		trueValue       = "true"
 	)
-	tests := []struct {
+	type testCase struct {
 		name    string
 		before  func(*corev1.PersistentVolumeClaim)
 		change  func(*corev1.PersistentVolumeClaim)
 		request func(map[string]any)
 		callers string
 		allowed bool
-	}{
+	}
+	tests := slices.Grow([]testCase{
 		{
 			name: "initial-binding",
 			change: func(p *corev1.PersistentVolumeClaim) {
@@ -150,13 +152,13 @@ func TestPVCBindingSyncMutationBoundaries(t *testing.T) {
 		{
 			name: "unrelated-annotation",
 			change: func(p *corev1.PersistentVolumeClaim) {
-				p.Annotations["example.com/edit"] = "true"
+				p.Annotations["example.com/edit"] = trueValue
 			},
 		},
 		{
 			name: "protected-annotation",
 			change: func(p *corev1.PersistentVolumeClaim) {
-				p.Annotations["openbao.org/maintenance"] = "true"
+				p.Annotations["openbao.org/maintenance"] = trueValue
 			},
 		},
 		{
@@ -222,6 +224,35 @@ func TestPVCBindingSyncMutationBoundaries(t *testing.T) {
 			p.Spec.VolumeName = boundVolume
 			p.Labels["example.com/team"] = otherValue
 		}},
+	}, 16)
+	for _, annotation := range []struct{ name, key string }{
+		{"ga-provisioner", "volume.kubernetes.io/storage-provisioner"},
+		{"selected-node", "volume.kubernetes.io/selected-node"},
+	} {
+		setOriginal := func(p *corev1.PersistentVolumeClaim) { p.Annotations[annotation.key] = "original" }
+		tests = append(tests,
+			testCase{name: annotation.name + "-addition", change: setOriginal, allowed: true},
+			testCase{name: annotation.name + "-preserved", before: setOriginal, allowed: true},
+			testCase{name: annotation.name + "-empty", change: func(p *corev1.PersistentVolumeClaim) {
+				p.Annotations[annotation.key] = ""
+			}},
+			testCase{name: annotation.name + "-replacement", before: setOriginal, change: func(p *corev1.PersistentVolumeClaim) {
+				p.Annotations[annotation.key] = otherValue
+			}},
+			testCase{name: annotation.name + "-removal", before: setOriginal, change: func(p *corev1.PersistentVolumeClaim) {
+				delete(p.Annotations, annotation.key)
+			}},
+			testCase{name: annotation.name + "-unrelated-annotation", change: func(p *corev1.PersistentVolumeClaim) {
+				setOriginal(p)
+				p.Annotations["example.com/edit"] = trueValue
+			}},
+			testCase{name: annotation.name + "-wrong-user", change: setOriginal, request: func(r map[string]any) {
+				r["userInfo"] = map[string]any{"username": otherValue}
+			}},
+			testCase{name: annotation.name + "-wrong-namespace", change: setOriginal, request: func(r map[string]any) {
+				r["namespace"] = otherValue
+			}},
+		)
 	}
 	policy := readClusterPolicySpec(t, "../../../config/policy/openbao-lock-managed-resource-mutations.yaml")
 	for _, test := range tests {

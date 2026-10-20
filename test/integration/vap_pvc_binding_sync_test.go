@@ -5,6 +5,7 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -52,7 +53,7 @@ func TestVAP_PVCBindingSync(t *testing.T) {
 	require.NoError(t, k8sClient.Create(ctx, storageClass))
 	t.Cleanup(func() { require.NoError(t, k8sClient.Delete(ctx, storageClass)) })
 
-	tests := []struct {
+	type testCase struct {
 		name     string
 		before   func(*corev1.PersistentVolumeClaim)
 		change   func(*corev1.PersistentVolumeClaim)
@@ -60,13 +61,16 @@ func TestVAP_PVCBindingSync(t *testing.T) {
 		otherNS  bool
 		bound    bool
 		allowed  bool
-	}{
+	}
+	tests := slices.Grow([]testCase{
 		{name: "binding", change: func(p *corev1.PersistentVolumeClaim) { p.Spec.VolumeName = "pv-host" }, allowed: true},
 		{name: "binding-and-storage-annotations", change: func(p *corev1.PersistentVolumeClaim) {
 			p.Spec.VolumeName = "pv-host"
 			p.Annotations["pv.kubernetes.io/bind-completed"] = "yes"
 			p.Annotations["pv.kubernetes.io/bound-by-controller"] = "yes"
 			p.Annotations["volume.beta.kubernetes.io/storage-provisioner"] = "example.csi.test"
+			p.Annotations["volume.kubernetes.io/storage-provisioner"] = "example.csi.test"
+			p.Annotations["volume.kubernetes.io/selected-node"] = "host-node"
 		}, allowed: true},
 		{
 			name:     "wrong-user",
@@ -167,6 +171,32 @@ func TestVAP_PVCBindingSync(t *testing.T) {
 		{name: "bound-claim-resize", bound: true, change: func(p *corev1.PersistentVolumeClaim) {
 			p.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("2Gi")
 		}},
+	}, 16)
+	for _, annotation := range []struct{ name, key string }{
+		{"ga-provisioner", "volume.kubernetes.io/storage-provisioner"},
+		{"selected-node", "volume.kubernetes.io/selected-node"},
+	} {
+		setOriginal := func(p *corev1.PersistentVolumeClaim) { p.Annotations[annotation.key] = "original" }
+		tests = append(tests,
+			testCase{name: annotation.name + "-addition", change: setOriginal, allowed: true},
+			testCase{name: annotation.name + "-preserved", before: setOriginal,
+				change: func(p *corev1.PersistentVolumeClaim) { p.Spec.VolumeName = "pv-host" }, allowed: true},
+			testCase{name: annotation.name + "-empty", change: func(p *corev1.PersistentVolumeClaim) {
+				p.Annotations[annotation.key] = ""
+			}},
+			testCase{name: annotation.name + "-replacement", before: setOriginal, change: func(p *corev1.PersistentVolumeClaim) {
+				p.Annotations[annotation.key] = "other"
+			}},
+			testCase{name: annotation.name + "-removal", before: setOriginal, change: func(p *corev1.PersistentVolumeClaim) {
+				delete(p.Annotations, annotation.key)
+			}},
+			testCase{name: annotation.name + "-unrelated-annotation", change: func(p *corev1.PersistentVolumeClaim) {
+				setOriginal(p)
+				p.Annotations["example.com/edit"] = "true"
+			}},
+			testCase{name: annotation.name + "-wrong-user", change: setOriginal, username: "other-syncer"},
+			testCase{name: annotation.name + "-wrong-namespace", change: setOriginal, otherNS: true},
+		)
 	}
 	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

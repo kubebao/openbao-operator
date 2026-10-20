@@ -83,11 +83,13 @@ supported. Use the identity observed in the virtual API audit log. The syncer's 
 differ from the identity it uses inside the virtual cluster.
 
 The allowance applies only to updates of existing operator-managed PVCs with stored owner-UID provenance. It can
-set an empty `spec.volumeName` and add these binding annotations:
+set `spec.volumeName` to a nonempty value when the field is empty, and add these binding annotations:
 
 - `pv.kubernetes.io/bind-completed` with value `yes`;
-- `pv.kubernetes.io/bound-by-controller` with value `yes`; and
-- `volume.beta.kubernetes.io/storage-provisioner` with a nonempty value.
+- `pv.kubernetes.io/bound-by-controller` with value `yes`;
+- `volume.beta.kubernetes.io/storage-provisioner` with a nonempty value;
+- `volume.kubernetes.io/storage-provisioner` with a nonempty value; and
+- `volume.kubernetes.io/selected-node` with a nonempty value.
 
 Existing volume bindings and annotation values cannot change. Labels, owner references, finalizers, provenance,
 status, and all other PVC spec fields must remain unchanged. The allowance does not grant PVC creation or deletion,
@@ -96,7 +98,9 @@ resize, or access to other managed resource kinds. The policy does not match the
 {{< callout type="note" title="Trust the configured identity within the declared scope" >}}
 Admission applies this allowance to every request from the configured identity in the listed namespaces. It cannot
 distinguish a syncer from a person using the same identity. The syncer remains responsible for supplying the correct
-host-derived volume mapping. Keep admission enabled and grant only the required caller and namespaces.
+host-derived volume mapping, provisioner, and selected node. The selected node affects storage placement. This
+allowance supports initial binding metadata; later changes or removals of these annotations remain blocked. Keep
+admission enabled and grant only the required caller and namespaces.
 {{< /callout >}}
 
 For Kustomize, adapt `config/overlays/pvc-binding-sync/kustomization.yaml`. Its replacement sets the named
