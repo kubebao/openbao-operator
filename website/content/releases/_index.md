@@ -19,7 +19,7 @@ The current manual stays focused on the current contract. Release pages preserve
 
 | Release | Published | Context |
 | --- | --- | --- |
-| [0.5.3](0.5.3/) | Pending publication | Security update for compromised intermediate CA keys |
+| [0.5.3](0.5.3/) | 2026-10-20 | Security update for compromised intermediate CA keys |
 | [0.5.2](0.5.2/) | 2026-10-14 | Backup scheduling and compatible fixes |
 | [0.5.1](0.5.1/) | 2026-09-24 | OpenBao 2.7 preparation and lifecycle fixes |
 | [0.5.0](0.5.0/) | 2026-08-31 | Stable v1alpha1 subset and lifecycle correctness |
