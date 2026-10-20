@@ -20,7 +20,10 @@ settings control its languages and query suite. View its findings in the reposit
 <a href="https://scorecard.dev/viewer/?uri=github.com/kubebao/openbao-operator">Scorecard viewer</a> and GitHub Code Scanning.
 The <code>openssf-scorecard</code> artifact retains the SARIF report for seven days. The workflow uses the default GitHub token;
 it does not require a personal access token.</p><p>Scorecard is advisory. Its score is not a required pull-request check or a release gate. Review findings against
-the repository&rsquo;s code, workflows, and settings before changing controls or exceptions.</p><p>Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
+the repository&rsquo;s code, workflows, and settings before changing controls or exceptions.</p><p>KubeBao&rsquo;s organization Actions policy allows the Scorecard and SARIF-upload actions at specific commit revisions.
+Before merging an update to either action pin, add the reviewed revision to the organization Actions allowlist.
+Repository settings cannot override this inherited policy. A blocked action causes a workflow startup failure
+before any jobs run.</p><p>Change detection must resolve the tested commits and complete the Git diff. An empty successful diff selects no
 path-based checks. A failed diff stops routing. Initial pushes with an all-zero prior SHA classify every tracked path.
 Renames classify both the previous and current paths.</p><p>The <code>Detect Changes</code> job records required job expectations in the <code>ci-routing</code> artifact. The workflow uses
 that record to select jobs. <code>CI Required</code> rejects a failed routing job, missing results, unexpected job skips, and failed
