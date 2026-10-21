@@ -1349,12 +1349,17 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			secret := &corev1.Secret{}
 			err := admin.Get(ctx, types.NamespacedName{Name: unsealName, Namespace: tenantNamespace}, secret)
 			Expect(err).NotTo(HaveOccurred())
+			originalUID := secret.UID
 
 			err = runAsE2EGroupMember(ctx, cfg, scheme, impersonatedUser, func(c client.Client) error {
 				return c.Delete(ctx, secret)
 			})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Direct modification of OpenBao-managed resources is prohibited"))
+			Expect(err.Error()).To(ContainSubstring(
+				"Generated recovery Secrets require operator deletion or authorized maintenance"))
+			Expect(admin.Get(ctx, client.ObjectKeyFromObject(secret), secret)).To(Succeed())
+			Expect(secret.UID).To(Equal(originalUID))
+			Expect(secret.DeletionTimestamp.IsZero()).To(BeTrue())
 		})
 
 		It("prevents unauthorized deletion of the TLS CA secret", Label(
