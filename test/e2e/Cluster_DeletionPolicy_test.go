@@ -16,10 +16,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
+	e2ehelpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
 )
 
 func hasOwnerReferenceWithUID(obj metav1.Object, uid types.UID) bool {
@@ -41,8 +43,9 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 	}
 
 	var (
-		f *framework.Framework
-		c client.Client
+		f               *framework.Framework
+		c               client.Client
+		runAsController func(func(client.Client) error) error
 	)
 
 	waitForStatefulSetCreated := func(key types.NamespacedName) {
@@ -184,13 +187,42 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 		By("deleting the OpenBaoCluster and waiting for finalization to complete")
 		if policy == openbaov1alpha1.DeletionPolicyRetain {
 			By("holding operator finalization while real foreground GC processes the parent")
+			setRestoreHold := func(hold string) {
+				Eventually(func() error {
+					return runAsController(func(controller client.Client) error {
+						current := &openbaov1alpha1.OpenBaoCluster{}
+						if err := controller.Get(ctx, clusterKey, current); err != nil {
+							return err
+						}
+						if current.Annotations == nil {
+							current.Annotations = map[string]string{}
+						}
+						if hold == "" {
+							delete(current.Annotations, constants.AnnotationRestoreHold)
+						} else {
+							current.Annotations[constants.AnnotationRestoreHold] = hold
+						}
+						return controller.Update(ctx, current)
+					})
+				}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			}
 			Expect(c.Get(ctx, clusterKey, cluster)).To(Succeed())
+			original := cluster.DeepCopy()
 			if cluster.Annotations == nil {
 				cluster.Annotations = map[string]string{}
 			}
 			cluster.Annotations[constants.AnnotationRestoreHold] = "e2e-foreground-retention"
-			Expect(c.Update(ctx, cluster)).To(Succeed())
-			Expect(c.Delete(ctx, cluster, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			Expect(c.Patch(ctx, cluster, client.MergeFrom(original), client.DryRunAll)).To(
+				MatchError(ContainSubstring("Only the controller can change a restore hold")),
+			)
+			setRestoreHold("e2e-foreground-retention")
+			Expect(c.Get(ctx, clusterKey, cluster)).To(Succeed())
+			Expect(c.Delete(ctx, cluster, client.DryRunAll)).To(
+				MatchError(ContainSubstring("Only the controller can change a restore hold")),
+			)
+			Expect(runAsController(func(controller client.Client) error {
+				return controller.Delete(ctx, cluster, client.PropagationPolicy(metav1.DeletePropagationForeground))
+			})).To(Succeed())
 			// TLS deletion proves real GC has processed the foreground owner.
 			// The operator cannot orphan recovery Secrets while its restore hold remains.
 			assertSecretDeleted(tlsCAKey)
@@ -203,9 +235,7 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 					g.Expect(hasOwnerReferenceWithUID(secret, clusterUID)).To(BeTrue())
 				}
 			}, 5*time.Second, time.Second).Should(Succeed())
-			Expect(c.Get(ctx, clusterKey, cluster)).To(Succeed())
-			delete(cluster.Annotations, constants.AnnotationRestoreHold)
-			Expect(c.Update(ctx, cluster)).To(Succeed())
+			setRestoreHold("")
 		} else {
 			Expect(c.Delete(ctx, cluster)).To(Succeed())
 		}
@@ -237,6 +267,18 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 		f, err = framework.NewSetup(ctx, "cluster-delete", operatorNamespace)
 		Expect(err).NotTo(HaveOccurred())
 		c = f.Client
+		cfg, err := ctrlconfig.GetConfig()
+		Expect(err).NotTo(HaveOccurred())
+		deployment, err := getControllerDeployment(ctx, c, operatorNamespace)
+		Expect(err).NotTo(HaveOccurred())
+		serviceAccount := deployment.Spec.Template.Spec.ServiceAccountName
+		Expect(serviceAccount).NotTo(BeEmpty())
+		runAsController = func(action func(client.Client) error) error {
+			return e2ehelpers.RunWithImpersonation(ctx, cfg, c.Scheme(),
+				fmt.Sprintf("system:serviceaccount:%s:%s", deployment.Namespace, serviceAccount),
+				[]string{"system:serviceaccounts", "system:serviceaccounts:" + deployment.Namespace, "system:authenticated"},
+				action)
+		}
 	})
 
 	AfterAll(func() {
