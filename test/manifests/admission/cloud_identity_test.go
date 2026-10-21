@@ -94,6 +94,11 @@ func readClusterPolicySpec(t *testing.T, path string) admissionv1.ValidatingAdmi
 		t.Fatal("policy spec is missing")
 	}
 	spec, _, _ = strings.Cut(spec, "\n---")
+	// Caller-map Helm helpers are unrelated to the CEL rules evaluated here.
+	// Substitute an empty map so the unrendered template remains valid YAML.
+	for _, helper := range []string{"pvcBindingSyncCallers", "podMetadataSyncCallers"} {
+		spec = strings.ReplaceAll(spec, `{{ include "openbao-operator.`+helper+`" . | quote }}`, `'{}'`)
+	}
 	var policy admissionv1.ValidatingAdmissionPolicy
 	if err := yaml.Unmarshal([]byte("spec:\n"+spec), &policy); err != nil {
 		t.Fatalf("decode policy spec: %v", err)
