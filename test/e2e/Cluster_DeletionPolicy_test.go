@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
 )
 
@@ -181,7 +182,33 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 		By("deleting the OpenBaoCluster and waiting for finalization to complete")
-		Expect(c.Delete(ctx, cluster)).To(Succeed())
+		if policy == openbaov1alpha1.DeletionPolicyRetain {
+			By("holding operator finalization while real foreground GC processes the parent")
+			Expect(c.Get(ctx, clusterKey, cluster)).To(Succeed())
+			if cluster.Annotations == nil {
+				cluster.Annotations = map[string]string{}
+			}
+			cluster.Annotations[constants.AnnotationRestoreHold] = "e2e-foreground-retention"
+			Expect(c.Update(ctx, cluster)).To(Succeed())
+			Expect(c.Delete(ctx, cluster, client.PropagationPolicy(metav1.DeletePropagationForeground))).To(Succeed())
+			// TLS deletion proves real GC has processed the foreground owner.
+			// The operator cannot orphan recovery Secrets while its restore hold remains.
+			assertSecretDeleted(tlsCAKey)
+			assertSecretDeleted(tlsServerKey)
+			Consistently(func(g Gomega) {
+				for _, key := range []types.NamespacedName{unsealKey, rootTokenKey} {
+					secret := &corev1.Secret{}
+					g.Expect(c.Get(ctx, key, secret)).To(Succeed())
+					g.Expect(secret.DeletionTimestamp.IsZero()).To(BeTrue())
+					g.Expect(hasOwnerReferenceWithUID(secret, clusterUID)).To(BeTrue())
+				}
+			}, 5*time.Second, time.Second).Should(Succeed())
+			Expect(c.Get(ctx, clusterKey, cluster)).To(Succeed())
+			delete(cluster.Annotations, constants.AnnotationRestoreHold)
+			Expect(c.Update(ctx, cluster)).To(Succeed())
+		} else {
+			Expect(c.Delete(ctx, cluster)).To(Succeed())
+		}
 		assertClusterDeleted(clusterKey)
 		assertStatefulSetDeleted(statefulSetKey)
 

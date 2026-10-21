@@ -202,8 +202,18 @@ finalizer and a foreground-deleting StatefulSet. A paused cluster can finish an 
 still blocks it. Running, unknown, or unproven Pods and foreign finalizers keep deletion pending.
 
 The operator does not scale the StatefulSet to zero for this cleanup because `whenScaled: Delete` would remove data
-PVCs. After workload cleanup, it applies the selected deletion policy to recovery material and releases the cluster
-finalizer. See [decommission a cluster](../../operate/decommission/).
+PVCs. For `Retain`, it orphans generated recovery Secrets before waiting for workloads. Admission blocks garbage
+collection of managed `<cluster>-unseal-key` and `<cluster>-root-token` Secrets in an active namespace. This also
+protects the interval before the first reconcile of a foreground-deleting cluster. The guard uses the generated
+name and managed-resource labels, so it also covers Secrets created before owner-UID annotations were introduced.
+
+For `DeletePVCs` and `DeleteAll`, the operator deletes generated recovery Secrets after workload cleanup, using
+metadata-only reads, current deletion authority, ownership proof, and UID and resource-version preconditions.
+Operator identities and authorized maintenance retain deletion access. Namespace teardown can delete these Secrets
+once the namespace has a deletion timestamp; the existing mutation lock still checks the caller. Namespace deletion
+cannot preserve namespaced recovery material.
+
+The operator releases the cluster finalizer after cleanup. See [decommission a cluster](../../operate/decommission/).
 
 Both paths require current ownership proof. They do not adopt existing orphan Pods or remove foreign finalizers.
 They are not general force-deletion or host-node fencing mechanisms.

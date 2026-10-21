@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-managed-resource-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:9900b56848c603d59278126157d8eb3db443154c91b60a93849be9457310bc3c
+    openbao.org/admission-policy-fingerprint: sha256:18eb68323eb0a4f85c11117678093b49226f64c3238cce99ac8ada1aa79c0afe
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -600,7 +600,27 @@ spec:
           name(variables.maintenance_cluster_name).
           check("maintenance").
           allowed()
+    # Foreground GC can delete dependents before the operator first reconciles
+    # the deleting cluster. Keep recovery material until the operator applies
+    # its deletion policy. Namespace deletion cannot retain namespaced data.
+    - name: is_recovery_secret_delete
+      expression: >-
+        request.operation == "DELETE" &&
+        request.kind.group == "" && request.kind.kind == "Secret" &&
+        variables.is_managed &&
+        ("openbao.org/cluster" in oldObject.metadata.labels) &&
+        oldObject.metadata.labels["openbao.org/cluster"] != "" &&
+        oldObject.metadata.name in [
+          oldObject.metadata.labels["openbao.org/cluster"] + "-unseal-key",
+          oldObject.metadata.labels["openbao.org/cluster"] + "-root-token"
+        ]
   validations:
+    - expression: >-
+        !variables.is_recovery_secret_delete ||
+        variables.is_operator_controller || variables.is_operator_provisioner ||
+        variables.maintenance_authorized ||
+        (namespaceObject != null && has(namespaceObject.metadata.deletionTimestamp))
+      message: Generated recovery Secrets require operator deletion or authorized maintenance while their namespace is active.
     - expression: >-
         !(variables.is_operator_controller || variables.is_operator_provisioner) ||
         !variables.is_cilium_policy_request ||

@@ -61,10 +61,22 @@ kubectl -n <namespace> patch openbaocluster <name> --type merge -p '{
 kubectl -n <namespace> delete openbaocluster <name>
 {{< /command >}}
 
-The finalizer requests foreground StatefulSet deletion and waits for workload cleanup before applying the data policy.
+For `Retain`, the operator orphans generated recovery Secrets before waiting for workload cleanup. Admission prevents
+garbage collection from deleting these Secrets in an active namespace, including when the parent cluster is deleted
+with `--cascade=foreground`. This protects recovery material before the first deletion reconcile.
+
+The finalizer requests foreground StatefulSet deletion and waits for workload cleanup before deleting data.
 It can complete an already-deleting terminal Pod after checking its current ownership and stopped-container state.
 It does not remove foreign finalizers or force deletion of a running or unknown Pod. A pause does not cancel the
 delete request; a restore hold still prevents finalization.
+
+For `DeletePVCs` and `DeleteAll`, the operator deletes generated recovery Secrets after workload cleanup. It reads
+Secret metadata and checks the current cluster authority and ownership proof. Each delete uses the Secret UID and
+resource version as preconditions. Other owned Secrets, such as TLS Secrets, remain subject to garbage collection.
+
+Deleting the namespace also deletes retained namespaced resources. The recovery Secret admission protection permits
+normal namespace teardown once the namespace has a deletion timestamp. Complete the cluster deletion and export any
+required recovery material before deleting its namespace.
 
 {{< command label="verify" title="Inspect remaining recovery material" >}}
 kubectl -n <namespace> get pvc -l openbao.org/cluster=<name>
