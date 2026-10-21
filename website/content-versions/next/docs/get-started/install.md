@@ -113,6 +113,7 @@ if you do not need overrides.
    {{< /command >}}
 
    Helm does not upgrade existing CRDs. Review any field ownership conflict before changing the existing CRD manager.
+   Use the [field-ownership procedure](#resolve-edge-upgrade-field-ownership-conflicts) if this apply fails.
    An older controller or Helm rollback does not restore a previous CRD schema.
 
 4. Install the selected chart and reapply your current overrides.
@@ -145,6 +146,37 @@ if you do not need overrides.
 
 Published edge charts and their referenced images have no automatic expiry under the current retention policy.
 They remain evaluation artifacts with no production support commitment. Nightly Helm charts are not published yet.
+
+### Resolve edge upgrade field ownership conflicts
+
+An existing installation can report a server-side apply conflict when a different manager owns the CRD schema.
+Inspect the managers that own `spec.versions` on each installed CRD:
+
+```sh
+kubectl get crd openbaoclusters.openbao.org openbaotenants.openbao.org openbaorestores.openbao.org \
+  --show-managed-fields -o json \
+  | jq '.items[] | {name: .metadata.name, schemaManagers: [
+      .metadata.managedFields[]? | select(.fieldsV1["f:spec"]["f:versions"] != null) |
+      {manager, operation}
+    ]}'
+```
+
+Review the selected chart's CRD changes before applying them. If the existing schema manager is `helm` and that
+workflow remains authoritative, retain it for the reviewed update:
+
+```sh
+kubectl apply --server-side --field-manager=helm -f edge-crds.yaml
+```
+
+Do not assume `helm` is the manager for every installation. Keep a GitOps controller's CRD ownership and upgrade
+policy consistent with that controller. Review any intentional ownership transfer separately; do not add
+`--force-conflicts` as a blanket retry.
+
+With Helm 4.2.3 and vCluster 0.36.1, an upgrade can also conflict on `app.kubernetes.io/version` and `helm.sh/chart`
+labels on the operator metrics Services when vCluster owns those fields. For those Service-label conflicts, add
+`--server-side=false` to the Helm upgrade command above. Keep `--reset-values` and the reviewed values file.
+This selects Helm's client-side update method; Kubernetes RBAC and admission remain enforced. It does not change
+the separate CRD apply step or configure a GitOps controller's HelmRelease.
 
 ## Install the generated edge manifest
 
