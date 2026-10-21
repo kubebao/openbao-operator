@@ -160,3 +160,18 @@ The release namespace is always included. Users may extend the deny set via:
 {{- end -}}
 {{- toJson $callers -}}
 {{- end -}}
+
+{{/* Keep annotation permissions separate for each exact username and namespace. */}}
+{{- define "openbao-operator.podMetadataSyncCallers" -}}
+{{- $callers := dict -}}
+{{- range .Values.admissionPolicies.podMetadataSync.allowedCallers -}}
+  {{- $namespaces := default dict (get $callers .username) -}}
+  {{- $keys := .annotationKeys -}}
+  {{- range .namespaces -}}
+    {{- $existing := default (list) (get $namespaces .) -}}
+    {{- $_ := set $namespaces . (concat $existing $keys | uniq) -}}
+  {{- end -}}
+  {{- $_ := set $callers .username $namespaces -}}
+{{- end -}}
+{{- toJson $callers -}}
+{{- end -}}

@@ -290,6 +290,15 @@ admissionPolicies:
     # - username: kubernetes-super-admin
     #   namespaces:
     #     - openbao-demo
+  # -- Allow only configured annotation keys on managed workload Pods for exact callers and namespaces.
+  # -- Empty by default. Kubernetes, OpenBao, and vCluster reserved annotations remain protected.
+  podMetadataSync:
+    allowedCallers: []
+    # - username: kubernetes-super-admin
+    #   namespaces:
+    #     - openbao-demo
+    #   annotationKeys:
+    #     - example.com/observed-host-annotation
   # Provisioner RBAC policy configuration (multi-tenant mode).
   #
   # These lists are used to deny the Provisioner from creating/updating/deleting

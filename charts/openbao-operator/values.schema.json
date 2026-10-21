@@ -537,6 +537,69 @@
           },
           "required": ["allowedCallers"]
         },
+        "podMetadataSync": {
+          "type": "object",
+          "description": "Platform-managed allowance for exact annotation keys on managed workload Pods",
+          "additionalProperties": false,
+          "properties": {
+            "allowedCallers": {
+              "type": "array",
+              "default": [],
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "namespaces",
+                  "annotationKeys"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[^*\\r\\n]+$"
+                  },
+                  "namespaces": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 63,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                    }
+                  },
+                  "annotationKeys": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 317,
+                      "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$",
+                      "not": {
+                        "anyOf": [
+                          {
+                            "pattern": "^openbao\\.org/"
+                          },
+                          {
+                            "pattern": "^vcluster\\.loft\\.sh/"
+                          },
+                          {
+                            "pattern": "(^|\\.)(kubernetes\\.io|k8s\\.io)/"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": ["allowedCallers"]
+        },
         "maintenanceBreakGlassGroups": {
           "type": "array",
           "description": "Deprecated and no longer used. Maintenance authorization now comes from Kubernetes RBAC via the custom `maintenance` verb on `openbaoclusters.openbao.org`.",

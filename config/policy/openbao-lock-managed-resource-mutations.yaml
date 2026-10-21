@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-managed-resource-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:6f6ebf453a49abdb282c8f335b8650206a9fd80e8a24fb84045b9e1a30261a6b
+    openbao.org/admission-policy-fingerprint: sha256:9900b56848c603d59278126157d8eb3db443154c91b60a93849be9457310bc3c
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -51,6 +51,10 @@ spec:
   variables:
     # Platform-managed exact usernames and namespaces; empty disables PVC binding synchronization.
     - name: pvc_binding_sync_callers
+      expression: >-
+        {}
+    # Exact virtual-API usernames, namespaces, and annotation keys; empty disables Pod metadata synchronization.
+    - name: pod_metadata_sync_callers
       expression: >-
         {}
     - name: operator_namespace
@@ -501,6 +505,55 @@ spec:
         (has(object.status) == has(oldObject.status) &&
           (!has(object.status) || object.status == oldObject.status)) &&
         variables.pvc_binding_sync_preserves_spec
+    - name: pod_metadata_sync_annotation_keys
+      expression: >-
+        request.userInfo.username in variables.pod_metadata_sync_callers &&
+        request.namespace in variables.pod_metadata_sync_callers[request.userInfo.username] ?
+          variables.pod_metadata_sync_callers[request.userInfo.username][request.namespace] : []
+    - name: pod_new_annotations
+      expression: >-
+        object != null && has(object.metadata.annotations) ? object.metadata.annotations : {}
+    - name: pod_old_annotations
+      expression: >-
+        oldObject != null && has(oldObject.metadata.annotations) ? oldObject.metadata.annotations : {}
+    - name: is_pod_metadata_sync_update
+      expression: >-
+        variables.is_pod_request && request.operation == "UPDATE" &&
+        (!has(request.subResource) || request.subResource == "") &&
+        object != null && oldObject != null && request.namespace != "" &&
+        variables.pod_metadata_sync_annotation_keys.size() > 0 &&
+        variables.pod_metadata_sync_annotation_keys.all(k,
+          !k.startsWith("openbao.org/") && !k.startsWith("vcluster.loft.sh/") &&
+          !k.matches("(^|[.])(kubernetes[.]io|k8s[.]io)/")) &&
+        has(oldObject.metadata.labels) &&
+        ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
+        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
+        ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" &&
+        ("openbao.org/component" in oldObject.metadata.labels) &&
+        oldObject.metadata.labels["openbao.org/component"] == "openbaocluster" &&
+        (!variables.has_old_owner_uid_annotation || oldObject.metadata.annotations["openbao.org/owner-uid"] != "") &&
+        has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
+          ref.apiVersion == "apps/v1" && ref.kind == "StatefulSet" && ref.name != "" && ref.uid != "" &&
+          has(ref.controller) && ref.controller) &&
+        object.spec == oldObject.spec &&
+        (has(object.status) == has(oldObject.status) && (!has(object.status) || object.status == oldObject.status)) &&
+        has(object.metadata.labels) && object.metadata.labels == oldObject.metadata.labels &&
+        has(object.metadata.ownerReferences) && object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
+        (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
+          (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)) &&
+        (has(object.metadata.deletionTimestamp) == has(oldObject.metadata.deletionTimestamp) &&
+          (!has(object.metadata.deletionTimestamp) || object.metadata.deletionTimestamp == oldObject.metadata.deletionTimestamp)) &&
+        (has(object.metadata.deletionGracePeriodSeconds) == has(oldObject.metadata.deletionGracePeriodSeconds) &&
+          (!has(object.metadata.deletionGracePeriodSeconds) ||
+            object.metadata.deletionGracePeriodSeconds == oldObject.metadata.deletionGracePeriodSeconds)) &&
+        (has(object.metadata.generateName) == has(oldObject.metadata.generateName) &&
+          (!has(object.metadata.generateName) || object.metadata.generateName == oldObject.metadata.generateName)) &&
+        variables.pod_old_annotations.all(k, v,
+          k in variables.pod_metadata_sync_annotation_keys ||
+          (k in variables.pod_new_annotations && variables.pod_new_annotations[k] == v)) &&
+        variables.pod_new_annotations.all(k, v,
+          k in variables.pod_metadata_sync_annotation_keys ||
+          (k in variables.pod_old_annotations && variables.pod_old_annotations[k] == v))
     - name: maintenance_enabled
       expression: >-
         request.operation == "DELETE" ?
@@ -594,6 +647,7 @@ spec:
         (variables.is_statefulset_controller && request.resource.resource == "persistentvolumeclaims" && request.operation == "CREATE") ||
         variables.is_storage_pvc_binding_update ||
         variables.is_pvc_binding_sync_update ||
+        variables.is_pod_metadata_sync_update ||
         (variables.is_kube_system_controller && variables.is_endpoints_controller_request) ||
         variables.is_kube_system_service_metadata_update ||
         (variables.is_pod_request && variables.is_kubelet_node && request.operation == "DELETE") ||

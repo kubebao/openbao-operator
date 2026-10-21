@@ -14,6 +14,7 @@ verifiedBy:
   - internal/platform/entrypoint/flags.go
   - internal/service/workload/pod_deletion.go
   - test/integration/terminal_pod_cleanup_test.go
+  - test/integration/vap_pod_metadata_sync_test.go
 ---
 
 The operator treats its `ValidatingAdmissionPolicy` objects and bindings as runtime dependencies. They validate custom
@@ -112,6 +113,53 @@ input; the policy does not read it at runtime. Rebuild and reapply the overlay a
 After applying the configuration, verify that the virtual PVC becomes `Bound` and the syncer no longer reports
 mutation-lock denials for that PVC. Existing retry backoff can delay synchronization. Removing the configured caller
 blocks later binding updates; it does not undo an existing binding.
+
+## Allow scoped Pod annotation synchronization
+
+vCluster can copy host Pod annotations before it writes the virtual Pod's `/status`. If the main-resource annotation
+update is denied, that sync pass returns before the status write. The host Pod can run while the virtual Pod stays
+`Pending`. Allowing `/status` alone does not resolve this sequence; the mutation policy does not match `pods/status`.
+
+Inspect the denied virtual API request and compare its annotations with the stored Pod. A platform administrator can
+allow exact annotation keys for an exact caller and namespace:
+
+```yaml
+admissionPolicies:
+  enabled: true
+  podMetadataSync:
+    allowedCallers:
+      - username: kubernetes-super-admin
+        namespaces:
+          - openbao-demo
+        annotationKeys:
+          - example.com/observed-host-annotation
+```
+
+Replace the identity, namespace, and example annotation with values from the denied request. The default list is
+empty. Permissions remain separate for each username and namespace, including when the same username has multiple
+entries. Wildcards, group grants, and label synchronization are not supported. The caller still needs Kubernetes
+RBAC permission to update Pods.
+
+The allowance applies only to updates of existing workload Pods with the operator's managed labels and a StatefulSet
+controller UID reference. It preserves an owner-UID annotation when present. It can add, change, or remove the
+configured annotations. Pod spec, status, labels, owner references, finalizers, deletion metadata, and all other
+annotations must remain unchanged. It grants no Pod creation or deletion and no access to other resource kinds. Annotation keys under `openbao.org/`, `vcluster.loft.sh/`,
+`kubernetes.io/`, `k8s.io/`, or subdomains of the two Kubernetes domains remain protected even if configured.
+
+{{< callout type="note" title="Review each annotation's effects" >}}
+The configured identity can supply any value for the allowed keys on managed workload Pods in the listed namespace.
+Admission cannot prove that a value came from the host cluster or distinguish a syncer from another client using the
+same identity. Grant only observed keys whose effects the platform administrator accepts.
+{{< /callout >}}
+
+For Kustomize, adapt `config/overlays/pod-metadata-sync/kustomization.yaml`. The replacement configures only
+`pod_metadata_sync_callers`; the policy does not read the generated ConfigMap at runtime. Combine this configuration
+with the separate PVC binding allowance when both paths require it.
+
+Verify that the main-resource denial stops and the virtual Pod receives status updates. Syncer retry backoff can
+delay recovery. A policy change does not establish that the syncer has retried an existing Pod; inspect its requests
+before choosing a version-specific resynchronization procedure. Removing an allowance blocks later annotation
+updates and does not undo values already synchronized.
 
 ## Complete deletion of terminal workload Pods
 

@@ -270,6 +270,10 @@ func syncPolicies(opts options) error {
 				if err != nil {
 					return fmt.Errorf("add PVC binding sync callers to %q: %w", inputFile, err)
 				}
+				transformed, err = addPodMetadataSyncCallers(transformed)
+				if err != nil {
+					return fmt.Errorf("add Pod metadata sync callers to %q: %w", inputFile, err)
+				}
 			}
 			parts = append(parts, transformed)
 		}
@@ -358,6 +362,16 @@ func addPVCBindingSyncCallers(content string) (string, error) {
 	}
 	const replacement = "    - name: pvc_binding_sync_callers\n" +
 		"      expression: {{ include \"openbao-operator.pvcBindingSyncCallers\" . | quote }}"
+	return strings.Replace(content, marker, replacement, 1), nil
+}
+
+func addPodMetadataSyncCallers(content string) (string, error) {
+	const marker = "    - name: pod_metadata_sync_callers\n      expression: >-\n        {}"
+	if strings.Count(content, marker) != 1 {
+		return "", fmt.Errorf("expected exactly one default Pod metadata sync caller variable")
+	}
+	const replacement = "    - name: pod_metadata_sync_callers\n" +
+		"      expression: {{ include \"openbao-operator.podMetadataSyncCallers\" . | quote }}"
 	return strings.Replace(content, marker, replacement, 1), nil
 }
 
