@@ -411,6 +411,7 @@ appBoundaries:
       - "**/*_test.go"
     allowServiceImports:
       - internal/service/backup
+      - internal/service/workload
   - name: openbaocluster-adminopsstatus
     displayName: OpenBaoCluster AdminOpsStatus
     files:

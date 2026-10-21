@@ -39,7 +39,7 @@ func TestHandleDefaultsRetentionSecrets(t *testing.T) {
 	rootTokenSecret := newRetentionTestSecret(cluster, cluster.Name+constants.SuffixRootToken, ownerRef)
 	kubeClient := newCleanupTestClient(t, cluster, unsealSecret, rootTokenSecret)
 
-	if err := Handle(context.Background(), logr.Discard(), Dependencies{Client: kubeClient}, cluster); err != nil {
+	if _, err := Handle(context.Background(), logr.Discard(), Dependencies{Client: kubeClient}, cluster); err != nil {
 		t.Fatalf("Handle() error = %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestSourceDeletionWaitsForOwnedRestoreTest(t *testing.T) {
 				child.UID = "replacement"
 			}
 			c := newCleanupTestClient(t, cluster, child)
-			err := Handle(t.Context(), logr.Discard(), Dependencies{Client: c}, cluster)
+			_, err := Handle(t.Context(), logr.Discard(), Dependencies{Client: c}, cluster)
 			if replaced {
 				require.NoError(t, err)
 			} else {
@@ -96,7 +96,9 @@ func TestSourceDeletionWaitsForOwnedRestoreTest(t *testing.T) {
 			require.NotNil(t, child.DeletionTimestamp)
 			child.Finalizers = nil
 			require.NoError(t, c.Update(t.Context(), child))
-			require.NoError(t, Handle(t.Context(), logr.Discard(), Dependencies{Client: c}, cluster))
+			deletionResult1, deletionErr1 := Handle(t.Context(), logr.Discard(), Dependencies{Client: c}, cluster)
+			require.NoError(t, deletionErr1)
+			require.Zero(t, deletionResult1.RequeueAfter)
 		})
 	}
 }
@@ -116,7 +118,8 @@ func TestSourceDeletionPreservesResourcesWhileRetentionExecutionIsUnknown(t *tes
 	// A stale deletion observation must still see the live retention reservation.
 	stale := cluster.DeepCopy()
 	stale.Status.Backup = nil
-	require.ErrorContains(t, Handle(t.Context(), logr.Discard(), Dependencies{Client: c}, stale), "retention executor")
+	_, deletionErr3 := Handle(t.Context(), logr.Discard(), Dependencies{Client: c}, stale)
+	require.ErrorContains(t, deletionErr3, "retention executor")
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(pvc), pvc))
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
 	require.NotNil(t, cluster.Status.Backup.Retention.Active)
@@ -154,7 +157,8 @@ func TestSourceDeletionUsesLiveReaderWhenClientCacheOmitsActiveRetention(t *test
 	stale.Status.Backup = nil
 	cached := &staleDeletionClient{Client: live, snapshot: stale.DeepCopy()}
 	// The request object and all cached Client cluster reads omit the live reservation.
-	require.ErrorContains(t, Handle(t.Context(), logr.Discard(), Dependencies{Client: cached, APIReader: live}, stale), "retention executor")
+	_, deletionErr4 := Handle(t.Context(), logr.Discard(), Dependencies{Client: cached, APIReader: live}, stale)
+	require.ErrorContains(t, deletionErr4, "retention executor")
 	require.Zero(t, cached.clusterReads, "custody and adminops read-back must use the live API reader")
 	require.NoError(t, live.Get(t.Context(), client.ObjectKeyFromObject(pvc), pvc))
 	require.NoError(t, live.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
@@ -215,8 +219,9 @@ func TestSourceDeletionUsesLiveRestoreTestAfterRetentionCancellation(t *testing.
 			cached := &staleDeletionClient{Client: live, snapshot: stale.DeepCopy()}
 			deps := Dependencies{Client: cached, APIReader: live}
 
-			require.ErrorContains(t, Handle(t.Context(), logr.Discard(), deps, stale),
-				"waiting for disposable restore test cleanup")
+			_, deletionErr5 := Handle(t.Context(), logr.Discard(), deps, stale)
+
+			require.ErrorContains(t, deletionErr5, "waiting for disposable restore test cleanup")
 			require.Zero(t, cached.clusterReads, "cancellation must use the live API reader")
 			require.Nil(t, stale.Status.Backup, "cancellation must not replace the caller's cached status")
 			require.NoError(t, live.Get(t.Context(), client.ObjectKeyFromObject(child), child))
@@ -240,7 +245,9 @@ func TestSourceDeletionUsesLiveRestoreTestAfterRetentionCancellation(t *testing.
 			child.Finalizers = nil
 			require.NoError(t, live.Update(t.Context(), child))
 			require.True(t, apierrors.IsNotFound(live.Get(t.Context(), client.ObjectKeyFromObject(child), child)))
-			require.NoError(t, Handle(t.Context(), logr.Discard(), deps, stale))
+			deletionResult2, deletionErr2 := Handle(t.Context(), logr.Discard(), deps, stale)
+			require.NoError(t, deletionErr2)
+			require.Zero(t, deletionResult2.RequeueAfter)
 			require.True(t, apierrors.IsNotFound(live.Get(t.Context(), client.ObjectKeyFromObject(pvc), pvc)),
 				"PVC cleanup can complete after the recorded child disappears")
 			require.Zero(t, cached.clusterReads)

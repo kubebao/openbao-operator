@@ -127,6 +127,18 @@ var _ = Describe("OpenBaoCluster Deletion", func() {
 			Expect(k8sClient.Create(ctx, pvc)).To(Succeed())
 
 			Expect(k8sClient.Delete(ctx, cluster)).To(Succeed())
+			result, err := reconciler.Reconcile(ctx, req)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+			Expect(k8sClient.Get(ctx, req.NamespacedName, cluster)).To(Succeed())
+			Expect(cluster.Finalizers).To(ContainElement(openbaov1alpha1.OpenBaoClusterFinalizer))
+			Expect(k8sClient.Get(ctx, req.NamespacedName, sts)).To(Succeed())
+			Expect(sts.DeletionTimestamp).NotTo(BeNil())
+			Expect(sts.Finalizers).To(ContainElement(metav1.FinalizerDeleteDependents))
+			// Envtest has no garbage collector. Complete its foreground
+			// StatefulSet deletion after observing the held cluster finalizer.
+			sts.Finalizers = nil
+			Expect(k8sClient.Update(ctx, sts)).To(Succeed())
 			_, err = reconciler.Reconcile(ctx, req)
 			Expect(err).NotTo(HaveOccurred())
 

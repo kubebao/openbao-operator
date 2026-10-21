@@ -144,7 +144,8 @@ func TestApplicationsRequireConfiguredBoundary(t *testing.T) {
 	assert.EqualError(t, err, "admin operations application is required")
 	_, err = applications.GatherStatusState(ctx, logger, cluster)
 	assert.EqualError(t, err, "status application is required")
-	assert.EqualError(t, applications.HandleDeletion(ctx, logger, cluster), "deletion application is required")
+	_, deletionErr1 := applications.HandleDeletion(ctx, logger, cluster)
+	assert.EqualError(t, deletionErr1, "deletion application is required")
 	assert.False(t, applications.InitializationConfigured())
 }
 
@@ -167,7 +168,8 @@ func TestRestoreHoldStopsManagement(t *testing.T) {
 	require.NoError(t, err)
 	_, err = app.ReconcileAdminOps(t.Context(), logr.Discard(), cluster.DeepCopy(), cluster, nil)
 	require.NoError(t, err)
-	require.ErrorContains(t, app.HandleDeletion(t.Context(), logr.Discard(), cluster), "held")
+	_, deletionErr2 := app.HandleDeletion(t.Context(), logr.Discard(), cluster)
+	require.ErrorContains(t, deletionErr2, "held")
 }
 
 func TestTerminalPodCleanupRequiresUncachedReader(t *testing.T) {

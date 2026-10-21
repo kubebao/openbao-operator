@@ -15,6 +15,7 @@ verifiedBy:
   - internal/service/workload/pod_deletion.go
   - test/integration/terminal_pod_cleanup_test.go
   - test/integration/vap_pod_metadata_sync_test.go
+  - test/integration/workload_finalization_test.go
 ---
 
 The operator treats its `ValidatingAdmissionPolicy` objects and bindings as runtime dependencies. They validate custom
@@ -189,8 +190,23 @@ Cleanup failures are logged and retried during later workload reconciliation. Th
 Cleanup relies on the virtual API's Pod status; a deletion timestamp or `NotReady` condition alone does not establish that
 containers have stopped. Unknown or nonterminal status remains blocked.
 
-This cleanup requires a live ownership chain. It does not adopt orphan Pods or override cluster deletion, pause,
-restore holds, or finalizer handling. It is not a general force-deletion or host-node fencing mechanism.
+### Finish cluster deletion before releasing ownership
+
+Cluster finalization uses a separate cleanup path. The operator requests foreground deletion of its StatefulSets
+and keeps the `OpenBaoCluster` finalizer until the workload Pods and StatefulSets are gone. Foreground deletion keeps
+the StatefulSet available as ownership proof while its dependent Pods terminate.
+
+The operator can complete an already-deleting terminal Pod under the same Pod-state, ownership, finalizer, and
+conditional-delete checks described above. This path requires the original deleting cluster with its operator
+finalizer and a foreground-deleting StatefulSet. A paused cluster can finish an authorized deletion; a restore hold
+still blocks it. Running, unknown, or unproven Pods and foreign finalizers keep deletion pending.
+
+The operator does not scale the StatefulSet to zero for this cleanup because `whenScaled: Delete` would remove data
+PVCs. After workload cleanup, it applies the selected deletion policy to recovery material and releases the cluster
+finalizer. See [decommission a cluster](../../operate/decommission/).
+
+Both paths require current ownership proof. They do not adopt existing orphan Pods or remove foreign finalizers.
+They are not general force-deletion or host-node fencing mechanisms.
 
 ## Verify the installed guardrails
 

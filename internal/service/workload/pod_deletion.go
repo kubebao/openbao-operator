@@ -3,6 +3,7 @@ package workload
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/go-logr/logr"
@@ -14,6 +15,13 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
+)
+
+type podDeletionMode uint8
+
+const (
+	restartPodDeletion podDeletionMode = iota
+	finalizingPodDeletion
 )
 
 // CompleteTerminatedPodDeletion completes at most one already-requested deletion.
@@ -35,7 +43,7 @@ func (m *Manager) CompleteTerminatedPodDeletion(ctx context.Context, logger logr
 		if !terminalPodDeletionEligible(candidate) {
 			continue
 		}
-		requested, err := m.completeTerminatedPodDeletion(ctx, logger, cluster, candidate)
+		requested, err := m.completeTerminatedPodDeletion(ctx, logger, cluster, candidate, restartPodDeletion)
 		if err != nil || requested {
 			return requested, err
 		}
@@ -67,7 +75,7 @@ func terminalPodDeletionEligible(pod *corev1.Pod) bool {
 	return true
 }
 
-func (m *Manager) completeTerminatedPodDeletion(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, candidate *corev1.Pod) (bool, error) {
+func (m *Manager) completeTerminatedPodDeletion(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, candidate *corev1.Pod, mode podDeletionMode) (bool, error) {
 	pod := &corev1.Pod{}
 	if err := m.reader.Get(ctx, client.ObjectKeyFromObject(candidate), pod); err != nil {
 		return false, client.IgnoreNotFound(fmt.Errorf("read current Pod for terminal deletion cleanup: %w", err))
@@ -87,10 +95,14 @@ func (m *Manager) completeTerminatedPodDeletion(ctx context.Context, logger logr
 	if err := m.reader.Get(ctx, client.ObjectKeyFromObject(cluster), current); err != nil {
 		return false, client.IgnoreNotFound(fmt.Errorf("read cluster authority for terminal deletion cleanup: %w", err))
 	}
-	if current.UID != cluster.UID || !terminalPodCleanupEnabled(current) || sts.UID != owner.UID ||
+	if current.UID != cluster.UID || !podDeletionAuthorized(current, mode) || sts.UID != owner.UID ||
 		sts.Labels[constants.LabelAppManagedBy] != constants.LabelValueAppManagedByOpenBaoOperator ||
 		sts.Labels[constants.LabelOpenBaoCluster] != current.Name ||
 		!resourceownership.HasManagedControllerOwnerProof(sts, current, openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster")) {
+		return false, nil
+	}
+	if mode == finalizingPodDeletion &&
+		(sts.DeletionTimestamp.IsZero() || !slices.Contains(sts.Finalizers, metav1.FinalizerDeleteDependents)) {
 		return false, nil
 	}
 	zero := int64(0)
@@ -101,4 +113,13 @@ func (m *Manager) completeTerminatedPodDeletion(ctx context.Context, logger logr
 	}
 	logger.Info("Requested completion of terminated Pod deletion", "pod", pod.Name, "pod_uid", pod.UID)
 	return true, nil
+}
+
+func podDeletionAuthorized(cluster *openbaov1alpha1.OpenBaoCluster, mode podDeletionMode) bool {
+	if mode == restartPodDeletion {
+		return terminalPodCleanupEnabled(cluster)
+	}
+	return cluster != nil && cluster.UID != "" && !cluster.DeletionTimestamp.IsZero() &&
+		slices.Contains(cluster.Finalizers, openbaov1alpha1.OpenBaoClusterFinalizer) &&
+		cluster.Annotations[constants.AnnotationRestoreHold] == ""
 }

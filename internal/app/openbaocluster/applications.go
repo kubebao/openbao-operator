@@ -109,12 +109,12 @@ func (a *Applications) HandleDeletion(
 	ctx context.Context,
 	logger logr.Logger,
 	cluster *openbaov1alpha1.OpenBaoCluster,
-) error {
+) (recon.Result, error) {
 	if a == nil {
-		return fmt.Errorf("deletion application is required")
+		return recon.Result{}, fmt.Errorf("deletion application is required")
 	}
 	if cluster != nil && cluster.Annotations[constants.AnnotationRestoreHold] != "" {
-		return fmt.Errorf("cluster remains held for administrator restore recovery")
+		return recon.Result{}, fmt.Errorf("cluster remains held for administrator restore recovery")
 	}
 	return HandleDeletion(ctx, logger, a.config.DeletionDependencies, cluster)
 }

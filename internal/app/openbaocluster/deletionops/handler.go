@@ -11,7 +11,9 @@ import (
 	"github.com/kubebao/openbao-operator/internal/app/openbaocluster/adminopsstatus"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/observability"
+	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 	"github.com/kubebao/openbao-operator/internal/service/backup"
+	"github.com/kubebao/openbao-operator/internal/service/workload"
 )
 
 // Dependencies contains external collaborators required for deletion orchestration.
@@ -23,17 +25,24 @@ type Dependencies struct {
 }
 
 // Handle applies the deletion policy for an OpenBaoCluster.
-func Handle(ctx context.Context, logger logr.Logger, deps Dependencies, cluster *openbaov1alpha1.OpenBaoCluster) error {
+func Handle(ctx context.Context, logger logr.Logger, deps Dependencies, cluster *openbaov1alpha1.OpenBaoCluster) (recon.Result, error) {
 	reader := deps.APIReader
 	if reader == nil {
 		reader = deps.Client
 	}
 	mutator := adminopsstatus.NewMutator(reader, deps.Client)
 	if err := backup.CancelRetention(ctx, deps.Client, reader, mutator, cluster); err != nil {
-		return err
+		return recon.Result{}, err
 	}
 	if err := backup.CancelRestoreTest(ctx, reader, deps.Client, mutator, cluster); err != nil {
-		return err
+		return recon.Result{}, err
+	}
+	complete, err := workload.NewManager(deps.Client, nil, "").WithReader(reader).FinalizeDeletion(ctx, logger, cluster)
+	if err != nil {
+		return recon.Result{}, err
+	}
+	if !complete {
+		return recon.Result{RequeueAfter: constants.RequeueShort}, nil
 	}
 
 	policy := cluster.Spec.DeletionPolicy
@@ -50,7 +59,7 @@ func Handle(ctx context.Context, logger logr.Logger, deps Dependencies, cluster 
 			retentionSecrets = DefaultRetentionSecrets(cluster)
 		}
 		if err := OrphanRetentionSecrets(ctx, logger, deps.Client, cluster, retentionSecrets); err != nil {
-			return fmt.Errorf("failed to orphan retention secrets: %w", err)
+			return recon.Result{}, fmt.Errorf("failed to orphan retention secrets: %w", err)
 		}
 	}
 
@@ -59,11 +68,11 @@ func Handle(ctx context.Context, logger logr.Logger, deps Dependencies, cluster 
 	clusterMetrics.Clear()
 
 	if err := Cleanup(ctx, logger, deps.Client, cluster, policy); err != nil {
-		return err
+		return recon.Result{}, err
 	}
 
 	// Backup deletion for DeletionPolicyDeleteAll will be implemented alongside BackupManager data path.
-	return nil
+	return recon.Result{}, nil
 }
 
 // DefaultRetentionSecrets returns the generated secrets that must survive a retained cluster deletion.

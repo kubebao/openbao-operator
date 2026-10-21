@@ -225,11 +225,14 @@ func newCleanupTestClient(t *testing.T, objs ...runtime.Object) client.Client {
 }
 
 func newCleanupTestCluster(name string) *openbaov1alpha1.OpenBaoCluster {
+	stamp := metav1.Now()
 	return &openbaov1alpha1.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-			UID:       types.UID(name + "-uid"),
+			Name:              name,
+			Namespace:         "default",
+			UID:               types.UID(name + "-uid"),
+			DeletionTimestamp: &stamp,
+			Finalizers:        []string{openbaov1alpha1.OpenBaoClusterFinalizer},
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
 			Version:  "2.4.4",

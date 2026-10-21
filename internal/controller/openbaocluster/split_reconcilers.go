@@ -231,12 +231,16 @@ func (r *openBaoClusterStatusReconciler) Reconcile(ctx context.Context, req ctrl
 			if r.parent.Applications == nil {
 				return ctrl.Result{}, fmt.Errorf("OpenBaoCluster applications are not configured")
 			}
-			if err := r.parent.Applications.HandleDeletion(ctx, logger, cluster); err != nil {
+			deletionResult, err := r.parent.Applications.HandleDeletion(ctx, logger, cluster)
+			if err != nil {
 				return ctrl.Result{}, err
+			}
+			if deletionResult.RequeueAfter > 0 {
+				return ctrl.Result{RequeueAfter: deletionResult.RequeueAfter}, nil
 			}
 			original := cluster.DeepCopy()
 			controllerutil.RemoveFinalizer(cluster, openbaov1alpha1.OpenBaoClusterFinalizer)
-			if err := r.parent.Patch(ctx, cluster, client.MergeFrom(original)); err != nil {
+			if err := r.parent.Patch(ctx, cluster, client.MergeFromWithOptions(original, client.MergeFromWithOptimisticLock{})); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer from OpenBaoCluster %s/%s: %w", cluster.Namespace, cluster.Name, err)
 			}
 		}

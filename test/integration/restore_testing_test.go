@@ -75,7 +75,9 @@ func TestSourceDeletionDuringRejectedRestoreTestReleasesReservation(t *testing.T
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
 	require.Nil(t, cluster.Status.Backup.RestoreTest.Active)
 	require.Equal(t, api.RestoreTestFailed, cluster.Status.Backup.RestoreTest.Last.Outcome)
-	require.NoError(t, deletionops.Handle(ctx, logr.Discard(), deletionops.Dependencies{Client: k8sClient}, cluster))
+	deletionResult1, deletionErr1 := deletionops.Handle(ctx, logr.Discard(), deletionops.Dependencies{Client: k8sClient}, cluster)
+	require.NoError(t, deletionErr1)
+	require.Zero(t, deletionResult1.RequeueAfter)
 	cluster.Finalizers = nil
 	require.NoError(t, k8sClient.Update(ctx, cluster))
 	require.True(t, apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)))
@@ -243,21 +245,25 @@ func TestSourceDeletionWaitsForUnboundRestoreTest(t *testing.T) {
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
 	controller := newControllerClient(t)
 	deps := deletionops.Dependencies{Client: controller}
-	require.ErrorContains(t, deletionops.Handle(ctx, logr.Discard(), deps, cluster), "creation is uncertain")
+	_, deletionErr3 := deletionops.Handle(ctx, logr.Discard(), deps, cluster)
+	require.ErrorContains(t, deletionErr3, "creation is uncertain")
 
 	// The already submitted Create finishes after source deletion has started.
 	child := newFreshRestoreRequest(namespace, "late-child")
 	child.Annotations = map[string]string{constants.AnnotationRestoreTestSource: string(cluster.UID)}
 	child.Finalizers = []string{api.OpenBaoRestoreFinalizer}
 	require.NoError(t, controller.Create(ctx, child))
-	require.ErrorContains(t, deletionops.Handle(ctx, logr.Discard(), deps, cluster), "waiting for disposable")
+	_, deletionErr4 := deletionops.Handle(ctx, logr.Discard(), deps, cluster)
+	require.ErrorContains(t, deletionErr4, "waiting for disposable")
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
 	require.Equal(t, child.UID, cluster.Status.Backup.RestoreTest.Active.UID)
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(child), child))
 	require.NotNil(t, child.DeletionTimestamp)
 	child.Finalizers = nil
 	require.NoError(t, controller.Update(ctx, child))
-	require.NoError(t, deletionops.Handle(ctx, logr.Discard(), deps, cluster))
+	deletionResult2, deletionErr2 := deletionops.Handle(ctx, logr.Discard(), deps, cluster)
+	require.NoError(t, deletionErr2)
+	require.Zero(t, deletionResult2.RequeueAfter)
 	cluster.Finalizers = nil
 	require.NoError(t, controller.Update(ctx, cluster))
 	require.True(t, apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)))
