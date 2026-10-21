@@ -144,8 +144,10 @@ RBAC permission to update Pods.
 The allowance applies only to updates of existing workload Pods with the operator's managed labels and a StatefulSet
 controller UID reference. It preserves an owner-UID annotation when present. It can add, change, or remove the
 configured annotations. Pod spec, status, labels, owner references, finalizers, deletion metadata, and all other
-annotations must remain unchanged. It grants no Pod creation or deletion and no access to other resource kinds. Annotation keys under `openbao.org/`, `vcluster.loft.sh/`,
-`kubernetes.io/`, `k8s.io/`, or subdomains of the two Kubernetes domains remain protected even if configured.
+annotations must remain unchanged. It grants no Pod creation or deletion and no access to other resource kinds.
+Annotation keys under `openbao.org/`, `vcluster.loft.sh/`, `kubernetes.io/`, `k8s.io/`, or subdomains of the two
+Kubernetes domains remain protected. The Helm schema rejects these keys. In a Kustomize configuration, one protected
+key disables the whole allowance for that caller and namespace, including otherwise permitted keys.
 
 {{< callout type="note" title="Review each annotation's effects" >}}
 The configured identity can supply any value for the allowed keys on managed workload Pods in the listed namespace.
@@ -200,6 +202,11 @@ The operator can complete an already-deleting terminal Pod under the same Pod-st
 conditional-delete checks described above. This path requires the original deleting cluster with its operator
 finalizer and a foreground-deleting StatefulSet. A paused cluster can finish an authorized deletion; a restore hold
 still blocks it. Running, unknown, or unproven Pods and foreign finalizers keep deletion pending.
+
+For legacy StatefulSets without an `openbao.org/owner-uid` annotation, the operator first validates the exact cluster
+controller reference and managed labels. It adds only the missing annotation with UID and resource-version checks,
+then requeues before deletion. Conflicting provenance is never overwritten. This migration also runs for paused or
+already-deleting workloads; subsequent cleanup still requires full managed ownership proof.
 
 The operator does not scale the StatefulSet to zero for this cleanup because `whenScaled: Delete` would remove data
 PVCs. For `Retain`, it orphans generated recovery Secrets before waiting for workloads. Admission blocks garbage

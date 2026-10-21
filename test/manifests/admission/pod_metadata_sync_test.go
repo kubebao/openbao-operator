@@ -100,6 +100,8 @@ func TestPodMetadataSyncMutationBoundaries(t *testing.T) {
 			change: func(p *corev1.Pod) { p.Annotations["seccomp.security.alpha.kubernetes.io/pod"] = "unconfined" }},
 		{name: "configured-k8s-key", callers: `{"syncer":{"tenant":["k8s.io/test"]}}`,
 			change: func(p *corev1.Pod) { p.Annotations["k8s.io/test"] = otherValue }},
+		{name: "mixed-permitted-and-reserved-keys",
+			callers: `{"syncer":{"tenant":["example.com/host-metadata","kubernetes.io/test"]}}`},
 		{name: "configured-vcluster-key", callers: `{"syncer":{"tenant":["vcluster.loft.sh/uid"]}}`,
 			change: func(p *corev1.Pod) { p.Annotations["vcluster.loft.sh/uid"] = otherValue }},
 	}

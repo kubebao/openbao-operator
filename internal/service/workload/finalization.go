@@ -45,6 +45,10 @@ func (m *Manager) FinalizeDeletion(ctx context.Context, logger logr.Logger, clus
 	sort.Slice(sets.Items, func(i, j int) bool { return sets.Items[i].Name < sets.Items[j].Name })
 	for i := range sets.Items {
 		set := &sets.Items[i]
+		stamped, err := m.backfillFinalizingStatefulSetProvenance(ctx, cluster, set)
+		if err != nil || stamped {
+			return false, err
+		}
 		if !set.DeletionTimestamp.IsZero() {
 			continue
 		}

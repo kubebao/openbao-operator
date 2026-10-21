@@ -158,3 +158,113 @@ func TestWorkloadFinalizationRejectsStatefulSetWriteRace(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkloadFinalizationMigratesLegacyProvenanceRealAPI(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
+	for _, scenario := range []string{"legacy", "legacy-paused", "legacy-foreground", "metadata-race", "set-replacement-race",
+		"cluster-replacement-race", "hold-before-stamp", "foreign-owner-reference", "foreign-provenance"} {
+		t.Run(scenario, func(t *testing.T) {
+			cluster, set, pod := createTerminalCleanupFixture(t, "failed")
+			operator := newControllerClient(t)
+			set.Annotations = map[string]string{"test.openbao.org/keep": "value"}
+			if scenario == "foreign-owner-reference" {
+				set.OwnerReferences[0].UID = "foreign-cluster"
+			}
+			if scenario == "foreign-provenance" {
+				set.Annotations[constants.AnnotationOpenBaoOwnerUID] = "foreign-cluster"
+			}
+			require.NoError(t, operator.Update(ctx, set))
+			before := set.DeepCopy()
+			cluster.Finalizers = []string{openbaov1alpha1.OpenBaoClusterFinalizer}
+			cluster.Spec.Paused = scenario == "legacy-paused"
+			require.NoError(t, k8sClient.Update(ctx, cluster))
+			require.NoError(t, k8sClient.Delete(ctx, cluster))
+			require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
+			if scenario == "legacy-foreground" {
+				require.NoError(t, operator.Delete(ctx, set, client.PropagationPolicy(metav1.DeletePropagationForeground)))
+				require.NoError(t, operator.Get(ctx, client.ObjectKeyFromObject(set), set))
+			}
+			deletes, patches := 0, 0
+			writer := interceptor.NewClient(operator, interceptor.Funcs{
+				Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+					patches++
+					if scenario == "metadata-race" {
+						set.Annotations["test.openbao.org/concurrent"] = "changed"
+						require.NoError(t, c.Update(ctx, set))
+					}
+					if scenario == "set-replacement-race" {
+						require.NoError(t, c.Delete(ctx, set))
+						set.UID, set.ResourceVersion = "", ""
+						require.NoError(t, c.Create(ctx, set))
+					}
+					return c.Patch(ctx, obj, patch, opts...)
+				},
+				Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+					deletes++
+					return c.Delete(ctx, obj, opts...)
+				},
+			})
+			reader := interceptor.NewClient(operator, interceptor.Funcs{
+				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if _, ok := obj.(*appsv1.StatefulSet); ok {
+						if scenario == "hold-before-stamp" {
+							cluster.Annotations = map[string]string{constants.AnnotationRestoreHold: "recovery"}
+							require.NoError(t, k8sClient.Update(ctx, cluster))
+						}
+						if scenario == "cluster-replacement-race" {
+							cluster.Finalizers = nil
+							require.NoError(t, k8sClient.Update(ctx, cluster))
+							createMinimalCluster(t, cluster.Namespace, cluster.Name)
+						}
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+			})
+			manager := workload.NewManager(writer, k8sScheme, "").WithReader(reader)
+			complete, err := manager.FinalizeDeletion(ctx, logr.Discard(), cluster.DeepCopy())
+			migrated := scenario == "legacy" || scenario == "legacy-paused" || scenario == "legacy-foreground"
+			if migrated {
+				require.NoError(t, err)
+				require.Equal(t, 1, patches)
+			} else {
+				require.Error(t, err)
+			}
+			if scenario == "metadata-race" || scenario == "set-replacement-race" {
+				require.Equal(t, 1, patches)
+				require.True(t, apierrors.IsInvalid(err) || apierrors.IsConflict(err), "expected API precondition failure: %v", err)
+			} else if !migrated {
+				require.Zero(t, patches)
+			}
+			require.False(t, complete)
+			require.Zero(t, deletes, "metadata migration must requeue before any workload deletion")
+			stored := &appsv1.StatefulSet{}
+			require.NoError(t, operator.Get(ctx, client.ObjectKeyFromObject(set), stored))
+			if migrated {
+				require.Equal(t, string(cluster.UID), stored.Annotations[constants.AnnotationOpenBaoOwnerUID])
+				require.Equal(t, "value", stored.Annotations["test.openbao.org/keep"])
+				require.Equal(t, before.Spec, stored.Spec)
+				require.Equal(t, before.OwnerReferences, stored.OwnerReferences)
+				// The next pass uses the unchanged strict ownership checks.
+				_, err = manager.FinalizeDeletion(ctx, logr.Discard(), cluster)
+				require.NoError(t, err)
+				require.Equal(t, 1, deletes)
+				if scenario == "legacy-foreground" {
+					require.True(t, apierrors.IsNotFound(operator.Get(ctx, client.ObjectKeyFromObject(pod), &corev1.Pod{})))
+				} else {
+					require.NoError(t, operator.Get(ctx, client.ObjectKeyFromObject(set), stored))
+					require.NotNil(t, stored.DeletionTimestamp)
+					require.Contains(t, stored.Finalizers, metav1.FinalizerDeleteDependents)
+				}
+			} else if scenario == "foreign-provenance" {
+				require.Equal(t, "foreign-cluster", stored.Annotations[constants.AnnotationOpenBaoOwnerUID])
+			} else {
+				require.NotContains(t, stored.Annotations, constants.AnnotationOpenBaoOwnerUID)
+			}
+			if scenario == "set-replacement-race" {
+				require.NotEqual(t, before.UID, stored.UID)
+			} else {
+				require.Equal(t, before.UID, stored.UID)
+			}
+		})
+	}
+}

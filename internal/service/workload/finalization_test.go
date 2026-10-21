@@ -41,7 +41,7 @@ func TestFinalizeDeletionBoundaries(t *testing.T) {
 		}, wantError: true},
 		{name: "missing-statefulset-provenance", change: func(_ *openbaov1alpha1.OpenBaoCluster, s *appsv1.StatefulSet, _ *corev1.Pod) {
 			s.Annotations = nil
-		}, wantError: true},
+		}},
 		{name: "retain-refuses-deleting-pvcs", change: func(_ *openbaov1alpha1.OpenBaoCluster, s *appsv1.StatefulSet, _ *corev1.Pod) {
 			s.Spec.PersistentVolumeClaimRetentionPolicy = &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
 				WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType}
