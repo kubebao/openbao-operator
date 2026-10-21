@@ -25,6 +25,10 @@ const (
 
 const VolumeAuditFileStorage = "audit-file-storage"
 
+// VolumeAzureIdentityToken holds the ServiceAccount token projected for the Azure Key Vault
+// seal's workload identity.
+const VolumeAzureIdentityToken = "azure-identity-token"
+
 // TLS file paths mounted into OpenBao pods and helper executables.
 const (
 	PathTLSCACert     = PathTLS + "/ca.crt"

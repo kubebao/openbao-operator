@@ -32,6 +32,12 @@ func TestEvaluateCloudUnsealIdentity(t *testing.T) {
 	t.Run("azure ambient identity mentions both metadata surfaces", func(t *testing.T) {
 		testCloudUnsealIdentityAzureAmbient(t, scheme)
 	})
+	t.Run("azure operator-managed workload identity is explicit", func(t *testing.T) {
+		testCloudUnsealIdentityAzureOperatorWorkloadIdentity(t, scheme)
+	})
+	t.Run("azure operator-managed workload identity checks its settings secret", func(t *testing.T) {
+		testCloudUnsealIdentityAzureOperatorWorkloadIdentityMissingSecret(t, scheme)
+	})
 	t.Run("oci api key without secret is explicit", func(t *testing.T) {
 		testCloudUnsealIdentityOCIExplicitAPIKey(t, scheme)
 	})
@@ -192,6 +198,56 @@ func testCloudUnsealIdentityAzureAmbient(t *testing.T, scheme *runtime.Scheme) {
 	}
 	if !strings.Contains(readiness.Message, "both spec.serviceAccount.annotations and spec.podMetadata.labels") {
 		t.Fatalf("message = %q, want both metadata surfaces", readiness.Message)
+	}
+}
+
+func testCloudUnsealIdentityAzureOperatorWorkloadIdentity(t *testing.T, scheme *runtime.Scheme) {
+	t.Helper()
+	cluster := &openbaov1alpha1.OpenBaoCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "default"},
+		Spec: openbaov1alpha1.OpenBaoClusterSpec{
+			Unseal: &openbaov1alpha1.UnsealConfig{
+				Type: "azurekeyvault",
+				AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+					VaultName:        "vault",
+					KeyName:          "key",
+					TenantID:         "tenant",
+					WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "1234"},
+				},
+			},
+		},
+	}
+
+	readiness := evaluateCloudUnsealIdentityForTest(t, scheme, cluster)
+	if readiness.Mode != CloudUnsealIdentityModeExplicit {
+		t.Fatalf("mode = %q, want %q", readiness.Mode, CloudUnsealIdentityModeExplicit)
+	}
+	if !strings.Contains(readiness.Message, `client ID "1234"`) || !strings.Contains(readiness.Message, "api://AzureADTokenExchange") {
+		t.Fatalf("message = %q, want the client ID and the token audience", readiness.Message)
+	}
+}
+
+func testCloudUnsealIdentityAzureOperatorWorkloadIdentityMissingSecret(t *testing.T, scheme *runtime.Scheme) {
+	t.Helper()
+	cluster := &openbaov1alpha1.OpenBaoCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "demo", Namespace: "default"},
+		Spec: openbaov1alpha1.OpenBaoClusterSpec{
+			Unseal: &openbaov1alpha1.UnsealConfig{
+				Type:                 "azurekeyvault",
+				CredentialsSecretRef: &corev1.LocalObjectReference{Name: "azure-settings"},
+				AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+					VaultName:        "vault",
+					KeyName:          "key",
+					TenantID:         "tenant",
+					WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "1234"},
+				},
+			},
+		},
+	}
+
+	readiness := evaluateCloudUnsealIdentityForTest(t, scheme, cluster)
+	if readiness.Status != metav1.ConditionFalse || readiness.Reason != constants.ReasonCredentialsSecretMissing {
+		t.Fatalf("status = %q, reason = %q, want False/%q", readiness.Status, readiness.Reason, constants.ReasonCredentialsSecretMissing)
 	}
 }
 

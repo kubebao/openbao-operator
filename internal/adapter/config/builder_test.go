@@ -1767,6 +1767,34 @@ func TestRenderHCL_AzureKeyVaultSealWorkloadIdentity(t *testing.T) {
 	compareGolden(t, "render_hcl_azure_keyvault_seal_workload_identity", got)
 }
 
+func TestRenderHCL_AzureKeyVaultSealOperatorWorkloadIdentity(t *testing.T) {
+	cluster := newMinimalCluster("azure-seal-owi", "default")
+	cluster.Spec.Version = "2.6.3"
+	cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{
+		Type: "azurekeyvault",
+		AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+			VaultName:        "my-vault",
+			KeyName:          "my-key",
+			TenantID:         "tenant-123",
+			WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"},
+		},
+	}
+
+	infraDetails := InfrastructureDetails{
+		HeadlessServiceName: cluster.Name,
+		Namespace:           cluster.Namespace,
+		APIPort:             8200,
+		ClusterPort:         8201,
+	}
+
+	got, err := RenderHCL(cluster, infraDetails)
+	if err != nil {
+		t.Fatalf("RenderHCL() error = %v", err)
+	}
+
+	compareGolden(t, "render_hcl_azure_keyvault_seal_operator_workload_identity", got)
+}
+
 func TestRenderHCL_GCPCloudKMSSeal(t *testing.T) {
 	cluster := newMinimalCluster("gcp-seal", "default")
 	cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{

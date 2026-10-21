@@ -118,6 +118,23 @@ func DescribeCloudUnsealIdentity(cluster *openbaov1alpha1.OpenBaoCluster) (Cloud
 		if cfg == nil {
 			return CloudUnsealIdentityDescription{}, false
 		}
+		if cfg.WorkloadIdentity != nil {
+			message := fmt.Sprintf(
+				"Azure Key Vault unseal uses the workload identity of client ID %q: the operator projects a token for ServiceAccount %q with audience %q into the main OpenBao Pods. Entra ID must hold a federated credential for that identity that trusts the cluster's ServiceAccount issuer and this ServiceAccount.",
+				cfg.WorkloadIdentity.ClientID,
+				serviceAccountName,
+				"api://AzureADTokenExchange",
+			)
+			if secretName != "" {
+				message += fmt.Sprintf(" Credentials Secret %s/%s supplies only AZURE_ENVIRONMENT and AZURE_AD_RESOURCE.", cluster.Namespace, secretName)
+			}
+			return CloudUnsealIdentityDescription{
+				Mode:       CloudUnsealIdentityModeExplicit,
+				Provider:   "Azure Key Vault",
+				SecretName: secretName,
+				Message:    message,
+			}, true
+		}
 		if secretName != "" {
 			return CloudUnsealIdentityDescription{
 				Mode:       CloudUnsealIdentityModeSecret,
@@ -211,7 +228,7 @@ func EvaluateCloudUnsealIdentity(
 		return CloudUnsealIdentityReadiness{}, false, nil
 	}
 
-	if description.Mode == CloudUnsealIdentityModeSecret {
+	if description.SecretName != "" {
 		if err := ensureSecretExists(ctx, reader, cluster.Namespace, description.SecretName); err != nil {
 			if apierrors.IsNotFound(err) {
 				return CloudUnsealIdentityReadiness{

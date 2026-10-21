@@ -35,6 +35,7 @@ const (
 	envAzureClientID           = "AZURE_CLIENT_ID"
 	envAzureClientSecret       = "AZURE_CLIENT_SECRET" // #nosec G101 -- environment variable name, not a secret value
 	envAzureEnvironment        = "AZURE_ENVIRONMENT"
+	envAzureFederatedTokenFile = "AZURE_FEDERATED_TOKEN_FILE" // #nosec G101 -- environment variable name, not a secret value
 	envAzureTenantID           = "AZURE_TENANT_ID"
 	envGoogleApplicationCreds  = "GOOGLE_APPLICATION_CREDENTIALS" // #nosec G101 -- environment variable name, not a secret value
 	envOCIConfigFile           = "OCI_CONFIG_FILE"

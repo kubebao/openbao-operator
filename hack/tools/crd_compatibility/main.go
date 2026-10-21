@@ -548,6 +548,13 @@ func compareNode(oldNode, newNode schemaNode) []change {
 				newNode,
 				"S3 discriminator validation is guarded by an optional field absent from the released storage API",
 			))
+		case isOptionalAzureWorkloadIdentityValidation(newNode, added, removed):
+			changes = append(changes, newChange(
+				impactCompatible,
+				"cel-optional-feature-validation",
+				newNode,
+				"Azure Key Vault workload identity rules accept requests without the new optional workloadIdentity field",
+			))
 		case isOptionalServiceIPFamilyValidation(newNode, added, removed):
 			changes = append(changes, newChange(
 				impactCompatible,
@@ -602,6 +609,39 @@ func isOptionalServiceIPFamilyValidation(node schemaNode, added, removed []strin
 		},
 	})
 	return allowed[added[0]] && allowed[added[1]]
+}
+
+// isOptionalAzureWorkloadIdentityValidation recognizes only the guards verified by
+// TestCRD_AzureKeyVaultWorkloadIdentity. Each rule starts with
+// !has(self.workloadIdentity), so released Azure Key Vault seal configurations,
+// which cannot carry that field, satisfy all of them.
+func isOptionalAzureWorkloadIdentityValidation(node schemaNode, added, removed []string) bool {
+	if node.CRD != openBaoClusterCRD || node.Kind != openBaoClusterKind ||
+		node.Version != currentAPIVersion || node.Path != "spec.unseal.azureKeyVault" ||
+		len(added) != 3 || len(removed) != 0 {
+		return false
+	}
+	allowed := celRuleSet([]celRule{
+		{
+			Rule:    "!has(self.workloadIdentity) || (has(self.tenantID) && size(self.tenantID) > 0)",
+			Message: "spec.unseal.azureKeyVault.workloadIdentity requires tenantID",
+		},
+		{
+			Rule: "!has(self.workloadIdentity) || ((!has(self.clientID) || size(self.clientID) == 0) && " +
+				"(!has(self.clientSecret) || size(self.clientSecret) == 0))",
+			Message: "spec.unseal.azureKeyVault.workloadIdentity excludes clientID and clientSecret",
+		},
+		{
+			Rule:    "!has(self.workloadIdentity) || !has(self.authMethod) || self.authMethod == 'workload_identity'",
+			Message: "spec.unseal.azureKeyVault.workloadIdentity requires authMethod workload_identity or unset",
+		},
+	})
+	for _, rule := range added {
+		if !allowed[rule] {
+			return false
+		}
+	}
+	return true
 }
 
 // isOptionalS3TargetValidation recognizes only the reviewed discriminator rule

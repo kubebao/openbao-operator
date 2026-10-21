@@ -58,6 +58,29 @@ func TestValidateAzureKeyVaultAuthMethod(t *testing.T) {
 	}
 }
 
+func TestValidateAzureKeyVaultAuthMethod_WorkloadIdentity(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		version   string
+		wantError string
+	}{
+		{name: "2.6.0", version: "2.6.0"},
+		{name: "2.5.5", version: "2.5.5", wantError: "spec.unseal.azureKeyVault.workloadIdentity requires OpenBao >= 2.6.0"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster := azureKeyVaultAuthMethodCluster(tt.version, "", "")
+			cluster.Spec.Unseal.AzureKeyVault.ClientID = ""
+			cluster.Spec.Unseal.AzureKeyVault.WorkloadIdentity = &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"}
+			err := validateAzureKeyVaultAuthMethod(cluster)
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestRenderHCLRejectsAzureKeyVaultAuthMethodBefore260(t *testing.T) {
 	cluster := azureKeyVaultAuthMethodCluster("2.5.5", "", "workload_identity")
 	_, err := RenderHCL(cluster, InfrastructureDetails{

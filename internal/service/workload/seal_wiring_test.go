@@ -353,6 +353,100 @@ func TestSealWiring_StaticExplicitAndImplicit_StillMountsUnseal(t *testing.T) {
 	}
 }
 
+func TestSealWiring_AzureKeyVaultWorkloadIdentity_ProjectsToken(t *testing.T) {
+	cluster := newMinimalCluster("seal-azure-wi", "default")
+	cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{
+		Type: portopenbao.SealTypeAzureKeyVault,
+		AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+			VaultName:        "vault",
+			KeyName:          "key",
+			TenantID:         "tenant-123",
+			WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"},
+		},
+	}
+
+	env := buildContainerEnv(cluster)
+	mounts := buildContainerVolumeMounts(cluster, path.Dir(openBaoRenderedConfig))
+	volumes := buildStatefulSetVolumes(cluster, StatefulSetSpec{Pool: constants.LabelValueOpenBaoWorkloadPoolVoter})
+
+	wantEnv := map[string]string{
+		envAzureClientID:           "client-456",
+		envAzureFederatedTokenFile: "/var/run/secrets/azure/tokens/azure-identity-token",
+	}
+	for name, want := range wantEnv {
+		found := false
+		for _, e := range env {
+			if e.Name == name {
+				found = true
+				if e.Value != want || e.ValueFrom != nil {
+					t.Fatalf("env %s = %q (valueFrom %v), want %q", name, e.Value, e.ValueFrom, want)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("expected env %s", name)
+		}
+	}
+	for _, name := range []string{envAzureTenantID, envAzureClientSecret} {
+		if hasEnvVar(env, name) {
+			t.Fatalf("expected no %s: the tenant comes from the seal configuration and there is no secret", name)
+		}
+	}
+
+	if !hasVolumeMountWithPath(mounts, azureIdentityTokenVolumeName, "/var/run/secrets/azure/tokens") {
+		t.Fatalf("expected %q volume mount", azureIdentityTokenVolumeName)
+	}
+	vol, ok := getVolume(volumes, azureIdentityTokenVolumeName)
+	if !ok || vol.Projected == nil || len(vol.Projected.Sources) != 1 || vol.Projected.Sources[0].ServiceAccountToken == nil {
+		t.Fatalf("expected %q to be a projected ServiceAccount token volume, got %+v", azureIdentityTokenVolumeName, vol)
+	}
+	token := vol.Projected.Sources[0].ServiceAccountToken
+	if token.Audience != "api://AzureADTokenExchange" || token.Path != "azure-identity-token" ||
+		token.ExpirationSeconds == nil || *token.ExpirationSeconds != 3600 {
+		t.Fatalf("unexpected token projection %+v", token)
+	}
+	if hasVolume(volumes, sealCredsVolumeName) {
+		t.Fatalf("expected no %q volume without a credentials Secret", sealCredsVolumeName)
+	}
+}
+
+func TestSealWiring_AzureKeyVaultWorkloadIdentity_KeepsSecretSettings(t *testing.T) {
+	cluster := newMinimalCluster("seal-azure-wi-secret", "default")
+	cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{
+		Type:                 portopenbao.SealTypeAzureKeyVault,
+		CredentialsSecretRef: &corev1.LocalObjectReference{Name: "azure-settings"},
+		AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+			VaultName:        "vault",
+			KeyName:          "key",
+			TenantID:         "tenant-123",
+			WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"},
+		},
+	}
+
+	env := buildContainerEnv(cluster)
+	volumes := buildStatefulSetVolumes(cluster, StatefulSetSpec{Pool: constants.LabelValueOpenBaoWorkloadPoolVoter})
+
+	for _, name := range []string{envAzureEnvironment, envAzureADResource} {
+		e := findEnvVar(env, name)
+		if e == nil || e.ValueFrom == nil || e.ValueFrom.SecretKeyRef == nil ||
+			e.ValueFrom.SecretKeyRef.Name != "azure-settings" || e.ValueFrom.SecretKeyRef.Key != name {
+			t.Fatalf("expected %s from Secret azure-settings, got %+v", name, e)
+		}
+	}
+	clientID := findEnvVar(env, envAzureClientID)
+	if clientID == nil || clientID.Value != "client-456" || clientID.ValueFrom != nil {
+		t.Fatalf("expected %s to be the workload identity client ID, got %+v", envAzureClientID, clientID)
+	}
+	for _, name := range []string{envAzureTenantID, envAzureClientSecret} {
+		if hasEnvVar(env, name) {
+			t.Fatalf("expected no %s from the Secret alongside the workload identity", name)
+		}
+	}
+	if !hasVolume(volumes, azureIdentityTokenVolumeName) || !hasVolume(volumes, sealCredsVolumeName) {
+		t.Fatalf("expected both the token and the credentials Secret volumes")
+	}
+}
+
 func hasEnvVar(env []corev1.EnvVar, name string) bool {
 	return findEnvVar(env, name) != nil
 }

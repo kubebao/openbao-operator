@@ -159,6 +159,7 @@ func TestApplyEvaluatedConditionAllowsKnownReasonStatusPairs(t *testing.T) {
 				conditionResult(metav1.ConditionTrue, constants.ReasonWorkloadIdentityConfigured),
 				conditionResult(metav1.ConditionFalse, constants.ReasonCredentialsSecretMissing),
 				conditionResult(metav1.ConditionFalse, constants.ReasonPrerequisitesMissing),
+				conditionResult(metav1.ConditionFalse, constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired),
 				conditionResult(metav1.ConditionUnknown, reasonPaused),
 				conditionResult(metav1.ConditionUnknown, ReasonProfileNotSet),
 				conditionResult(metav1.ConditionUnknown, reasonUnknown),

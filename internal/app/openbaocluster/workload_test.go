@@ -37,6 +37,17 @@ func TestServiceIPFamilyChangeWaitsForConfigurationCorrection(t *testing.T) {
 	require.Zero(t, result.RequeueAfter)
 }
 
+// Deleting the held StatefulSet is not a spec change, and without ownership watches nothing
+// else would wake the reconcile that recreates it.
+func TestAzureWorkloadIdentityRecreateRequeuesForUserAction(t *testing.T) {
+	policy := DefaultWorkloadResultPolicy()
+	result, handled := workloadResultForError(errors.New("recreate required"),
+		&openbaov1alpha1.ControllerErrorStatus{Reason: constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired},
+		policy)
+	require.True(t, handled)
+	require.Equal(t, policy.RequeueShort, result.RequeueAfter)
+}
+
 func (s autopilotRuntimeStub) ReconcileAutopilotConfig(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error {
 	if s.reconcileFunc != nil {
 		return s.reconcileFunc(ctx, logger, cluster)

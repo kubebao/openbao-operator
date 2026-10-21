@@ -39,6 +39,12 @@
         "external KMS plugin"
       ]
     },
+    "render_hcl_azure_keyvault_seal_operator_workload_identity.hcl": {
+      "max_version": "2.7.0",
+      "unsupported_contains": [
+        "external KMS plugin"
+      ]
+    },
     "render_hcl_azure_keyvault_seal_workload_identity.hcl": {
       "max_version": "2.7.0",
       "unsupported_contains": [

@@ -31,6 +31,10 @@ type WorkloadResultPolicy struct {
 	RequeueShort                 time.Duration
 	RequeueSafetyNetBase         time.Duration
 	RequeueSafetyNetJitter       time.Duration
+	// UserActionReason lists errors that clear through a direct action on a managed
+	// resource rather than a spec change, such as deleting a StatefulSet. Without
+	// ownership watches nothing else would trigger the next reconcile, so they requeue.
+	UserActionReason map[string]struct{}
 }
 
 // DefaultWorkloadResultPolicy returns the production workload error and
@@ -56,6 +60,9 @@ func DefaultWorkloadResultPolicy() WorkloadResultPolicy {
 			constants.ReasonStorageRestartRequired:                      {},
 			constants.ReasonAuditFileStorageStatefulSetRecreateRequired: {},
 			constants.ReasonHelperImageConfigurationInvalid:             {},
+		},
+		UserActionReason: map[string]struct{}{
+			constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired: {},
 		},
 	}
 }
@@ -186,6 +193,9 @@ func workloadResultForError(
 			requeueAfter := workloadRequeueSafetyNetBase(policy) + time.Duration(jitterNanos)
 			return recon.Result{RequeueAfter: requeueAfter}, true
 		default:
+			if _, ok := policy.UserActionReason[lastError.Reason]; ok {
+				return recon.Result{RequeueAfter: workloadRequeueShort(policy)}, true
+			}
 			if _, ok := policy.PermanentConfigurationReason[lastError.Reason]; ok {
 				// Permanent configuration issue; wait for user changes rather than hot-looping.
 				return recon.Result{}, true

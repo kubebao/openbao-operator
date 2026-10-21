@@ -589,10 +589,38 @@ spec:
                             description: VaultName is the name of the Azure Key Vault.
                             minLength: 1
                             type: string
+                          workloadIdentity:
+                            description: |-
+                              WorkloadIdentity has the operator project an Azure workload identity token
+                              into the OpenBao Pods, without the Azure Workload Identity webhook. Requires
+                              tenantID. The token is exchanged with the Azure public cloud.
+                            properties:
+                              clientID:
+                                description: ClientID is the client ID of the identity
+                                  holding the federated credential.
+                                minLength: 1
+                                type: string
+                            required:
+                            - clientID
+                            type: object
                         required:
                         - keyName
                         - vaultName
                         type: object
+                        x-kubernetes-validations:
+                        - message: spec.unseal.azureKeyVault.workloadIdentity requires
+                            tenantID
+                          rule: '!has(self.workloadIdentity) || (has(self.tenantID)
+                            && size(self.tenantID) > 0)'
+                        - message: spec.unseal.azureKeyVault.workloadIdentity excludes
+                            clientID and clientSecret
+                          rule: '!has(self.workloadIdentity) || ((!has(self.clientID)
+                            || size(self.clientID) == 0) && (!has(self.clientSecret)
+                            || size(self.clientSecret) == 0))'
+                        - message: spec.unseal.azureKeyVault.workloadIdentity requires
+                            authMethod workload_identity or unset
+                          rule: '!has(self.workloadIdentity) || !has(self.authMethod)
+                            || self.authMethod == ''workload_identity'''
                       credentialsSecretRef:
                         description: |-
                           CredentialsSecretRef references a Secret containing provider credentials

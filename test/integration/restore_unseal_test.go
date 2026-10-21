@@ -112,3 +112,42 @@ func restoreTestSource(namespace string, template *api.RestoreClusterTemplate) *
 	}
 	return source
 }
+
+// Restore targets run OpenBao 2.7, where the Azure Key Vault seal is a KMS plugin, so the
+// author also needs executable delegation; with that granted, the workload identity is what
+// still asks for cloud identity delegation.
+func TestVAP_RestoreTargetAzureKeyVaultWorkloadIdentityAuthority(t *testing.T) {
+	sourceNS, destination := newTestNamespace(t), newTestNamespace(t)
+	setRestoreDestinationApproval(t, destination, "true")
+	waitForOpenBaoClusterAdmissionPolicies(t, sourceNS)
+	username := "seal-identity-author-" + sourceNS
+	grantTenantOpenBaoWriteAccess(t, sourceNS, username)
+	grantTenantOpenBaoWriteAccess(t, destination, username)
+	grantNamespacedResourceVerbs(t, destination, username, "restore", "openbao.org", "openbaoclusters", nil, "restore")
+	grantNamespacedResourceVerbs(t, destination, username, "storage-reader", "", "serviceaccounts",
+		[]string{"snapshot-reader"}, "use")
+	grantNamespacedResourceVerbs(t, destination, username, "plugin-access", "openbao.org", "openbaoclusters",
+		nil, "usecustomexecutables")
+	actor := newImpersonatedClient(t, username)
+
+	request := newFreshRestoreRequest(destination, "recovery")
+	request.Spec.ClusterTemplate.Unseal = api.UnsealConfig{
+		Type: "azurekeyvault",
+		AzureKeyVault: &api.AzureKeyVaultSealConfig{
+			VaultName: "vault", KeyName: "key", TenantID: "tenant",
+			WorkloadIdentity: &api.AzureKeyVaultWorkloadIdentity{ClientID: "client"},
+		},
+	}
+	request.Spec.ClusterTemplate.Plugins = []api.Plugin{{Type: "kms", Name: "azurekeyvault", Command: "kms-azure"}}
+	source := restoreTestSource(sourceNS, request.Spec.ClusterTemplate)
+	source.Spec.Backup.RestoreTest.Namespace = destination
+	for _, object := range []client.Object{request, source} {
+		require.ErrorContains(t, actor.Create(ctx, object, client.DryRunAll), "cloud identity delegation")
+	}
+
+	grantNamespacedResourceVerbs(t, destination, username, "seal-access", "openbao.org", "openbaoclusters",
+		nil, "usecloudidentities")
+	for _, object := range []client.Object{request, source} {
+		require.NoError(t, actor.Create(ctx, object, client.DryRunAll))
+	}
+}

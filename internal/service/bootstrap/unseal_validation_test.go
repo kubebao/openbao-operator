@@ -556,6 +556,59 @@ func TestValidateAzureKeyVaultUnsealPrerequisites(t *testing.T) {
 			t.Fatalf("validateUnsealPrerequisites() error = %v, want nil", err)
 		}
 	})
+
+	t.Run("workload identity secret needs no credential keys", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			secret  *corev1.Secret
+			wantErr error
+		}{
+			{
+				name:    "missing Secret",
+				wantErr: operatorerrors.ErrPermanentPrerequisitesMissing,
+			},
+			{
+				name: "settings-only Secret",
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "azure-settings", Namespace: "default"},
+					Data: map[string][]byte{
+						"AZURE_ENVIRONMENT": []byte("AzurePublicCloud"),
+					},
+				},
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cluster := newMinimalCluster("azurekeyvault-workload-identity", "default")
+				cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{
+					Type:                 "azurekeyvault",
+					CredentialsSecretRef: &corev1.LocalObjectReference{Name: "azure-settings"},
+					AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+						VaultName:        "vault",
+						KeyName:          "key",
+						TenantID:         "tenant",
+						WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client"},
+					},
+				}
+				builder := fake.NewClientBuilder().WithScheme(testScheme)
+				if tt.secret != nil {
+					builder = builder.WithObjects(tt.secret)
+				}
+
+				mgr := NewManager(builder.Build(), testScheme, "operator-system")
+				err := mgr.validateUnsealPrerequisites(context.Background(), cluster)
+				if tt.wantErr == nil {
+					if err != nil {
+						t.Fatalf("validateUnsealPrerequisites() error = %v, want nil", err)
+					}
+					return
+				}
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("validateUnsealPrerequisites() error = %v, want %v", err, tt.wantErr)
+				}
+			})
+		}
+	})
 }
 
 func TestValidateOCIKMSUnsealPrerequisites(t *testing.T) {

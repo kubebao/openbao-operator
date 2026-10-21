@@ -8,6 +8,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 )
@@ -15,6 +16,15 @@ import (
 const (
 	sealCredsVolumeName      = "seal-creds"
 	sealCredsVolumeMountPath = "/etc/bao/seal-creds" // #nosec G101 -- False positive: path, not a secret
+
+	// The ServiceAccount token Entra ID exchanges for the Azure Key Vault seal's
+	// workload identity, projected with the audience Azure expects. Same path and
+	// lifetime as the Azure Workload Identity webhook uses.
+	azureIdentityTokenVolumeName      = constants.VolumeAzureIdentityToken
+	azureIdentityTokenVolumeMountPath = "/var/run/secrets/azure/tokens" // #nosec G101 -- False positive: path, not a secret
+	azureIdentityTokenPath            = "azure-identity-token"
+	azureIdentityTokenAudience        = "api://AzureADTokenExchange"
+	azureIdentityTokenExpirationSecs  = int64(3600)
 )
 
 type sealWiringProvider interface {
@@ -169,6 +179,24 @@ type azureKeyVaultSealWiringProvider struct {
 }
 
 func (p *azureKeyVaultSealWiringProvider) EnvVars() []corev1.EnvVar {
+	if identity := p.workloadIdentity(); identity != nil {
+		// The seal reads the tenant from its own configuration, but the Azure SDK's
+		// workload identity credential only takes the client ID and the token file
+		// from the environment. A credentials Secret still supplies the settings that
+		// are not credentials, such as the resource of a Managed HSM, but none that
+		// would compete with the workload identity.
+		env := []corev1.EnvVar{
+			{Name: envAzureClientID, Value: identity.ClientID},
+			{Name: envAzureFederatedTokenFile, Value: path.Join(azureIdentityTokenVolumeMountPath, azureIdentityTokenPath)},
+		}
+		if p.cluster.Spec.Unseal.CredentialsSecretRef != nil {
+			env = append(env,
+				envVarFromCredentialsSecret(p.cluster, envAzureEnvironment, envAzureEnvironment),
+				envVarFromCredentialsSecret(p.cluster, envAzureADResource, envAzureADResource),
+			)
+		}
+		return env
+	}
 	if p.cluster.Spec.Unseal == nil || p.cluster.Spec.Unseal.CredentialsSecretRef == nil {
 		return nil
 	}
@@ -183,11 +211,45 @@ func (p *azureKeyVaultSealWiringProvider) EnvVars() []corev1.EnvVar {
 }
 
 func (p *azureKeyVaultSealWiringProvider) VolumeMounts() []corev1.VolumeMount {
-	return (&credentialsSecretSealWiringProvider{cluster: p.cluster}).VolumeMounts()
+	mounts := (&credentialsSecretSealWiringProvider{cluster: p.cluster}).VolumeMounts()
+	if p.workloadIdentity() != nil {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      azureIdentityTokenVolumeName,
+			MountPath: azureIdentityTokenVolumeMountPath,
+			ReadOnly:  true,
+		})
+	}
+	return mounts
 }
 
 func (p *azureKeyVaultSealWiringProvider) Volumes() []corev1.Volume {
-	return (&credentialsSecretSealWiringProvider{cluster: p.cluster}).Volumes()
+	volumes := (&credentialsSecretSealWiringProvider{cluster: p.cluster}).Volumes()
+	if p.workloadIdentity() != nil {
+		volumes = append(volumes, corev1.Volume{
+			Name: azureIdentityTokenVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          azureIdentityTokenAudience,
+								ExpirationSeconds: ptr.To(azureIdentityTokenExpirationSecs),
+								Path:              azureIdentityTokenPath,
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+	return volumes
+}
+
+func (p *azureKeyVaultSealWiringProvider) workloadIdentity() *openbaov1alpha1.AzureKeyVaultWorkloadIdentity {
+	if p.cluster.Spec.Unseal == nil || p.cluster.Spec.Unseal.AzureKeyVault == nil {
+		return nil
+	}
+	return p.cluster.Spec.Unseal.AzureKeyVault.WorkloadIdentity
 }
 
 type kmipSealWiringProvider struct {

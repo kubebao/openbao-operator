@@ -178,6 +178,20 @@ func applyCloudUnsealIdentityStatus(
 		return
 	}
 
+	recreate, recreateRequired, err := statusops.EvaluateAzureWorkloadIdentityStatefulSets(ctx, deps.Reader, cluster)
+	if err != nil {
+		statusops.ApplyCloudUnsealIdentityReadyCondition(cluster, statusops.ConditionResult{
+			Status:  metav1.ConditionUnknown,
+			Reason:  constants.ReasonUnknown,
+			Message: fmt.Sprintf("Failed to inspect OpenBao StatefulSets for the Azure workload identity token projection: %v", err),
+		})
+		return
+	}
+	if recreateRequired {
+		statusops.ApplyCloudUnsealIdentityReadyCondition(cluster, recreate)
+		return
+	}
+
 	statusops.ApplyCloudUnsealIdentityReadyCondition(cluster, statusops.ConditionResult{
 		Status:  result.Status,
 		Reason:  result.Reason,

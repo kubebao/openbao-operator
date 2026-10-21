@@ -103,6 +103,9 @@ type AWSKMSSealConfig struct {
 
 // AzureKeyVaultSealConfig configures the Azure Key Vault seal type.
 // See: https://openbao.org/docs/configuration/seal/azurekeyvault/
+// +kubebuilder:validation:XValidation:rule="!has(self.workloadIdentity) || (has(self.tenantID) && size(self.tenantID) > 0)",message="spec.unseal.azureKeyVault.workloadIdentity requires tenantID"
+// +kubebuilder:validation:XValidation:rule="!has(self.workloadIdentity) || ((!has(self.clientID) || size(self.clientID) == 0) && (!has(self.clientSecret) || size(self.clientSecret) == 0))",message="spec.unseal.azureKeyVault.workloadIdentity excludes clientID and clientSecret"
+// +kubebuilder:validation:XValidation:rule="!has(self.workloadIdentity) || !has(self.authMethod) || self.authMethod == 'workload_identity'",message="spec.unseal.azureKeyVault.workloadIdentity requires authMethod workload_identity or unset"
 type AzureKeyVaultSealConfig struct {
 	// VaultName is the name of the Azure Key Vault.
 	// +kubebuilder:validation:MinLength=1
@@ -142,6 +145,20 @@ type AzureKeyVaultSealConfig struct {
 	// +kubebuilder:validation:Enum=workload_identity;managed_identity;client_secret;environment;default
 	// +optional
 	AuthMethod string `json:"authMethod,omitempty"`
+
+	// WorkloadIdentity has the operator project an Azure workload identity token
+	// into the OpenBao Pods, without the Azure Workload Identity webhook. Requires
+	// tenantID. The token is exchanged with the Azure public cloud.
+	// +optional
+	WorkloadIdentity *AzureKeyVaultWorkloadIdentity `json:"workloadIdentity,omitempty"`
+}
+
+// AzureKeyVaultWorkloadIdentity configures the federated workload identity the
+// OpenBao Pods authenticate to Azure Key Vault with.
+type AzureKeyVaultWorkloadIdentity struct {
+	// ClientID is the client ID of the identity holding the federated credential.
+	// +kubebuilder:validation:MinLength=1
+	ClientID string `json:"clientID"`
 }
 
 // GCPCloudKMSSealConfig configures the GCP Cloud KMS seal type.

@@ -52,11 +52,25 @@ func TestCloudIdentityPolicyCoversAllPodTemplates(t *testing.T) {
 				}
 			}
 
+			t.Run("azure-key-vault-seal-workload-identity", func(t *testing.T) {
+				spec := map[string]any{"unseal": map[string]any{"azureKeyVault": map[string]any{
+					"workloadIdentity": map[string]any{"clientID": "identity"},
+				}}}
+				for _, authorized := range []bool{false, true} {
+					if got := evaluateCloudIdentityRule(t, policy, spec, authorized, false); got != authorized {
+						t.Errorf("authorized=%t: rule allowed=%t", authorized, got)
+					}
+				}
+			})
+
 			for name, spec := range map[string]map[string]any{
 				"absent-read-replicas": {},
-				"absent-template":      {"readReplicas": map[string]any{}},
-				"absent-metadata":      {"readReplicas": map[string]any{"template": map[string]any{}}},
-				"empty-metadata":       cloudIdentityPodSpec("read-replicas", map[string]any{}),
+				"seal-without-workload-identity": {"unseal": map[string]any{"azureKeyVault": map[string]any{
+					"vaultName": "vault",
+				}}},
+				"absent-template": {"readReplicas": map[string]any{}},
+				"absent-metadata": {"readReplicas": map[string]any{"template": map[string]any{}}},
+				"empty-metadata":  cloudIdentityPodSpec("read-replicas", map[string]any{}),
 				"unrelated-metadata": cloudIdentityPodSpec("read-replicas", map[string]any{
 					"annotations": map[string]any{"example.com/owner": "team"},
 					"labels":      map[string]any{"example.com/team": "team"},
@@ -146,7 +160,7 @@ func evaluateCloudIdentityRule(
 	for _, variable := range policy.Variables {
 		switch variable.Name {
 		case "has_main_workload_cloud_identity_metadata", "has_read_replica_cloud_identity_metadata",
-			"has_cloud_identity_metadata":
+			"has_unseal_workload_identity", "has_cloud_identity_metadata":
 			variables[variable.Name] = eval(variable.Expression)
 		}
 	}

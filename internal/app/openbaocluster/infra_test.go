@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -789,6 +791,221 @@ func TestInfraReconciler_Reconcile_MapsAPIServerNetworkConfigurationError(t *tes
 	}
 }
 
+// The token projection lives in admission-locked StatefulSet fields. When an existing
+// StatefulSet cannot take the requested change, the reconcile stops before it renders the
+// seal configuration its Pods read.
+func TestInfraReconciler_Reconcile_AzureWorkloadIdentityStopsBeforeConfig(t *testing.T) {
+	t.Setenv(constants.EnvOperatorVersion, "1.2.3")
+
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = openbaov1alpha1.AddToScheme(scheme)
+
+	cluster := &openbaov1alpha1.OpenBaoCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example",
+			Namespace: "default",
+			UID:       types.UID("example-uid"),
+		},
+		Spec: openbaov1alpha1.OpenBaoClusterSpec{
+			Profile:  openbaov1alpha1.ProfileDevelopment,
+			Version:  "2.6.0",
+			Image:    "openbao/openbao:2.6.0",
+			Replicas: 1,
+			InitContainer: &openbaov1alpha1.InitContainerConfig{
+				Image: "openbao-init:test",
+			},
+			Network: &openbaov1alpha1.NetworkConfig{
+				APIServerCIDR:        "10.43.0.1/32",
+				APIServerEndpointIPs: []string{"192.0.2.10"},
+			},
+			Unseal: &openbaov1alpha1.UnsealConfig{
+				Type: "azurekeyvault",
+				AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+					VaultName:        "vault",
+					KeyName:          "key",
+					TenantID:         "tenant-123",
+					WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"},
+				},
+			},
+		},
+	}
+	replicas := int32(1)
+	statefulSet := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.Name,
+			Namespace: cluster.Namespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &replicas,
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: constants.ContainerBao}},
+				},
+			},
+		},
+	}
+
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(cluster, statefulSet).
+		WithReturnManagedFields().
+		Build()
+
+	r := &infraReconciler{
+		deps: InfraDependencies{
+			Kubernetes: InfraKubernetesRuntime{
+				Client:            k8sClient,
+				Scheme:            scheme,
+				OperatorNamespace: "openbao-operator-system",
+			},
+		},
+	}
+
+	_, err := r.Reconcile(context.Background(), logr.Discard(), cluster)
+	if !errors.Is(err, workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate) {
+		t.Fatalf("Reconcile() error = %v, want %v", err, workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate)
+	}
+	reason, ok := operatorerrors.Reason(err)
+	if !ok || reason != constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired {
+		t.Fatalf("reason = %q, want %s", reason, constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired)
+	}
+
+	configMap := &corev1.ConfigMap{}
+	err = k8sClient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: resourceidentity.ConfigMapName(cluster)}, configMap)
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("expected no seal configuration to be rendered, got ConfigMap error %v", err)
+	}
+}
+
+func TestInfraReconciler_Reconcile_AzureWorkloadIdentityHoldsEveryPool(t *testing.T) {
+	t.Setenv(constants.EnvOperatorVersion, "1.2.3")
+
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = openbaov1alpha1.AddToScheme(scheme)
+
+	cluster := &openbaov1alpha1.OpenBaoCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "example",
+			Namespace: "default",
+			UID:       types.UID("example-uid"),
+		},
+		Spec: openbaov1alpha1.OpenBaoClusterSpec{
+			Profile:  openbaov1alpha1.ProfileDevelopment,
+			Version:  "2.6.0",
+			Image:    "openbao/openbao:2.6.0",
+			Replicas: 1,
+			InitContainer: &openbaov1alpha1.InitContainerConfig{
+				Image: "openbao-init:test",
+			},
+			Network: &openbaov1alpha1.NetworkConfig{
+				APIServerCIDR:        "10.43.0.1/32",
+				APIServerEndpointIPs: []string{"192.0.2.10"},
+			},
+			ReadReplicas: &openbaov1alpha1.ReadReplicaConfig{Replicas: 1},
+			Maintenance:  &openbaov1alpha1.MaintenanceConfig{Enabled: true},
+			Unseal: &openbaov1alpha1.UnsealConfig{
+				Type: "azurekeyvault",
+				AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+					VaultName:        "vault",
+					KeyName:          "key",
+					TenantID:         "tenant-123",
+					WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"},
+				},
+			},
+		},
+	}
+	newStatefulSet := func(name string) *appsv1.StatefulSet {
+		replicas := int32(1)
+		return &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: cluster.Namespace,
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: openbaov1alpha1.GroupVersion.String(),
+					Kind:       "OpenBaoCluster",
+					Name:       cluster.Name,
+					UID:        cluster.UID,
+					Controller: ptr.To(true),
+				}},
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Replicas: &replicas,
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{Name: constants.ContainerBao}},
+					},
+				},
+			},
+		}
+	}
+	voter := newStatefulSet(cluster.Name)
+	readReplica := newStatefulSet(resourceidentity.ReadReplicaStatefulSetName(cluster))
+
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(cluster, voter, readReplica).
+		WithReturnManagedFields().
+		Build()
+
+	r := &infraReconciler{
+		deps: InfraDependencies{
+			Kubernetes: InfraKubernetesRuntime{
+				Client:            k8sClient,
+				Scheme:            scheme,
+				OperatorNamespace: "openbao-operator-system",
+			},
+		},
+	}
+
+	requireHeld := func(want ...*appsv1.StatefulSet) {
+		t.Helper()
+		_, err := r.Reconcile(context.Background(), logr.Discard(), cluster)
+		if !errors.Is(err, workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate) {
+			t.Fatalf("Reconcile() error = %v, want %v", err, workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate)
+		}
+		for _, sts := range want {
+			if !strings.Contains(err.Error(), sts.Namespace+"/"+sts.Name) {
+				t.Fatalf("Reconcile() error = %v, want it to name StatefulSet %s", err, sts.Name)
+			}
+			stored := &appsv1.StatefulSet{}
+			if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(sts), stored); err != nil {
+				t.Fatalf("get StatefulSet %s: %v", sts.Name, err)
+			}
+			if stored.Annotations[constants.AnnotationMaintenance] != "true" {
+				t.Fatalf("StatefulSet %s maintenance annotation = %q, want true", sts.Name, stored.Annotations[constants.AnnotationMaintenance])
+			}
+		}
+	}
+
+	// Both pools are held and annotated in the same reconcile, so both can be deleted in
+	// one maintenance window.
+	requireHeld(voter, readReplica)
+
+	// Deleting only the voter StatefulSet leaves the read replicas held: the voter is not
+	// recreated and no seal configuration is rendered until every held StatefulSet is gone.
+	if err := k8sClient.Delete(context.Background(), voter); err != nil {
+		t.Fatalf("delete voter StatefulSet: %v", err)
+	}
+	requireHeld(readReplica)
+	if err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(voter), &appsv1.StatefulSet{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected the voter StatefulSet to stay deleted, got %v", err)
+	}
+	configMap := &corev1.ConfigMap{}
+	err := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: cluster.Namespace, Name: resourceidentity.ConfigMapName(cluster)}, configMap)
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("expected no seal configuration to be rendered, got ConfigMap error %v", err)
+	}
+
+	if err := k8sClient.Delete(context.Background(), readReplica); err != nil {
+		t.Fatalf("delete read-replica StatefulSet: %v", err)
+	}
+	if _, err := r.Reconcile(context.Background(), logr.Discard(), cluster); errors.Is(err, workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate) {
+		t.Fatalf("Reconcile() error = %v, want the guard released once every held StatefulSet is deleted", err)
+	}
+}
+
 func TestInfraReconciler_Reconcile_DoesNotRequeuePermanentScaleDownPrerequisites(t *testing.T) {
 	t.Parallel()
 
@@ -871,6 +1088,7 @@ func TestInfraReconciler_MapManagerReconcileError(t *testing.T) {
 		{name: "api server network invalid", err: networkingmanager.ErrAPIServerNetworkConfigurationInvalid, wantReason: constants.ReasonAPIServerNetworkConfigurationInvalid},
 		{name: "Service primary IP family change", err: networkingmanager.ErrServiceIPFamilyChangeNotSupported, wantReason: constants.ReasonServiceIPFamilyChangeNotSupported},
 		{name: "prerequisites missing", err: workloadsvc.ErrStatefulSetPrerequisitesMissing, wantReason: constants.ReasonPrerequisitesMissing},
+		{name: "azure workload identity recreate required", err: workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate, wantReason: constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired},
 		{name: "acme domain not resolvable", err: networkingmanager.ErrACMEDomainNotResolvable, wantReason: constants.ReasonACMEDomainNotResolvable},
 		{name: "acme gateway not configured", err: networkingmanager.ErrACMEGatewayNotConfiguredForPassthrough, wantReason: constants.ReasonACMEGatewayNotConfiguredForPassthrough},
 	}

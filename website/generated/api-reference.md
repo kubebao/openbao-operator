@@ -241,6 +241,24 @@ _Appears in:_
 | `resource` _string_ | Resource is the Azure AD resource endpoint.<br />For Managed HSM, this should usually be "managedhsm.azure.net". |  | Optional: \{\} <br /> |
 | `environment` _string_ | Environment is the Azure environment (e.g., "AzurePublicCloud", "AzureUSGovernmentCloud"). |  | Optional: \{\} <br /> |
 | `authMethod` _string_ | AuthMethod selects how the seal authenticates to Azure, rendered as the<br />seal's auth_method. When empty, OpenBao chooses: a client ID without a<br />client secret selects managed_identity, which uses the instance metadata<br />service. Set workload_identity for Azure Workload Identity, where the<br />workload identity webhook also injects AZURE_CLIENT_ID. |  | Enum: [workload_identity managed_identity client_secret environment default] <br />Optional: \{\} <br /> |
+| `workloadIdentity` _[AzureKeyVaultWorkloadIdentity](#azurekeyvaultworkloadidentity)_ | WorkloadIdentity has the operator project an Azure workload identity token<br />into the OpenBao Pods, without the Azure Workload Identity webhook. Requires<br />tenantID. The token is exchanged with the Azure public cloud. |  | Optional: \{\} <br /> |
+
+
+#### AzureKeyVaultWorkloadIdentity
+
+
+
+AzureKeyVaultWorkloadIdentity configures the federated workload identity the
+OpenBao Pods authenticate to Azure Key Vault with.
+
+
+
+_Appears in:_
+- [AzureKeyVaultSealConfig](#azurekeyvaultsealconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `clientID` _string_ | ClientID is the client ID of the identity holding the federated credential. |  | MinLength: 1 <br /> |
 
 
 #### AzureTargetConfig
@@ -2946,6 +2964,24 @@ _Appears in:_
 | `resource` _string_ | Resource is the Azure AD resource endpoint.<br />For Managed HSM, this should usually be "managedhsm.azure.net". |  | Optional: \{\} <br /> |
 | `environment` _string_ | Environment is the Azure environment (e.g., "AzurePublicCloud", "AzureUSGovernmentCloud"). |  | Optional: \{\} <br /> |
 | `authMethod` _string_ | AuthMethod selects how the seal authenticates to Azure, rendered as the<br />seal's auth_method. When empty, OpenBao chooses: a client ID without a<br />client secret selects managed_identity, which uses the instance metadata<br />service. Set workload_identity for Azure Workload Identity, where the<br />workload identity webhook also injects AZURE_CLIENT_ID. |  | Enum: [workload_identity managed_identity client_secret environment default] <br />Optional: \{\} <br /> |
+| `workloadIdentity` _[AzureKeyVaultWorkloadIdentity](#azurekeyvaultworkloadidentity)_ | WorkloadIdentity has the operator project an Azure workload identity token<br />into the OpenBao Pods, without the Azure Workload Identity webhook. Requires<br />tenantID. The token is exchanged with the Azure public cloud. |  | Optional: \{\} <br /> |
+
+
+#### AzureKeyVaultWorkloadIdentity
+
+
+
+AzureKeyVaultWorkloadIdentity configures the federated workload identity the
+OpenBao Pods authenticate to Azure Key Vault with.
+
+
+
+_Appears in:_
+- [AzureKeyVaultSealConfig](#azurekeyvaultsealconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `clientID` _string_ | ClientID is the client ID of the identity holding the federated credential. |  | MinLength: 1 <br /> |
 
 
 #### AzureTargetConfig

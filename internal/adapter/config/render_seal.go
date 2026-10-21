@@ -84,7 +84,7 @@ func buildSealBlock(cluster *openbaov1alpha1.OpenBaoCluster) (*hclwrite.Block, e
 			ClientSecret: stringPtr(cfg.ClientSecret),
 			Resource:     stringPtr(cfg.Resource),
 			Environment:  stringPtr(cfg.Environment),
-			AuthMethod:   stringPtr(cfg.AuthMethod),
+			AuthMethod:   stringPtr(azureKeyVaultAuthMethod(cfg)),
 		}, "seal"), nil
 	case "gcpckms":
 		if cluster.Spec.Unseal == nil || cluster.Spec.Unseal.GCPCloudKMS == nil {

@@ -8,9 +8,11 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
@@ -26,6 +28,11 @@ var ErrStatefulSetPrerequisitesMissing = errors.New("StatefulSet prerequisites m
 // ErrAuditFileStorageStatefulSetRequiresRecreate indicates that the existing StatefulSet
 // needs an audit storage pod-template change that is blocked by immutable or admission-locked fields.
 var ErrAuditFileStorageStatefulSetRequiresRecreate = errors.New("audit file storage requires StatefulSet recreation")
+
+// ErrAzureWorkloadIdentityStatefulSetRequiresRecreate indicates that adding or removing the
+// Azure Key Vault workload identity needs a token volume change that is blocked by
+// admission-locked pod-template fields of the existing StatefulSet.
+var ErrAzureWorkloadIdentityStatefulSetRequiresRecreate = errors.New("azure workload identity requires StatefulSet recreation")
 
 // checkStatefulSetPrerequisites verifies that all required resources exist before creating or updating the StatefulSet.
 // This prevents pods from failing to start due to missing ConfigMaps or Secrets.
@@ -120,6 +127,23 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 	}
 	name := statefulSetNameForSpec(cluster, spec)
 
+	existingSTS := &appsv1.StatefulSet{}
+	existingFound := true
+	if err := m.client.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: name}, existingSTS); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to get StatefulSet %s/%s: %w", cluster.Namespace, name, err)
+		}
+		existingFound = false
+	}
+
+	// Checked before the ConfigMap is written: a Pod restarted with a workload identity
+	// configuration but without the token, or the reverse, could not unseal.
+	if existingFound {
+		if err := m.GuardAzureWorkloadIdentityStatefulSet(ctx, logger, cluster, existingSTS, spec); err != nil {
+			return err
+		}
+	}
+
 	if err := m.ensureConfigMapWithName(ctx, cluster, configMapNameForSpec(cluster, spec), configContent); err != nil {
 		return fmt.Errorf("failed to ensure config ConfigMap for StatefulSet %s/%s: %w", cluster.Namespace, name, err)
 	}
@@ -152,8 +176,7 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 
 	// StatefulSet.spec.volumeClaimTemplates are effectively immutable once the StatefulSet exists.
 	// Keep them identical to the existing object; storage expansion is reconciled by patching the PVCs directly.
-	existingSTS := &appsv1.StatefulSet{}
-	if err := m.client.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: name}, existingSTS); err == nil {
+	if existingFound {
 		desired.Spec.VolumeClaimTemplates = existingSTS.Spec.VolumeClaimTemplates
 
 		if statefulSetAuditFileStorageRequiresRecreate(desired, existingSTS) {
@@ -178,8 +201,6 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 		if err := m.reconcileStatefulSetUpdateStrategy(ctx, logger, cluster, spec.Pool, existingSTS); err != nil {
 			return err
 		}
-	} else if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to get StatefulSet %s/%s: %w", cluster.Namespace, name, err)
 	}
 
 	// Set the desired replica count (SSA will handle create/update)
@@ -286,16 +307,87 @@ func statefulSetAuditFileStorageRequiresRecreate(desired *appsv1.StatefulSet, ex
 		existingMount.ReadOnly != desiredMount.ReadOnly
 }
 
+// StatefulSetAzureWorkloadIdentityRequiresRecreate reports whether an existing StatefulSet's
+// Azure workload identity token volume or mount disagrees with the cluster spec. Both live in
+// admission-locked pod-template fields, which the operator preserves from the existing object.
+func StatefulSetAzureWorkloadIdentityRequiresRecreate(cluster *openbaov1alpha1.OpenBaoCluster, existing *appsv1.StatefulSet) bool {
+	if cluster == nil || existing == nil {
+		return false
+	}
+	provider := newSealWiringProvider(cluster)
+	existingVolume, hasVolume := statefulSetVolume(existing, constants.VolumeAzureIdentityToken)
+	existingMount, hasMount := statefulSetContainerVolumeMount(existing, constants.ContainerBao, constants.VolumeAzureIdentityToken)
+	desiredVolume, wantVolume := findVolume(provider.Volumes(), constants.VolumeAzureIdentityToken)
+	desiredMount, wantMount := findVolumeMount(provider.VolumeMounts(), constants.VolumeAzureIdentityToken)
+	if hasVolume != wantVolume || hasMount != wantMount {
+		return true
+	}
+	if !wantVolume {
+		return false
+	}
+	return !apiequality.Semantic.DeepEqual(
+		defaultedProjectedVolumeSource(existingVolume.VolumeSource),
+		defaultedProjectedVolumeSource(desiredVolume.VolumeSource),
+	) ||
+		existingMount.MountPath != desiredMount.MountPath ||
+		existingMount.SubPath != desiredMount.SubPath ||
+		existingMount.SubPathExpr != desiredMount.SubPathExpr ||
+		existingMount.ReadOnly != desiredMount.ReadOnly
+}
+
+// defaultedProjectedVolumeSource applies the API server defaults for projected volumes, which
+// the rendered volume leaves unset, so a StatefulSet read back from the API server compares
+// equal to the one the operator renders.
+func defaultedProjectedVolumeSource(source corev1.VolumeSource) corev1.VolumeSource {
+	if source.Projected == nil {
+		return source
+	}
+	source = *source.DeepCopy()
+	if source.Projected.DefaultMode == nil {
+		source.Projected.DefaultMode = ptr.To(corev1.ProjectedVolumeSourceDefaultMode)
+	}
+	for i := range source.Projected.Sources {
+		token := source.Projected.Sources[i].ServiceAccountToken
+		if token != nil && token.ExpirationSeconds == nil {
+			token.ExpirationSeconds = ptr.To(int64(3600))
+		}
+	}
+	return source
+}
+
+// CheckAzureWorkloadIdentityStatefulSet returns ErrAzureWorkloadIdentityStatefulSetRequiresRecreate
+// when an existing StatefulSet's token projection disagrees with the cluster spec. Callers must
+// check it before they write the seal configuration the StatefulSet's Pods read.
+func CheckAzureWorkloadIdentityStatefulSet(cluster *openbaov1alpha1.OpenBaoCluster, existing *appsv1.StatefulSet) error {
+	if !StatefulSetAzureWorkloadIdentityRequiresRecreate(cluster, existing) {
+		return nil
+	}
+	return fmt.Errorf("%w: StatefulSet %s/%s does not match the requested Azure Key Vault workload identity token projection; recreate the StatefulSet so the locked pod-template fields can be applied", ErrAzureWorkloadIdentityStatefulSetRequiresRecreate, existing.Namespace, existing.Name)
+}
+
 func statefulSetVolume(sts *appsv1.StatefulSet, name string) (corev1.Volume, bool) {
 	if sts == nil {
 		return corev1.Volume{}, false
 	}
-	for _, volume := range sts.Spec.Template.Spec.Volumes {
+	return findVolume(sts.Spec.Template.Spec.Volumes, name)
+}
+
+func findVolume(volumes []corev1.Volume, name string) (corev1.Volume, bool) {
+	for _, volume := range volumes {
 		if volume.Name == name {
 			return volume, true
 		}
 	}
 	return corev1.Volume{}, false
+}
+
+func findVolumeMount(mounts []corev1.VolumeMount, name string) (corev1.VolumeMount, bool) {
+	for _, mount := range mounts {
+		if mount.Name == name {
+			return mount, true
+		}
+	}
+	return corev1.VolumeMount{}, false
 }
 
 func samePVCVolumeSource(a corev1.Volume, b corev1.Volume) bool {
@@ -314,12 +406,7 @@ func statefulSetContainerVolumeMount(sts *appsv1.StatefulSet, containerName stri
 		if container.Name != containerName {
 			continue
 		}
-		for _, mount := range container.VolumeMounts {
-			if mount.Name == volumeName {
-				return mount, true
-			}
-		}
-		return corev1.VolumeMount{}, false
+		return findVolumeMount(container.VolumeMounts, volumeName)
 	}
 	return corev1.VolumeMount{}, false
 }

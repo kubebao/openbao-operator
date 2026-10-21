@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-validate-openbaocluster
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:e4b7cc39dd7a99cd310c54386c90cf22a74109781aa8b5ef0851faf5e2d518b7
+    openbao.org/admission-policy-fingerprint: sha256:a83dd07e9419383ca40f4933607a79fbf9ebf6ccf4e22059628b4ff7ab2efe6a
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -37,7 +37,8 @@ spec:
     - name: has_azure_key_vault_auth_method
       expression: >-
         has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
-        has(object.spec.unseal.azureKeyVault.authMethod)
+        (has(object.spec.unseal.azureKeyVault.authMethod) ||
+         has(object.spec.unseal.azureKeyVault.workloadIdentity))
     - name: has_self_init_request_controls
       expression: >-
         has(object.spec.selfInit) && object.spec.selfInit.enabled == true &&
@@ -397,11 +398,16 @@ spec:
                 size(object.spec.backup.target.workloadIdentity.podLabels) > 0)
             ))
         )
+    - name: has_unseal_workload_identity
+      expression: >-
+        has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
+        has(object.spec.unseal.azureKeyVault.workloadIdentity)
     - name: has_cloud_identity_metadata
       expression: >-
         variables.has_main_workload_cloud_identity_metadata ||
         variables.has_read_replica_cloud_identity_metadata ||
-        variables.has_backup_cloud_identity_metadata
+        variables.has_backup_cloud_identity_metadata ||
+        variables.has_unseal_workload_identity
     - name: has_custom_main_image_trust_roots
       expression: >-
         has(object.spec.imageVerification) &&
@@ -478,6 +484,8 @@ spec:
     - name: has_restore_target_cloud_identity_metadata
       expression: >-
         has(object.spec.backup) && has(object.spec.backup.restoreTest) && (
+        (has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault) &&
+          has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||
         (has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) &&
           has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) && size(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) > 0) ||
         (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata) && (
@@ -770,10 +778,10 @@ spec:
       message: "Complete the OpenBao >= 2.7.0 upgrade before configuring spec.configuration.listener.tlsKeyExchangePreferences."
     - expression: >-
         !variables.has_azure_key_vault_auth_method || variables.azure_key_vault_auth_method_version_supported
-      message: "spec.unseal.azureKeyVault.authMethod requires OpenBao >= 2.6.0; earlier versions ignore it and select managed identity when a client ID is set."
+      message: "spec.unseal.azureKeyVault.authMethod or workloadIdentity requires OpenBao >= 2.6.0; earlier versions ignore auth_method and select managed identity when a client ID is set."
     - expression: >-
         !variables.has_azure_key_vault_auth_method || variables.azure_key_vault_auth_method_current_version_supported
-      message: "Complete the OpenBao >= 2.6.0 upgrade before configuring spec.unseal.azureKeyVault.authMethod."
+      message: "Complete the OpenBao >= 2.6.0 upgrade before configuring spec.unseal.azureKeyVault.authMethod or workloadIdentity."
     - expression: >-
         !has(object.spec.profile) ||
         object.spec.profile != "Hardened" ||
@@ -1101,7 +1109,7 @@ spec:
         variables.is_operator_controller ||
         !variables.has_cloud_identity_metadata ||
         variables.cloud_identities_authorized
-      message: "Users configuring workload identity annotations, labels, S3 roleArn, or workloadIdentity metadata must be authorized to use cloud identities on this OpenBaoCluster."
+      message: "Users configuring workload identity annotations, labels, S3 roleArn, workloadIdentity metadata, or an Azure Key Vault seal workloadIdentity must be authorized to use cloud identities on this OpenBaoCluster."
     - expression: >-
         variables.is_operator_controller ||
         !variables.has_network_publication_controls ||

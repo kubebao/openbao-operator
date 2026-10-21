@@ -50,5 +50,6 @@ const (
 	ReasonStorageClassChangeNotSupported = "StorageClassChangeNotSupported"
 	ReasonStorageRestartRequired         = "StorageRestartRequired"
 
-	ReasonAuditFileStorageStatefulSetRecreateRequired = "AuditFileStorageStatefulSetRecreateRequired"
+	ReasonAuditFileStorageStatefulSetRecreateRequired      = "AuditFileStorageStatefulSetRecreateRequired"
+	ReasonAzureWorkloadIdentityStatefulSetRecreateRequired = "AzureWorkloadIdentityStatefulSetRecreateRequired"
 )

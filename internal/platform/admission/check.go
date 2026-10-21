@@ -45,9 +45,9 @@ const (
 	PolicyFingerprintAnnotation = "openbao.org/admission-policy-fingerprint"
 
 	fingerprintLockControllerStatefulSetMutations  = "sha256:f9ea866c4743f4f1c422909ff25c154267e84f645e276fb3bff19c321eed9179"
-	fingerprintOpenBaoValidateOpenBaoRestore       = "sha256:4031663c07f1bd884a1a2fd386168fbec7221b0450355b753a2d2643439870bf"
+	fingerprintOpenBaoValidateOpenBaoRestore       = "sha256:264436b9c41f6573c359df17276d53ed0a0b07402a6cdeb2c0e9e1ecbf841280"
 	fingerprintProtectRestoreExecution             = "sha256:c9af55789ddce38e9c2227b2b4b527abea0af9094e82a56eaa4cc2f17a5b8e69"
-	fingerprintOpenBaoValidateOpenBaoCluster       = "sha256:e4b7cc39dd7a99cd310c54386c90cf22a74109781aa8b5ef0851faf5e2d518b7"
+	fingerprintOpenBaoValidateOpenBaoCluster       = "sha256:a83dd07e9419383ca40f4933607a79fbf9ebf6ccf4e22059628b4ff7ab2efe6a"
 	fingerprintOpenBaoLockManagedResourceMutations = "sha256:56374a99adcf4041536eb619c7bddb62f23afa847f5f417a34c7860fa0ab14e2"
 
 	dependencyOpenBaoValidateOpenBaoCluster             = "openbao-validate-openbaocluster"

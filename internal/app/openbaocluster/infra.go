@@ -2,6 +2,7 @@ package openbaocluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -190,6 +191,13 @@ func (r *infraReconciler) Reconcile(ctx context.Context, logger logr.Logger, clu
 
 	stagedRestartOrdering = r.applyReadFirstRestartOrdering(cluster, &spec, &readSpec, currentSTS, currentSTSFound, readCurrentSTS, readCurrentSTSFound)
 
+	if err := r.guardAzureWorkloadIdentityStatefulSets(ctx, logger, cluster,
+		guardedStatefulSet{found: currentSTSFound, sts: currentSTS, spec: spec},
+		guardedStatefulSet{found: readCurrentSTSFound, sts: readCurrentSTS, spec: readSpec},
+	); err != nil {
+		return recon.Result{}, r.mapManagerReconcileError(err)
+	}
+
 	effectiveOIDC, err := r.resolveOIDC(ctx, cluster)
 	if err != nil {
 		return recon.Result{}, err
@@ -248,6 +256,38 @@ func (r *infraReconciler) Reconcile(ctx context.Context, logger logr.Logger, clu
 	}
 
 	return recon.Result{}, nil
+}
+
+type guardedStatefulSet struct {
+	found bool
+	sts   *appsv1.StatefulSet
+	spec  workloadsvc.StatefulSetSpec
+}
+
+// guardAzureWorkloadIdentityStatefulSets holds existing StatefulSets whose token projection
+// does not match the spec. The seal configuration rendered next is shared by every Pod, so
+// the reconcile stops before it is written. Every held StatefulSet is guarded, not only the
+// first, so all of them can be deleted in one maintenance window.
+func (r *infraReconciler) guardAzureWorkloadIdentityStatefulSets(
+	ctx context.Context,
+	logger logr.Logger,
+	cluster *openbaov1alpha1.OpenBaoCluster,
+	statefulSets ...guardedStatefulSet,
+) error {
+	var held []error
+	for _, guarded := range statefulSets {
+		if !guarded.found {
+			continue
+		}
+		err := r.newWorkloadManager().GuardAzureWorkloadIdentityStatefulSet(ctx, logger, cluster, guarded.sts, guarded.spec)
+		switch {
+		case errors.Is(err, workloadsvc.ErrAzureWorkloadIdentityStatefulSetRequiresRecreate):
+			held = append(held, err)
+		case err != nil:
+			return err
+		}
+	}
+	return errors.Join(held...)
 }
 
 func readCurrentDesiredReplicas(cluster *openbaov1alpha1.OpenBaoCluster) int32 {

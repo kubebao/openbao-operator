@@ -85,7 +85,7 @@ later updates while any prohibited field remains in the submitted object.
 | --- | --- |
 | AWS KMS | `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; `AWS_SESSION_TOKEN` is optional. Omit the Secret for IRSA or the standard AWS credential chain. |
 | GCP Cloud KMS | A valid JSON key, normally `credentials.json`, when not using Workload Identity or Application Default Credentials. |
-| Azure Key Vault | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`; optional environment and resource keys are also wired. Omit the Secret for managed identity or Azure Workload Identity. |
+| Azure Key Vault | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`; optional environment and resource keys are also wired. Omit the Secret for managed identity or Azure Workload Identity. With `workloadIdentity`, a Secret needs none of the credential keys and supplies only `AZURE_ENVIRONMENT` and `AZURE_AD_RESOURCE`. |
 | Transit | Hardened requires the `token` Secret key. Development can use an inline token. Add files referenced by `tlsCACert`, `tlsClientCert`, and `tlsClientKey`; the client certificate and key must be set together. |
 | OCI KMS API key | `config` with a `[DEFAULT]` profile and the key file named by `key_file`. Both files must be under `/etc/bao/seal-creds`. |
 | KMIP | Files named by `clientCert`, `clientKey`, and optional `caCert`. The client certificate and key must match. |
@@ -134,6 +134,64 @@ spec:
       authMethod: workload_identity
 {{< /command >}}
 
+### Azure workload identity without the webhook
+
+The Azure Workload Identity webhook only exists where someone installs it, which AKS does and most other
+distributions do not. With `workloadIdentity`, the operator does its part itself: it projects a ServiceAccount token
+with the `api://AzureADTokenExchange` audience into the main OpenBao Pods, sets `AZURE_CLIENT_ID` and
+`AZURE_FEDERATED_TOKEN_FILE`, and renders `auth_method = "workload_identity"`. No ServiceAccount annotation or Pod
+label is needed. It requires `tenantID`, takes the client ID in place of `clientID`, and has the same OpenBao 2.6.0
+requirement as `authMethod`. Like the other cloud identity settings, the author needs the `usecloudidentities` verb on
+the `OpenBaoCluster`.
+
+A `credentialsSecretRef` can still supply `AZURE_ENVIRONMENT` and `AZURE_AD_RESOURCE`, for example the resource of a
+Managed HSM. Its credential keys are not wired, so they cannot compete with the workload identity.
+
+The token is always exchanged with the Azure public cloud's Entra ID endpoint. `environment` and `AZURE_ENVIRONMENT`
+only select the Key Vault endpoint, so sovereign clouds such as Azure Government or Azure China are not supported with
+`workloadIdentity`.
+
+Entra ID must hold a federated credential for the identity whose issuer is the cluster's ServiceAccount issuer and
+whose subject is `system:serviceaccount:<namespace>:<serviceaccount>` of the OpenBao Pods. Azure fetches the issuer's
+discovery document and keys, so they must be served publicly over HTTPS.
+
+{{< command label="configure" title="Use Azure Key Vault with an operator-managed workload identity" >}}
+spec:
+  unseal:
+    type: azurekeyvault
+    azureKeyVault:
+      vaultName: <vault-name>
+      keyName: <key-name>
+      tenantID: "<tenant-id>"
+      workloadIdentity:
+        clientID: "<managed-identity-client-id>"
+{{< /command >}}
+
+{{< callout type="warning" title="Adding or removing workloadIdentity requires StatefulSet recreation" >}}
+Volume and mount fields are locked on an existing StatefulSet, so the token projection cannot be added to or removed
+from it in place. When a StatefulSet does not match `workloadIdentity`, the operator leaves it and its seal
+configuration unchanged and reports `CloudUnsealIdentityReady=False` with reason
+`AzureWorkloadIdentityStatefulSetRecreateRequired`.
+{{< /callout >}}
+
+To apply the change, recreate every StatefulSet the condition message lists: the voters and, when configured, the read
+replicas. The operator creates none of them again until all of them are deleted, because they share the seal
+configuration. It retains data PVCs when a StatefulSet is deleted.
+
+1. Enable [maintenance mode](../../operate/maintenance/#authorize-direct-maintenance-only-when-required) and wait for
+   the `openbao.org/maintenance=true` annotation on each listed StatefulSet.
+2. Delete each listed StatefulSet. OpenBao is unavailable until the new Pods unseal.
+
+   {{< command label="apply" title="Delete a listed StatefulSet, keeping its PVCs" >}}
+   kubectl -n <namespace> delete statefulset <statefulset-name>
+   {{< /command >}}
+
+3. Wait for the operator to create the StatefulSets again, then for `CloudUnsealIdentityReady=True` and every Pod to
+   unseal.
+4. Disable maintenance mode.
+
+Removing `workloadIdentity` takes the token out of the Pods only after this recreation. To revoke the identity's
+access, also delete its federated credential in Entra ID.
 
 Grant only the KMS operations required by the provider. Confirm the workload identity can use the key before relying on
 it for a production bootstrap. Lifecycle Jobs have separate ServiceAccounts and do not inherit the main Pod's cloud

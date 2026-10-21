@@ -156,6 +156,7 @@ var cloudUnsealIdentityReadyConditionContract = newConditionContract(
 	conditionContractEntry{reason: constants.ReasonWorkloadIdentityConfigured, status: metav1.ConditionTrue},
 	conditionContractEntry{reason: constants.ReasonCredentialsSecretMissing, status: metav1.ConditionFalse},
 	conditionContractEntry{reason: constants.ReasonPrerequisitesMissing, status: metav1.ConditionFalse},
+	conditionContractEntry{reason: constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired, status: metav1.ConditionFalse},
 	conditionContractEntry{reason: reasonPaused, status: metav1.ConditionUnknown},
 	conditionContractEntry{reason: ReasonProfileNotSet, status: metav1.ConditionUnknown},
 	conditionContractEntry{reason: reasonUnknown, status: metav1.ConditionUnknown},

@@ -37,6 +37,11 @@ func (m *Manager) validateAzureKeyVaultUnsealPrerequisites(ctx context.Context, 
 	if err != nil {
 		return providerPrerequisitesError(err)
 	}
+	// With workloadIdentity the Secret only supplies optional settings such as
+	// AZURE_ENVIRONMENT; the Pods authenticate with the projected token.
+	if cfg.AzureKeyVault.WorkloadIdentity != nil {
+		return nil
+	}
 
 	if err := requireSecretKeys(secret.Data, cluster.Namespace, cfg.CredentialsSecretRef.Name, "azurekeyvault credentials", "AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"); err != nil {
 		return providerPrerequisitesError(err)

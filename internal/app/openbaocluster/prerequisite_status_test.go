@@ -18,6 +18,7 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 )
 
 func TestReconcilePrerequisiteConditionsPreservesOrder(t *testing.T) {
@@ -178,6 +179,109 @@ func TestReconcilePrerequisiteConditionsTurnsReadErrorsIntoUnknownConditions(t *
 	if condition := meta.FindStatusCondition(cluster.Status.Conditions, string(openbaov1alpha1.ConditionCloudUnsealIdentityReady)); condition.Message != wantCloudMessage {
 		t.Errorf("CloudUnsealIdentityReady message = %q, want %q", condition.Message, wantCloudMessage)
 	}
+}
+
+func TestReconcilePrerequisiteConditionsReportsAzureWorkloadIdentityRecreate(t *testing.T) {
+	newCluster := func() *openbaov1alpha1.OpenBaoCluster {
+		cluster := newPrerequisiteStatusTestCluster()
+		cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{
+			Type: "azurekeyvault",
+			AzureKeyVault: &openbaov1alpha1.AzureKeyVaultSealConfig{
+				VaultName:        "vault",
+				KeyName:          "key",
+				TenantID:         "tenant-123",
+				WorkloadIdentity: &openbaov1alpha1.AzureKeyVaultWorkloadIdentity{ClientID: "client-456"},
+			},
+		}
+		return cluster
+	}
+	newStatefulSet := func(cluster *openbaov1alpha1.OpenBaoCluster, name string, withToken bool) *appsv1.StatefulSet {
+		sts := &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: cluster.Namespace,
+				Labels:    resourceidentity.Labels(cluster),
+			},
+			Spec: appsv1.StatefulSetSpec{
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{Name: constants.ContainerBao}},
+					},
+				},
+			},
+		}
+		if withToken {
+			sts.Spec.Template.Spec.Volumes = []corev1.Volume{{
+				Name: constants.VolumeAzureIdentityToken,
+				VolumeSource: corev1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+						Audience: "api://AzureADTokenExchange",
+						Path:     "azure-identity-token",
+					}}},
+				}},
+			}}
+			sts.Spec.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{{
+				Name:      constants.VolumeAzureIdentityToken,
+				MountPath: "/var/run/secrets/azure/tokens",
+				ReadOnly:  true,
+			}}
+		}
+		return sts
+	}
+
+	t.Run("existing StatefulSet without the token", func(t *testing.T) {
+		scheme := newPrerequisiteStatusTestScheme(t)
+		cluster := newCluster()
+		reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newStatefulSet(cluster, cluster.Name, false)).Build()
+
+		newPrerequisiteStatusTestApplications(reader, scheme).ReconcilePrerequisiteConditions(t.Context(), cluster)
+
+		assertPrerequisiteCondition(
+			t,
+			cluster,
+			openbaov1alpha1.ConditionCloudUnsealIdentityReady,
+			metav1.ConditionFalse,
+			constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired,
+			"token projection: default/example",
+		)
+	})
+
+	t.Run("voter and read-replica StatefulSets without the token", func(t *testing.T) {
+		scheme := newPrerequisiteStatusTestScheme(t)
+		cluster := newCluster()
+		reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			newStatefulSet(cluster, cluster.Name, false),
+			newStatefulSet(cluster, resourceidentity.ReadReplicaStatefulSetName(cluster), false),
+		).Build()
+
+		newPrerequisiteStatusTestApplications(reader, scheme).ReconcilePrerequisiteConditions(t.Context(), cluster)
+
+		assertPrerequisiteCondition(
+			t,
+			cluster,
+			openbaov1alpha1.ConditionCloudUnsealIdentityReady,
+			metav1.ConditionFalse,
+			constants.ReasonAzureWorkloadIdentityStatefulSetRecreateRequired,
+			"token projection: default/example, default/"+resourceidentity.ReadReplicaStatefulSetName(cluster),
+		)
+	})
+
+	t.Run("existing StatefulSet with the token", func(t *testing.T) {
+		scheme := newPrerequisiteStatusTestScheme(t)
+		cluster := newCluster()
+		reader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newStatefulSet(cluster, cluster.Name, true)).Build()
+
+		newPrerequisiteStatusTestApplications(reader, scheme).ReconcilePrerequisiteConditions(t.Context(), cluster)
+
+		assertPrerequisiteCondition(
+			t,
+			cluster,
+			openbaov1alpha1.ConditionCloudUnsealIdentityReady,
+			metav1.ConditionTrue,
+			"Ready",
+			"client ID \"client-456\"",
+		)
+	})
 }
 
 type prerequisiteErrorReader struct {
