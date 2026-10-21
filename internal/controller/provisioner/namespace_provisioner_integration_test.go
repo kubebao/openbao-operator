@@ -6,6 +6,10 @@ package provisioner_test
 import (
 	"context"
 	"testing"
+	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -115,4 +119,41 @@ func TestNamespaceProvisioner_SetupWithManager_CleansUpTenantResourcesOnDelete(t
 	} {
 		require.Equal(t, "restricted", namespace.Labels[key], "Pod Security label %s must remain after cleanup", key)
 	}
+}
+
+func TestNamespaceProvisioner_SetupWithManager_PollsTerminatingNamespace(t *testing.T) {
+	setAdmissionReady(t)
+	ctx := context.Background()
+	c := startNamespaceProvisionerController(t)
+	createNamespace(t, ctx, c, operatorNamespace)
+	const namespace = "tenant-terminating"
+	createNamespace(t, ctx, c, namespace)
+	tenant := &openbaov1alpha1.OpenBaoTenant{ObjectMeta: metav1.ObjectMeta{Name: namespace, Namespace: operatorNamespace}, Spec: openbaov1alpha1.OpenBaoTenantSpec{TargetNamespace: namespace}}
+	require.NoError(t, c.Create(ctx, tenant))
+	waitForTenantProvisioned(t, ctx, c, client.ObjectKeyFromObject(tenant))
+	role := provisionersvc.GenerateTenantRole(namespace)
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(role), role))
+	originalUID := role.UID
+	cluster := &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: "pending", Namespace: namespace, Finalizers: []string{"test.example/hold"}}, Spec: openbaov1alpha1.OpenBaoClusterSpec{Profile: openbaov1alpha1.ProfileDevelopment, Version: "2.6.4", Replicas: 1, TLS: openbaov1alpha1.TLSConfig{Enabled: true, RotationPeriod: "720h"}, Storage: openbaov1alpha1.StorageConfig{Size: "1Gi"}}}
+	require.NoError(t, c.Create(ctx, cluster))
+	require.NoError(t, c.Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}))
+	// No tenant edit or Namespace watch triggers this check: the successful tenant
+	// reconcile must schedule another GET of its declared target namespace.
+	require.Eventually(t, func() bool {
+		current := &openbaov1alpha1.OpenBaoTenant{}
+		if c.Get(ctx, client.ObjectKeyFromObject(tenant), current) != nil {
+			return false
+		}
+		return !current.Status.Provisioned && current.Status.LastError != ""
+	}, 90*time.Second, 100*time.Millisecond)
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(role), role))
+	require.Equal(t, originalUID, role.UID)
+	require.NoError(t, c.Delete(ctx, cluster))
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
+	require.False(t, cluster.DeletionTimestamp.IsZero())
+	cluster.Finalizers = nil
+	require.NoError(t, c.Update(ctx, cluster))
+	require.Eventually(t, func() bool {
+		return apierrors.IsNotFound(c.Get(ctx, client.ObjectKeyFromObject(role), provisionersvc.GenerateTenantRole(namespace)))
+	}, 20*time.Second, 100*time.Millisecond)
 }

@@ -23,6 +23,7 @@ const (
 // Manager handles the provisioning of RBAC resources for tenant namespaces.
 type Manager struct {
 	client                         client.Client
+	reader                         client.Reader
 	operatorSA                     OperatorServiceAccount
 	logger                         logr.Logger
 	namespacePodSecurityLabelsMode string
@@ -54,6 +55,7 @@ func NewManager(c client.Client, logger logr.Logger) (*Manager, error) {
 
 	return &Manager{
 		client: c,
+		reader: c,
 		operatorSA: OperatorServiceAccount{
 			Name:      controllerSAName,
 			Namespace: controllerSANamespace,
@@ -61,6 +63,18 @@ func NewManager(c client.Client, logger logr.Logger) (*Manager, error) {
 		logger:                         logger,
 		namespacePodSecurityLabelsMode: namespacePodSecurityLabelsMode,
 	}, nil
+}
+
+// NewManagerWithReader uses the supplied reader to authorize namespace finalization.
+func NewManagerWithReader(c client.Client, reader client.Reader, logger logr.Logger) (*Manager, error) {
+	manager, err := NewManager(c, logger)
+	if err != nil {
+		return nil, err
+	}
+	if reader != nil {
+		manager.reader = reader
+	}
+	return manager, nil
 }
 
 func resolveNamespacePodSecurityLabelsMode() (string, error) {

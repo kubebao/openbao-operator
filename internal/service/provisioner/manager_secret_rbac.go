@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,6 +26,15 @@ import (
 func (m *Manager) EnsureTenantSecretRBAC(ctx context.Context, namespace string) error {
 	if namespace == "" {
 		return fmt.Errorf("namespace is required")
+	}
+	ns := &corev1.Namespace{}
+	if err := m.reader.Get(ctx, client.ObjectKey{Name: namespace}, ns); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("read namespace before tenant Secret RBAC synchronization: %w", err)
+	}
+	if !ns.DeletionTimestamp.IsZero() {
+		// Preserve the current allowlists until cluster and restore finalizers finish.
+		// The tenant reconciler releases RBAC through FinalizeNamespace.
+		return nil
 	}
 
 	clusterList := &openbaov1alpha1.OpenBaoClusterList{}

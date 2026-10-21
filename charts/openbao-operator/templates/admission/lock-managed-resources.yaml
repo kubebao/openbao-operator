@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:d4ae6adb2dfb4ad8f3c3658e5105239d9a27704ffca2f385cb83b7c8a6a6d164
+    openbao.org/admission-policy-fingerprint: sha256:56374a99adcf4041536eb619c7bddb62f23afa847f5f417a34c7860fa0ab14e2
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -618,7 +618,29 @@ spec:
           oldObject.metadata.labels["openbao.org/cluster"] + "-unseal-key",
           oldObject.metadata.labels["openbao.org/cluster"] + "-root-token"
         ]
+    - name: is_provisioner_rbac_gc_delete
+      expression: >-
+        request.operation == "DELETE" &&
+        (variables.is_kube_controller_manager || variables.is_system_controller ||
+          variables.is_namespace_controller_serviceaccount || variables.is_garbage_collector_sa) &&
+        oldObject != null && has(oldObject.metadata.labels) &&
+        "app.kubernetes.io/managed-by" in oldObject.metadata.labels &&
+        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
+        "openbao.org/component" in oldObject.metadata.labels &&
+        oldObject.metadata.labels["openbao.org/component"] == "provisioner" &&
+        "app.kubernetes.io/name" in oldObject.metadata.labels &&
+        oldObject.metadata.labels["app.kubernetes.io/name"] == "openbao-operator" &&
+        "app.kubernetes.io/component" in oldObject.metadata.labels &&
+        oldObject.metadata.labels["app.kubernetes.io/component"] == "provisioner" &&
+        ((request.resource.resource == "roles" && oldObject.metadata.name in
+            ["openbao-operator-tenant-role", "openbao-operator-tenant-secrets-reader", "openbao-operator-tenant-secrets-writer"]) ||
+          (request.resource.resource == "rolebindings" && oldObject.metadata.name in
+            ["openbao-operator-tenant-rolebinding", "openbao-operator-tenant-secrets-reader-rolebinding",
+              "openbao-operator-tenant-secrets-writer-rolebinding"]))
   validations:
+    - expression: >-
+        !variables.is_provisioner_rbac_gc_delete
+      message: Tenant RBAC must remain available until OpenBao resource finalization completes; the provisioner removes it.
     - expression: >-
         !variables.is_recovery_secret_delete ||
         variables.is_operator_controller || variables.is_operator_provisioner ||

@@ -12,6 +12,9 @@ verifiedBy:
   - internal/service/workload/statefulset_builder.go
   - internal/service/workload/finalization.go
   - test/integration/workload_finalization_test.go
+  - internal/app/provisioner/tenant_reconcile.go
+  - internal/service/provisioner/namespace_finalization.go
+  - test/integration/provisioner_namespace_finalization_test.go
 ---
 
 Deleting an `OpenBaoCluster` removes its operator-managed compute and supporting resources. Choose what happens to
@@ -77,6 +80,15 @@ resource version as preconditions. Other owned Secrets, such as TLS Secrets, rem
 Deleting the namespace also deletes retained namespaced resources. The recovery Secret admission protection permits
 normal namespace teardown once the namespace has a deletion timestamp. Complete the cluster deletion and export any
 required recovery material before deleting its namespace.
+
+In multi-tenant installations, admission keeps the provisioner-owned tenant Roles and RoleBindings available during
+namespace termination. The provisioner polls declared target namespaces and waits until all `OpenBaoCluster` and
+`OpenBaoRestore` resources have finished finalization. It then deletes its existing tenant resources with namespace
+UID, ownership, resource UID, and resource-version checks. It needs no additional namespace permissions.
+
+Keep the provisioner running until namespace teardown completes. This ordering prevents tenant RBAC from disappearing
+before cluster and restore finalizers finish. It cannot restore RBAC that was already deleted from a terminating
+namespace. Such namespaces need a separate administrator recovery assessment.
 
 {{< command label="verify" title="Inspect remaining recovery material" >}}
 kubectl -n <namespace> get pvc -l openbao.org/cluster=<name>

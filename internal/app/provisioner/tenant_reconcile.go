@@ -137,6 +137,24 @@ func ReconcileOpenBaoTenant(ctx context.Context, key types.NamespacedName, logge
 	if !ready {
 		return TenantReconcileResult{Result: result}, nil
 	}
+	if !ns.DeletionTimestamp.IsZero() {
+		done, err := runtime.Provisioner.FinalizeNamespace(ctx, targetNS, ns.UID)
+		if err != nil {
+			return TenantReconcileResult{}, fmt.Errorf("finalize tenant namespace %s: %w", targetNS, err)
+		}
+		original := tenant.DeepCopy()
+		tenant.Status.Provisioned = false
+		message := fmt.Sprintf("target namespace %s is terminating; waiting for OpenBao resource finalization", targetNS)
+		if done {
+			message = fmt.Sprintf("target namespace %s is terminating; tenant RBAC cleanup completed", targetNS)
+		}
+		tenant.Status.LastError = message
+		setTenantProvisionedCondition(runtime, tenant, metav1.ConditionFalse, ReasonTenantProvisioningBlocked, message)
+		if err := patchStatus(ctx, runtime.Client, tenant, original); err != nil {
+			return TenantReconcileResult{}, fmt.Errorf("update tenant namespace finalization status: %w", err)
+		}
+		return TenantReconcileResult{Result: recon.Result{RequeueAfter: resolveRequeueShort(runtime)}}, nil
+	}
 
 	logger.Info("Provisioning tenant RBAC", "target_namespace", targetNS)
 	if err := runtime.Provisioner.EnsureTenantRBAC(ctx, tenant); err != nil {
@@ -172,7 +190,9 @@ func ReconcileOpenBaoTenant(ctx context.Context, key types.NamespacedName, logge
 		"target_namespace": targetNS,
 	})
 	runtime.emitTenantNormalEvent(tenant, ReasonTenantProvisioned, fmt.Sprintf("Provisioned tenant RBAC for namespace %s", targetNS))
-	return TenantReconcileResult{}, nil
+	// Namespace access is get-only. Poll declared target namespaces so deletion
+	// can release tenant RBAC without adding cluster-wide namespace list/watch.
+	return TenantReconcileResult{Result: recon.Result{RequeueAfter: resolveRequeueStandard(runtime)}}, nil
 }
 
 func reconcileDeletion(
@@ -202,14 +222,22 @@ func reconcileDeletion(
 	}
 
 	// Keep tenant RBAC while OpenBaoCluster finalizers may still need it.
+	reader := runtime.APIReader
+	if reader == nil {
+		reader = runtime.Client
+	}
 	clusterList := &openbaov1alpha1.OpenBaoClusterList{}
-	if err := runtime.Client.List(ctx, clusterList, client.InNamespace(targetNS)); err != nil {
+	if err := reader.List(ctx, clusterList, client.InNamespace(targetNS)); err != nil {
 		return recon.Result{}, fmt.Errorf("failed to list keys in namespace %s: %w", targetNS, err)
 	}
-	if len(clusterList.Items) > 0 {
-		logger.Info("Waiting for OpenBaoClusters to be deleted before cleaning up RBAC",
+	restoreList := &openbaov1alpha1.OpenBaoRestoreList{}
+	if err := reader.List(ctx, restoreList, client.InNamespace(targetNS)); err != nil {
+		return recon.Result{}, fmt.Errorf("failed to list restores in namespace %s: %w", targetNS, err)
+	}
+	if len(clusterList.Items) > 0 || len(restoreList.Items) > 0 {
+		logger.Info("Waiting for OpenBao resources to be deleted before cleaning up RBAC",
 			"target_namespace", targetNS,
-			"cluster_count", len(clusterList.Items))
+			"cluster_count", len(clusterList.Items), "restore_count", len(restoreList.Items))
 		return recon.Result{RequeueAfter: resolveRequeueShort(runtime)}, nil
 	}
 

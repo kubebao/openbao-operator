@@ -213,8 +213,8 @@ func TestReconcileOpenBaoTenant_FinalizerAndProvisioning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reconcile 2: %v", err)
 	}
-	if result.Result != (recon.Result{}) {
-		t.Fatalf("result=%v, want zero", result)
+	if result.RequeueAfter != resolveRequeueStandard(runtime) {
+		t.Fatalf("result=%v, want periodic target-namespace check", result)
 	}
 
 	updated := &openbaov1alpha1.OpenBaoTenant{}
@@ -776,5 +776,49 @@ func TestReconcileOpenBaoTenant_FinalizerRemoveFailureUsesMergePatchAndRetainsFi
 	}
 	if !controllerutil.ContainsFinalizer(updated, openbaov1alpha1.OpenBaoTenantFinalizer) {
 		t.Fatal("expected finalizer to remain after patch failure")
+	}
+}
+
+func TestReconcileOpenBaoTenantTerminatingNamespace(t *testing.T) {
+	setAdmissionReady(t, true)
+	for _, pending := range []string{"cluster", "restore", "none"} {
+		t.Run(pending, func(t *testing.T) {
+			now := metav1.Now()
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "terminating", UID: "namespace-uid", DeletionTimestamp: &now, Finalizers: []string{"test.example/hold"}}}
+			tenant := &openbaov1alpha1.OpenBaoTenant{ObjectMeta: metav1.ObjectMeta{Name: "tenant", Namespace: "openbao-operator-system", Finalizers: []string{openbaov1alpha1.OpenBaoTenantFinalizer}}, Spec: openbaov1alpha1.OpenBaoTenantSpec{TargetNamespace: namespace.Name}}
+			role := provisionermanager.GenerateTenantRole(namespace.Name)
+			role.UID = "role-uid"
+			objects := []client.Object{namespace, tenant, role}
+			if pending == "cluster" {
+				objects = append(objects, &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: "pending", Namespace: namespace.Name}})
+			}
+			if pending == "restore" {
+				objects = append(objects, &openbaov1alpha1.OpenBaoRestore{ObjectMeta: metav1.ObjectMeta{Name: "pending", Namespace: namespace.Name}})
+			}
+			runtime := newTenantRuntime(t, objects...)
+			result, err := ReconcileOpenBaoTenant(t.Context(), client.ObjectKeyFromObject(tenant), logr.Discard(), runtime)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.RequeueAfter <= 0 {
+				t.Fatal("terminating namespace needs a retry")
+			}
+			current := &rbacv1.Role{}
+			err = runtime.Client.Get(t.Context(), client.ObjectKeyFromObject(role), current)
+			if pending == "none" {
+				if !apierrors.IsNotFound(err) {
+					t.Fatalf("expected owned Role cleanup, got %v", err)
+				}
+			} else if err != nil {
+				t.Fatalf("pending finalization lost Role: %v", err)
+			}
+			updated := &openbaov1alpha1.OpenBaoTenant{}
+			if err = runtime.Client.Get(t.Context(), client.ObjectKeyFromObject(tenant), updated); err != nil {
+				t.Fatal(err)
+			}
+			if updated.Status.Provisioned || !strings.Contains(updated.Status.LastError, "terminating") {
+				t.Fatalf("unexpected tenant status: %+v", updated.Status)
+			}
+		})
 	}
 }

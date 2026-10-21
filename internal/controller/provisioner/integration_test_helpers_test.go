@@ -49,8 +49,9 @@ func startNamespaceProvisionerController(t *testing.T) client.Client {
 
 	return startProvisionerManager(t, func(mgr ctrl.Manager) error {
 		provisionerManager, err := appprovisioner.NewProvisioner(appprovisioner.ProvisionerDependencies{
-			Client: mgr.GetClient(),
-			Logger: logr.Discard(),
+			Client:    mgr.GetClient(),
+			APIReader: mgr.GetAPIReader(),
+			Logger:    logr.Discard(),
 		})
 		if err != nil {
 			return err
@@ -72,8 +73,9 @@ func startProvisionerControllers(t *testing.T) client.Client {
 
 	return startProvisionerManager(t, func(mgr ctrl.Manager) error {
 		provisionerManager, err := appprovisioner.NewProvisioner(appprovisioner.ProvisionerDependencies{
-			Client: mgr.GetClient(),
-			Logger: logr.Discard(),
+			Client:    mgr.GetClient(),
+			APIReader: mgr.GetAPIReader(),
+			Logger:    logr.Discard(),
 		})
 		if err != nil {
 			return err
@@ -124,7 +126,10 @@ func startProvisionerManager(t *testing.T, register func(ctrl.Manager) error) cl
 	require.NoError(t, err)
 
 	mgrOptions := ctrl.Options{
-		Scheme:                 scheme,
+		Scheme: scheme,
+		Client: client.Options{Cache: &client.CacheOptions{DisableFor: []client.Object{
+			&corev1.Namespace{}, &corev1.ResourceQuota{}, &corev1.LimitRange{}, &rbacv1.Role{}, &rbacv1.RoleBinding{},
+		}}},
 		Metrics:                metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress: "0",
 	}

@@ -1007,7 +1007,7 @@ func TestVAP_LockManagedRBAC_DeniesDirectMutationOfProvisionerManagedRoleBinding
 	t.Fatalf("expected VAP to deny direct mutation of provisioner-managed RoleBinding after retries")
 }
 
-func TestVAP_LockManagedRBAC_AllowsNamespaceControllerServiceAccountDeleteOnly(t *testing.T) {
+func TestVAP_LockManagedRBAC_PreservesProvisionerRBACDuringNamespaceCleanup(t *testing.T) {
 	ensureDefaultAdmissionPoliciesApplied(t)
 	ensureProvisionerRBACApplied(t)
 
@@ -1072,15 +1072,19 @@ func TestVAP_LockManagedRBAC_AllowsNamespaceControllerServiceAccountDeleteOnly(t
 		t.Fatalf("unexpected tenant namespace controller delete error: %v", err)
 	}
 
-	if err := namespaceControllerClient.Delete(ctx, &rbacv1.RoleBinding{
+	requireAdmissionDenied(t, namespaceControllerClient.Delete(ctx, &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: roleBinding.Name, Namespace: namespace},
-	}); err != nil {
-		t.Fatalf("expected namespace controller ServiceAccount to delete managed RoleBinding, got: %v", err)
+	}))
+	requireAdmissionDenied(t, namespaceControllerClient.Delete(ctx, &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{Name: tenantRole.Name, Namespace: namespace},
+	}))
+	if err := provisionerClient.Delete(ctx, roleBinding); err != nil {
+		t.Fatalf("expected provisioner to delete its RoleBinding, got: %v", err)
 	}
-	if err := namespaceControllerClient.Delete(ctx, &rbacv1.Role{
+	if err := provisionerClient.Delete(ctx, &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{Name: tenantRole.Name, Namespace: namespace},
 	}); err != nil {
-		t.Fatalf("expected namespace controller ServiceAccount to delete managed Role, got: %v", err)
+		t.Fatalf("expected provisioner to delete its Role, got: %v", err)
 	}
 }
 

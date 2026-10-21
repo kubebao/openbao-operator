@@ -13,6 +13,8 @@ verifiedBy:
   - internal/platform/admission/check.go
   - internal/platform/entrypoint/flags.go
   - internal/service/workload/pod_deletion.go
+  - internal/service/provisioner/namespace_finalization.go
+  - test/integration/provisioner_namespace_finalization_test.go
   - test/integration/terminal_pod_cleanup_test.go
   - test/integration/vap_pod_metadata_sync_test.go
   - test/integration/workload_finalization_test.go
@@ -222,6 +224,12 @@ metadata-only reads, current deletion authority, ownership proof, and UID and re
 Operator identities and authorized maintenance retain deletion access. Namespace teardown can delete these Secrets
 once the namespace has a deletion timestamp; the existing mutation lock still checks the caller. Namespace deletion
 cannot preserve namespaced recovery material.
+
+Namespace cleanup controllers cannot delete the provisioner-owned tenant Roles and RoleBindings. These permissions
+remain available until all cluster and restore resources in the terminating namespace finish finalization. The
+provisioner then deletes only its named, owned tenant resources after checking the live Namespace UID. Each delete
+also checks the resource UID and resource version. Foreign finalizers remain untouched. The provisioner polls only
+declared target namespaces; this adds no namespace list/watch permissions.
 
 The operator releases the cluster finalizer after cleanup. See [decommission a cluster](../../operate/decommission/).
 

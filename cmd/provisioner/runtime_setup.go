@@ -23,8 +23,9 @@ func buildProvisionerProcessRuntime(
 	ctx context.Context, mgr ctrl.Manager, cfg runConfig,
 ) (provisionerProcessRuntime, error) {
 	provisionerRuntime, err := appprovisioner.NewProvisioner(appprovisioner.ProvisionerDependencies{
-		Client: mgr.GetClient(),
-		Logger: setupLog.WithName("provisioner"),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Logger:    setupLog.WithName("provisioner"),
 	})
 	if err != nil {
 		return provisionerProcessRuntime{}, fmt.Errorf("unable to create provisioner runtime: %w", err)
