@@ -47,6 +47,15 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 	}{
 		{name: "source PR", lanes: append(append([]string{}, all[:3]...), "networking"), routes: []string{"e2e"}},
 		{
+			name: "fork source PR", head: "fork/repo",
+			lanes: append(append([]string{}, all[:3]...), "networking"), routes: []string{"e2e"},
+		},
+		{
+			name: "fork hardened and seal", head: "fork/repo", labels: []string{"admission"},
+			lanes:  []string{"core", "controller-jwt", "security", "hardened", "hsm", "networking"},
+			routes: []string{"e2e", "e2e_hardened", "e2e_seal"}, pentest: true,
+		},
+		{
 			name: "backup path", lanes: append(append([]string{}, all[:5]...), "networking"),
 			routes: []string{"e2e", "e2e_backup"},
 		},
@@ -117,9 +126,12 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 			head:    "fork/repo",
 			labels:  []string{"ci:full-e2e"},
 			routes:  []string{"e2e"},
-			blocked: true,
+			lanes:   all,
+			full:    true,
+			pentest: true,
 		},
 		{name: "docs only", routes: []string{"docs"}, blocked: true},
+		{name: "fork docs only", head: "fork/repo", routes: []string{"docs"}, blocked: true},
 		{name: "operator upgrade only", routes: []string{"operator_upgrade_e2e"}, blocked: true},
 	}
 	for _, test := range tests {
@@ -163,7 +175,7 @@ func TestCISelectionUsesRecordedRouting(t *testing.T) {
 			request, err := loadCISelection(path, "tested-sha")
 			if test.blocked {
 				if err == nil {
-					t.Fatal("unselected or untrusted run can launch E2E")
+					t.Fatal("unselected run can launch E2E")
 				}
 				return
 			}
@@ -508,6 +520,11 @@ func TestLoadCISelectionRejectsInvalidPlans(t *testing.T) {
 		}},
 		{"missing scopes", func(p map[string]any) { p["e2eSelection"] = ciSelection{} }},
 		{"unselected matrix", func(p map[string]any) { p["checks"] = map[string]bool{"e2e": true} }},
+		{"unselected fork matrix", func(p map[string]any) { p["checks"] = map[string]bool{"fork-e2e": true} }},
+		{"unselected E2E jobs", func(p map[string]any) { p["checks"] = map[string]bool{"e2e-matrix": true} }},
+		{"both E2E jobs selected", func(p map[string]any) {
+			p["checks"] = map[string]bool{"e2e": true, "fork-e2e": true, "e2e-matrix": true}
+		}},
 		{"inconsistent full", func(p map[string]any) {
 			p["e2eSelection"] = ciSelection{Full: true, Scopes: map[string]bool{"always": false}}
 		}},

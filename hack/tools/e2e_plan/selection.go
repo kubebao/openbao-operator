@@ -82,9 +82,10 @@ func loadCISelection(path, sha string) (*ciSelection, error) {
 	if err := json.Unmarshal(data, &plan); err != nil {
 		return nil, fmt.Errorf("decode CI plan: %w", err)
 	}
+	e2eSelected := plan.Checks["e2e"] != plan.Checks["fork-e2e"]
 	if sha == "" || plan.Version != 1 || plan.SHA != sha || plan.Selection == nil ||
 		plan.Selection.Full == nil || plan.Selection.IncludePentest == nil ||
-		!plan.Checks["e2e"] || !plan.Checks["e2e-matrix"] {
+		!e2eSelected || !plan.Checks["e2e-matrix"] {
 		return nil, fmt.Errorf("missing, incompatible, source-mismatched, or unselected E2E expectations")
 	}
 	selection := &ciSelection{
