@@ -141,18 +141,21 @@ empty. Permissions remain separate for each username and namespace, including wh
 entries. Wildcards, group grants, and label synchronization are not supported. The caller still needs Kubernetes
 RBAC permission to update Pods.
 
-The allowance applies only to updates of existing workload Pods with the operator's managed labels and a StatefulSet
-controller UID reference. It preserves an owner-UID annotation when present. It can add, change, or remove the
-configured annotations. Pod spec, status, labels, owner references, finalizers, deletion metadata, and all other
-annotations must remain unchanged. It grants no Pod creation or deletion and no access to other resource kinds.
+The allowance applies only to updates of existing Pods with the operator's managed labels and a controller UID
+reference. OpenBao server Pods require a StatefulSet controller reference. Helper Pods require a Job controller
+reference and component `backup`, `restore`, `upgrade`, `upgrade-snapshot`, or `validation-hook`. This includes
+backup, restore, upgrade, pre-upgrade snapshot, retention, and validation hook Jobs. It preserves an owner-UID
+annotation when present. It can add, change, or remove the configured annotations. Pod spec, status, labels, owner
+references, finalizers, deletion metadata, and all other annotations must remain unchanged. It grants no Pod creation
+or deletion and no access to other resource kinds.
 Annotation keys under `openbao.org/`, `vcluster.loft.sh/`, `kubernetes.io/`, `k8s.io/`, or subdomains of the two
 Kubernetes domains remain protected. The Helm schema rejects these keys. In a Kustomize configuration, one protected
 key disables the whole allowance for that caller and namespace, including otherwise permitted keys.
 
 {{< callout type="note" title="Review each annotation's effects" >}}
-The configured identity can supply any value for the allowed keys on managed workload Pods in the listed namespace.
-Admission cannot prove that a value came from the host cluster or distinguish a syncer from another client using the
-same identity. Grant only observed keys whose effects the platform administrator accepts.
+The configured identity can supply any value for the allowed keys on managed server and helper Pods in the listed
+namespace. Admission cannot prove that a value came from the host cluster or distinguish a syncer from another client
+using the same identity. Grant only observed keys whose effects the platform administrator accepts.
 {{< /callout >}}
 
 For Kustomize, adapt `config/overlays/pod-metadata-sync/kustomization.yaml`. The replacement configures only

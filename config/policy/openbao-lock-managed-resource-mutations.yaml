@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-managed-resource-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:18eb68323eb0a4f85c11117678093b49226f64c3238cce99ac8ada1aa79c0afe
+    openbao.org/admission-policy-fingerprint: sha256:d4ae6adb2dfb4ad8f3c3658e5105239d9a27704ffca2f385cb83b7c8a6a6d164
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -530,11 +530,14 @@ spec:
         oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
         ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" &&
         ("openbao.org/component" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["openbao.org/component"] == "openbaocluster" &&
         (!variables.has_old_owner_uid_annotation || oldObject.metadata.annotations["openbao.org/owner-uid"] != "") &&
         has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
-          ref.apiVersion == "apps/v1" && ref.kind == "StatefulSet" && ref.name != "" && ref.uid != "" &&
-          has(ref.controller) && ref.controller) &&
+          ref.name != "" && ref.uid != "" && has(ref.controller) && ref.controller &&
+          ((oldObject.metadata.labels["openbao.org/component"] == "openbaocluster" &&
+              ref.apiVersion == "apps/v1" && ref.kind == "StatefulSet") ||
+            (oldObject.metadata.labels["openbao.org/component"] in
+              ["backup", "restore", "upgrade", "upgrade-snapshot", "validation-hook"] &&
+              ref.apiVersion == "batch/v1" && ref.kind == "Job"))) &&
         object.spec == oldObject.spec &&
         (has(object.status) == has(oldObject.status) && (!has(object.status) || object.status == oldObject.status)) &&
         has(object.metadata.labels) && object.metadata.labels == oldObject.metadata.labels &&

@@ -290,7 +290,7 @@ admissionPolicies:
     # - username: kubernetes-super-admin
     #   namespaces:
     #     - openbao-demo
-  # -- Allow only configured annotation keys on managed workload Pods for exact callers and namespaces.
+  # -- Allow only configured annotation keys on managed server and helper Job Pods for exact callers and namespaces.
   # -- Empty by default. Kubernetes, OpenBao, and vCluster reserved annotations remain protected.
   podMetadataSync:
     allowedCallers: []

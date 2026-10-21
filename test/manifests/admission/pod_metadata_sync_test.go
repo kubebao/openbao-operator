@@ -62,8 +62,16 @@ func TestPodMetadataSyncMutationBoundaries(t *testing.T) {
 		{name: "missing-managed-label", before: func(p *corev1.Pod) { delete(p.Labels, "app.kubernetes.io/managed-by") }},
 		{name: "missing-cluster-label", before: func(p *corev1.Pod) { delete(p.Labels, "openbao.org/cluster") }},
 		{name: "empty-cluster-label", before: func(p *corev1.Pod) { p.Labels["openbao.org/cluster"] = "" }},
-		{name: "different-component", before: func(p *corev1.Pod) { p.Labels["openbao.org/component"] = "backup" }},
-		{name: "native-statefulset-pod", allowed: true},
+		{name: "different-component", before: func(p *corev1.Pod) { p.Labels["openbao.org/component"] = "unknown" }},
+		{name: "server-with-job-owner", before: func(p *corev1.Pod) {
+			p.Labels["openbao.org/component"] = "openbaocluster"
+			p.OwnerReferences[0].APIVersion, p.OwnerReferences[0].Kind = "batch/v1", "Job"
+		}},
+		{name: "helper-with-statefulset-owner", before: func(p *corev1.Pod) {
+			p.Labels["openbao.org/component"] = "backup"
+			p.OwnerReferences[0].APIVersion, p.OwnerReferences[0].Kind = "apps/v1", "StatefulSet"
+		}},
+		{name: "native-controller-pod", allowed: true},
 		{name: "existing-owner-provenance", before: func(p *corev1.Pod) {
 			p.Annotations["openbao.org/owner-uid"] = "cluster-uid"
 		}, allowed: true},
@@ -75,6 +83,8 @@ func TestPodMetadataSyncMutationBoundaries(t *testing.T) {
 		{name: "owner-remove", change: func(p *corev1.Pod) { p.OwnerReferences = nil }},
 		{name: "missing-owner", before: func(p *corev1.Pod) { p.OwnerReferences = nil }},
 		{name: "foreign-owner-kind", before: func(p *corev1.Pod) { p.OwnerReferences[0].Kind = "ReplicaSet" }},
+		{name: "foreign-owner-api", before: func(p *corev1.Pod) { p.OwnerReferences[0].APIVersion = "example.com/v1" }},
+		{name: "empty-owner-name", before: func(p *corev1.Pod) { p.OwnerReferences[0].Name = "" }},
 		{name: "noncontroller-owner", before: func(p *corev1.Pod) { p.OwnerReferences[0].Controller = ptr.To(false) }},
 		{name: "empty-owner-uid", before: func(p *corev1.Pod) { p.OwnerReferences[0].UID = "" }},
 		{name: "finalizer-add", change: func(p *corev1.Pod) { p.Finalizers = append(p.Finalizers, "example.com/other") }},
@@ -110,52 +120,62 @@ func TestPodMetadataSyncMutationBoundaries(t *testing.T) {
 			change:  func(p *corev1.Pod) { p.Annotations["vcluster.loft.sh/uid"] = otherValue }},
 	}
 	policy := readClusterPolicySpec(t, "../../../config/policy/openbao-lock-managed-resource-mutations.yaml")
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			before := podMetadataSyncFixture()
-			if test.before != nil {
-				test.before(before)
+	for _, component := range []string{
+		"openbaocluster", "backup", "restore", "upgrade", "upgrade-snapshot", "validation-hook",
+	} {
+		t.Run(component, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.name, func(t *testing.T) {
+					before := podMetadataSyncFixture()
+					before.Labels["openbao.org/component"] = component
+					if component != "openbaocluster" {
+						before.OwnerReferences[0].APIVersion, before.OwnerReferences[0].Kind = "batch/v1", "Job"
+					}
+					if test.before != nil {
+						test.before(before)
+					}
+					after := before.DeepCopy()
+					after.Annotations[podSyncAnnotation] = "host"
+					if test.change != nil {
+						test.change(after)
+					}
+					request := map[string]any{"operation": "UPDATE", "subResource": "", "namespace": "tenant",
+						"kind": map[string]any{"group": "", "kind": "Pod"}, "userInfo": map[string]any{"username": "syncer"}}
+					if test.request != nil {
+						test.request(request)
+					}
+					callers := test.callers
+					if callers == "" {
+						callers = `{"syncer":{"tenant":["example.com/host-metadata"]}}`
+					}
+					env, err := cel.NewEnv(ext.TwoVarComprehensions(), cel.Variable("object", cel.DynType),
+						cel.Variable("oldObject", cel.DynType), cel.Variable("request", cel.DynType),
+						cel.Variable("variables", cel.DynType))
+					require.NoError(t, err)
+					variables := map[string]any{}
+					activation := map[string]any{"object": podMetadataSyncMap(t, after), "oldObject": podMetadataSyncMap(t, before),
+						"request": request, "variables": variables}
+					for _, variable := range policy.Variables {
+						if !slices.Contains([]string{"pod_metadata_sync_callers", "is_pod_request", "has_old_owner_uid_annotation",
+							"pod_metadata_sync_annotation_keys", "pod_new_annotations", "pod_old_annotations",
+							"is_pod_metadata_sync_update"}, variable.Name) {
+							continue
+						}
+						expression := variable.Expression
+						if variable.Name == "pod_metadata_sync_callers" {
+							expression = callers
+						}
+						ast, issues := env.Compile(expression)
+						require.NoError(t, issues.Err(), variable.Name)
+						program, err := env.Program(ast)
+						require.NoError(t, err)
+						value, _, err := program.Eval(activation)
+						require.NoError(t, err, variable.Name)
+						variables[variable.Name] = value.Value()
+					}
+					require.Equal(t, test.allowed, variables["is_pod_metadata_sync_update"])
+				})
 			}
-			after := before.DeepCopy()
-			after.Annotations[podSyncAnnotation] = "host"
-			if test.change != nil {
-				test.change(after)
-			}
-			request := map[string]any{"operation": "UPDATE", "subResource": "", "namespace": "tenant",
-				"kind": map[string]any{"group": "", "kind": "Pod"}, "userInfo": map[string]any{"username": "syncer"}}
-			if test.request != nil {
-				test.request(request)
-			}
-			callers := test.callers
-			if callers == "" {
-				callers = `{"syncer":{"tenant":["example.com/host-metadata"]}}`
-			}
-			env, err := cel.NewEnv(ext.TwoVarComprehensions(), cel.Variable("object", cel.DynType),
-				cel.Variable("oldObject", cel.DynType), cel.Variable("request", cel.DynType),
-				cel.Variable("variables", cel.DynType))
-			require.NoError(t, err)
-			variables := map[string]any{}
-			activation := map[string]any{"object": podMetadataSyncMap(t, after), "oldObject": podMetadataSyncMap(t, before),
-				"request": request, "variables": variables}
-			for _, variable := range policy.Variables {
-				if !slices.Contains([]string{"pod_metadata_sync_callers", "is_pod_request", "has_old_owner_uid_annotation",
-					"pod_metadata_sync_annotation_keys", "pod_new_annotations", "pod_old_annotations",
-					"is_pod_metadata_sync_update"}, variable.Name) {
-					continue
-				}
-				expression := variable.Expression
-				if variable.Name == "pod_metadata_sync_callers" {
-					expression = callers
-				}
-				ast, issues := env.Compile(expression)
-				require.NoError(t, issues.Err(), variable.Name)
-				program, err := env.Program(ast)
-				require.NoError(t, err)
-				value, _, err := program.Eval(activation)
-				require.NoError(t, err, variable.Name)
-				variables[variable.Name] = value.Value()
-			}
-			require.Equal(t, test.allowed, variables["is_pod_metadata_sync_update"])
 		})
 	}
 }
