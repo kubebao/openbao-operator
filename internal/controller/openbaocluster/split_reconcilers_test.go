@@ -390,6 +390,7 @@ func TestOpenBaoClusterStatusReconciler_FinalizerRemoveUsesMergePatch(t *testing
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "finalizer-remove-patch",
 			Namespace:         "default",
+			UID:               "finalizer-remove-uid",
 			Finalizers:        []string{openbaov1alpha1.OpenBaoClusterFinalizer},
 			DeletionTimestamp: &now,
 		},
@@ -451,6 +452,7 @@ func TestOpenBaoClusterStatusReconciler_DeletionBypassesTenantOnboarding(t *test
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "delete-without-onboarding",
 			Namespace:         "tenant-a",
+			UID:               "deleting-cluster-uid",
 			Finalizers:        []string{openbaov1alpha1.OpenBaoClusterFinalizer},
 			DeletionTimestamp: &now,
 		},

@@ -111,7 +111,7 @@ func TestClusterReconcileMetrics_StatusFinalization(t *testing.T) {
 func deletingMetricsCluster(key client.ObjectKey, pending bool) *openbaov1alpha1.OpenBaoCluster {
 	now := metav1.Now()
 	cluster := &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{
-		Namespace: key.Namespace, Name: key.Name, DeletionTimestamp: &now,
+		Namespace: key.Namespace, Name: key.Name, UID: "metrics-cluster-uid", DeletionTimestamp: &now,
 		Finalizers: []string{"test.example/retained"},
 	}}
 	if pending {
