@@ -91,19 +91,23 @@ func TestPodMetadataSyncMutationBoundaries(t *testing.T) {
 		}},
 		{name: "deletion-grace-change", change: func(p *corev1.Pod) { p.DeletionGracePeriodSeconds = ptr.To(int64(0)) }},
 		{name: "generate-name-change", change: func(p *corev1.Pod) { p.GenerateName = "other-" }},
-		{name: "configured-openbao-key", callers: `{"syncer":{"tenant":["openbao.org/maintenance"]}}`,
-			change: func(p *corev1.Pod) { p.Annotations["openbao.org/maintenance"] = trueValue }},
-		{name: "configured-kubernetes-key", callers: `{"syncer":{"tenant":["kubernetes.io/config.mirror"]}}`,
-			change: func(p *corev1.Pod) { p.Annotations["kubernetes.io/config.mirror"] = otherValue }},
+		// Include the default annotation to isolate each reserved-key guard.
+		{name: "configured-openbao-key",
+			callers: `{"syncer":{"tenant":["example.com/host-metadata","openbao.org/maintenance"]}}`,
+			change:  func(p *corev1.Pod) { p.Annotations["openbao.org/maintenance"] = trueValue }},
+		{name: "configured-kubernetes-key",
+			callers: `{"syncer":{"tenant":["example.com/host-metadata","kubernetes.io/config.mirror"]}}`,
+			change:  func(p *corev1.Pod) { p.Annotations["kubernetes.io/config.mirror"] = otherValue }},
 		{name: "configured-kubernetes-subdomain", callers: `{"syncer":{"tenant":[
-			"seccomp.security.alpha.kubernetes.io/pod"]}}`,
+			"example.com/host-metadata","seccomp.security.alpha.kubernetes.io/pod"]}}`,
 			change: func(p *corev1.Pod) { p.Annotations["seccomp.security.alpha.kubernetes.io/pod"] = "unconfined" }},
-		{name: "configured-k8s-key", callers: `{"syncer":{"tenant":["k8s.io/test"]}}`,
+		{name: "configured-k8s-key", callers: `{"syncer":{"tenant":["example.com/host-metadata","k8s.io/test"]}}`,
 			change: func(p *corev1.Pod) { p.Annotations["k8s.io/test"] = otherValue }},
 		{name: "mixed-permitted-and-reserved-keys",
 			callers: `{"syncer":{"tenant":["example.com/host-metadata","kubernetes.io/test"]}}`},
-		{name: "configured-vcluster-key", callers: `{"syncer":{"tenant":["vcluster.loft.sh/uid"]}}`,
-			change: func(p *corev1.Pod) { p.Annotations["vcluster.loft.sh/uid"] = otherValue }},
+		{name: "configured-vcluster-key",
+			callers: `{"syncer":{"tenant":["example.com/host-metadata","vcluster.loft.sh/uid"]}}`,
+			change:  func(p *corev1.Pod) { p.Annotations["vcluster.loft.sh/uid"] = otherValue }},
 	}
 	policy := readClusterPolicySpec(t, "../../../config/policy/openbao-lock-managed-resource-mutations.yaml")
 	for _, test := range tests {
