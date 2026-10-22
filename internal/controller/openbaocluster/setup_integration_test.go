@@ -73,6 +73,32 @@ func TestSetupWithManager_ReconcilesClusterInMultiTenantMode(t *testing.T) {
 	waitForManagedConfigMap(t, ctx, liveClient, namespace, cluster.Name)
 }
 
+func TestSetupWithManager_WaitsForCorrectTenantOnboardingSubject(t *testing.T) {
+	ctx := context.Background()
+	const namespace = "multi-tenant-handoff-test"
+	liveClient := startOpenBaoClusterManager(t, namespace, false)
+	binding := &rbacv1.RoleBinding{}
+	key := client.ObjectKey{Namespace: namespace, Name: constants.TenantRoleBindingName}
+	require.NoError(t, liveClient.Get(ctx, key, binding))
+	binding.Subjects[0].Name = "unrelated-controller"
+	require.NoError(t, liveClient.Update(ctx, binding))
+
+	cluster := newManagerTestCluster(namespace, "handoff-cluster")
+	require.NoError(t, liveClient.Create(ctx, cluster))
+	t.Cleanup(func() { _ = liveClient.Delete(context.Background(), cluster) })
+	require.Never(t, func() bool {
+		current := &openbaov1alpha1.OpenBaoCluster{}
+		require.NoError(t, liveClient.Get(ctx, client.ObjectKeyFromObject(cluster), current))
+		return slices.Contains(current.Finalizers, openbaov1alpha1.OpenBaoClusterFinalizer)
+	}, time.Second, 100*time.Millisecond, "a malformed handoff must pause reconciliation")
+
+	require.NoError(t, liveClient.Get(ctx, key, binding))
+	binding.Subjects[0].Name = "openbao-operator-controller"
+	require.NoError(t, liveClient.Update(ctx, binding))
+	waitForClusterFinalizer(t, ctx, liveClient, cluster)
+	waitForManagedConfigMap(t, ctx, liveClient, namespace, cluster.Name)
+}
+
 func TestSetupWithManager_SingleTenantRecreatesDeletedConfigMap(t *testing.T) {
 	ctx := context.Background()
 	namespace := "single-tenant-watch-test"

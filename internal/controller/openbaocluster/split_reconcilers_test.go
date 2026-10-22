@@ -293,6 +293,10 @@ func TestOpenBaoClusterStatusReconciler_BypassesTenantOnboardingGateWhenRoleBind
 			Name:      constants.TenantRoleBindingName,
 			Namespace: "default",
 		},
+		RoleRef: rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: constants.TenantRoleName},
+		Subjects: []rbacv1.Subject{{
+			Kind: "ServiceAccount", Namespace: "openbao-operator-system", Name: "openbao-operator-controller",
+		}},
 	})
 	current := &openbaov1alpha1.OpenBaoCluster{}
 	if err := parent.Get(context.Background(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, current); err != nil {
