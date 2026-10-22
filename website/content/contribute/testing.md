@@ -10,6 +10,8 @@ verifiedBy:
   - hack/tools/e2e_report/selection.go
   - hack/ci/run-e2e.sh
   - hack/ci/build-e2e-binaries.sh
+  - hack/ci/create-network-kind.sh
+  - hack/dev/tool-versions.env
   - hack/perf/v2/scenarios.yaml
 ---
 
