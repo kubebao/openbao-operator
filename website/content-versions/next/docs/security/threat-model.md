@@ -12,6 +12,10 @@ verifiedBy:
   - internal/platform/admission/check.go
   - internal/platform/resourceownership
   - internal/service/provisioner/manager_secret_rbac.go
+  - config/policy/openbao-validate-openbaorestore.yaml
+  - internal/service/restore/manager_reconcile.go
+  - internal/service/restore/manager_status.go
+  - test/integration/restore_authority_test.go
 ---
 
 Use this model to review a concrete deployment. It names the boundary; it does not certify the surrounding cluster, cloud account, or human process.
@@ -78,6 +82,13 @@ over workloads and their identities. See [tenant boundaries](../tenant-boundarie
 [policy enrollment and revocation](../../operate/operator-policies/).
 
 ## Assumptions and exclusions
+
+Accepted `OpenBaoRestore` requests carry durable authority for their immutable intent. Revoking the submitter's
+permissions does not cancel queued work. Cancellation requires deletion before execution commitment; after commitment,
+the operator preserves execution receipts and holds uncertain outcomes for administrator recovery. The controller
+pins the target UID during preparation, rather than at API acceptance. Secret contents and named ServiceAccount
+identity can change after acceptance. Review [restore authorization and cancellation](../../operate/restore/#understand-authorization-and-cancellation)
+before delegating restore access.
 
 {{< callout type="warning" title="Kubernetes administrator remains trusted" >}}
 A cluster administrator can normally bypass namespace RBAC, alter admission configuration, read cluster-level credentials, or replace the operator. Protect that identity outside the operator.
