@@ -179,23 +179,25 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 
 		By("performing a blue-green upgrade to the intermediate version")
 		blueGreenStarted := time.Now()
+		blueGreenCtx, cancelBlueGreen := context.WithDeadline(ctx, blueGreenStarted.Add(strategySwitchBlueGreenUpgradeTimeout))
+		defer cancelBlueGreen()
 		AddReportEntry("blue-green-upgrade-started", blueGreenStarted)
 
-		Eventually(func(g Gomega) {
+		Eventually(blueGreenCtx, func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
-			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
+			g.Expect(admin.Get(blueGreenCtx, key, updated)).To(Succeed())
 			original := updated.DeepCopy()
 			updated.Spec.Version = versions[1]
 			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", versions[1])
-			g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
+			g.Expect(admin.Patch(blueGreenCtx, updated, client.MergeFrom(original))).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 		var promotedStatefulSetName string
 		var promotedStatefulSetUID types.UID
 		var lastBlueGreenObservation string
-		Eventually(func(g Gomega) {
+		Eventually(blueGreenCtx, func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
-			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
+			g.Expect(admin.Get(blueGreenCtx, key, updated)).To(Succeed())
 			g.Expect(updated.Status.BlueGreen).NotTo(BeNil())
 			status := updated.Status.BlueGreen
 			observation := fmt.Sprintf("version=%s phase=%s operation=%s jobFailures=%d lastFailedJob=%s rollback=%s",
@@ -214,7 +216,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 
 			promotedStatefulSetName = fmt.Sprintf("%s-%s", cluster.Name, updated.Status.BlueGreen.BlueRevision)
 			stable := &appsv1.StatefulSet{}
-			g.Expect(admin.Get(ctx, types.NamespacedName{Name: promotedStatefulSetName, Namespace: tenantNamespace}, stable)).To(Succeed())
+			g.Expect(admin.Get(blueGreenCtx, types.NamespacedName{Name: promotedStatefulSetName, Namespace: tenantNamespace}, stable)).To(Succeed())
 			g.Expect(stable.Status.ReadyReplicas).To(Equal(cluster.Spec.Replicas))
 			promotedStatefulSetUID = stable.UID
 		}, strategySwitchBlueGreenUpgradeTimeout, framework.DefaultPollInterval).Should(Succeed())
