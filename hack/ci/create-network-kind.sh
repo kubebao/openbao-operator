@@ -70,8 +70,15 @@ ipv6:
   enabled: ${ipv6}
 ipam:
   mode: kubernetes
-routingMode: native
-autoDirectNodeRoutes: true
+# Docker bridges do not guarantee forwarding for Pod-CIDR source addresses.
+# Encapsulate cross-node traffic and masquerade Pod traffic to remote node APIs.
+routingMode: tunnel
+tunnelProtocol: vxlan
+autoDirectNodeRoutes: false
+bpf:
+  masquerade: true
+extraConfig:
+  enable-remote-node-masquerade: "true"
 ipv4NativeRoutingCIDR: 10.244.0.0/16
 ipv6NativeRoutingCIDR: fd00:10:244::/56
 operator:
@@ -79,8 +86,10 @@ operator:
 EOF
 helm upgrade --install cilium oci://quay.io/cilium/charts/cilium \
   --version "${CILIUM_VERSION#v}" --namespace kube-system \
-  --values "${report_dir}/cilium.yaml" --wait --timeout 5m
+  --kubeconfig "${KUBECONFIG}" --values "${report_dir}/cilium.yaml" --wait --timeout 5m
 kubectl --kubeconfig "${KUBECONFIG}" wait nodes --all --for=condition=Ready --timeout=180s
+# Node readiness does not prove that Pods can reach the Kubernetes API.
+kubectl --kubeconfig "${KUBECONFIG}" -n kube-system rollout status deployment/coredns --timeout=180s
 
 # API-server egress is managed by the operator; no administrator policy is installed.
 kubectl --kubeconfig "${KUBECONFIG}" get nodes -o json > "${report_dir}/nodes.json"
