@@ -6,6 +6,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +24,10 @@ import (
 )
 
 const strategySwitchUpgradeRole = "strategy-switch-upgrade"
+
+// A full blue/green upgrade provisions Green, transfers Raft membership, and
+// retires Blue. Successful M3 execution exceeds the generic five-minute wait.
+const strategySwitchBlueGreenUpgradeTimeout = 15 * time.Minute
 
 const strategySwitchUpgradePolicy = `path "sys/health" { capabilities = ["read"] }
 path "sys/step-down" { capabilities = ["sudo", "update"] }
@@ -124,6 +129,12 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 	})
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() && tenantFW != nil && cluster != nil {
+			dumpBlueGreenUpgradeDiagnostics(tenantNamespace, cluster.Name)
+		}
+	})
+
 	AfterAll(func() {
 		if tenantFW != nil {
 			cleanupUpgradeFixture(ctx, tenantFW)
@@ -167,6 +178,9 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 		By("performing a blue-green upgrade to the intermediate version")
+		blueGreenStarted := time.Now()
+		AddReportEntry("blue-green-upgrade-started", blueGreenStarted)
+
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
@@ -178,11 +192,23 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 
 		var promotedStatefulSetName string
 		var promotedStatefulSetUID types.UID
+		var lastBlueGreenObservation string
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
-			g.Expect(updated.Status.CurrentVersion).To(Equal(versions[1]))
 			g.Expect(updated.Status.BlueGreen).NotTo(BeNil())
+			status := updated.Status.BlueGreen
+			observation := fmt.Sprintf("version=%s phase=%s operation=%s jobFailures=%d lastFailedJob=%s rollback=%s",
+				updated.Status.CurrentVersion, status.Phase, status.OperationID,
+				status.JobFailureCount, status.LastJobFailure, status.RollbackReason)
+			if observation != lastBlueGreenObservation {
+				AddReportEntry("blue-green-upgrade-progress", observation)
+				lastBlueGreenObservation = observation
+			}
+			if err := strategySwitchBlueGreenRollbackError(status); err != nil {
+				StopTrying(err.Error()).Now()
+			}
+			g.Expect(updated.Status.CurrentVersion).To(Equal(versions[1]), observation)
 			g.Expect(updated.Status.BlueGreen.Phase).To(Equal(openbaov1alpha1.PhaseIdle))
 			g.Expect(updated.Status.BlueGreen.BlueRevision).NotTo(BeEmpty())
 
@@ -191,7 +217,9 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			g.Expect(admin.Get(ctx, types.NamespacedName{Name: promotedStatefulSetName, Namespace: tenantNamespace}, stable)).To(Succeed())
 			g.Expect(stable.Status.ReadyReplicas).To(Equal(cluster.Spec.Replicas))
 			promotedStatefulSetUID = stable.UID
-		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+		}, strategySwitchBlueGreenUpgradeTimeout, framework.DefaultPollInterval).Should(Succeed())
+
+		AddReportEntry("blue-green-upgrade-elapsed-seconds", time.Since(blueGreenStarted).Seconds())
 
 		By("switching only the idle strategy from BlueGreen to RollingUpdate")
 		Eventually(func(g Gomega) {
@@ -248,3 +276,15 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 	})
 })
+
+func strategySwitchBlueGreenRollbackError(status *openbaov1alpha1.BlueGreenStatus) error {
+	if status == nil {
+		return nil
+	}
+	if status.Phase == openbaov1alpha1.PhaseRollingBack ||
+		status.Phase == openbaov1alpha1.PhaseRollbackCleanup || status.RollbackReason != "" {
+		return fmt.Errorf("strategy-switch blue/green upgrade rolled back: phase=%s reason=%s",
+			status.Phase, status.RollbackReason)
+	}
+	return nil
+}
