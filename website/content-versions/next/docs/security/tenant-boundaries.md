@@ -47,9 +47,10 @@ Services, Pods, Jobs, Secrets, or the other generated resources.
 `OpenBaoTenant` names an existing target namespace. The Provisioner creates
 `openbao-operator-tenant-rolebinding`, which binds the controller ServiceAccount to the generated tenant Role. The
 cluster controller pauses until that binding refers to `openbao-operator-tenant-role` and has the expected controller
-ServiceAccount as its only subject. A missing, deleting, or incorrectly configured binding pauses reconciliation
-until the Provisioner repairs it. The handoff check does not inspect Role rules; Kubernetes RBAC determines actual
-access.
+ServiceAccount as its only subject. A missing or deleting binding pauses reconciliation until the Provisioner
+recreates it. The Provisioner can repair an incorrect subject list. An incorrect `RoleRef` blocks reconciliation
+because Kubernetes makes that field immutable. A platform administrator must delete the incorrect binding so the
+Provisioner can recreate it. The handoff check does not inspect Role rules; Kubernetes RBAC determines actual access.
 
 Admission and runtime checks enforce two onboarding paths:
 

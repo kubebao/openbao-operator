@@ -48,9 +48,10 @@ func TestPauseForTenantOnboardingValidatesHandoff(t *testing.T) {
 			require.Equal(t, !tt.ready, blocked)
 			if !tt.ready {
 				require.Equal(t, constants.RequeueShort, result.RequeueAfter)
-				binding.RoleRef = tenantOnboardingBinding("operator-system", "controller").RoleRef
-				binding.Subjects = tenantOnboardingBinding("operator-system", "controller").Subjects
-				require.NoError(t, c.Update(context.Background(), binding))
+				// RoleRef is immutable in Kubernetes. Replace the binding rather
+				// than relying on the fake client to accept an invalid repair.
+				require.NoError(t, c.Delete(context.Background(), binding))
+				require.NoError(t, c.Create(context.Background(), tenantOnboardingBinding("operator-system", "controller")))
 				_, err, blocked = parent.pauseForTenantOnboarding(context.Background(), logr.Discard(), "test", "tenant")
 				require.NoError(t, err)
 				require.False(t, blocked, "repair must resume reconciliation")
