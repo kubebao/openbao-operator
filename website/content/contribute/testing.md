@@ -97,6 +97,20 @@ without a cluster.
 
 Continue with [CI routing]({{< relref "/contribute/ci.md" >}}).
 
+## Cilium networking labs
+
+`hack/ci/create-network-kind.sh` creates an isolated Docker network and a three-node Kind cluster.
+The `ipv4`, `ipv6`, `dual-ipv4`, and `dual-ipv6` profiles use VXLAN from the initial Cilium installation.
+They enable BPF masquerading and remote-node masquerading so Pods can reach the node-hosted Kubernetes API.
+Setup waits for node readiness and the CoreDNS rollout before workload tests start.
+
+These labs qualify the selected IP families and policy assertions with this Cilium configuration.
+They do not qualify native routing. Native routing requires the underlying network to forward Pod-CIDR traffic;
+Docker bridge and host firewall settings can prevent that forwarding even when nodes are Ready.
+Do not change shared host networking to make a lab pass. Cilium 1.20.3 classifies IPv6 BPF masquerading as beta.
+See Cilium's [routing](https://docs.cilium.io/en/stable/network/concepts/routing/)
+and [masquerading](https://docs.cilium.io/en/stable/network/concepts/masquerading/) documentation.
+
 ## OpenBao configuration compatibility
 
 Run `make verify-openbao-config-compat` with Docker available. The version matrix and fixture expectations live in
