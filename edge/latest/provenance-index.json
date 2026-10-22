@@ -1,23 +1,23 @@
 {
   "channel": "edge",
   "chart": {
-    "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:86f05323877f966b2d349c0193eba25ba4b92667ab89524b89b2de1e2f753774",
+    "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:3e3470e51433500fb525605c504abb8ed2a11b4d6ddd2b557d3162841aaefb14",
     "attestation_signer_workflow": "kubebao/openbao-operator/.github/workflows/publish-edge.yml",
-    "digest": "sha256:86f05323877f966b2d349c0193eba25ba4b92667ab89524b89b2de1e2f753774",
-    "oci_subject": "ghcr.io/kubebao/charts-edge/openbao-operator@sha256:86f05323877f966b2d349c0193eba25ba4b92667ab89524b89b2de1e2f753774",
+    "digest": "sha256:3e3470e51433500fb525605c504abb8ed2a11b4d6ddd2b557d3162841aaefb14",
+    "oci_subject": "ghcr.io/kubebao/charts-edge/openbao-operator@sha256:3e3470e51433500fb525605c504abb8ed2a11b4d6ddd2b557d3162841aaefb14",
     "ref": "ghcr.io/kubebao/charts-edge/openbao-operator",
     "signing_identity": "https://github.com/kubebao/openbao-operator/.github/workflows/publish-edge.yml@refs/heads/main",
-    "version": "0.0.0-edge.39835094930.1.ge845ed4ddec4"
+    "version": "0.0.0-edge.39844300937.1.g992ee3072218"
   },
   "checksums": {
-    "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:8cef4c9f573de68d001122c70e94dd39aef64293cb0ac71e513fbdd62dc1e7bc",
-    "digest": "sha256:8cef4c9f573de68d001122c70e94dd39aef64293cb0ac71e513fbdd62dc1e7bc",
+    "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:d705eee9e62220e1aa415626e57f8b678df63015891ad1b77f759e4603c24b36",
+    "digest": "sha256:d705eee9e62220e1aa415626e57f8b678df63015891ad1b77f759e4603c24b36",
     "path": "../dist/checksums.txt",
-    "signature_bundle_digest": "sha256:e4f3cb2a2d51bca3ced7203ca9639a1359c0d050fdfab7462e4eae8b036afa7e",
+    "signature_bundle_digest": "sha256:4ae8466dd13e09762fe24ca1f35587d95387a8f2bcccda08eb4ee363087a12b5",
     "signature_bundle_path": "../dist/checksums.txt.bundle"
   },
-  "commit": "e845ed4ddec4f5dd2a51dae4958d8208629dffd1",
-  "generated_at_utc": "2026-10-22T18:51:50+00:00",
+  "commit": "992ee30722187b4cdb4f665113c093156c15f87b",
+  "generated_at_utc": "2026-10-22T19:55:10+00:00",
   "identity_constraints": {
     "checksums_signer_workflow": "kubebao/openbao-operator/.github/workflows/publish-edge.yml",
     "deny_self_hosted_runners": true,
@@ -26,38 +26,38 @@
   },
   "images": [
     {
-      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:690082ea2bd88f29948461a9e261c43c858b81d7e3084ec78a790b2a9ef643d4",
+      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:6f763a91ad80d566009e48c1a40571f6e6c88e4d4f3ac42596398484af0083ef",
       "attestation_signer_workflow": "kubebao/openbao-operator/.github/workflows/reusable-build.yml",
-      "digest": "sha256:690082ea2bd88f29948461a9e261c43c858b81d7e3084ec78a790b2a9ef643d4",
+      "digest": "sha256:6f763a91ad80d566009e48c1a40571f6e6c88e4d4f3ac42596398484af0083ef",
       "name": "openbao-operator",
-      "oci_subject": "ghcr.io/kubebao/openbao-operator@sha256:690082ea2bd88f29948461a9e261c43c858b81d7e3084ec78a790b2a9ef643d4",
+      "oci_subject": "ghcr.io/kubebao/openbao-operator@sha256:6f763a91ad80d566009e48c1a40571f6e6c88e4d4f3ac42596398484af0083ef",
       "ref": "ghcr.io/kubebao/openbao-operator",
       "source_ref": "refs/heads/main"
     },
     {
-      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:4be8244e41e703274aec693c243d4c30ddaad317311fd5813dccc6a7be2e57f6",
+      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:304d6285aa0cbfcbfedb5e49ae42e10fd5c0e047d5560009da1a4fd965167aa0",
       "attestation_signer_workflow": "kubebao/openbao-operator/.github/workflows/reusable-build.yml",
-      "digest": "sha256:4be8244e41e703274aec693c243d4c30ddaad317311fd5813dccc6a7be2e57f6",
+      "digest": "sha256:304d6285aa0cbfcbfedb5e49ae42e10fd5c0e047d5560009da1a4fd965167aa0",
       "name": "openbao-init",
-      "oci_subject": "ghcr.io/kubebao/openbao-init@sha256:4be8244e41e703274aec693c243d4c30ddaad317311fd5813dccc6a7be2e57f6",
+      "oci_subject": "ghcr.io/kubebao/openbao-init@sha256:304d6285aa0cbfcbfedb5e49ae42e10fd5c0e047d5560009da1a4fd965167aa0",
       "ref": "ghcr.io/kubebao/openbao-init",
       "source_ref": "refs/heads/main"
     },
     {
-      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:18f39e4498ba04023045f7c1537136fc80bfff958437e42d80606f7161a3691f",
+      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:25d99b066d582aac363b5d6961cb7f06036d5433d97d27a10c77fb69961777ee",
       "attestation_signer_workflow": "kubebao/openbao-operator/.github/workflows/reusable-build.yml",
-      "digest": "sha256:18f39e4498ba04023045f7c1537136fc80bfff958437e42d80606f7161a3691f",
+      "digest": "sha256:25d99b066d582aac363b5d6961cb7f06036d5433d97d27a10c77fb69961777ee",
       "name": "openbao-backup",
-      "oci_subject": "ghcr.io/kubebao/openbao-backup@sha256:18f39e4498ba04023045f7c1537136fc80bfff958437e42d80606f7161a3691f",
+      "oci_subject": "ghcr.io/kubebao/openbao-backup@sha256:25d99b066d582aac363b5d6961cb7f06036d5433d97d27a10c77fb69961777ee",
       "ref": "ghcr.io/kubebao/openbao-backup",
       "source_ref": "refs/heads/main"
     },
     {
-      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:22185ddd34386ab016faa582b18809e99be90cef17e884522c4c14e6f7b6ff34",
+      "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:8062885a734483ccaf7069e2521722b13b2a6d149f39dfbdc332e8dcd65b9ae7",
       "attestation_signer_workflow": "kubebao/openbao-operator/.github/workflows/reusable-build.yml",
-      "digest": "sha256:22185ddd34386ab016faa582b18809e99be90cef17e884522c4c14e6f7b6ff34",
+      "digest": "sha256:8062885a734483ccaf7069e2521722b13b2a6d149f39dfbdc332e8dcd65b9ae7",
       "name": "openbao-upgrade",
-      "oci_subject": "ghcr.io/kubebao/openbao-upgrade@sha256:22185ddd34386ab016faa582b18809e99be90cef17e884522c4c14e6f7b6ff34",
+      "oci_subject": "ghcr.io/kubebao/openbao-upgrade@sha256:8062885a734483ccaf7069e2521722b13b2a6d149f39dfbdc332e8dcd65b9ae7",
       "ref": "ghcr.io/kubebao/openbao-upgrade",
       "source_ref": "refs/heads/main"
     }
@@ -68,7 +68,7 @@
       "path": "../dist/crds.yaml"
     },
     "install_yaml": {
-      "digest": "sha256:764abb72bc69075294d4fd6f2213725d7fd33eb8465be9e03f8570700bd28ed2",
+      "digest": "sha256:45f5dddaae44e141ffab24ac3ce39841dfb41b4f57d44967ec044499b0eec472",
       "path": "../dist/install.yaml"
     }
   },
@@ -76,9 +76,9 @@
   "repository": "kubebao/openbao-operator",
   "run": {
     "attempt": "1",
-    "id": "39840842780"
+    "id": "39850565961"
   },
   "schema_version": "v1alpha1",
   "source_ref": "refs/heads/main",
-  "version": "edge-e845ed4ddec4"
+  "version": "edge-992ee3072218"
 }

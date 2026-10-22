@@ -8,30 +8,30 @@
   },
   "channel": "edge",
   "chart": {
-    "digest": "sha256:86f05323877f966b2d349c0193eba25ba4b92667ab89524b89b2de1e2f753774",
+    "digest": "sha256:3e3470e51433500fb525605c504abb8ed2a11b4d6ddd2b557d3162841aaefb14",
     "ref": "ghcr.io/kubebao/charts-edge/openbao-operator",
-    "version": "0.0.0-edge.39835094930.1.ge845ed4ddec4"
+    "version": "0.0.0-edge.39844300937.1.g992ee3072218"
   },
-  "generated_at": "2026-10-22T19:35:00Z",
+  "generated_at": "2026-10-22T20:41:55Z",
   "images": {
     "backup_executor": {
-      "digest": "sha256:18f39e4498ba04023045f7c1537136fc80bfff958437e42d80606f7161a3691f",
+      "digest": "sha256:25d99b066d582aac363b5d6961cb7f06036d5433d97d27a10c77fb69961777ee",
       "ref": "ghcr.io/kubebao/openbao-backup"
     },
     "config_init": {
-      "digest": "sha256:4be8244e41e703274aec693c243d4c30ddaad317311fd5813dccc6a7be2e57f6",
+      "digest": "sha256:304d6285aa0cbfcbfedb5e49ae42e10fd5c0e047d5560009da1a4fd965167aa0",
       "ref": "ghcr.io/kubebao/openbao-init"
     },
     "manager": {
-      "digest": "sha256:690082ea2bd88f29948461a9e261c43c858b81d7e3084ec78a790b2a9ef643d4",
+      "digest": "sha256:6f763a91ad80d566009e48c1a40571f6e6c88e4d4f3ac42596398484af0083ef",
       "ref": "ghcr.io/kubebao/openbao-operator"
     },
     "upgrade_executor": {
-      "digest": "sha256:22185ddd34386ab016faa582b18809e99be90cef17e884522c4c14e6f7b6ff34",
+      "digest": "sha256:8062885a734483ccaf7069e2521722b13b2a6d149f39dfbdc332e8dcd65b9ae7",
       "ref": "ghcr.io/kubebao/openbao-upgrade"
     }
   },
-  "sha": "e845ed4ddec4f5dd2a51dae4958d8208629dffd1",
-  "short_sha": "e845ed4ddec4",
-  "version": "edge-e845ed4ddec4"
+  "sha": "992ee30722187b4cdb4f665113c093156c15f87b",
+  "short_sha": "992ee3072218",
+  "version": "edge-992ee3072218"
 }
