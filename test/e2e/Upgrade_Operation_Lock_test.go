@@ -279,10 +279,11 @@ func newBackupFirstUpgradeCluster(
 	return &openbaov1alpha1.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: testCase.clusterName, Namespace: namespace},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Profile:  openbaov1alpha1.ProfileDevelopment,
-			Version:  testCase.initialVersion,
-			Image:    fmt.Sprintf("openbao/openbao:%s", testCase.initialVersion),
-			Replicas: 1,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+			Profile:           openbaov1alpha1.ProfileDevelopment,
+			Version:           testCase.initialVersion,
+			Image:             fmt.Sprintf("openbao/openbao:%s", testCase.initialVersion),
+			Replicas:          1,
 			InitContainer: &openbaov1alpha1.InitContainerConfig{
 				Enabled: true,
 				Image:   configInitImage,
@@ -460,10 +461,11 @@ var _ = Describe("Upgrade Strategies: Operation Lock Contention", Label("upgrade
 				Namespace: tenantNamespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				Profile:  openbaov1alpha1.ProfileDevelopment,
-				Version:  initialVersion,
-				Image:    initialImage,
-				Replicas: 3,
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+				Profile:           openbaov1alpha1.ProfileDevelopment,
+				Version:           initialVersion,
+				Image:             initialImage,
+				Replicas:          3,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
 					Image:   configInitImage,

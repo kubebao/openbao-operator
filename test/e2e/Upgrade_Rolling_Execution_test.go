@@ -33,6 +33,7 @@ var _ = Describe("Rolling execution identity", Label("upgrade", "upgrades", "rol
 		cluster := &api.OpenBaoCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: "rolling-executions", Namespace: f.Namespace},
 			Spec: api.OpenBaoClusterSpec{
+				ControllerJWTMode: api.ControllerJWTModeShared,
 				Profile: api.ProfileDevelopment, Version: versions[0],
 				Image: fmt.Sprintf("openbao/openbao:%s", versions[0]), Replicas: 3,
 				InitContainer: &api.InitContainerConfig{Enabled: true, Image: configInitImage},

@@ -21,6 +21,7 @@ metadata:
   name: openbaocluster-external-tls
 spec:
   profile: Hardened
+  controllerJWTMode: Target
   version: "2.4.4"
   replicas: 3
   # External TLS management (required for Hardened profile)
@@ -49,6 +50,8 @@ spec:
   # Hardened profile requires self-init (no root token Secret).
   selfInit:
     enabled: true
+    oidc:
+      enabled: true
     requests:
       # Replace the example issuer and audience with values tested against your identity provider.
       - name: enable-human-jwt-auth

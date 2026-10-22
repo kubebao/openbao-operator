@@ -442,10 +442,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    initialImage,
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             initialImage,
+					Replicas:          3,
 					ReadReplicas: &openbaov1alpha1.ReadReplicaConfig{
 						Replicas: 1,
 						Service: &openbaov1alpha1.ReadReplicaServiceConfig{
@@ -917,10 +918,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    initialImage,
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             initialImage,
+					Replicas:          3,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   configInitImage,
@@ -1205,10 +1207,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    initialImage,
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             initialImage,
+					Replicas:          3,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   configInitImage,
@@ -1458,10 +1461,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    fmt.Sprintf("openbao/openbao:%s", initialVersion),
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
+					Replicas:          3,
 					Service: &openbaov1alpha1.ServiceConfig{
 						Type: corev1.ServiceTypeClusterIP,
 					},
@@ -1980,10 +1984,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    fmt.Sprintf("openbao/openbao:%s", initialVersion),
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
+					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
 						Image:    upgradeExecutorImage,
@@ -2344,10 +2349,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    initialImage,
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             initialImage,
+					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
 						Image:    upgradeExecutorImage,
@@ -2555,10 +2561,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    fmt.Sprintf("openbao/openbao:%s", initialVersion),
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
+					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
 						Image:    upgradeExecutorImage,
@@ -2741,10 +2748,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    fmt.Sprintf("openbao/openbao:%s", initialVersion),
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
+					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy:    openbaov1alpha1.UpdateStrategyBlueGreen,
 						Image:       upgradeExecutorImage,
@@ -2988,10 +2996,11 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  initialVersion,
-					Image:    fmt.Sprintf("openbao/openbao:%s", initialVersion),
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           initialVersion,
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
+					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
 						Image:    upgradeExecutorImage,

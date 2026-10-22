@@ -42,7 +42,8 @@ func TestE2EFixtureGatewaySelectorRequiresObservedPhase(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cluster := &api.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: "gateway", Namespace: "tenant"},
-				Spec: api.OpenBaoClusterSpec{Version: "2.7.1"},
+				Spec: api.OpenBaoClusterSpec{
+					ControllerJWTMode: api.ControllerJWTModeShared, Version: "2.7.1"},
 				Status: api.OpenBaoClusterStatus{CurrentVersion: "2.6.4", BlueGreen: &api.BlueGreenStatus{
 					Phase: test.phase, BlueRevision: "blue", GreenRevision: "green",
 				}}}
@@ -95,7 +96,8 @@ func TestE2EFixtureGatewayUpgradeWaitsForEstablishedSource(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cluster := &api.OpenBaoCluster{
-				Spec: api.OpenBaoClusterSpec{Version: "2.4.4", Replicas: 3},
+				Spec: api.OpenBaoClusterSpec{
+					ControllerJWTMode: api.ControllerJWTModeShared, Version: "2.4.4", Replicas: 3},
 				Status: api.OpenBaoClusterStatus{
 					Initialized: true, CurrentVersion: "2.4.4", ReadyReplicas: 3,
 					BlueGreen:  &api.BlueGreenStatus{Phase: api.PhaseIdle, BlueRevision: "blue"},

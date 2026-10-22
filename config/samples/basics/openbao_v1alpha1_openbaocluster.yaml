@@ -20,6 +20,7 @@ spec:
   #   failurePolicy: Block # or Warn
   replicas: 3
   profile: Development
+  controllerJWTMode: Shared
   tls:
     enabled: true
     rotationPeriod: "720h"

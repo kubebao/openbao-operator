@@ -90,6 +90,7 @@ metadata:
 spec:
   # Hardened security profile - REQUIRED for production
   profile: Development
+  controllerJWTMode: Target
   workloadHardening:
     appArmorEnabled: false
   configuration:

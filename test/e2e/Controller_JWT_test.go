@@ -72,7 +72,7 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 		targetAPI.request(http.MethodDelete, "sys/policies/acl/openbao-operator", nil, http.StatusNoContent)
 
 		By("initializing an existing-style Shared cluster and saving its actual Raft snapshot")
-		legacy, legacyAPI := newControllerJWTCluster(ctx, f, "migrate", "")
+		legacy, legacyAPI := newControllerJWTCluster(ctx, f, "migrate", openbaov1alpha1.ControllerJWTModeShared)
 		legacyUID := legacy.UID
 		legacyAPI.expectAudiences([]string{portauth.TokenAudienceOpenBaoInternal}, controller)
 		legacyAPI.expectJWT(sharedToken, true)

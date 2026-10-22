@@ -66,10 +66,11 @@ var _ = Describe("Security: Anti-Tamper Policy", Label("security", "tamper", "cl
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  openBaoVersion,
-					Image:    openBaoImage,
-					Replicas: 1,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           openBaoVersion,
+					Image:             openBaoImage,
+					Replicas:          1,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   configInitImage,

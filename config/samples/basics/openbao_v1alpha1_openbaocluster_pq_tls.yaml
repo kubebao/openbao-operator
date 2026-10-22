@@ -5,6 +5,7 @@ metadata:
 spec:
   version: "2.7.0"
   profile: Development
+  controllerJWTMode: Shared
   replicas: 3
   tls:
     enabled: true

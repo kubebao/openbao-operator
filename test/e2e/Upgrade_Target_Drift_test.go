@@ -65,10 +65,11 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 				Namespace: tenantNamespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				Profile:  openbaov1alpha1.ProfileDevelopment,
-				Version:  initialVersion,
-				Image:    initialImage,
-				Replicas: 3,
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+				Profile:           openbaov1alpha1.ProfileDevelopment,
+				Version:           initialVersion,
+				Image:             initialImage,
+				Replicas:          3,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
 					Image:   configInitImage,

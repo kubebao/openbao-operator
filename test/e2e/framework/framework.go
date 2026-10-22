@@ -361,10 +361,11 @@ func (f *Framework) CreateDevelopmentCluster(ctx context.Context, cfg Developmen
 			Namespace: f.Namespace,
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Profile:  openbaov1alpha1.ProfileDevelopment,
-			Version:  cfg.Version,
-			Image:    cfg.Image,
-			Replicas: cfg.Replicas,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+			Profile:           openbaov1alpha1.ProfileDevelopment,
+			Version:           cfg.Version,
+			Image:             cfg.Image,
+			Replicas:          cfg.Replicas,
 			InitContainer: &openbaov1alpha1.InitContainerConfig{
 				Enabled: true,
 				Image:   cfg.ConfigInitImg,

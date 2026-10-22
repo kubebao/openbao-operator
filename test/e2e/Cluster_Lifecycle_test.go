@@ -97,10 +97,11 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					Namespace: f.Namespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  openBaoVersion,
-					Image:    openBaoImage,
-					Replicas: 1,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           openBaoVersion,
+					Image:             openBaoImage,
+					Replicas:          1,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   configInitImage,
@@ -601,10 +602,11 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					Namespace: f.Namespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileDevelopment,
-					Version:  openBaoVersion,
-					Image:    openBaoImage,
-					Replicas: 1,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					Profile:           openbaov1alpha1.ProfileDevelopment,
+					Version:           openBaoVersion,
+					Image:             openBaoImage,
+					Replicas:          1,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   configInitImage,

@@ -191,10 +191,11 @@ func TestOpenBaoClusterReconciler_DeletionWithRetainPolicy(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Version:  "2.4.4",
-			Image:    "openbao/openbao:2.4.4",
-			Replicas: 1,
-			Profile:  openbaov1alpha1.ProfileDevelopment,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+			Version:           "2.4.4",
+			Image:             "openbao/openbao:2.4.4",
+			Replicas:          1,
+			Profile:           openbaov1alpha1.ProfileDevelopment,
 			TLS: openbaov1alpha1.TLSConfig{
 				Enabled:        true,
 				RotationPeriod: "720h",

@@ -147,7 +147,8 @@ func prepareCluster(t *testing.T) (*api.OpenBaoCluster, string, []byte) {
 	cluster := &api.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "pq-tls", Namespace: "default", UID: types.UID(uuid.NewString())},
 		Spec: api.OpenBaoClusterSpec{
-			Version: "2.7.1", Replicas: 3, Profile: api.ProfileDevelopment,
+			ControllerJWTMode: api.ControllerJWTModeShared,
+			Version:           "2.7.1", Replicas: 3, Profile: api.ProfileDevelopment,
 			TLS: api.TLSConfig{Enabled: true, RotationPeriod: "720h"},
 			Configuration: &api.OpenBaoConfiguration{Listener: &api.ListenerConfig{
 				TLSMinVersion: api.TLSVersion13, TLSMaxVersion: api.TLSVersion13,

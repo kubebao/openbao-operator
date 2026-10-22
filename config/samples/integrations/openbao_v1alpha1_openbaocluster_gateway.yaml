@@ -46,6 +46,7 @@ spec:
   version: "2.4.4"
   replicas: 3
   profile: Development
+  controllerJWTMode: Shared
   initContainer:
     enabled: true
     # For k3d clusters, use the k3d registry path: k3d-registry.localhost:5000/openbao-init:dev

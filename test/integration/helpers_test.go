@@ -97,10 +97,11 @@ func waitForOpenBaoClusterAdmissionPolicies(t *testing.T, namespace string) {
 					"namespace": namespace,
 				},
 				"spec": map[string]any{
-					"version":  testOpenBaoVersion244,
-					"image":    testOpenBaoImage244,
-					"replicas": int64(3),
-					"profile":  "Development",
+					"version":           testOpenBaoVersion244,
+					"image":             testOpenBaoImage244,
+					"replicas":          int64(3),
+					"profile":           "Development",
+					"controllerJWTMode": "Shared",
 					"tls": map[string]any{
 						"enabled":        true,
 						"rotationPeriod": "720h",
@@ -208,10 +209,11 @@ func newMinimalClusterObj(namespace, name string) *openbaov1alpha1.OpenBaoCluste
 			Namespace: namespace,
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Version:  testOpenBaoVersion244,
-			Image:    testOpenBaoImage244,
-			Replicas: 3,
-			Profile:  openbaov1alpha1.ProfileDevelopment,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+			Version:           testOpenBaoVersion244,
+			Image:             testOpenBaoImage244,
+			Replicas:          3,
+			Profile:           openbaov1alpha1.ProfileDevelopment,
 			TLS: openbaov1alpha1.TLSConfig{
 				Enabled:        true,
 				RotationPeriod: "720h",
