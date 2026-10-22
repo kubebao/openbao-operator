@@ -1,0 +1,118 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+      - "release-[0-9]*.[0-9]*"
+  pull_request:
+    branches:
+      - main
+      - "release-[0-9]*.[0-9]*"
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "13 3 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: go
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          dependency-caching: false
+
+      - name: Build Go packages
+        if: matrix.language == 'go'
+        env:
+          CGO_ENABLED: "0"
+        run: go build -mod=vendor ./...
+
+      - name: Analyze
+        id: analyze
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: /language:${{ matrix.language }}
+          upload: always
+          wait-for-processing: true
+
+      - name: Require processed results
+        timeout-minutes: 6
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SARIF_ID: ${{ steps.analyze.outputs.sarif-id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SARIF_ID}" ]]; then
+            echo "CodeQL did not return a SARIF upload ID." >&2
+            exit 1
+          fi
+          for attempt in {1..30}; do
+            processing_status="$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs/${SARIF_ID}" --jq '.processing_status')"
+            case "${processing_status}" in
+              complete) exit 0 ;;
+              pending) ;;
+              *) echo "CodeQL SARIF processing did not complete: ${processing_status}" >&2; exit 1 ;;
+            esac
+            if [[ "${attempt}" -lt 30 ]]; then
+              sleep 10
+            fi
+          done
+          echo "Timed out waiting for CodeQL SARIF processing." >&2
+          exit 1
+
+  codeql-required:
+    name: CodeQL Required
+    if: always()
+    needs: [analyze]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require completed analysis
+        env:
+          ANALYSIS_RESULT: ${{ needs.analyze.result }}
+        run: |
+          if [[ "${ANALYSIS_RESULT}" != "success" ]]; then
+            echo "CodeQL analysis did not succeed: ${ANALYSIS_RESULT}"
+            exit 1
+          fi
