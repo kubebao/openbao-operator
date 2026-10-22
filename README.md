@@ -106,3 +106,5 @@ We welcome contributions! Please see the [Contributing Guide](https://docs.kubeb
 ## License
 
 Apache-2.0. See `LICENSE`.
+
+<!-- CodeQL fork coverage validation; this draft PR is not intended to merge. -->
