@@ -29,6 +29,10 @@ func TestAdmissionContractDriftAndRepairWithAPIServer(t *testing.T) {
 	for _, key := range []string{"POD_NAMESPACE", "OPERATOR_NAMESPACE", "OPERATOR_NAME_PREFIX", "OPERATOR_SERVICE_ACCOUNT_NAME", "OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME", "OPENBAO_TENANT_NAMESPACE_POD_SECURITY_LABELS_MODE"} {
 		t.Setenv(key, "")
 	}
+	t.Setenv(pvcBindingSyncCallersEnv, `{"syncer":["contract-tenant"]}`)
+	t.Setenv(podMetadataSyncCallersEnv, `{"syncer":{"contract-tenant":["example.com/host-id"]}}`)
+	settings, err := installationFromEnvironment()
+	require.NoError(t, err)
 	environment := &envtest.Environment{}
 	config, err := environment.Start()
 	require.NoError(t, err)
@@ -49,6 +53,10 @@ func TestAdmissionContractDriftAndRepairWithAPIServer(t *testing.T) {
 			data, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "policy", fixture.name+".yaml"))
 			require.NoError(t, err)
 			require.NoError(t, yaml.UnmarshalStrict(data, fixture.object))
+			if policy, ok := fixture.object.(*admissionv1.ValidatingAdmissionPolicy); ok &&
+				policy.Name == dependencyOpenBaoLockManagedResourceMutations {
+				substituteSyncCallers(&policy.Spec, settings)
+			}
 			require.NoError(t, kube.Create(ctx, fixture.object))
 		}
 	}
@@ -139,6 +147,26 @@ func TestAdmissionContractDriftAndRepairWithAPIServer(t *testing.T) {
 			require.NoError(t, kube.Update(ctx, binding))
 			check(true)
 			awaitProbe(true)
+		})
+	}
+
+	require.NoError(t, kube.Get(ctx, client.ObjectKey{Name: dependencyOpenBaoLockManagedResourceMutations}, policy))
+	originalSync := policy.Spec.DeepCopy()
+	for _, tt := range []struct{ name, variable, expression string }{
+		{"PVC widened scope", pvcSyncVariable, `{"syncer":["contract-tenant","unapproved"]}`},
+		{"Pod widened scope", podSyncVariable, `{"syncer":{"contract-tenant":["example.com/host-id","example.com/other"]}}`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := range policy.Spec.Variables {
+				if policy.Spec.Variables[i].Name == tt.variable {
+					policy.Spec.Variables[i].Expression = tt.expression
+				}
+			}
+			require.NoError(t, kube.Update(ctx, policy))
+			check(false)
+			policy.Spec = *originalSync.DeepCopy()
+			require.NoError(t, kube.Update(ctx, policy))
+			check(true)
 		})
 	}
 }

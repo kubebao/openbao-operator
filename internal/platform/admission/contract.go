@@ -38,6 +38,8 @@ type installation struct {
 	controller      string
 	provisioner     string
 	podSecurityMode string
+	pvcSyncCallers  string
+	podSyncCallers  string
 }
 
 func installationFromEnvironment() (installation, error) {
@@ -54,6 +56,15 @@ func installationFromEnvironment() (installation, error) {
 	}
 	if result.podSecurityMode != "enforce" && result.podSecurityMode != externalPodSecurityMode {
 		return installation{}, fmt.Errorf("admission contract namespace Pod Security label mode must be enforce or external")
+	}
+	var err error
+	result.pvcSyncCallers, err = canonicalPVCBindingSyncCallers(firstNonempty(os.Getenv(pvcBindingSyncCallersEnv), "{}"))
+	if err != nil {
+		return installation{}, fmt.Errorf("invalid %s: %w", pvcBindingSyncCallersEnv, err)
+	}
+	result.podSyncCallers, err = canonicalPodMetadataSyncCallers(firstNonempty(os.Getenv(podMetadataSyncCallersEnv), "{}"))
+	if err != nil {
+		return installation{}, fmt.Errorf("invalid %s: %w", podMetadataSyncCallersEnv, err)
 	}
 	return result, nil
 }
@@ -76,6 +87,12 @@ func expectedContracts(settings installation) (map[string]policyContract, error)
 		substituteIdentities(&item.Policy, settings)
 		if item.Kustomize != nil {
 			substituteIdentities(&item.Kustomize.Policy, settings)
+		}
+		if name == dependencyOpenBaoLockManagedResourceMutations {
+			substituteSyncCallers(&item.Policy, settings)
+			if item.Kustomize != nil {
+				substituteSyncCallers(&item.Kustomize.Policy, settings)
+			}
 		}
 		if name == dependencyOpenBaoRestrictProvisionerNamespace && settings.podSecurityMode == externalPodSecurityMode {
 			// External-label mode is a Helm variant. Kustomize manages the labels.
@@ -120,6 +137,11 @@ func verifyReleaseContract(dep Dependency, policy *admissionv1.ValidatingAdmissi
 	}
 	actualPolicy := policy.Spec.DeepCopy()
 	actualBinding := binding.Spec.DeepCopy()
+	if dep.PolicyName == dependencyOpenBaoLockManagedResourceMutations {
+		if err := canonicalizeSyncCallers(actualPolicy); err != nil {
+			return fmt.Errorf("policy %q specification differs from the release admission contract: invalid sync callers: %w", policy.Name, err)
+		}
+	}
 	normalizePolicy(actualPolicy)
 	normalizeBinding(actualBinding)
 	variants := []contractSpecification{expected.contractSpecification}

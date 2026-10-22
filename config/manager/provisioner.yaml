@@ -42,6 +42,10 @@ spec:
               value: controller
             - name: OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME
               value: provisioner
+            - name: OPENBAO_ADMISSION_PVC_BINDING_SYNC_CALLERS
+              value: "{}"
+            - name: OPENBAO_ADMISSION_POD_METADATA_SYNC_CALLERS
+              value: "{}"
             - name: OPERATOR_NAMESPACE
               valueFrom:
                 fieldRef:

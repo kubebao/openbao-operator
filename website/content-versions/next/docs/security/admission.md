@@ -50,6 +50,19 @@ Helm, `OPENBAO_TENANT_NAMESPACE_POD_SECURITY_LABELS_MODE`. Without identity sett
 Kustomize namespace and ServiceAccount names. Custom installations must set these values consistently with their
 admission policies. An installation name prefix selects only that installation's policies.
 
+Helm and the PVC and Pod sync overlays also set `OPENBAO_ADMISSION_PVC_BINDING_SYNC_CALLERS` and
+`OPENBAO_ADMISSION_POD_METADATA_SYNC_CALLERS` on both managers. These settings contain the approved JSON caller maps
+rendered into the managed-resource policy. The checker accepts that declared scope and rejects added callers,
+namespaces, or annotation keys. JSON whitespace and object-key order do not affect the comparison. Other CEL
+expressions remain part of the release contract.
+
+Custom installations must supply the same caller maps to the policies and both managers. Update these resources
+together when changing an allowance. Deployment environment changes roll the manager Pods; old managers can pause
+reconciliation while the installed policy differs from their settings. Roll back the policies and manager settings
+together. The checker never derives approved scope from the installed policy.
+Caller names remain literal, including names that contain `$()`. The sync overlays use generated ConfigMap key
+references for the manager settings. Changes to the ConfigMap content change its name and roll the manager Pods.
+
 ## Use fail-closed mode
 
 `--admission-enforcement=fail` is the manager default. The controller and provisioner wait up to
@@ -131,6 +144,7 @@ admission enabled and grant only the required caller and namespaces.
 For Kustomize, adapt `config/overlays/pvc-binding-sync/kustomization.yaml`. Its replacement sets the named
 `pvc_binding_sync_callers` policy variable without replacing the other checks. The generated ConfigMap is a build
 input; the policy does not read it at runtime. Rebuild and reapply the overlay after changing the caller list.
+Both managers read this ConfigMap key into their trusted admission settings when their Pods start.
 
 After applying the configuration, verify that the virtual PVC becomes `Bound` and the syncer no longer reports
 mutation-lock denials for that PVC. Existing retry backoff can delay synchronization. Removing the configured caller
@@ -182,6 +196,7 @@ using the same identity. Grant only observed keys whose effects the platform adm
 For Kustomize, adapt `config/overlays/pod-metadata-sync/kustomization.yaml`. The replacement configures only
 `pod_metadata_sync_callers`; the policy does not read the generated ConfigMap at runtime. Combine this configuration
 with the separate PVC binding allowance when both paths require it.
+Both managers read this ConfigMap key into their trusted admission settings when their Pods start.
 
 Verify that the main-resource denial stops and the virtual Pod receives status updates. Syncer retry backoff can
 delay recovery. A policy change does not establish that the syncer has retried an existing Pod; inspect its requests

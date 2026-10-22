@@ -22,3 +22,39 @@ replacements:
           name: openbao-operator-openbao-lock-managed-resource-mutations
         fieldPaths:
           - spec.variables.[name=pvc_binding_sync_callers].expression
+
+# This overlay applies its namespace after the base's strip patches.
+patchesJson6902:
+  - target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: ValidatingAdmissionPolicy(Binding)?
+      name: ".*"
+    patch: |-
+      - op: remove
+        path: /metadata/namespace
+
+# A key reference preserves literal usernames without environment expansion.
+# The generated ConfigMap name changes with its contents and rolls both managers.
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: sync-settings
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                env:
+                  - name: OPENBAO_ADMISSION_PVC_BINDING_SYNC_CALLERS
+                    value: null
+                    valueFrom:
+                      configMapKeyRef:
+                        name: pvc-binding-sync
+                        key: callers
