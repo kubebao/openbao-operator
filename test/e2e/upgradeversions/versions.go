@@ -11,7 +11,7 @@ import (
 // DefaultSequence preserves the historical two-step regression coverage.
 const DefaultSequence = "2.4.4,2.5.5,2.6.4"
 
-// Parse requires exactly three increasing semantic versions, in execution order.
+// Parse requires exactly three increasing semantic versions without build metadata.
 func Parse(sequence string) ([3]string, error) {
 	var result [3]string
 	parts := strings.Split(sequence, ",")
@@ -22,7 +22,7 @@ func Parse(sequence string) ([3]string, error) {
 	for i, part := range parts {
 		part = strings.TrimSpace(part)
 		parsed, err := version.ParseSemantic(part)
-		if err != nil || part != parsed.String() {
+		if err != nil || part != parsed.String() || parsed.BuildMetadata() != "" {
 			return result, fmt.Errorf("upgrade sequence contains invalid version %q", part)
 		}
 		if previous != nil && !previous.LessThan(parsed) {

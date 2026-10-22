@@ -53,7 +53,8 @@ requires every planned scenario to pass exactly once. A dry run can check select
 
 The consecutive rolling and idle strategy-switch scenarios require two upgrades. Set
 `E2E_UPGRADE_SEQUENCE=2.6.4,2.7.0,2.7.1` to select their initial, intermediate, and final
-OpenBao versions. The sequence must contain exactly three increasing semantic versions.
+OpenBao versions. The sequence must contain exactly three increasing semantic versions
+without build metadata. The tests use these versions as container image tags.
 It is independent of the single-hop `E2E_UPGRADE_FROM_VERSION`, `E2E_UPGRADE_TO_VERSION`,
 and blue-green overrides. The default sequence remains `2.4.4,2.5.5,2.6.4`.
 The release gate retains the default runs and adds both scenarios with the sequence ending at 2.7.1.
