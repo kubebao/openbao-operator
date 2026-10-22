@@ -9,6 +9,7 @@ verifiedBy:
   - devenv.lock
   - hack/dev/verify-devenv.sh
   - .github/workflows/ci.yml
+  - .github/workflows/codeql.yml
   - .github/workflows/nightly.yml
   - .github/workflows/release.yml
   - .github/workflows/scorecard.yml
@@ -27,9 +28,16 @@ verifiedBy:
 
 Pull-request CI routes checks by changed path and risk. Nightly and release workflows broaden compatibility, lifecycle, provenance, and reproducibility coverage.
 
-CodeQL uses GitHub default setup to analyze Actions, Go, JavaScript/TypeScript, and Python. Repository security
-settings control its languages and query suite. View its findings in the repository
-[code scanning alerts](https://github.com/kubebao/openbao-operator/security/code-scanning).
+The CodeQL workflow analyzes Actions, Go, JavaScript/TypeScript, and Python. It runs for pull requests, including
+forks, and pushes to `main` and release branches. It also runs weekly and supports manual dispatch. Go analysis
+builds all packages with the version from `go.mod` and dependencies from `vendor/`.
+View findings in the repository [code scanning alerts](https://github.com/kubebao/openbao-operator/security/code-scanning).
+
+CodeQL runs on hosted runners through `pull_request`, with no repository secrets or persisted checkout credentials.
+Dependency caching is disabled. GitHub restricts fork PR tokens to read-only access; CodeQL supports
+[uploading results from `pull_request` runs](https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/resource-not-accessible)
+without a personal access token. The `CodeQL Required` job rejects failed, cancelled, or
+skipped analysis. Add it to required status checks during the [advanced setup migration](#activate-advanced-codeql-scanning).
 
 OpenSSF Scorecard runs on pushes to `main` and weekly. It publishes repository security findings to the
 [Scorecard viewer](https://scorecard.dev/viewer/?uri=github.com/kubebao/openbao-operator) and GitHub Code Scanning.
@@ -171,6 +179,33 @@ Edge, nightly, prerelease, and stable channels add immutable-subject, provenance
 {{< /callout >}}
 
 Continue with [supply-chain controls]({{< relref "/contribute/supply-chain.md" >}}) and [release management]({{< relref "/contribute/release.md" >}}).
+
+## Activate advanced CodeQL scanning
+
+GitHub [default setup](https://docs.github.com/en/code-security/concepts/code-scanning/setup-types)
+excludes fork pull requests. It also disables advanced CodeQL workflows and rejects their analysis uploads.
+Adding `codeql.yml` alone does not activate fork coverage while default setup remains enabled.
+
+Use this procedure when deploying the workflow. Keep existing CI protections and the external-contributor approval
+policy enabled throughout the migration.
+
+1. Allow `github/codeql-action/init` and `github/codeql-action/analyze` at the exact revision in `codeql.yml` in
+   KubeBao's organization Actions policy. The existing `upload-sarif` allowlist entry does not allow these actions.
+2. Install the reviewed workflow on `main` and every protected release branch that must retain coverage.
+   Default setup still controls scanning until the repository switches to advanced setup.
+3. In the repository's Code Security settings, switch CodeQL from default to advanced setup. Enable the `CodeQL`
+   workflow if GitHub disabled it. GitHub documents the transition under
+   [configuring advanced setup](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/configure-code-scanning/configuring-advanced-setup-for-code-scanning).
+4. Dispatch the workflow on `main` and each supported release branch. Verify successful analyses for all four language
+   groups, processed results in Code Scanning, and a successful `CodeQL Required` job.
+5. Verify a same-repository PR and a real fork PR against their final commits. Approve the fork workflow when the
+   repository policy requires it. Check that all four analyses and `CodeQL Required` finish before merging.
+6. Add `CodeQL Required` to the required status checks for `main` and the protected release branches. Retain the existing
+   required checks. A missing, unapproved, cancelled, or failed CodeQL run must prevent merging.
+
+Do not treat a post-merge scan as evidence of pre-merge coverage. Scorecard checks the head commits of recently merged
+PRs. Historical PRs without qualifying checks can keep its SAST score below 10 until they leave the sample.
+After the new setup is verified, review stale default-setup configurations in Code Scanning before removing them.
 
 ## Fork pull requests
 
