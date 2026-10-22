@@ -499,6 +499,45 @@ func TestSelectionRejectsEmptyAndRepeatedContexts(t *testing.T) {
 	}
 }
 
+func TestSelectionStrategySwitchSequenceCompatibility(t *testing.T) {
+	m, cases := loadRepoManifest(t), repoCases(t)
+	for _, tc := range []struct {
+		name, lane, sequence string
+		wantErr              bool
+	}{
+		{name: "default", lane: "upgrade-bluegreen-core"},
+		{name: "historical", lane: "upgrade-bluegreen-core", sequence: "2.4.4,2.5.5,2.6.4"},
+		{name: "modern", lane: "upgrade-bluegreen-core", sequence: "2.6.4,2.7.0,2.7.1"},
+		{name: "crossing boundary", lane: "upgrade-bluegreen-core", sequence: "2.5.5,2.6.4,2.7.1", wantErr: true},
+		{name: "prerelease boundary", lane: "upgrade-bluegreen-core", sequence: "2.5.5,2.6.0-rc.1,2.6.4", wantErr: true},
+		{name: "rolling crossing boundary", lane: "upgrade-rolling", sequence: "2.5.5,2.6.4,2.7.1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			matrix, err := buildGithubNightlyMatrix(m, "release-gate", nightlyFilters{Lane: tc.lane})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, row := range matrix.Include {
+				if row.Coverage != "upgrade-sequence-latest" {
+					continue
+				}
+				row.UpgradeSequence = tc.sequence
+				matrix.Include = []matrixRow{row}
+				_, err := selectScenarios(matrix, m, cases, nil)
+				if tc.wantErr {
+					if err == nil || !strings.Contains(err.Error(), "BlueGreen step") {
+						t.Fatalf("strategy-switch compatibility error = %v", err)
+					}
+				} else if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			t.Fatal("missing upgrade-sequence-latest row")
+		})
+	}
+}
+
 func TestLoadCISelectionRejectsInvalidPlans(t *testing.T) {
 	valid := map[string]any{"version": 1, "sha": "sha", "checks": map[string]bool{"e2e": true, "e2e-matrix": true},
 		"e2eSelection": ciSelection{Scopes: map[string]bool{

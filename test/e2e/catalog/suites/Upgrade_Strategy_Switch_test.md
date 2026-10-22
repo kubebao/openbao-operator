@@ -25,6 +25,6 @@ Labels: `upgrade`, `rolling`, `bluegreen`, `slow`
 Recorded checkpoints:
 - recording the initial rolling StatefulSet identity
 - switching only the idle strategy from RollingUpdate to BlueGreen
-- performing a blue-green upgrade from 2.4.4 to 2.5.5
+- performing a blue-green upgrade to the intermediate version
 - switching only the idle strategy from BlueGreen to RollingUpdate
-- performing a rolling upgrade from 2.5.5 to 2.6.4 against the same StatefulSet
+- performing a rolling upgrade to the final version against the same StatefulSet

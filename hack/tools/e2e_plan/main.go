@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kubebao/openbao-operator/test/e2e/upgradeversions"
 )
 
 const defaultManifestPath = "test/e2e/suites.yaml"
@@ -92,6 +94,7 @@ type nightlyLaneSet struct {
 }
 
 type nightlyRowConfig struct {
+	UpgradeSequence    string `yaml:"upgradeSequence"`
 	InstallCSIHostPath *bool  `yaml:"installCSIHostPath"`
 	NetworkProfile     string `yaml:"networkProfile"`
 	Lane               string `yaml:"lane"`
@@ -132,6 +135,7 @@ type githubMatrix struct {
 }
 
 type matrixRow struct {
+	UpgradeSequence          string   `json:"upgrade_sequence"`
 	NetworkProfile           string   `json:"network_profile"`
 	ID                       string   `json:"id"`
 	Name                     string   `json:"name"`
@@ -342,6 +346,12 @@ func buildGithubNightlyMatrix(m manifest, profileID string, filters nightlyFilte
 		}
 	}
 	for _, config := range profile.Rows {
+		sequence, err := nightlyUpgradeSequence(config)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("nightly profile %s row %q: %v", profile.ID, config.Lane, err))
+			continue
+		}
+		config.UpgradeSequence = sequence
 		versions, err := resolveKubernetesRefs(m.Versions.Kubernetes, []string{config.Kubernetes})
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("nightly profile %s row %q: %v", profile.ID, config.Lane, err))
@@ -375,6 +385,20 @@ func buildGithubNightlyMatrix(m manifest, profileID string, filters nightlyFilte
 		)
 	}
 	return githubMatrix{Include: rows}, nil
+}
+
+func nightlyUpgradeSequence(config nightlyRowConfig) (string, error) {
+	if config.UpgradeSequence == "" {
+		if config.Coverage == "upgrade-sequence-latest" {
+			return "", fmt.Errorf("upgradeSequence is required for upgrade-sequence-latest")
+		}
+		return "", nil
+	}
+	versions, err := upgradeversions.Parse(config.UpgradeSequence)
+	if err != nil {
+		return "", fmt.Errorf("upgradeSequence: %w", err)
+	}
+	return strings.Join(versions[:], ","), nil
 }
 
 func findNightlyProfile(profiles []nightlyProfile, id string) (nightlyProfile, bool) {
@@ -691,6 +715,7 @@ func matrixRowFromNightlyLane(
 	row.Kubernetes = config.Kubernetes
 	row.KindNodeImage = "kindest/node:v" + config.Kubernetes
 	row.Coverage = config.Coverage
+	row.UpgradeSequence = config.UpgradeSequence
 	row.Profile = profile
 	if config.OpenBaoImage != "" && config.OpenBaoImage != "@default" {
 		row.OpenBaoImage = config.OpenBaoImage

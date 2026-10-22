@@ -726,12 +726,17 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			By(fmt.Sprintf("pre-loading OpenBao images on Kind to reduce flakiness (cluster=%s)", clusterName))
 			openBaoImages := []string{openBaoImage}
 			if preloadUpgradeImages {
+				versions, err := twoStepUpgradeVersions()
+				ExpectWithOffset(1, err).NotTo(HaveOccurred())
+				for _, v := range versions {
+					openBaoImages = append(openBaoImages, fmt.Sprintf("openbao/openbao:%s", v))
+				}
 				openBaoImages = append(
 					openBaoImages,
-					fmt.Sprintf("openbao/openbao:%s", defaultUpgradeFromVersion),
-					fmt.Sprintf("openbao/openbao:%s", defaultUpgradeToVersion),
-					fmt.Sprintf("openbao/openbao:%s", defaultBlueGreenUpgradeFromVersion),
-					fmt.Sprintf("openbao/openbao:%s", defaultBlueGreenUpgradeToVersion),
+					fmt.Sprintf("openbao/openbao:%s", envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)),
+					fmt.Sprintf("openbao/openbao:%s", envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)),
+					fmt.Sprintf("openbao/openbao:%s", blueGreenUpgradeFromVersion()),
+					fmt.Sprintf("openbao/openbao:%s", blueGreenUpgradeToVersion()),
 				)
 			}
 			if preloadHardenedAssets {

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/kubebao/openbao-operator/test/e2e/upgradeversions"
 )
 
 const defaultOpenBaoVersion = "2.6.4"
@@ -62,4 +64,15 @@ func blueGreenUpgradeToVersion() string {
 		"E2E_BLUEGREEN_UPGRADE_TO_VERSION",
 		envOrDefault("E2E_UPGRADE_TO_VERSION", defaultBlueGreenUpgradeToVersion),
 	)
+}
+
+// twoStepUpgradeVersions is independent of the single-hop upgrade overrides.
+func twoStepUpgradeVersions() ([3]string, error) {
+	sequence := envOrDefault("E2E_UPGRADE_SEQUENCE", upgradeversions.DefaultSequence)
+	return upgradeversions.Parse(sequence)
+}
+
+func strategySwitchUpgradeVersions() ([3]string, error) {
+	sequence := envOrDefault("E2E_UPGRADE_SEQUENCE", upgradeversions.DefaultSequence)
+	return upgradeversions.ParseStrategySwitch(sequence)
 }
