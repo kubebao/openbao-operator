@@ -10426,10 +10426,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-2d5a5408fe7e
+          value: edge-b7dbc31f293f
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:0e0c851fbfc050c528560b2888885eb455067f32679729ca934fd94cbfaa2996
+        image: ghcr.io/kubebao/openbao-operator@sha256:5a9c0cafc6f6aead3c52bcf9207f063551171ae76fcc37e36395594a9cc6554f
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10544,8 +10544,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-2d5a5408fe7e
-        image: ghcr.io/kubebao/openbao-operator@sha256:0e0c851fbfc050c528560b2888885eb455067f32679729ca934fd94cbfaa2996
+          value: edge-b7dbc31f293f
+        image: ghcr.io/kubebao/openbao-operator@sha256:5a9c0cafc6f6aead3c52bcf9207f063551171ae76fcc37e36395594a9cc6554f
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10660,7 +10660,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:f9ea866c4743f4f1c422909ff25c154267e84f645e276fb3bff19c321eed9179
+    openbao.org/admission-policy-fingerprint: sha256:627820bc18fd51560abba40676513db8ee408314c480a5bc381de5bb86bf9d46
   name: openbao-operator-openbao-lock-controller-statefulset-mutations
 spec:
   failurePolicy: Fail
@@ -10681,38 +10681,39 @@ spec:
         object.spec.template.spec.volumes.filter(v, v.name != 'kube-api-access') == oldObject.spec.template.spec.volumes)
     message: OpenBao controller cannot modify StatefulSet volumes.
   - expression: '!variables.is_controller || object.spec.template.spec.containers.map(c,
-      {''name'': c.name, ''command'': c.command, ''args'': c.args}) == oldObject.spec.template.spec.containers.map(c,
-      {''name'': c.name, ''command'': c.command, ''args'': c.args})'
+      {''name'': dyn(c.name), ''command'': dyn(c.command), ''args'': dyn(c.args)})
+      == oldObject.spec.template.spec.containers.map(c, {''name'': dyn(c.name), ''command'':
+      dyn(c.command), ''args'': dyn(c.args)})'
     message: OpenBao controller cannot modify container commands or args.
   - expression: |-
       !variables.is_controller || (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
 
-        .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ==
+        .map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) ==
       (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
 
-        .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ||
+        .map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) ||
       (variables.bootstrap_input_cleanup &&
 
         (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
-          .map(c, {'name': c.name, 'command': c.command, 'args': c.args}) ==
+          .map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) ==
         (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
-          .map(c, {'name': c.name, 'command': c.command,
+          .map(c, {'name': dyn(c.name), 'command': dyn(c.command),
             'args': dyn(c.name == 'bao-config-init' ?
               c.args.filter(a, !a.startsWith('--self-init-secret-file=/etc/bao/self-init-inputs/')) : c.args)}))
     message: OpenBao controller cannot modify init container commands or args.
   - expression: |-
       !variables.is_controller || (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
 
-        .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
+        .map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ==
       (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
 
-        .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ||
+        .map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ||
       (variables.bootstrap_input_cleanup &&
 
         (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
-          .map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
+          .map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ==
         (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
-          .map(c, {'name': c.name, 'securityContext': c.securityContext,
+          .map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext),
             'volumeMounts': dyn(c.name == 'bao-config-init' ?
               c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)}))
     message: OpenBao controller cannot modify init container securityContext or volumeMounts.
@@ -10725,18 +10726,18 @@ spec:
       == oldObject.spec.template.spec.securityContext'
     message: OpenBao controller cannot modify pod securityContext.
   - expression: |-
-      !variables.is_controller || object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) == oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) || (variables.bootstrap_input_cleanup &&
+      !variables.is_controller || object.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) == oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) || (variables.bootstrap_input_cleanup &&
 
         object.spec.template.spec.containers.map(c,
-          {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) ==
-        oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext,
+          {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ==
+        oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext),
           'volumeMounts': dyn(c.name == 'openbao' ?
             c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)})) ||
       (variables.handoff &&
 
-        object.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext,
+        object.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext),
           'volumeMounts': dyn(c.volumeMounts.filter(m, m.name != 'kube-api-access'))}) ==
-        oldObject.spec.template.spec.containers.map(c, {'name': c.name, 'securityContext': c.securityContext, 'volumeMounts': c.volumeMounts}) &&
+        oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) &&
         object.spec.template.spec.containers.all(c,
           c.volumeMounts.filter(m, m.name == 'kube-api-access').all(m,
             c.name == 'openbao' && m.mountPath == '/var/run/secrets/kubernetes.io/serviceaccount' && m.readOnly &&
@@ -11452,7 +11453,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:c9af55789ddce38e9c2227b2b4b527abea0af9094e82a56eaa4cc2f17a5b8e69
+    openbao.org/admission-policy-fingerprint: sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8
   name: openbao-operator-openbao-protect-restore-execution
 spec:
   failurePolicy: Fail
@@ -11480,23 +11481,23 @@ spec:
       - openbaorestores
   validations:
   - expression: '!variables.is_restore || variables.is_controller || request.operation
-      == ''DELETE'' || (has(object.status) && has(object.status.restart) ? object.status.restart
-      : null) == (oldObject != null && has(oldObject.status) && has(oldObject.status.restart)
-      ? oldObject.status.restart : null)'
+      == ''DELETE'' || (has(object.status) && has(dyn(object.status).restart) ? dyn(object.status).restart
+      : null) == (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).restart)
+      ? dyn(oldObject.status).restart : null)'
     message: Only the controller can record managed restore restarts; use the acknowledgement
       annotation.
   - expression: |-
-      variables.is_restore || request.operation == 'DELETE' || variables.new_test_acknowledgement == variables.old_test_acknowledgement || variables.new_test_acknowledgement == '' || (oldObject != null && has(oldObject.status) && has(oldObject.status.backup) &&
+      variables.is_restore || request.operation == 'DELETE' || variables.new_test_acknowledgement == variables.old_test_acknowledgement || variables.new_test_acknowledgement == '' || (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).backup) &&
 
-       has(oldObject.status.backup.restoreTest) && has(oldObject.status.backup.restoreTest.active) &&
-       (!has(oldObject.status.backup.restoreTest.active.uid) || oldObject.status.backup.restoreTest.active.uid == '') &&
-       variables.new_test_acknowledgement == oldObject.status.backup.restoreTest.active.name + '/Release' &&
+       has(dyn(oldObject.status).backup.restoreTest) && has(dyn(oldObject.status).backup.restoreTest.active) &&
+       (!has(dyn(oldObject.status).backup.restoreTest.active.uid) || dyn(oldObject.status).backup.restoreTest.active.uid == '') &&
+       variables.new_test_acknowledgement == dyn(oldObject.status).backup.restoreTest.active.name + '/Release' &&
        authorizer.group('openbao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
     message: Restore test release requires the active unbound run name followed by
       /Release and restore permission on the source cluster. Inspect the destination
       and stop the old controller first.
   - expression: |-
-      request.operation != 'CREATE' || !(variables.is_restore ? has(object.spec.clusterTemplate) : variables.new_origin != '') || (namespaceObject != null && has(namespaceObject.metadata.labels) &&
+      request.operation != 'CREATE' || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null && has(namespaceObject.metadata.labels) &&
 
        'openbao.org/restore-target-approved' in namespaceObject.metadata.labels &&
        namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')
@@ -11510,10 +11511,10 @@ spec:
         oldObject.metadata.annotations['openbao.org/restore-test-source'] : ''))
     message: Only the controller can assign or change a restore test source.
   - expression: '!variables.is_restore || request.operation != ''UPDATE'' || !has(oldObject.status)
-      || !has(oldObject.status.target) || !has(oldObject.spec.targetLifecycle) ||
-      oldObject.spec.targetLifecycle != ''Disposable'' || (has(oldObject.status.administratorDisposition)
-      && oldObject.status.administratorDisposition == ''Abandon'') || (has(oldObject.status.target.cleanup)
-      && oldObject.status.target.cleanup == ''Complete'') || !has(oldObject.metadata.finalizers)
+      || !has(dyn(oldObject.status).target) || !has(dyn(oldObject.spec).targetLifecycle)
+      || dyn(oldObject.spec).targetLifecycle != ''Disposable'' || (has(dyn(oldObject.status).administratorDisposition)
+      && dyn(oldObject.status).administratorDisposition == ''Abandon'') || (has(dyn(oldObject.status).target.cleanup)
+      && dyn(oldObject.status).target.cleanup == ''Complete'') || !has(oldObject.metadata.finalizers)
       || !(''openbao.org/openbaorestore-finalizer'' in oldObject.metadata.finalizers)
       || (has(object.metadata.finalizers) && ''openbao.org/openbaorestore-finalizer''
       in object.metadata.finalizers)'
@@ -11525,28 +11526,28 @@ spec:
   - expression: |-
       !variables.old_claim || request.operation == 'DELETE' ||
 
-        (has(object.status.submissionClaim) && object.status.submissionClaim == oldObject.status.submissionClaim)
+        (has(dyn(object.status).submissionClaim) && dyn(object.status).submissionClaim == dyn(oldObject.status).submissionClaim)
     message: A submission claim cannot be changed or removed.
   - expression: |-
       !variables.helper || (request.subResource == 'status' && request.operation == 'UPDATE' &&
 
-       !variables.old_claim && has(object.status.submissionClaim) &&
-       oldObject.status.phase == 'Running' && oldObject.status.execution.stage == 'Created' &&
-       oldObject.status.execution.operationID == oldObject.metadata.uid &&
+       !variables.old_claim && has(dyn(object.status).submissionClaim) &&
+       dyn(oldObject.status).phase == 'Running' && dyn(oldObject.status).execution.stage == 'Created' &&
+       dyn(oldObject.status).execution.operationID == oldObject.metadata.uid &&
        !has(oldObject.metadata.deletionTimestamp) &&
        has(request.userInfo.extra) && 'authentication.kubernetes.io/pod-uid' in request.userInfo.extra &&
-       request.userInfo.extra['authentication.kubernetes.io/pod-uid'] == [object.status.submissionClaim.podUID] &&
-       object.metadata.all(k, k == "managedFields" || (k in oldObject.metadata && object.metadata[k] == oldObject.metadata[k])) &&
-       oldObject.metadata.all(k, k == "managedFields" || k in object.metadata) &&
-       object.status.all(k, k == 'submissionClaim' || (k in oldObject.status && object.status[k] == oldObject.status[k])) &&
-       oldObject.status.all(k, k in object.status))
+       request.userInfo.extra['authentication.kubernetes.io/pod-uid'] == [dyn(object.status).submissionClaim.podUID] &&
+       dyn(object.metadata).all(k, k == "managedFields" || (k in dyn(oldObject.metadata) && dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) &&
+       dyn(oldObject.metadata).all(k, k == "managedFields" || k in dyn(object.metadata)) &&
+       dyn(object.status).all(k, k == 'submissionClaim' || (k in dyn(oldObject.status) && dyn(object.status)[k] == dyn(oldObject.status)[k])) &&
+       dyn(oldObject.status).all(k, k in dyn(object.status)))
     message: The executor can only append its own Pod-bound submission claim.
   - expression: '!variables.is_restore || request.operation != ''DELETE'' || !has(oldObject.status)
-      || !has(oldObject.status.execution) || oldObject.status.execution.stage == ''Prepared''
-      || variables.submission_excluded || oldObject.status.phase == ''Completed''
-      || (has(oldObject.spec.targetLifecycle) && oldObject.spec.targetLifecycle ==
-      ''Disposable'') || (has(oldObject.status.administratorDisposition) && oldObject.status.administratorDisposition
-      != '''')'
+      || !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage
+      == ''Prepared'' || variables.submission_excluded || dyn(oldObject.status).phase
+      == ''Completed'' || (has(dyn(oldObject.spec).targetLifecycle) && dyn(oldObject.spec).targetLifecycle
+      == ''Disposable'') || (has(dyn(oldObject.status).administratorDisposition) &&
+      dyn(oldObject.status).administratorDisposition != '''')'
     message: A committed restore requires administrator acknowledgement before deletion.
   - expression: variables.is_restore || variables.is_controller || (request.operation
       in ['CREATE', 'UPDATE'] && variables.new_hold == variables.old_hold) || (request.operation
@@ -11554,39 +11555,39 @@ spec:
     message: Only the controller can change a restore hold; acknowledge the restore
       before deleting its target.
   - expression: '!variables.is_restore || request.operation != ''UPDATE'' || !has(oldObject.status)
-      || !has(oldObject.status.execution) || oldObject.status.execution.stage == ''Prepared''
-      || variables.submission_excluded || oldObject.status.phase == ''Completed''
-      || (has(oldObject.status.target) && has(oldObject.status.target.cleanup) &&
-      oldObject.status.target.cleanup == ''Complete'') || (has(oldObject.status.administratorDisposition)
-      && oldObject.status.administratorDisposition != '''') || !has(oldObject.metadata.finalizers)
+      || !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage
+      == ''Prepared'' || variables.submission_excluded || dyn(oldObject.status).phase
+      == ''Completed'' || (has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup)
+      && dyn(oldObject.status).target.cleanup == ''Complete'') || (has(dyn(oldObject.status).administratorDisposition)
+      && dyn(oldObject.status).administratorDisposition != '''') || !has(oldObject.metadata.finalizers)
       || !(''openbao.org/openbaorestore-finalizer'' in oldObject.metadata.finalizers)
       || (has(object.metadata.finalizers) && ''openbao.org/openbaorestore-finalizer''
       in object.metadata.finalizers)'
     message: A committed restore retains its finalizer until administrator acknowledgement.
   - expression: '!variables.is_restore || variables.is_controller || request.operation
-      == ''DELETE'' || (has(object.status) && has(object.status.administratorDisposition)
-      ? object.status.administratorDisposition : '''') == (oldObject != null && has(oldObject.status)
-      && has(oldObject.status.administratorDisposition) ? oldObject.status.administratorDisposition
-      : '''')'
+      == ''DELETE'' || (has(object.status) && has(dyn(object.status).administratorDisposition)
+      ? dyn(object.status).administratorDisposition : '''') == (oldObject != null
+      && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition)
+      ? dyn(oldObject.status).administratorDisposition : '''')'
     message: Only the controller can record administrator disposition; use the acknowledgement
       annotation.
   - expression: '!variables.is_restore || request.operation == ''DELETE'' || variables.new_acknowledgement
       == variables.old_acknowledgement || variables.new_acknowledgement == '''' ||
-      oldObject == null || !has(oldObject.status) || !has(oldObject.status.administratorDisposition)
-      || oldObject.status.administratorDisposition == '''' || variables.new_acknowledgement
-      == oldObject.metadata.uid + ''/'' + oldObject.status.administratorDisposition'
+      oldObject == null || !has(oldObject.status) || !has(dyn(oldObject.status).administratorDisposition)
+      || dyn(oldObject.status).administratorDisposition == '''' || variables.new_acknowledgement
+      == oldObject.metadata.uid + ''/'' + dyn(oldObject.status).administratorDisposition'
     message: Recovery has already been released. The recorded Resume or Abandon decision
       cannot be changed; manage the target directly.
   - expression: |-
       !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement || variables.new_acknowledgement == '' || (oldObject != null && has(oldObject.status) &&
 
-       ((oldObject.status.phase == 'Unknown' &&
-         !(has(oldObject.status.target) && has(oldObject.status.target.cleanup) && oldObject.status.target.cleanup == 'Failed') &&
+       ((dyn(oldObject.status).phase == 'Unknown' &&
+         !(has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Failed') &&
          (variables.new_acknowledgement == oldObject.metadata.uid + '/Abandon' ||
           (variables.new_acknowledgement == oldObject.metadata.uid + '/Resume' &&
-           (!has(oldObject.spec.targetLifecycle) || oldObject.spec.targetLifecycle != 'Disposable') &&
-           has(oldObject.status.execution) && has(oldObject.status.execution.jobUID) && oldObject.status.execution.jobUID != ''))) ||
-        (has(oldObject.status.target) && has(oldObject.status.target.cleanup) && oldObject.status.target.cleanup == 'Failed' &&
+           (!has(dyn(oldObject.spec).targetLifecycle) || dyn(oldObject.spec).targetLifecycle != 'Disposable') &&
+           has(dyn(oldObject.status).execution) && has(dyn(oldObject.status).execution.jobUID) && dyn(oldObject.status).execution.jobUID != ''))) ||
+        (has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Failed' &&
          variables.new_acknowledgement == oldObject.metadata.uid + '/Abandon')))
     message: Acknowledge only after Unknown or blocked cleanup. Resume requires a
       bound Job UID and a non-disposable target without failed cleanup; otherwise
@@ -11602,13 +11603,13 @@ spec:
   - expression: request.resource.resource == 'openbaorestores'
     name: is_restore
   - expression: variables.is_restore && oldObject != null && has(oldObject.status)
-      && has(oldObject.status.submissionClaim)
+      && has(dyn(oldObject.status).submissionClaim)
     name: old_claim
   - expression: |-
       variables.is_restore && oldObject != null && request.userInfo.username ==
 
         'system:serviceaccount:' + request.namespace + ':' +
-        (has(oldObject.spec.serviceAccountName) ? oldObject.spec.serviceAccountName : oldObject.spec.cluster + '-restore-serviceaccount')
+        (has(dyn(oldObject.spec).serviceAccountName) ? dyn(oldObject.spec).serviceAccountName : dyn(oldObject.spec).cluster + '-restore-serviceaccount')
     name: helper
   - expression: |-
       oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-hold' in oldObject.metadata.annotations ?
@@ -11631,9 +11632,9 @@ spec:
         object.metadata.annotations['openbao.org/restore-origin'] : ''
     name: new_origin
   - expression: variables.is_restore && oldObject != null && has(oldObject.status)
-      && !has(oldObject.status.submissionClaim) && has(oldObject.status.execution)
-      && oldObject.status.phase == 'Failed' && oldObject.status.execution.stage ==
-      'TerminalObserved' && oldObject.status.execution.terminalResult == 'Failed'
+      && !has(dyn(oldObject.status).submissionClaim) && has(dyn(oldObject.status).execution)
+      && dyn(oldObject.status).phase == 'Failed' && dyn(oldObject.status).execution.stage
+      == 'TerminalObserved' && dyn(oldObject.status).execution.terminalResult == 'Failed'
     name: submission_excluded
   - expression: |-
       oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-acknowledge' in oldObject.metadata.annotations ?
@@ -11683,37 +11684,37 @@ spec:
         has(object.metadata) &&
         has(object.metadata.name) &&
         object.metadata.name.endsWith("-role") &&
-        has(object.rules) &&
-        object.rules != null &&
+        has(dyn(object).rules) &&
+        dyn(object).rules != null &&
         (
           (
             variables.component_label in ["backup", "restore"] &&
-            (object.rules.size() == 1 || (variables.component_label == "restore" && object.rules.size() == 3 &&
-              object.rules[1].apiGroups == ["openbao.org"] && object.rules[1].resources == ["openbaorestores"] &&
-              object.rules[1].verbs == ["get"] && has(object.rules[1].resourceNames) && object.rules[1].resourceNames.size() == 1 &&
-              object.rules[2].apiGroups == ["openbao.org"] && object.rules[2].resources == ["openbaorestores/status"] &&
-              object.rules[2].verbs == ["patch"] && object.rules[2].resourceNames == object.rules[1].resourceNames)) &&
-            object.rules[0].apiGroups == [""] &&
-            object.rules[0].resources == ["pods"] &&
-            has(object.rules[0].verbs) &&
-            object.rules[0].verbs != null &&
-            object.rules[0].verbs.all(v, v in ["get", "list", "watch"]) &&
-            object.rules[0].verbs.exists(v, v == "get") &&
-            object.rules[0].verbs.exists(v, v == "list") &&
-            object.rules[0].verbs.exists(v, v == "watch")
+            (dyn(object).rules.size() == 1 || (variables.component_label == "restore" && dyn(object).rules.size() == 3 &&
+              dyn(object).rules[1].apiGroups == ["openbao.org"] && dyn(object).rules[1].resources == ["openbaorestores"] &&
+              dyn(object).rules[1].verbs == ["get"] && has(dyn(object).rules[1].resourceNames) && dyn(object).rules[1].resourceNames.size() == 1 &&
+              dyn(object).rules[2].apiGroups == ["openbao.org"] && dyn(object).rules[2].resources == ["openbaorestores/status"] &&
+              dyn(object).rules[2].verbs == ["patch"] && dyn(object).rules[2].resourceNames == dyn(object).rules[1].resourceNames)) &&
+            dyn(object).rules[0].apiGroups == [""] &&
+            dyn(object).rules[0].resources == ["pods"] &&
+            has(dyn(object).rules[0].verbs) &&
+            dyn(object).rules[0].verbs != null &&
+            dyn(object).rules[0].verbs.all(v, v in ["get", "list", "watch"]) &&
+            dyn(object).rules[0].verbs.exists(v, v == "get") &&
+            dyn(object).rules[0].verbs.exists(v, v == "list") &&
+            dyn(object).rules[0].verbs.exists(v, v == "watch")
           ) ||
           (
             variables.component_label == "" &&
-            object.rules.size() == 2 &&
-            object.rules.all(r, r.apiGroups == [""] && r.resources == ["pods"] && has(r.verbs) && r.verbs != null) &&
-            object.rules.exists(r,
+            dyn(object).rules.size() == 2 &&
+            dyn(object).rules.all(r, r.apiGroups == [""] && r.resources == ["pods"] && has(r.verbs) && r.verbs != null) &&
+            dyn(object).rules.exists(r,
               r.verbs.all(v, v in ["get", "list", "watch"]) &&
               r.verbs.exists(v, v == "get") &&
               r.verbs.exists(v, v == "list") &&
               r.verbs.exists(v, v == "watch") &&
               (!has(r.resourceNames) || r.resourceNames == null || r.resourceNames.size() == 0)
             ) &&
-            object.rules.exists(r,
+            dyn(object).rules.exists(r,
               r.verbs.all(v, v in ["patch", "update"]) &&
               (r.verbs.exists(v, v == "patch") || r.verbs.exists(v, v == "update")) &&
               has(r.resourceNames) &&
@@ -11732,23 +11733,23 @@ spec:
         has(object.metadata) &&
         has(object.metadata.name) &&
         object.metadata.name.endsWith("-rolebinding") &&
-        has(object.roleRef) &&
-        object.roleRef.apiGroup == "rbac.authorization.k8s.io" &&
-        object.roleRef.kind == "Role" &&
-        has(object.roleRef.name) &&
-        has(object.subjects) &&
-        object.subjects != null &&
-        object.subjects.size() == 1 &&
-        object.subjects[0].kind == "ServiceAccount" &&
-        (!has(object.subjects[0].apiGroup) || object.subjects[0].apiGroup == "") &&
-        object.subjects[0].namespace == request.namespace &&
+        has(dyn(object).roleRef) &&
+        dyn(object).roleRef.apiGroup == "rbac.authorization.k8s.io" &&
+        dyn(object).roleRef.kind == "Role" &&
+        has(dyn(object).roleRef.name) &&
+        has(dyn(object).subjects) &&
+        dyn(object).subjects != null &&
+        dyn(object).subjects.size() == 1 &&
+        dyn(object).subjects[0].kind == "ServiceAccount" &&
+        (!has(dyn(object).subjects[0].apiGroup) || dyn(object).subjects[0].apiGroup == "") &&
+        dyn(object).subjects[0].namespace == request.namespace &&
         (
-          (object.metadata.name == object.subjects[0].name + "-rolebinding" &&
-           object.roleRef.name == object.subjects[0].name + "-role") ||
+          (object.metadata.name == dyn(object).subjects[0].name + "-rolebinding" &&
+           dyn(object).roleRef.name == dyn(object).subjects[0].name + "-role") ||
           (variables.component_label == "restore" && has(object.metadata.labels) &&
            "openbao.org/cluster" in object.metadata.labels &&
            object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-rolebinding" &&
-           object.roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
+           dyn(object).roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
            has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(owner,
              owner.apiVersion == "openbao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
              owner.name == object.metadata.labels["openbao.org/cluster"] && owner.uid != "" &&
@@ -12116,14 +12117,14 @@ spec:
   - expression: |-
       !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name != 'openbao-operator-tenant-role' || (
 
-        has(object.rules) &&
-        object.rules != null &&
-        !object.rules.exists(rule,
+        has(dyn(object).rules) &&
+        dyn(object).rules != null &&
+        !dyn(object).rules.exists(rule,
           has(rule.nonResourceURLs) &&
           rule.nonResourceURLs != null &&
           rule.nonResourceURLs.size() > 0
         ) &&
-        object.rules.all(rule,
+        dyn(object).rules.all(rule,
           (
             rule.apiGroups.size() == 1 &&
             rule.apiGroups[0] == 'openbao.org' &&
@@ -12280,7 +12281,7 @@ spec:
     message: The Provisioner can only create RoleBindings for the operator tenant
       template (tenant + secrets allowlists).
   - expression: |-
-      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || object.roleRef.name in [
+      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || dyn(object).roleRef.name in [
 
         'openbao-operator-tenant-role',
         'openbao-operator-tenant-secrets-reader',
@@ -12289,15 +12290,15 @@ spec:
     message: The Provisioner is restricted to binding only the operator tenant template
       Roles (tenant + secrets allowlists).
   - expression: '!variables.is_provisioner || request.operation == ''DELETE'' || request.resource.resource
-      != ''rolebindings'' || object.subjects.all(s, s.kind == ''ServiceAccount'')'
+      != ''rolebindings'' || dyn(object).subjects.all(s, s.kind == ''ServiceAccount'')'
     message: The Provisioner can only grant permissions to ServiceAccounts.
   - expression: '!variables.is_provisioner || request.operation == ''DELETE'' || request.resource.resource
-      != ''rolebindings'' || object.subjects.all(s, !has(s.apiGroup) || s.apiGroup
+      != ''rolebindings'' || dyn(object).subjects.all(s, !has(s.apiGroup) || s.apiGroup
       == '''')'
     message: The Provisioner can only bind to core ServiceAccount subjects (apiGroup
       must be empty).
   - expression: '!variables.is_provisioner || request.operation == ''DELETE'' || request.resource.resource
-      != ''rolebindings'' || (object.roleRef.kind == ''Role'' && object.roleRef.apiGroup
+      != ''rolebindings'' || (dyn(object).roleRef.kind == ''Role'' && dyn(object).roleRef.apiGroup
       == ''rbac.authorization.k8s.io'')'
     message: The Provisioner can only create RoleBindings that reference a Role (not
       ClusterRole).
@@ -12306,33 +12307,33 @@ spec:
 
         (
           object.metadata.name == 'openbao-operator-tenant-rolebinding' &&
-          object.roleRef.name == 'openbao-operator-tenant-role' &&
-          object.subjects.size() == 1 &&
-          object.subjects[0].kind == 'ServiceAccount' &&
-          object.subjects[0].name == variables.controller_serviceaccount_name &&
-          object.subjects[0].namespace == variables.operator_namespace
+          dyn(object).roleRef.name == 'openbao-operator-tenant-role' &&
+          dyn(object).subjects.size() == 1 &&
+          dyn(object).subjects[0].kind == 'ServiceAccount' &&
+          dyn(object).subjects[0].name == variables.controller_serviceaccount_name &&
+          dyn(object).subjects[0].namespace == variables.operator_namespace
         ) ||
         (
           object.metadata.name == 'openbao-operator-tenant-secrets-reader-rolebinding' &&
-          object.roleRef.name == 'openbao-operator-tenant-secrets-reader' &&
-          object.subjects.size() == 1 &&
-          object.subjects[0].kind == 'ServiceAccount' &&
-          object.subjects[0].name == variables.controller_serviceaccount_name &&
-          object.subjects[0].namespace == variables.operator_namespace
+          dyn(object).roleRef.name == 'openbao-operator-tenant-secrets-reader' &&
+          dyn(object).subjects.size() == 1 &&
+          dyn(object).subjects[0].kind == 'ServiceAccount' &&
+          dyn(object).subjects[0].name == variables.controller_serviceaccount_name &&
+          dyn(object).subjects[0].namespace == variables.operator_namespace
         ) ||
         (
           object.metadata.name == 'openbao-operator-tenant-secrets-writer-rolebinding' &&
-          object.roleRef.name == 'openbao-operator-tenant-secrets-writer' &&
-          object.subjects.size() == 1 &&
-          object.subjects[0].kind == 'ServiceAccount' &&
-          object.subjects[0].name == variables.controller_serviceaccount_name &&
-          object.subjects[0].namespace == variables.operator_namespace
+          dyn(object).roleRef.name == 'openbao-operator-tenant-secrets-writer' &&
+          dyn(object).subjects.size() == 1 &&
+          dyn(object).subjects[0].kind == 'ServiceAccount' &&
+          dyn(object).subjects[0].name == variables.controller_serviceaccount_name &&
+          dyn(object).subjects[0].namespace == variables.operator_namespace
         )
       )
     message: The Provisioner can only bind tenant RBAC to the operator controller
       ServiceAccount.
   - expression: |-
-      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(object.rules) || object.rules == null || !object.rules.exists(rule,
+      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
 
         has(rule.verbs) &&
         rule.verbs != null &&
@@ -12346,7 +12347,7 @@ spec:
     message: The Provisioner cannot create Roles granting 'impersonate', 'bind', 'escalate',
       or wildcard permissions.
   - expression: |-
-      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(object.rules) || object.rules == null || !object.rules.exists(rule,
+      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
 
         (
           has(rule.apiGroups) &&
@@ -12361,7 +12362,7 @@ spec:
       )
     message: The Provisioner cannot create Roles with wildcard apiGroups or resources.
   - expression: |-
-      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(object.rules) || object.rules == null || !object.rules.exists(rule,
+      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
 
         has(rule.nonResourceURLs) &&
         rule.nonResourceURLs != null &&
@@ -12369,7 +12370,7 @@ spec:
       )
     message: The Provisioner cannot create Roles granting nonResourceURLs.
   - expression: |-
-      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(object.rules) || object.rules == null || !object.rules.exists(rule,
+      !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
 
         has(rule.resources) &&
         rule.resources != null &&
@@ -12384,32 +12385,32 @@ spec:
   - expression: |-
       !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name != 'openbao-operator-tenant-secrets-reader' || (
 
-        has(object.rules) &&
-        object.rules != null &&
-        object.rules.size() == 1 &&
-        object.rules[0].apiGroups == [''] &&
-        object.rules[0].resources == ['secrets'] &&
-        object.rules[0].verbs == ['get'] &&
-        has(object.rules[0].resourceNames) &&
-        object.rules[0].resourceNames != null &&
-        object.rules[0].resourceNames.size() > 0
+        has(dyn(object).rules) &&
+        dyn(object).rules != null &&
+        dyn(object).rules.size() == 1 &&
+        dyn(object).rules[0].apiGroups == [''] &&
+        dyn(object).rules[0].resources == ['secrets'] &&
+        dyn(object).rules[0].verbs == ['get'] &&
+        has(dyn(object).rules[0].resourceNames) &&
+        dyn(object).rules[0].resourceNames != null &&
+        dyn(object).rules[0].resourceNames.size() > 0
       )
     message: The Provisioner can only create the secrets reader Role with a non-empty,
       name-scoped (resourceNames) get-only rule.
   - expression: |-
       !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name != 'openbao-operator-tenant-secrets-writer' || (
 
-        has(object.rules) &&
-        object.rules != null &&
-        object.rules.size() == 2 &&
-        object.rules.all(r, r.apiGroups == [''] && r.resources == ['secrets']) &&
-        object.rules.exists(r,
+        has(dyn(object).rules) &&
+        dyn(object).rules != null &&
+        dyn(object).rules.size() == 2 &&
+        dyn(object).rules.all(r, r.apiGroups == [''] && r.resources == ['secrets']) &&
+        dyn(object).rules.exists(r,
           has(r.verbs) &&
           r.verbs != null &&
           r.verbs == ['create'] &&
           (!has(r.resourceNames) || r.resourceNames == null || r.resourceNames.size() == 0)
         ) &&
-        object.rules.exists(r,
+        dyn(object).rules.exists(r,
           has(r.verbs) &&
           r.verbs != null &&
           r.verbs.size() > 0 &&
