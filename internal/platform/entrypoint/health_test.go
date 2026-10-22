@@ -4,12 +4,19 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kubebao/openbao-operator/internal/platform/admission"
 )
@@ -103,4 +110,53 @@ func TestReadinessStopsOnCancellation(t *testing.T) {
 	require.NoError(t, r.Start(ctx))
 	require.False(t, r.running.Load())
 	require.Error(t, r.Check(nil))
+}
+
+func TestReadinessRejectsPolicyAndBindingDriftAndRecovers(t *testing.T) {
+	t.Setenv("OPENBAO_UNSAFE_ADMISSION_DISABLED", "")
+	for _, key := range []string{"POD_NAMESPACE", "OPERATOR_NAMESPACE", "OPERATOR_NAME_PREFIX", "OPERATOR_SERVICE_ACCOUNT_NAME", "OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME", "OPENBAO_TENANT_NAMESPACE_POD_SECURITY_LABELS_MODE"} {
+		t.Setenv(key, "")
+	}
+	scheme := runtime.NewScheme()
+	require.NoError(t, admissionv1.AddToScheme(scheme))
+	var objects []client.Object
+	for _, dependency := range admission.DefaultDependencies() {
+		for _, fixture := range []struct {
+			name   string
+			object client.Object
+		}{
+			{dependency.PolicyName, &admissionv1.ValidatingAdmissionPolicy{}},
+			{dependency.BindingName, &admissionv1.ValidatingAdmissionPolicyBinding{}},
+		} {
+			data, err := os.ReadFile(filepath.Join("..", "..", "..", "config", "policy", fixture.name+".yaml"))
+			require.NoError(t, err)
+			require.NoError(t, yaml.UnmarshalStrict(data, fixture.object))
+			objects = append(objects, fixture.object)
+		}
+	}
+	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
+	readiness := &managerReadiness{reader: kube}
+	readiness.running.Store(true)
+	readiness.refresh(t.Context())
+	require.NoError(t, readiness.Check(nil))
+	policy := objects[0].(*admissionv1.ValidatingAdmissionPolicy)
+	original := policy.Spec.DeepCopy()
+	policy.Spec.Validations[0].Expression = "true"
+	require.NoError(t, kube.Update(t.Context(), policy))
+	readiness.refresh(t.Context())
+	require.ErrorContains(t, readiness.Check(nil), "admission dependencies are not ready")
+	policy.Spec = *original
+	require.NoError(t, kube.Update(t.Context(), policy))
+	readiness.refresh(t.Context())
+	require.NoError(t, readiness.Check(nil))
+	binding := objects[1].(*admissionv1.ValidatingAdmissionPolicyBinding)
+	originalBinding := binding.Spec.DeepCopy()
+	binding.Spec.MatchResources = &admissionv1.MatchResources{NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"guard": "selected"}}}
+	require.NoError(t, kube.Update(t.Context(), binding))
+	readiness.refresh(t.Context())
+	require.ErrorContains(t, readiness.Check(nil), "admission dependencies are not ready")
+	binding.Spec = *originalBinding
+	require.NoError(t, kube.Update(t.Context(), binding))
+	readiness.refresh(t.Context())
+	require.NoError(t, readiness.Check(nil))
 }

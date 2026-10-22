@@ -8,9 +8,14 @@ verifiedBy:
   - charts/openbao-operator/templates/controller/deployment.yaml
   - charts/openbao-operator/templates/provisioner/deployment.yaml
   - config/policy
+  - hack/tools/admission_contracts/main.go
   - internal/controller/openbaocluster/admission_runtime.go
   - internal/controller/openbaorestore/controller.go
   - internal/platform/admission/check.go
+  - internal/platform/admission/contract.go
+  - internal/platform/admission/contract_integration_test.go
+  - internal/platform/admission/installation_test.go
+  - internal/platform/admission/sync_callers.go
   - internal/platform/entrypoint/flags.go
   - internal/service/workload/pod_deletion.go
   - internal/service/provisioner/namespace_finalization.go
@@ -33,15 +38,47 @@ The required set covers these boundaries:
 - StatefulSet and other managed-resource mutation locks; and
 - digest enforcement for Hardened operator-managed StatefulSets and Jobs.
 
-The startup check verifies both each policy and its binding, including that the binding enforces `Deny`. Repository
-tests keep the dependency inventory aligned with `config/policy`; do not install a hand-selected subset.
+Startup and periodic runtime checks compare all 13 required policies and their bindings with specifications embedded
+in the operator binary. The comparison includes Common Expression Language (CEL) expressions, identity variables, match conditions, resource rules,
+namespace and object selectors, parameter references, and validation actions. Policy annotations do not establish
+integrity. Repository tests keep the dependency inventory aligned with `config/policy`; do not install a hand-selected
+subset.
+
+The embedded specifications cover the release Helm templates and manifests rendered with the repository's pinned
+Kustomize version. Helm release names, operator namespaces, ServiceAccount names, and the supported external Pod
+Security label mode come from the manager's installation settings. The checker normalizes Kubernetes API defaults
+and empty collections. It does not accept arbitrary edits that appear semantically equivalent to the release policies.
+
+Both manager Deployments receive `OPERATOR_SERVICE_ACCOUNT_NAME` for the controller identity and
+`OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME` for the provisioner identity. They also receive the namespace and, for
+Helm, `OPENBAO_TENANT_NAMESPACE_POD_SECURITY_LABELS_MODE`. Without identity settings, the checker uses the default
+Kustomize namespace and ServiceAccount names. Custom installations must set these values consistently with their
+admission policies. An installation name prefix selects only that installation's policies.
+
+Helm and the PVC and Pod sync overlays also set `OPENBAO_ADMISSION_PVC_BINDING_SYNC_CALLERS` and
+`OPENBAO_ADMISSION_POD_METADATA_SYNC_CALLERS` on both managers. These settings contain the approved JSON caller maps
+rendered into the managed-resource policy. The checker accepts that declared scope and rejects added callers,
+namespaces, or annotation keys. JSON whitespace and object-key order do not affect the comparison. Other CEL
+expressions remain part of the release contract.
+
+Custom installations must supply the same caller maps to the policies and both managers. Update these resources
+together when changing an allowance. Deployment environment changes roll the manager Pods; old managers can pause
+reconciliation while the installed policy differs from their settings. Roll back the policies and manager settings
+together. The checker never derives approved scope from the installed policy.
+Caller names remain literal, including names that contain `$()`. The sync overlays use generated ConfigMap key
+references for the manager settings. Changes to the ConfigMap content change its name and roll the manager Pods.
 
 ## Use fail-closed mode
 
 `--admission-enforcement=fail` is the manager default. The controller and provisioner wait up to
 `--admission-startup-timeout` (60 seconds by default) and refuse to start if the policy dependencies are not ready.
-While running, cluster, restore, tenant-provisioning, and tenant Secret-RBAC paths pause when the dependency set is
-lost.
+While running, cluster, restore, tenant-provisioning, and tenant Secret-RBAC paths pause when a dependency is missing
+or its specification differs from the release contract. Readiness also fails after its next dependency refresh. Repair
+the policies and bindings from the matching release to restore readiness and resume paused operations.
+
+These checks detect drift at refresh boundaries. They do not make admission configuration immutable or provide an
+atomic check across a subsequent privileged operation. The API server remains responsible for enforcing admission.
+The provisioner's dry-run Role canary also checks one denial through the API server.
 
 {{< callout type="warning" title="Disabling chart admission is unsafe mode" >}}
 Setting Helm `admissionPolicies.enabled: false` starts both managers with warning enforcement and
@@ -112,6 +149,7 @@ admission enabled and grant only the required caller and namespaces.
 For Kustomize, adapt `config/overlays/pvc-binding-sync/kustomization.yaml`. Its replacement sets the named
 `pvc_binding_sync_callers` policy variable without replacing the other checks. The generated ConfigMap is a build
 input; the policy does not read it at runtime. Rebuild and reapply the overlay after changing the caller list.
+Both managers read this ConfigMap key into their trusted admission settings when their Pods start.
 
 After applying the configuration, verify that the virtual PVC becomes `Bound` and the syncer no longer reports
 mutation-lock denials for that PVC. Existing retry backoff can delay synchronization. Removing the configured caller
@@ -163,6 +201,7 @@ using the same identity. Grant only observed keys whose effects the platform adm
 For Kustomize, adapt `config/overlays/pod-metadata-sync/kustomization.yaml`. The replacement configures only
 `pod_metadata_sync_callers`; the policy does not read the generated ConfigMap at runtime. Combine this configuration
 with the separate PVC binding allowance when both paths require it.
+Both managers read this ConfigMap key into their trusted admission settings when their Pods start.
 
 Verify that the main-resource denial stops and the virtual Pod receives status updates. Syncer retry backoff can
 delay recovery. A policy change does not establish that the syncer has retried an existing Pod; inspect its requests

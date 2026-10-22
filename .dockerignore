@@ -16,6 +16,9 @@
 # Re-include embedded trusted root JSON file for keyless verification
 !internal/adapter/security/trusted_root.json
 
+# Re-include the embedded release admission policy contracts
+!internal/platform/admission/zz_generated.contracts.json
+
 # Re-include embedded trusted root JSON file for keyless verification
 !internal/adapter/security/trusted_root.json
 

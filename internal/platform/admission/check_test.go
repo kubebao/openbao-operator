@@ -14,15 +14,16 @@ import (
 	sigsyaml "sigs.k8s.io/yaml"
 )
 
+const policyFingerprintAnnotation = "openbao.org/admission-policy-fingerprint"
+
 func TestDefaultDependencies(t *testing.T) {
 	t.Parallel()
 
 	expected := []Dependency{
 		{
-			Name:                dependencyOpenBaoValidateOpenBaoCluster,
-			PolicyName:          dependencyOpenBaoValidateOpenBaoCluster,
-			BindingName:         dependencyBindingValidateOpenBaoCluster,
-			ExpectedFingerprint: fingerprintOpenBaoValidateOpenBaoCluster,
+			Name:        dependencyOpenBaoValidateOpenBaoCluster,
+			PolicyName:  dependencyOpenBaoValidateOpenBaoCluster,
+			BindingName: dependencyBindingValidateOpenBaoCluster,
 		},
 		{
 			Name:        dependencyOpenBaoValidateOpenBaoTenant,
@@ -30,17 +31,15 @@ func TestDefaultDependencies(t *testing.T) {
 			BindingName: dependencyBindingValidateOpenBaoTenant,
 		},
 		{
-			Name:                dependencyOpenBaoValidateOpenBaoRestore,
-			PolicyName:          dependencyOpenBaoValidateOpenBaoRestore,
-			BindingName:         dependencyBindingValidateOpenBaoRestore,
-			ExpectedFingerprint: fingerprintOpenBaoValidateOpenBaoRestore,
+			Name:        dependencyOpenBaoValidateOpenBaoRestore,
+			PolicyName:  dependencyOpenBaoValidateOpenBaoRestore,
+			BindingName: dependencyBindingValidateOpenBaoRestore,
 		},
-		{Name: dependencyProtectRestoreExecution, PolicyName: dependencyProtectRestoreExecution, BindingName: dependencyProtectRestoreExecutionBinding, ExpectedFingerprint: fingerprintProtectRestoreExecution},
+		{Name: dependencyProtectRestoreExecution, PolicyName: dependencyProtectRestoreExecution, BindingName: dependencyProtectRestoreExecutionBinding},
 		{
-			Name:                dependencyOpenBaoLockControllerStatefulSetMutations,
-			PolicyName:          dependencyOpenBaoLockControllerStatefulSetMutations,
-			BindingName:         dependencyBindingLockControllerStatefulSetMutations,
-			ExpectedFingerprint: fingerprintLockControllerStatefulSetMutations,
+			Name:        dependencyOpenBaoLockControllerStatefulSetMutations,
+			PolicyName:  dependencyOpenBaoLockControllerStatefulSetMutations,
+			BindingName: dependencyBindingLockControllerStatefulSetMutations,
 		},
 		{
 			Name:        dependencyOpenBaoRestrictProvisionerRBAC,
@@ -73,10 +72,9 @@ func TestDefaultDependencies(t *testing.T) {
 			BindingName: dependencyBindingRestrictControllerSecretWrites,
 		},
 		{
-			Name:                dependencyOpenBaoLockManagedResourceMutations,
-			PolicyName:          dependencyOpenBaoLockManagedResourceMutations,
-			BindingName:         dependencyBindingLockManagedResourceMutations,
-			ExpectedFingerprint: fingerprintOpenBaoLockManagedResourceMutations,
+			Name:        dependencyOpenBaoLockManagedResourceMutations,
+			PolicyName:  dependencyOpenBaoLockManagedResourceMutations,
+			BindingName: dependencyBindingLockManagedResourceMutations,
 		},
 		{
 			Name:        dependencyOpenBaoEnforceManagedImageDigests,
@@ -152,13 +150,6 @@ func TestDefaultDependenciesCoverConfigPolicyValidatingPolicies(t *testing.T) {
 func TestExpectedPolicyFingerprintsMatchSourcePolicyContent(t *testing.T) {
 	t.Parallel()
 
-	expected := map[string]string{}
-	for _, dependency := range DefaultDependencies() {
-		if dependency.ExpectedFingerprint != "" {
-			expected[dependency.PolicyName] = dependency.ExpectedFingerprint
-		}
-	}
-
 	configPolicyDir := filepath.Join("..", "..", "..", "config", "policy")
 	kustomizationBytes, err := os.ReadFile(filepath.Join(configPolicyDir, "kustomization.yaml"))
 	if err != nil {
@@ -169,7 +160,6 @@ func TestExpectedPolicyFingerprintsMatchSourcePolicyContent(t *testing.T) {
 		t.Fatalf("decode policy kustomization: %v", err)
 	}
 
-	seen := map[string]bool{}
 	for _, resource := range k.Resources {
 		manifestBytes, err := os.ReadFile(filepath.Join(configPolicyDir, resource))
 		if err != nil {
@@ -188,11 +178,11 @@ func TestExpectedPolicyFingerprintsMatchSourcePolicyContent(t *testing.T) {
 			continue
 		}
 		policyName, _ := metadata["name"].(string)
-		expectedFingerprint, found := expected[policyName]
+		annotations, _ := metadata["annotations"].(map[string]any)
+		annotationFingerprint, found := annotations[policyFingerprintAnnotation].(string)
 		if !found {
 			continue
 		}
-		seen[policyName] = true
 
 		encodedSpec, err := json.Marshal(policy["spec"])
 		if err != nil {
@@ -200,8 +190,6 @@ func TestExpectedPolicyFingerprintsMatchSourcePolicyContent(t *testing.T) {
 		}
 		sum := sha256.Sum256(encodedSpec)
 		contentFingerprint := "sha256:" + hex.EncodeToString(sum[:])
-		annotations, _ := metadata["annotations"].(map[string]any)
-		annotationFingerprint, _ := annotations[PolicyFingerprintAnnotation].(string)
 		if annotationFingerprint != contentFingerprint {
 			t.Errorf(
 				"policy %q annotation fingerprint = %q, want content fingerprint %q",
@@ -210,21 +198,8 @@ func TestExpectedPolicyFingerprintsMatchSourcePolicyContent(t *testing.T) {
 				contentFingerprint,
 			)
 		}
-		if expectedFingerprint != annotationFingerprint {
-			t.Errorf(
-				"policy %q dependency fingerprint = %q, want annotation fingerprint %q",
-				policyName,
-				expectedFingerprint,
-				annotationFingerprint,
-			)
-		}
 	}
 
-	for policyName := range expected {
-		if !seen[policyName] {
-			t.Errorf("policy %q has an expected fingerprint but no source manifest", policyName)
-		}
-	}
 }
 
 type policyKustomization struct {

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -135,49 +134,35 @@ func TestTracker_RefreshBypassesRecentCache(t *testing.T) {
 	}
 }
 
-func TestTracker_RefreshDetectsUpdatedPolicyFingerprint(t *testing.T) {
-	t.Parallel()
-
-	const expectedFingerprint = "sha256:current"
-	fail := ptrFailurePolicy(admissionregistrationv1.Fail)
-	policy := newPolicy("policy", fail)
-	policy.Annotations = map[string]string{PolicyFingerprintAnnotation: "sha256:stale"}
-	binding := newBinding("binding", "policy", admissionregistrationv1.Deny)
+func TestTracker_RefreshDetectsPolicyDriftAndRepair(t *testing.T) {
+	dep := DefaultDependencies()[0]
+	policy, binding := releaseFixture(t, dep, "")
+	original := policy.Spec.DeepCopy()
+	policy.Spec.Validations[0].Expression = allowAllValidation
 	reader := fake.NewClientBuilder().WithScheme(newAdmissionScheme(t)).WithObjects(policy, binding).Build()
-	tracker := NewTracker(reader, []Dependency{
-		{
-			Name:                "dep",
-			PolicyName:          "policy",
-			BindingName:         "binding",
-			ExpectedFingerprint: expectedFingerprint,
-		},
-	}, []string{""}, time.Hour)
-
+	tracker := NewTracker(reader, []Dependency{dep}, []string{""}, time.Hour)
 	stale, err := tracker.Refresh(context.Background())
 	if err != nil {
-		t.Fatalf("Refresh() returned unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if stale == nil || stale.OverallReady {
-		t.Fatalf("Refresh() accepted a stale policy fingerprint: %#v", stale)
+	if stale.OverallReady || AdmissionDependenciesReady() {
+		t.Fatal("drift did not clear readiness")
 	}
-	if !strings.Contains(strings.Join(stale.Dependencies[0].Issues, " | "), "does not have expected admission policy fingerprint") {
-		t.Fatalf("Refresh() returned unexpected issues: %#v", stale.Dependencies[0].Issues)
+	if !strings.Contains(strings.Join(stale.Dependencies[0].Issues, " | "), "specification differs") {
+		t.Fatal(stale.Dependencies[0].Issues)
 	}
-
-	var currentPolicy admissionregistrationv1.ValidatingAdmissionPolicy
-	if err := reader.Get(context.Background(), client.ObjectKey{Name: "policy"}, &currentPolicy); err != nil {
-		t.Fatalf("get policy: %v", err)
+	if err := reader.Get(context.Background(), client.ObjectKey{Name: policy.Name}, policy); err != nil {
+		t.Fatal(err)
 	}
-	currentPolicy.Annotations[PolicyFingerprintAnnotation] = expectedFingerprint
-	if err := reader.Update(context.Background(), &currentPolicy); err != nil {
-		t.Fatalf("update policy fingerprint: %v", err)
+	policy.Spec = *original
+	if err := reader.Update(context.Background(), policy); err != nil {
+		t.Fatal(err)
 	}
-
 	current, err := tracker.Refresh(context.Background())
 	if err != nil {
-		t.Fatalf("Refresh() returned unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if current == nil || !current.OverallReady {
-		t.Fatalf("Refresh() did not accept the updated policy fingerprint: %#v", current)
+	if !current.OverallReady || !AdmissionDependenciesReady() {
+		t.Fatal("repair did not restore readiness")
 	}
 }

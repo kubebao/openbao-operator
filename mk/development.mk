@@ -171,12 +171,12 @@ verify-vendor: vendor ## Verify vendor/ is synchronized with modules and project
 	}
 
 .PHONY: verify-generated
-verify-generated: manifests generate api-reference ## Verify generated artifacts are up-to-date (does not modify tracked files).
+verify-generated: manifests generate api-reference admission-contracts ## Verify generated artifacts are up-to-date (does not modify tracked files).
 	@{ \
-		git diff --exit-code -- api/v1alpha1 config/crd/bases website/generated/api-reference.md; \
+		git diff --exit-code -- api/v1alpha1 config/crd/bases website/generated/api-reference.md internal/platform/admission/zz_generated.contracts.json; \
 	} || { \
-		echo "Generated artifacts are out of date. Run 'make manifests generate api-reference' and commit the result."; \
-		git --no-pager diff -- api/v1alpha1 config/crd/bases website/generated/api-reference.md; \
+		echo "Generated artifacts are out of date. Run 'make manifests generate api-reference admission-contracts' and commit the result."; \
+		git --no-pager diff -- api/v1alpha1 config/crd/bases website/generated/api-reference.md internal/platform/admission/zz_generated.contracts.json; \
 		exit 1; \
 	}
 
@@ -267,8 +267,16 @@ report-internal-deps-diff: ## Compare internal dependency report against local b
 		"$${BASELINE_REPORT:-dist/architecture/internal-dependency-report.baseline.md}" \
 		"$${CURRENT_REPORT:-dist/architecture/internal-dependency-report.md}"
 
+.PHONY: admission-contracts
+admission-contracts: kustomize ## Embed release admission policy and binding specifications.
+	@admission_tools="$$(mktemp -d)"; \
+		trap 'unlink "$$admission_tools/kustomize"; rmdir "$$admission_tools"' EXIT; \
+		ln -s "$(abspath $(KUSTOMIZE))" "$$admission_tools/kustomize"; \
+		PATH="$$admission_tools:$$PATH" GOFLAGS="$(GOFLAGS_VENDOR)" \
+		go run ./hack/tools/admission_contracts
+
 .PHONY: helm-sync
-helm-sync: manifests ## Sync Helm chart from config/ (CRDs, admission policies).
+helm-sync: manifests admission-contracts ## Sync Helm chart from config/ (CRDs, admission policies).
 	@GOFLAGS="$(GOFLAGS_VENDOR)" go run ./hack/helmchart
 
 .PHONY: verify-helm-values

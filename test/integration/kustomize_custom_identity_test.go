@@ -40,6 +40,11 @@ func TestKustomizeCustomIdentityOverlay_RewritesOperatorIdentityFields(t *testin
 
 	yamlBytes := kustomizeBuild(t, tmpDir)
 	objs := parseYAMLToUnstructured(t, yamlBytes, nil)
+	for _, object := range objs {
+		if object.GetAPIVersion() == "admissionregistration.k8s.io/v1" && object.GetNamespace() != "" {
+			t.Fatalf("admission object %s/%s must be cluster-scoped", object.GetKind(), object.GetName())
+		}
+	}
 
 	tokenRole := mustFindObject(t, objs, "rbac.authorization.k8s.io/v1", "Role", "demo-openbao-operator-controller-token")
 	rules, found, err := unstructured.NestedSlice(tokenRole.Object, "rules")
@@ -93,6 +98,12 @@ func TestKustomizeCustomIdentityOverlay_RewritesOperatorIdentityFields(t *testin
 	}
 	if got := envVarValue(t, provisioner, "OPERATOR_SERVICE_ACCOUNT_NAME"); got != testPrefixedControllerSA {
 		t.Fatalf("provisioner OPERATOR_SERVICE_ACCOUNT_NAME=%q, want %q", got, testPrefixedControllerSA)
+	}
+
+	for _, deployment := range []*unstructured.Unstructured{controller, provisioner} {
+		if got := envVarValue(t, deployment, "OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME"); got != testPrefixedProvisionerSA {
+			t.Fatalf("%s OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME=%q, want %q", deployment.GetName(), got, testPrefixedProvisionerSA)
+		}
 	}
 
 	if got := policyVariableExpression(t, controllerPolicy, "operator_namespace"); got != testQuotedCustomOperatorNS {

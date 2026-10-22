@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kubebao/openbao-operator/internal/platform/admission"
 )
@@ -143,24 +145,21 @@ func AdmissionLifecycle(t *testing.T, mgr ctrl.Manager, address string) {
 	t.Helper()
 	require.Eventually(t, func() bool { return Status(address, "/healthz") == http.StatusOK }, 10*time.Second, 20*time.Millisecond)
 	require.Equal(t, http.StatusInternalServerError, Status(address, "/readyz"))
-	fail := admissionv1.Fail
 	kubeClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
 	require.NoError(t, err)
 	for _, dependency := range admission.DefaultDependencies() {
-		require.NoError(t, kubeClient.Create(t.Context(), &admissionv1.ValidatingAdmissionPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: dependency.PolicyName, Annotations: map[string]string{admission.PolicyFingerprintAnnotation: dependency.ExpectedFingerprint}},
-			Spec: admissionv1.ValidatingAdmissionPolicySpec{
-				FailurePolicy: &fail,
-				MatchConstraints: &admissionv1.MatchResources{ResourceRules: []admissionv1.NamedRuleWithOperations{{RuleWithOperations: admissionv1.RuleWithOperations{
-					Operations: []admissionv1.OperationType{admissionv1.Create}, Rule: admissionv1.Rule{APIGroups: []string{"example.invalid"}, APIVersions: []string{"v1"}, Resources: []string{"things"}},
-				}}}},
-				Validations: []admissionv1.Validation{{Expression: "true"}},
-			},
-		}))
-		require.NoError(t, kubeClient.Create(t.Context(), &admissionv1.ValidatingAdmissionPolicyBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: dependency.BindingName},
-			Spec:       admissionv1.ValidatingAdmissionPolicyBindingSpec{PolicyName: dependency.PolicyName, ValidationActions: []admissionv1.ValidationAction{admissionv1.Deny}},
-		}))
+		for _, fixture := range []struct {
+			name   string
+			object client.Object
+		}{
+			{dependency.PolicyName, &admissionv1.ValidatingAdmissionPolicy{}},
+			{dependency.BindingName, &admissionv1.ValidatingAdmissionPolicyBinding{}},
+		} {
+			data, err := os.ReadFile(filepath.Join("..", "..", "config", "policy", fixture.name+".yaml"))
+			require.NoError(t, err)
+			require.NoError(t, yaml.UnmarshalStrict(data, fixture.object))
+			require.NoError(t, kubeClient.Create(t.Context(), fixture.object))
+		}
 	}
 	require.Eventually(t, func() bool { return Status(address, "/readyz") == http.StatusOK }, 30*time.Second, 100*time.Millisecond)
 	select {

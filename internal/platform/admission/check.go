@@ -20,8 +20,6 @@ type Dependency struct {
 	PolicyName string
 	// BindingName is the base metadata.name of the ValidatingAdmissionPolicyBinding in manifests.
 	BindingName string
-	// ExpectedFingerprint identifies the required policy content revision.
-	ExpectedFingerprint string
 }
 
 // DependencyStatus contains the evaluation result for a single Dependency.
@@ -40,16 +38,6 @@ type Status struct {
 }
 
 const (
-	// PolicyFingerprintAnnotation stores the source-policy content fingerprint.
-	// Helm keeps this value when it renders installation-specific names and identities.
-	PolicyFingerprintAnnotation = "openbao.org/admission-policy-fingerprint"
-
-	fingerprintLockControllerStatefulSetMutations  = "sha256:627820bc18fd51560abba40676513db8ee408314c480a5bc381de5bb86bf9d46"
-	fingerprintOpenBaoValidateOpenBaoRestore       = "sha256:264436b9c41f6573c359df17276d53ed0a0b07402a6cdeb2c0e9e1ecbf841280"
-	fingerprintProtectRestoreExecution             = "sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8"
-	fingerprintOpenBaoValidateOpenBaoCluster       = "sha256:a83dd07e9419383ca40f4933607a79fbf9ebf6ccf4e22059628b4ff7ab2efe6a"
-	fingerprintOpenBaoLockManagedResourceMutations = "sha256:56374a99adcf4041536eb619c7bddb62f23afa847f5f417a34c7860fa0ab14e2"
-
 	dependencyOpenBaoValidateOpenBaoCluster             = "openbao-validate-openbaocluster"
 	dependencyOpenBaoValidateOpenBaoTenant              = "openbao-validate-openbao-tenant"
 	dependencyProtectRestoreExecution                   = "openbao-protect-restore-execution"
@@ -84,45 +72,28 @@ const (
 // Kustomize installs use the stable prefix "openbao-operator-".
 // Helm installs typically use "<release>-openbao-operator-" (or fullnameOverride).
 func DefaultNamePrefixes() []string {
-	var prefixes []string
-
 	if env := strings.TrimSpace(os.Getenv("OPERATOR_NAME_PREFIX")); env != "" {
-		// Accept either "foo-" or "foo" and normalize to a prefix.
-		if !strings.HasSuffix(env, "-") {
-			env = env + "-"
-		}
-		prefixes = append(prefixes, env)
+		// An explicit prefix selects one installation. Do not accept another
+		// installation's unprefixed or default policies as a fallback.
+		return []string{strings.TrimSuffix(env, "-") + "-"}
 	}
 	if controllerSA := strings.TrimSpace(os.Getenv("OPERATOR_SERVICE_ACCOUNT_NAME")); controllerSA != "" {
 		if derived, ok := strings.CutSuffix(controllerSA, "controller"); ok {
-			prefixes = append(prefixes, derived)
+			return []string{derived}
 		}
 	}
 
-	// Backward compatible defaults.
-	prefixes = append(prefixes, "openbao-operator-", "")
-
-	// De-duplicate while keeping order (empty string must remain last if present).
-	seen := map[string]struct{}{}
-	out := make([]string, 0, len(prefixes))
-	for _, p := range prefixes {
-		if _, ok := seen[p]; ok {
-			continue
-		}
-		seen[p] = struct{}{}
-		out = append(out, p)
-	}
-	return out
+	// Backward-compatible defaults for installations without identity settings.
+	return []string{"openbao-operator-", ""}
 }
 
 // DefaultDependencies returns the admission dependencies treated as release-critical.
 func DefaultDependencies() []Dependency {
 	return []Dependency{
 		{
-			Name:                dependencyOpenBaoValidateOpenBaoCluster,
-			PolicyName:          dependencyOpenBaoValidateOpenBaoCluster,
-			BindingName:         dependencyBindingValidateOpenBaoCluster,
-			ExpectedFingerprint: fingerprintOpenBaoValidateOpenBaoCluster,
+			Name:        dependencyOpenBaoValidateOpenBaoCluster,
+			PolicyName:  dependencyOpenBaoValidateOpenBaoCluster,
+			BindingName: dependencyBindingValidateOpenBaoCluster,
 		},
 		{
 			Name:        dependencyOpenBaoValidateOpenBaoTenant,
@@ -130,18 +101,16 @@ func DefaultDependencies() []Dependency {
 			BindingName: dependencyBindingValidateOpenBaoTenant,
 		},
 		{
-			Name:                dependencyOpenBaoValidateOpenBaoRestore,
-			PolicyName:          dependencyOpenBaoValidateOpenBaoRestore,
-			BindingName:         dependencyBindingValidateOpenBaoRestore,
-			ExpectedFingerprint: fingerprintOpenBaoValidateOpenBaoRestore,
+			Name:        dependencyOpenBaoValidateOpenBaoRestore,
+			PolicyName:  dependencyOpenBaoValidateOpenBaoRestore,
+			BindingName: dependencyBindingValidateOpenBaoRestore,
 		},
 		{Name: dependencyProtectRestoreExecution, PolicyName: dependencyProtectRestoreExecution,
-			BindingName: dependencyProtectRestoreExecutionBinding, ExpectedFingerprint: fingerprintProtectRestoreExecution},
+			BindingName: dependencyProtectRestoreExecutionBinding},
 		{
-			Name:                dependencyOpenBaoLockControllerStatefulSetMutations,
-			PolicyName:          dependencyOpenBaoLockControllerStatefulSetMutations,
-			BindingName:         dependencyBindingLockControllerStatefulSetMutations,
-			ExpectedFingerprint: fingerprintLockControllerStatefulSetMutations,
+			Name:        dependencyOpenBaoLockControllerStatefulSetMutations,
+			PolicyName:  dependencyOpenBaoLockControllerStatefulSetMutations,
+			BindingName: dependencyBindingLockControllerStatefulSetMutations,
 		},
 		{
 			Name:        dependencyOpenBaoRestrictProvisionerRBAC,
@@ -174,10 +143,9 @@ func DefaultDependencies() []Dependency {
 			BindingName: dependencyBindingRestrictControllerSecretWrites,
 		},
 		{
-			Name:                dependencyOpenBaoLockManagedResourceMutations,
-			PolicyName:          dependencyOpenBaoLockManagedResourceMutations,
-			BindingName:         dependencyBindingLockManagedResourceMutations,
-			ExpectedFingerprint: fingerprintOpenBaoLockManagedResourceMutations,
+			Name:        dependencyOpenBaoLockManagedResourceMutations,
+			PolicyName:  dependencyOpenBaoLockManagedResourceMutations,
+			BindingName: dependencyBindingLockManagedResourceMutations,
 		},
 		{
 			Name:        dependencyOpenBaoEnforceManagedImageDigests,
@@ -188,7 +156,8 @@ func DefaultDependencies() []Dependency {
 }
 
 // CheckDependencies validates that the required ValidatingAdmissionPolicy and
-// ValidatingAdmissionPolicyBinding objects exist and are configured to enforce denies.
+// ValidatingAdmissionPolicyBinding objects match the release specifications and
+// enforce denies across the expected scope.
 //
 // namePrefixes are tried in order when resolving object names (for example,
 // "openbao-operator-" and "").
@@ -206,6 +175,15 @@ func CheckDependencies(ctx context.Context, c client.Reader, deps []Dependency, 
 		return Status{}, fmt.Errorf("at least one name prefix is required")
 	}
 
+	settings, err := installationFromEnvironment()
+	if err != nil {
+		return Status{}, err
+	}
+	contracts, err := expectedContracts(settings)
+	if err != nil {
+		return Status{}, err
+	}
+
 	status := Status{
 		CheckedAt: time.Now(),
 	}
@@ -213,7 +191,7 @@ func CheckDependencies(ctx context.Context, c client.Reader, deps []Dependency, 
 	var overallReady = true
 
 	for _, dep := range deps {
-		depStatus := checkDependency(ctx, c, dep, namePrefixes)
+		depStatus := checkDependency(ctx, c, dep, namePrefixes, contracts)
 		status.Dependencies = append(status.Dependencies, depStatus)
 		if !depStatus.Ready {
 			overallReady = false
@@ -253,7 +231,7 @@ func (s Status) SummaryMessage() string {
 	return "Admission policies are not ready: " + strings.Join(parts, " | ")
 }
 
-func checkDependency(ctx context.Context, c client.Reader, dep Dependency, namePrefixes []string) DependencyStatus {
+func checkDependency(ctx context.Context, c client.Reader, dep Dependency, namePrefixes []string, contracts map[string]policyContract) DependencyStatus {
 	depStatus := DependencyStatus{
 		Dependency: dep,
 		Ready:      true,
@@ -281,7 +259,7 @@ func checkDependency(ctx context.Context, c client.Reader, dep Dependency, nameP
 		return depStatus
 	}
 
-	if !containsString(policyNameCandidates, policyName) {
+	if !containsString(policyNameCandidates, policyName) || policyName != strings.TrimSuffix(bindingName, dep.BindingName)+dep.PolicyName {
 		depStatus.Ready = false
 		depStatus.Issues = append(depStatus.Issues, fmt.Sprintf("binding %q references unexpected policy %q", bindingName, policyName))
 	}
@@ -302,19 +280,16 @@ func checkDependency(ctx context.Context, c client.Reader, dep Dependency, nameP
 		depStatus.Ready = false
 		depStatus.Issues = append(depStatus.Issues, fmt.Sprintf("policy %q must have failurePolicy=Fail", policyName))
 	}
-	if dep.ExpectedFingerprint != "" && policy.Annotations[PolicyFingerprintAnnotation] != dep.ExpectedFingerprint {
-		depStatus.Ready = false
-		depStatus.Issues = append(
-			depStatus.Issues,
-			fmt.Sprintf("policy %q does not have expected admission policy fingerprint", policyName),
-		)
-	}
 
 	if !bindingDenies(binding) {
 		depStatus.Ready = false
 		depStatus.Issues = append(depStatus.Issues, fmt.Sprintf("binding %q must include validationActions=Deny", bindingName))
 	}
 
+	if err := verifyReleaseContract(dep, policy, binding, contracts); err != nil {
+		depStatus.Ready = false
+		depStatus.Issues = append(depStatus.Issues, err.Error())
+	}
 	return depStatus
 }
 

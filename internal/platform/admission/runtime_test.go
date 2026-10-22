@@ -97,21 +97,21 @@ func TestDefaultNamePrefixes(t *testing.T) {
 		}
 	})
 
-	t.Run("normalizes env prefix and preserves fallback order", func(t *testing.T) {
+	t.Run("explicit prefix selects only one installation", func(t *testing.T) {
 		t.Setenv("OPERATOR_NAME_PREFIX", "demo")
 		t.Setenv("OPERATOR_SERVICE_ACCOUNT_NAME", "")
 		got := DefaultNamePrefixes()
-		want := []string{"demo-", "openbao-operator-", ""}
+		want := []string{"demo-"}
 		if strings.Join(got, ",") != strings.Join(want, ",") {
 			t.Fatalf("DefaultNamePrefixes()=%v, want %v", got, want)
 		}
 	})
 
-	t.Run("dedupes duplicate prefixes", func(t *testing.T) {
+	t.Run("explicit default prefix excludes fallback", func(t *testing.T) {
 		t.Setenv("OPERATOR_NAME_PREFIX", "openbao-operator-")
 		t.Setenv("OPERATOR_SERVICE_ACCOUNT_NAME", "")
 		got := DefaultNamePrefixes()
-		want := []string{"openbao-operator-", ""}
+		want := []string{"openbao-operator-"}
 		if strings.Join(got, ",") != strings.Join(want, ",") {
 			t.Fatalf("DefaultNamePrefixes()=%v, want %v", got, want)
 		}
@@ -121,7 +121,7 @@ func TestDefaultNamePrefixes(t *testing.T) {
 		t.Setenv("OPERATOR_NAME_PREFIX", "")
 		t.Setenv("OPERATOR_SERVICE_ACCOUNT_NAME", "demo-openbao-operator-controller")
 		got := DefaultNamePrefixes()
-		want := []string{"demo-openbao-operator-", "openbao-operator-", ""}
+		want := []string{"demo-openbao-operator-"}
 		if strings.Join(got, ",") != strings.Join(want, ",") {
 			t.Fatalf("DefaultNamePrefixes()=%v, want %v", got, want)
 		}
@@ -266,67 +266,6 @@ func TestCheckDependencies_DependencyMatrix(t *testing.T) {
 				if !strings.Contains(joined, tt.wantIssue) {
 					t.Fatalf("issues=%q, expected substring %q", joined, tt.wantIssue)
 				}
-			}
-		})
-	}
-}
-
-func TestCheckDependencies_RequiresExpectedPolicyFingerprint(t *testing.T) {
-	t.Parallel()
-
-	const expectedFingerprint = "sha256:expected"
-	dep := Dependency{
-		Name:                "dep",
-		PolicyName:          "policy",
-		BindingName:         "binding",
-		ExpectedFingerprint: expectedFingerprint,
-	}
-	fail := ptrFailurePolicy(admissionregistrationv1.Fail)
-
-	tests := []struct {
-		name        string
-		fingerprint string
-		wantReady   bool
-		wantIssue   string
-	}{
-		{
-			name:      "missing fingerprint",
-			wantReady: false,
-			wantIssue: "does not have expected admission policy fingerprint",
-		},
-		{
-			name:        "stale fingerprint",
-			fingerprint: "sha256:stale",
-			wantReady:   false,
-			wantIssue:   "does not have expected admission policy fingerprint",
-		},
-		{
-			name:        "current fingerprint",
-			fingerprint: expectedFingerprint,
-			wantReady:   true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			policy := newPolicy("policy", fail)
-			if test.fingerprint != "" {
-				policy.Annotations = map[string]string{PolicyFingerprintAnnotation: test.fingerprint}
-			}
-			reader := newAdmissionClient(t,
-				newBinding("binding", "policy", admissionregistrationv1.Deny),
-				policy,
-			)
-
-			status, err := CheckDependencies(context.Background(), reader, []Dependency{dep}, []string{""})
-			if err != nil {
-				t.Fatalf("CheckDependencies() error = %v", err)
-			}
-			if status.OverallReady != test.wantReady {
-				t.Fatalf("OverallReady=%v, want %v", status.OverallReady, test.wantReady)
-			}
-			if test.wantIssue != "" && !strings.Contains(strings.Join(status.Dependencies[0].Issues, " | "), test.wantIssue) {
-				t.Fatalf("issues=%q, expected substring %q", status.Dependencies[0].Issues, test.wantIssue)
 			}
 		})
 	}
@@ -588,7 +527,7 @@ func TestRestoreDependenciesRejectStalePolicies(t *testing.T) {
 		}
 		t.Run(dep.Name, func(t *testing.T) {
 			policy := newPolicy(dep.PolicyName, ptrFailurePolicy(admissionregistrationv1.Fail))
-			policy.Annotations = map[string]string{PolicyFingerprintAnnotation: "sha256:old-release"}
+			policy.Annotations = map[string]string{policyFingerprintAnnotation: "sha256:old-release"}
 			reader := newAdmissionClient(t, policy, newBinding(dep.BindingName, dep.PolicyName, admissionregistrationv1.Deny))
 			status, err := CheckDependencies(context.Background(), reader, []Dependency{dep}, []string{""})
 			if err != nil {
