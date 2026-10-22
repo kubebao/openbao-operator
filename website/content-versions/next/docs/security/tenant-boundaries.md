@@ -72,12 +72,14 @@ until the handoff is ready instead of treating that ordering as a permanent fail
 The base tenant Role contains no Secret permissions. The Provisioner derives separate reader and writer allowlists
 from the `OpenBaoCluster` and `OpenBaoRestore` specifications in that namespace and removes empty allowlist roles.
 
+{{< callout type="warning" title="Controller trust crosses onboarded namespaces" >}}
 These allowlists constrain direct Secret API access. They do not contain a compromised controller: its tenant Role
 also permits creating Jobs and StatefulSets, which can consume namespace Secrets and run as namespace ServiceAccounts.
 Admission restricts operator-managed resource mutation and selected resource shapes, but does not validate every new
 workload's Secret references and execution identity against the owning custom resource. Treat the controller as
 trusted infrastructure for every onboarded namespace. Use separate installations with independently scoped identities
 and permissions when controller compromise must not cross tenant boundaries.
+{{< /callout >}}
 
 ## Bind tenant users deliberately
 
