@@ -110,38 +110,6 @@
     "suiteTitle": ""
   },
   {
-    "id": "cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
-    "generatedId": "cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
-    "caseLabel": "cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
-    "file": "test/e2e/Cluster_Lifecycle_test.go",
-    "type": "It",
-    "name": "creates a cluster with self-init disabled and produces expected Secrets",
-    "path": [
-      "Cluster Lifecycle",
-      "Development Profile: Manual Init (Self-Init Disabled)",
-      "creates a cluster with self-init disabled and produces expected Secrets"
-    ],
-    "labels": [
-      "lifecycle",
-      "cluster",
-      "profile-development",
-      "case:cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f"
-    ],
-    "domainLabels": [
-      "lifecycle",
-      "cluster",
-      "profile-development"
-    ],
-    "steps": [
-      "waiting for Secrets to be created",
-      "waiting for root token Secret (self-init disabled)"
-    ],
-    "focused": false,
-    "pending": false,
-    "suiteFile": "",
-    "suiteTitle": ""
-  },
-  {
     "id": "cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
     "generatedId": "cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
     "caseLabel": "cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c",
@@ -263,6 +231,39 @@
       "getting public service for autopilot verification",
       "triggering reconcile after scale up so autopilot settings are refreshed promptly",
       "verifying Raft Autopilot min_quorum=3 (Development profile with 3 replicas)"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
+    "id": "cluster-lifecycle-requires-target-self-init-for-new-clusters",
+    "generatedId": "cluster-lifecycle-requires-target-self-init-for-new-9603cf9f",
+    "caseLabel": "cluster-lifecycle-requires-target-self-init-for-new-clusters",
+    "file": "test/e2e/Cluster_Lifecycle_test.go",
+    "type": "It",
+    "name": "requires Target self-init for new clusters and revokes the bootstrap root token",
+    "path": [
+      "Cluster Lifecycle",
+      "Development Profile: Target Self-Initialization",
+      "requires Target self-init for new clusters and revokes the bootstrap root token"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "profile-development",
+      "case:cluster-lifecycle-requires-target-self-init-for-new-clusters"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "profile-development"
+    ],
+    "steps": [
+      "waiting for Secrets to be created",
+      "rejecting a new standard-init Shared cluster",
+      "waiting for native self-initialization without a stored root token"
     ],
     "focused": false,
     "pending": false,
@@ -1085,28 +1086,26 @@
     "suiteTitle": ""
   },
   {
-    "id": "controller-jwt-renewal-migration-recovery",
-    "generatedId": "controller-jwt-renews-target-credentials-and-recovers-an-d3ad7cce",
-    "caseLabel": "controller-jwt-renewal-migration-recovery",
+    "id": "controller-jwt-renewal-recovery",
+    "generatedId": "controller-jwt-renews-target-credentials-and-recovers-older-b9ed93f0",
+    "caseLabel": "controller-jwt-renewal-recovery",
     "coverage": [
       "controller-jwt-renewal",
-      "controller-jwt-migration",
       "controller-jwt-recovery"
     ],
     "file": "test/e2e/Controller_JWT_test.go",
     "type": "It",
-    "name": "renews Target credentials and recovers an initialized migration from an older snapshot",
+    "name": "renews Target credentials and recovers older snapshot authentication",
     "path": [
       "Controller JWT lifecycle",
-      "renews Target credentials and recovers an initialized migration from an older snapshot"
+      "renews Target credentials and recovers older snapshot authentication"
     ],
     "labels": [
       "lifecycle",
       "controller-jwt",
       "slow",
-      "case:controller-jwt-renewal-migration-recovery",
+      "case:controller-jwt-renewal-recovery",
       "covers:controller-jwt-renewal",
-      "covers:controller-jwt-migration",
       "covers:controller-jwt-recovery"
     ],
     "domainLabels": [
@@ -1117,9 +1116,9 @@
     "steps": [
       "bootstrapping Target mode with the operator-generated roles and policy approval",
       "deleting an operational policy while the original Target credential ages",
-      "initializing an existing-style Shared cluster and saving its actual Raft snapshot",
-      "preparing the existing role, switching the CR, then removing shared trust",
-      "restoring the pre-migration snapshot while the CR remains in Target mode",
+      "capturing a snapshot with older shared role trust on a Target cluster",
+      "repairing role trust before restoring the older snapshot",
+      "restoring the older snapshot while the CR remains in Target mode",
       "repairing restored audience trust through the independent administrator login",
       "observing periodic policy repair during the original Target credential's lifetime",
       "keeping the same controller process alive beyond the initial JWT's ten-minute lifetime",

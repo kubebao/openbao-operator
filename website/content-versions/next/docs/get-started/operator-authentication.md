@@ -32,7 +32,7 @@ and policy.
 
 ## Select the controller credential
 
-For new clusters that use self-init OIDC, set `spec.controllerJWTMode: Target`. This configuration fragment selects
+For every new cluster, set `spec.controllerJWTMode: Target` and enable self-init OIDC. This configuration fragment selects
 short-lived credentials for the controller; keep your human access requests in `spec.selfInit.requests`.
 
 ```yaml
@@ -51,7 +51,7 @@ Self-init binds the `openbao-operator` role to this audience and the controller 
 Raft maintenance and approved policy reconciliation use the selected credential. Executor Jobs retain their existing
 ServiceAccounts and installation-scoped audiences.
 
-`Shared`, or an omitted field, preserves the projected installation-wide credential. There is no CRD default or
+On existing clusters, `Shared`, or an omitted field, preserves the projected installation-wide credential. There is no CRD default or
 mutating webhook that changes existing objects. An operator upgrade does not migrate OpenBao roles. Use the
 [migration procedure](../../operate/controller-jwt-migration/) before selecting `Target` on an initialized cluster.
 Enforced admission prevents removing `Target` or changing it to `Shared`. Authentication failures never trigger shared fallback.
@@ -104,8 +104,8 @@ administrator-approved grant. Auth methods and JWT roles remain administrator-ma
 
 ## Configure a manual controller role
 
-Use manual JWT configuration only for a controlled bootstrap or a custom install that cannot use self-init OIDC.
-The following example uses Shared mode. Render the operator installation first, then substitute the actual namespace,
+Use manual JWT configuration to maintain an existing cluster that did not bootstrap operator OIDC.
+New clusters require self-init OIDC and Target. The following compatibility example uses Shared mode. Render the operator installation first, then substitute the actual namespace,
 ServiceAccount, and audience. For Target mode on an initialized cluster, follow the migration procedure instead.
 
 {{< command label="configure" title="Bind a custom controller identity" >}}

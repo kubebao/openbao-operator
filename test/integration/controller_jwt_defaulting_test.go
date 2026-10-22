@@ -29,6 +29,7 @@ func TestControllerJWTMode_StorageDefaultingBoundary(t *testing.T) {
 	for _, name := range []string{"untouched", "initialized", "pinned", "explicit-shared", "explicit-target"} {
 		cluster := newMinimalClusterObj(namespace, name)
 		cluster.Spec.ControllerJWTMode = ""
+		cluster.Spec.SelfInit = nil
 		if name == "explicit-shared" {
 			cluster.Spec.ControllerJWTMode = api.ControllerJWTModeShared
 		}

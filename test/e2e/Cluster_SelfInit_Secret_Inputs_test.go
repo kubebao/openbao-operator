@@ -183,7 +183,7 @@ var _ = Describe("Self-init Secret inputs", Label("lifecycle", "cluster", "self-
 func secretInputE2ECluster(namespace string) *openbaov1alpha1.OpenBaoCluster {
 	return &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: "secret-inputs", Namespace: namespace},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 			Profile:           openbaov1alpha1.ProfileDevelopment, Version: openBaoVersion, Image: openBaoImage, Replicas: 1,
 			InitContainer: &openbaov1alpha1.InitContainerConfig{Enabled: true, Image: configInitImage},
 			TLS:           openbaov1alpha1.TLSConfig{Enabled: true, Mode: openbaov1alpha1.TLSModeOperatorManaged, RotationPeriod: "720h"},

@@ -24,6 +24,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
+	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 	bootstrapmanager "github.com/kubebao/openbao-operator/internal/service/bootstrap"
 	identitymanager "github.com/kubebao/openbao-operator/internal/service/identity"
 	networkingmanager "github.com/kubebao/openbao-operator/internal/service/networking"
@@ -101,7 +102,10 @@ func waitForOpenBaoClusterAdmissionPolicies(t *testing.T, namespace string) {
 					"image":             testOpenBaoImage244,
 					"replicas":          int64(3),
 					"profile":           "Development",
-					"controllerJWTMode": "Shared",
+					"controllerJWTMode": "Target",
+					"selfInit": map[string]any{"enabled": true, "oidc": map[string]any{"enabled": true},
+						"requests": []any{map[string]any{"name": "audit", "operation": "update", "path": "sys/audit/stdout",
+							"auditDevice": map[string]any{"type": "file", "fileOptions": map[string]any{"filePath": "stdout"}}}}},
 					"tls": map[string]any{
 						"enabled":        true,
 						"rotationPeriod": "720h",
@@ -209,11 +213,17 @@ func newMinimalClusterObj(namespace, name string) *openbaov1alpha1.OpenBaoCluste
 			Namespace: namespace,
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
-			Version:           testOpenBaoVersion244,
-			Image:             testOpenBaoImage244,
-			Replicas:          3,
-			Profile:           openbaov1alpha1.ProfileDevelopment,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+			SelfInit: &openbaov1alpha1.SelfInitConfig{
+				Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true},
+				Requests: []openbaov1alpha1.SelfInitRequest{{Name: "audit", Operation: openbaov1alpha1.SelfInitOperationUpdate, Path: "sys/audit/stdout",
+					AuditDevice: &openbaov1alpha1.SelfInitAuditDevice{Type: "file", FileOptions: &openbaov1alpha1.FileAuditOptions{FilePath: "stdout"}},
+				}},
+			},
+			Version:  testOpenBaoVersion244,
+			Image:    testOpenBaoImage244,
+			Replicas: 3,
+			Profile:  openbaov1alpha1.ProfileDevelopment,
 			TLS: openbaov1alpha1.TLSConfig{
 				Enabled:        true,
 				RotationPeriod: "720h",
@@ -287,11 +297,13 @@ func reconcileClusterResources(
 	}
 	cluster = liveCluster
 
-	configContent, err := bootstrapmanager.NewManagerWithReader(
+	configContent, err := bootstrapmanager.NewManagerWithReaderAndOIDCConfig(
 		kubeClient,
 		kubeClient,
 		scheme,
 		"openbao-operator-system",
+		&portauth.OIDCConfig{IssuerURL: cfg.Host, OIDCDiscoveryURL: cfg.Host,
+			OIDCDiscoveryCAPEM: string(cfg.CAData)},
 	).PrepareWorkload(ctx, logger, cluster)
 	if err != nil {
 		return err

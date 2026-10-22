@@ -26,7 +26,7 @@ func TestControllerJWTCreationPolicy(t *testing.T) {
 				oidc, allowed                           bool
 			}{
 				{name: "development-omitted", profile: "Development", allowed: false},
-				{name: "development-shared", profile: "Development", mode: "Shared", allowed: true},
+				{name: "development-shared", profile: "Development", mode: "Shared", allowed: false},
 				{name: "development-target", profile: "Development", mode: "Target", oidc: true, allowed: true},
 				{name: "hardened-omitted", profile: "Hardened", oidc: true, allowed: false},
 				{name: "hardened-shared", profile: "Hardened", mode: "Shared", oidc: true, allowed: false},

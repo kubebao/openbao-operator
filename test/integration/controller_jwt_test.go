@@ -26,7 +26,9 @@ func TestControllerJWTMode_MigrationContract(t *testing.T) {
 			AuditDevice: &openbaov1alpha1.SelfInitAuditDevice{Type: "file", FileOptions: &openbaov1alpha1.FileAuditOptions{FilePath: "stdout"}},
 		}},
 	}
+	// Seed the object before installing the new CREATE rules, as on an upgrade.
 	require.NoError(t, c.Create(ctx, cluster))
+	installControllerJWTAdmission(t, c, namespace)
 	installControllerJWTAdmission(t, c, namespace)
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
 	// Omission must not be defaulted on reads or unrelated updates of legacy CRs.

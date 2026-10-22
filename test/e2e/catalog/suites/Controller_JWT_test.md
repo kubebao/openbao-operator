@@ -8,26 +8,26 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 
 | Case ID | Spec | State | Covers | Labels |
 | --- | --- | --- | --- | --- |
-| `controller-jwt-renewal-migration-recovery` | renews Target credentials and recovers an initialized migration from an older snapshot | active | `controller-jwt-renewal`, `controller-jwt-migration`, `controller-jwt-recovery` | `lifecycle`, `controller-jwt`, `slow` |
+| `controller-jwt-renewal-recovery` | renews Target credentials and recovers older snapshot authentication | active | `controller-jwt-renewal`, `controller-jwt-recovery` | `lifecycle`, `controller-jwt`, `slow` |
 
-## `controller-jwt-renewal-migration-recovery`
+## `controller-jwt-renewal-recovery`
 
-Path: `Controller JWT lifecycle > renews Target credentials and recovers an initialized migration from an older snapshot`
+Path: `Controller JWT lifecycle > renews Target credentials and recovers older snapshot authentication`
 
 State: `active`
 
-Generated fallback ID: `controller-jwt-renews-target-credentials-and-recovers-an-d3ad7cce`
+Generated fallback ID: `controller-jwt-renews-target-credentials-and-recovers-older-b9ed93f0`
 
-Covers: `controller-jwt-renewal`, `controller-jwt-migration`, `controller-jwt-recovery`
+Covers: `controller-jwt-renewal`, `controller-jwt-recovery`
 
 Labels: `lifecycle`, `controller-jwt`, `slow`
 
 Recorded checkpoints:
 - bootstrapping Target mode with the operator-generated roles and policy approval
 - deleting an operational policy while the original Target credential ages
-- initializing an existing-style Shared cluster and saving its actual Raft snapshot
-- preparing the existing role, switching the CR, then removing shared trust
-- restoring the pre-migration snapshot while the CR remains in Target mode
+- capturing a snapshot with older shared role trust on a Target cluster
+- repairing role trust before restoring the older snapshot
+- restoring the older snapshot while the CR remains in Target mode
 - repairing restored audience trust through the independent administrator login
 - observing periodic policy repair during the original Target credential's lifetime
 - keeping the same controller process alive beyond the initial JWT's ten-minute lifetime

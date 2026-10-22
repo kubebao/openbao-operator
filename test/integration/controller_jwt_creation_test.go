@@ -68,7 +68,8 @@ func TestControllerJWTMode_CreateContract(t *testing.T) {
 		oidc, allowed bool
 	}{
 		{name: "development-omitted", profile: "Development"},
-		{name: "development-shared", profile: "Development", mode: api.ControllerJWTModeShared, allowed: true},
+		{name: "development-shared", profile: "Development", mode: api.ControllerJWTModeShared},
+		{name: "development-no-oidc", profile: "Development", mode: api.ControllerJWTModeTarget},
 		{name: "development-target", profile: "Development", mode: api.ControllerJWTModeTarget, oidc: true, allowed: true},
 		{name: "hardened-omitted", profile: "Hardened", oidc: true},
 		{name: "hardened-shared", profile: "Hardened", mode: api.ControllerJWTModeShared, oidc: true},

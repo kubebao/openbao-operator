@@ -39,7 +39,6 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 	type deletionExpectations struct {
 		retainPVC       bool
 		retainUnsealKey bool
-		retainRootToken bool
 	}
 
 	var (
@@ -176,7 +175,7 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 			g.Expect(c.Get(ctx, dataPVCKey, &corev1.PersistentVolumeClaim{})).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 		waitForOwnedSecret(unsealKey, clusterUID)
-		waitForOwnedSecret(rootTokenKey, clusterUID)
+		assertSecretDeleted(rootTokenKey) // New self-initialized clusters do not store a root token.
 
 		By("waiting for TLS Secrets so deletion can assert they are garbage collected")
 		Eventually(func(g Gomega) {
@@ -228,7 +227,7 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 			assertSecretDeleted(tlsCAKey)
 			assertSecretDeleted(tlsServerKey)
 			Consistently(func(g Gomega) {
-				for _, key := range []types.NamespacedName{unsealKey, rootTokenKey} {
+				for _, key := range []types.NamespacedName{unsealKey} {
 					secret := &corev1.Secret{}
 					g.Expect(c.Get(ctx, key, secret)).To(Succeed())
 					g.Expect(secret.DeletionTimestamp.IsZero()).To(BeTrue())
@@ -251,11 +250,7 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 		} else {
 			assertSecretDeleted(unsealKey)
 		}
-		if want.retainRootToken {
-			assertSecretRetainedAndOrphaned(rootTokenKey, clusterUID)
-		} else {
-			assertSecretDeleted(rootTokenKey)
-		}
+		assertSecretDeleted(rootTokenKey)
 
 		By("verifying TLS Secrets are garbage collected for all deletion policies")
 		assertSecretDeleted(tlsCAKey)
@@ -299,7 +294,6 @@ var _ = Describe("Cluster Lifecycle: Deletion Policy", Label("lifecycle", "clust
 		assertDeletionPolicy("retain-cluster", openbaov1alpha1.DeletionPolicyRetain, deletionExpectations{
 			retainPVC:       true,
 			retainUnsealKey: true,
-			retainRootToken: true,
 		})
 	})
 

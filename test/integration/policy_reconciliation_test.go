@@ -5,6 +5,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -131,11 +132,20 @@ func TestPolicyReconciliationStatus(t *testing.T) {
 }
 
 func TestPolicyReconciliationWithoutSelfInit(t *testing.T) {
-	cluster := newMinimalClusterObj(newTestNamespace(t), "manual-policy-enrollment")
-	waitForOpenBaoClusterAdmissionPolicies(t, cluster.Namespace)
+	c, _, _ := startIsolatedEnv(t, isolatedEnvOptions{
+		crdDirs: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+	})
+	namespace := createNamespace(t, ctx, c)
+	cluster := newMinimalClusterObj(namespace, "manual-policy-enrollment")
+	cluster.Spec.ControllerJWTMode = ""
 	cluster.Spec.SelfInit = nil
+	require.NoError(t, c.Create(ctx, cluster))
+	uid := cluster.UID
+	installControllerJWTAdmission(t, c, namespace)
 	cluster.Spec.ReconcilePolicies = true
-	require.NoError(t, k8sClient.Create(ctx, cluster))
+	require.NoError(t, c.Update(ctx, cluster))
+	require.Equal(t, uid, cluster.UID)
+	require.Empty(t, cluster.Spec.ControllerJWTMode)
 }
 
 func TestPolicyRepairAfterDeclaredIdleStrategyChange(t *testing.T) {

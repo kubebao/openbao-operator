@@ -45,7 +45,7 @@ ciLanes:
 
   - id: controller-jwt
     name: "Controller JWT Lifecycle"
-    labelFilter: "(case:controller-jwt-renewal-migration-recovery && !openshift)"
+    labelFilter: "(case:controller-jwt-renewal-recovery && !openshift)"
     prScope: always
     timeoutMinutes: 45
     e2eTimeout: 40m
@@ -596,7 +596,6 @@ suites:
       - slow
     coverage:
       - controller-jwt-renewal
-      - controller-jwt-migration
       - controller-jwt-recovery
     runtime:
       observed: 15m34.397s

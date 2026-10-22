@@ -14,7 +14,7 @@ Notes:
 - Files: `28`
 - Specs: `104`
 - Explicit case IDs: `104`
-- Coverage tags: `61`
+- Coverage tags: `60`
 
 ## Suites
 
@@ -74,7 +74,6 @@ Notes:
 | `cert-replacement` | 1 |
 | `configmap-protection` | 1 |
 | `controller-failover` | 1 |
-| `controller-jwt-migration` | 1 |
 | `controller-jwt-recovery` | 1 |
 | `controller-jwt-renewal` | 1 |
 | `controller-outage` | 1 |

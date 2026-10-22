@@ -74,7 +74,7 @@ var rules = []Rule{
 	{
 		ID:               RuleControllerJWTTarget,
 		Layers:           []EnforcementLayer{LayerAdmissionPolicy},
-		AdmissionMessage: "new Hardened clusters require spec.controllerJWTMode Target",
+		AdmissionMessage: "spec.controllerJWTMode is required to be Target when creating a cluster",
 	},
 	{
 		ID:     RuleHardenedBaseline,

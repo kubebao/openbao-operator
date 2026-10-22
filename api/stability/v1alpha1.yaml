@@ -139,7 +139,7 @@ resources:
         owner: authentication
         enforcement: [crd-schema, admission-policy, controller]
         omission: existing clusters retain Shared authentication; enforced admission rejects omitted modes on CREATE
-        rationale: New Hardened clusters require Target and self-init OIDC. Existing Shared clusters require administrator preparation of JWT roles before migration; executor identities are unchanged.
+        rationale: New clusters in every profile require Target and self-init OIDC. Existing Shared clusters require administrator preparation of JWT roles before migration; executor identities are unchanged.
       - path: spec.gateway
         classification: additive-unfrozen
         owner: networking

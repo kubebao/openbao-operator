@@ -442,7 +442,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             initialImage,
@@ -918,7 +918,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             initialImage,
@@ -1207,7 +1207,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             initialImage,
@@ -1461,7 +1461,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
@@ -1984,7 +1984,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
@@ -2349,7 +2349,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             initialImage,
@@ -2561,7 +2561,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
@@ -2748,7 +2748,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
@@ -2996,7 +2996,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
 					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),

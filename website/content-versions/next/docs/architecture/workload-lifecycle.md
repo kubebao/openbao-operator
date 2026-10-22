@@ -91,9 +91,10 @@ OpenBao performs its own initialization. The initialization service observes rea
 then sets `status.initialized` and `status.selfInitialized`. It does not create a root-token Secret. After success, it
 makes the self-init request ConfigMap inert so a later restart cannot replay the bootstrap request.
 
-### Operator initialization
+### Legacy operator initialization
 
-The initialization service waits for the first pod and required TLS material, checks whether the cluster is already
+New clusters require self-init OIDC and Target mode. For existing clusters that use standard initialization,
+the initialization service waits for the first pod and required TLS material, checks whether the cluster is already
 initialized, and calls the init API only when needed. It stores the returned root token in the cluster root-token Secret
 without logging the init response, then marks the cluster initialized.
 

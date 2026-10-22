@@ -44,7 +44,7 @@ var _ = Describe("Tenant Data Isolation", Label("security", "tenant", "tenancy")
 				Namespace: namespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 				Profile:           openbaov1alpha1.ProfileDevelopment,
 				Version:           openBaoVersion,
 				Image:             openBaoImage,

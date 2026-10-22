@@ -231,7 +231,7 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 			Namespace: f.sourceFW.Namespace,
 		},
 		Spec: api.OpenBaoClusterSpec{
-			ControllerJWTMode: api.ControllerJWTModeShared,
+			ControllerJWTMode: api.ControllerJWTModeTarget,
 			Profile:           api.ProfileDevelopment,
 			Version:           "2.7.1",
 			Image:             image,

@@ -295,3 +295,9 @@ spec:
     retention:
       maxCount: 7
       maxAge: "168h"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bao-gateway-cert-client

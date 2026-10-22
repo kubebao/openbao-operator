@@ -307,6 +307,7 @@ create_external_tls_secrets() {
 verify_harness() {
   local required_files=(
     "${FIXTURE_DIR}/versions.env"
+    "${ROOT_DIR}/hack/ci/operator-upgrade-jwt-migration.py"
     "${ROOT_DIR}/release-notes/${MIGRATION_TO_VERSION}.md"
     "${MIGRATION_FIXTURE_DIR}/${MIGRATION_FROM_VERSION}-openbaocluster.yaml"
     "${MIGRATION_FIXTURE_DIR}/${MIGRATION_TO_VERSION}-openbaocluster.yaml"
@@ -803,6 +804,28 @@ echo "Reading the Hardened pre-upgrade data through JWT auth and verified TLS...
   --timeout=5m >/dev/null
 assert_equal "Hardened OpenBao data changed during the operator upgrade" "preserved" \
   "$("${KUBECTL_BIN}" logs -n "${TENANT_NAMESPACE}" job/operator-upgrade-hardened-read | tr -d '\r\n')"
+
+echo "Migrating the initialized legacy Hardened cluster to Target authentication..." >&2
+KUBECTL="${KUBECTL_BIN}" python3 "${ROOT_DIR}/hack/ci/operator-upgrade-jwt-migration.py"
+assert_equal "Hardened PVC UIDs changed during JWT migration" "${hardened_pvc_uids}" \
+  "$(pvc_uid_set operator-upgrade-hardened 3)"
+assert_resource_absent secret/operator-upgrade-hardened-root-token
+
+echo "Verifying retained legacy root-token and unseal-key custody..." >&2
+legacy_root_uid="$("${KUBECTL_BIN}" get secret/operator-upgrade-root-token -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+legacy_unseal_uid="$("${KUBECTL_BIN}" get secret/operator-upgrade-unseal-key -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+"${KUBECTL_BIN}" delete "${CLUSTER_RESOURCE}" -n "${TENANT_NAMESPACE}" --wait=true --timeout=5m >/dev/null
+for secret_name in operator-upgrade-root-token operator-upgrade-unseal-key; do
+  "${KUBECTL_BIN}" get "secret/${secret_name}" -n "${TENANT_NAMESPACE}" -o json | \
+    jq -e --arg uid "${cluster_uid}" '(.metadata.deletionTimestamp == null) and
+      all(.metadata.ownerReferences[]?; .uid != $uid)' >/dev/null
+done
+assert_equal "Retained legacy root-token UID changed" "${legacy_root_uid}" \
+  "$("${KUBECTL_BIN}" get secret/operator-upgrade-root-token -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+assert_equal "Retained legacy unseal-key UID changed" "${legacy_unseal_uid}" \
+  "$("${KUBECTL_BIN}" get secret/operator-upgrade-unseal-key -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+assert_equal "Retained legacy PVC UID changed" "${pvc_uid}" \
+  "$("${KUBECTL_BIN}" get "${PVC_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
 
 echo "Exercising the upgraded provisioner with a new tenant..." >&2
 "${KUBECTL_BIN}" apply -f "${FIXTURE_DIR}/post-upgrade-tenant.yaml" >/dev/null

@@ -249,8 +249,8 @@ The CRD requires an explicitly configured `minQuorum` to be at least three. Smal
 a derived value below three; automatic cleanup is then disabled so OpenBao does not reject the configuration.
 
 For self-init clusters, day-2 Autopilot reconciliation requires operator JWT bootstrap. Without
-`selfInit.oidc.enabled`, the operator skips that authenticated reconciliation after initialization. Standard-init
-clusters use the operator-managed root-token Secret.
+`selfInit.oidc.enabled`, legacy Shared clusters skip that authenticated reconciliation after initialization. Existing
+standard-init clusters use the operator-managed root-token Secret. New clusters require Target and self-init OIDC.
 
 Override Autopilot only after measuring the failure or latency behavior you need to change:
 

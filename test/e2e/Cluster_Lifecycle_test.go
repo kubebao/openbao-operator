@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -97,7 +98,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					Namespace: f.Namespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           openBaoVersion,
 					Image:             openBaoImage,
@@ -446,7 +447,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 		})
 	})
 
-	Context("Development Profile: Manual Init (Self-Init Disabled)", Label("profile-development"), func() {
+	Context("Development Profile: Target Self-Initialization", Label("profile-development"), func() {
 		var (
 			f *framework.Framework
 			c client.Client
@@ -472,8 +473,8 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			_ = f.Cleanup(cleanupCtx)
 		})
 
-		It("creates a cluster with self-init disabled and produces expected Secrets", Label(
-			"case:cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f",
+		It("requires Target self-init for new clusters and revokes the bootstrap root token", Label(
+			"case:cluster-lifecycle-requires-target-self-init-for-new-clusters",
 		), func() {
 			By(fmt.Sprintf("creating OpenBaoCluster %q", clusterName))
 			cluster, err := f.CreateDevelopmentCluster(ctx, framework.DevelopmentClusterConfig{
@@ -503,13 +504,25 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 				return c.Get(ctx, types.NamespacedName{Name: clusterName + "-unseal-key", Namespace: f.Namespace}, &corev1.Secret{})
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed(), "Unseal Key Secret missing")
 
-			By("waiting for root token Secret (self-init disabled)")
+			By("rejecting a new standard-init Shared cluster")
+			standard := cluster.DeepCopy()
+			standard.ObjectMeta = metav1.ObjectMeta{Name: "standard-init-rejected", Namespace: f.Namespace}
+			standard.Status = openbaov1alpha1.OpenBaoClusterStatus{}
+			standard.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeShared
+			standard.Spec.SelfInit = nil
+			err = c.Create(ctx, standard)
+			Expect(apierrors.IsForbidden(err)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("spec.controllerJWTMode is required to be Target"))
+
+			By("waiting for native self-initialization without a stored root token")
 			Eventually(func(g Gomega) {
-				g.Expect(c.Get(ctx, types.NamespacedName{
-					Name:      clusterName + "-root-token",
-					Namespace: f.Namespace,
-				}, &corev1.Secret{})).To(Succeed())
-			}, 10*time.Minute, 3*time.Second).Should(Succeed(), "Root Token Secret missing")
+				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
+				g.Expect(cluster.Status.Initialized).To(BeTrue())
+				g.Expect(cluster.Status.SelfInitialized).To(BeTrue())
+				g.Expect(cluster.Spec.ControllerJWTMode).To(Equal(openbaov1alpha1.ControllerJWTModeTarget))
+				err := c.Get(ctx, types.NamespacedName{Name: clusterName + "-root-token", Namespace: f.Namespace}, &corev1.Secret{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue(), "self-init must not create a root-token Secret")
+			}, 10*time.Minute, 3*time.Second).Should(Succeed())
 		})
 	})
 
@@ -602,7 +615,7 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 					Namespace: f.Namespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           openBaoVersion,
 					Image:             openBaoImage,

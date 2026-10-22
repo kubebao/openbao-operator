@@ -105,7 +105,7 @@ var _ = Describe("Manager Resilience", Label("manager", "cluster"), Serial, Orde
 				Namespace: f.Namespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 				Profile:           openbaov1alpha1.ProfileDevelopment,
 				Version:           openBaoVersion,
 				Image:             openBaoImage,

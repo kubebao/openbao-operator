@@ -23,9 +23,9 @@ every required trust, identity, storage, and network dependency is ready.
 | Replicas | One or more | At least three voters |
 | TLS | Operator-managed, External, or ACME | External or ACME, with TLS enabled |
 | Unseal | Static or external | Explicit non-static provider |
-| Initialization | Standard init or self-init | Self-init with a non-empty request list |
-| Controller JWT for new clusters | Declare Shared or Target; recommend Target with self-init OIDC | Declare Target with self-init OIDC |
-| Root token | Can be stored in an operator-managed Secret | Self-init revokes the bootstrap root token |
+| Initialization for new clusters | Self-init with OIDC and a non-empty request list | Self-init with OIDC and a non-empty request list |
+| Controller JWT for new clusters | Target | Target |
+| Root token for new clusters | Self-init revokes the bootstrap root token | Self-init revokes the bootstrap root token |
 | Image verification | Optional; `Warn` or `Block` when enabled | Enabled for OpenBao and helper images; `Warn` and explicit disablement are rejected |
 | Network and runtime escape hatches | Permitted where the API supports them | Broad or insecure forms are rejected |
 
@@ -34,32 +34,13 @@ verification, bootstrap credential handling, and Raft Autopilot defaults.
 
 ## Create a disposable evaluation cluster
 
-This manifest is complete enough for the default operator contract when the namespace is onboarded and a default
-StorageClass exists.
+Follow [Create the first cluster](../../get-started/create-cluster/) for a complete Development manifest and an
+authenticated client check. New Development clusters require Target and self-init OIDC, just like Hardened clusters.
+The operator can still manage TLS and a static unseal key for evaluation. Protect Kubernetes Secrets, etcd encryption,
+logs, support bundles, and backups.
 
-{{< command label="configure" title="Declare a Development cluster" >}}
-apiVersion: openbao.org/v1alpha1
-kind: OpenBaoCluster
-metadata:
-  name: dev-cluster
-  namespace: openbao-demo
-spec:
-  version: "2.6.2"
-  profile: Development
-  controllerJWTMode: Shared
-  replicas: 1
-  tls:
-    enabled: true
-    mode: OperatorManaged
-    rotationPeriod: "720h"
-  storage:
-    size: "10Gi"
-  deletionPolicy: Retain
-{{< /command >}}
-
-The operator defaults an omitted unseal configuration to static and creates the unseal key. Standard initialization
-can also create an immutable root-token Secret. Protect Kubernetes Secrets, etcd encryption, logs, support bundles,
-and backups even for evaluation.
+Existing Development clusters that use standard initialization can retain their root-token Secret. Upgrading the
+operator does not revoke that credential or initialize an existing cluster again.
 
 {{< callout type="warning" title="Do not promote an evaluation cluster in place" >}}
 Changing only `profile: Development` to `profile: Hardened` does not establish the external trust, usable human access,
@@ -83,7 +64,7 @@ The exact TLS and unseal fields depend on the provider. Use [initialize the clus
 [configure unseal](../unseal/) to build those parts. Do not publish an incomplete provider-neutral manifest as an
 executable production example.
 
-Existing Hardened clusters with an omitted or Shared controller JWT mode retain their authentication during an
+Existing clusters with an omitted or Shared controller JWT mode retain their authentication during an
 operator upgrade. Follow [controller JWT migration](../../operate/controller-jwt-migration/) before selecting Target.
 The creation requirement does not force a role migration during an ordinary update.
 

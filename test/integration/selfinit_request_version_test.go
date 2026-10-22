@@ -4,6 +4,7 @@ package integration
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -23,7 +24,7 @@ func TestVAP_OpenBaoCluster_SelfInitRequestVersions(t *testing.T) {
 	}{
 		{name: "plain request on older version", version: "2.4.4"},
 		{name: "empty headers on older version", version: "2.5.5", control: "empty-headers"},
-		{name: "disabled controls on older version", version: "2.5.5", control: "headers", disabled: true},
+		{name: "legacy disabled controls on older version", version: "2.5.5", control: "headers", disabled: true},
 		{name: "headers on older version", version: "2.5.5", control: "headers", denied: true},
 		{name: "false condition on older version", version: "2.5.5", control: "false", denied: true},
 		{name: "true condition on older version", version: "2.4.4", control: "true", denied: true},
@@ -39,7 +40,7 @@ func TestVAP_OpenBaoCluster_SelfInitRequestVersions(t *testing.T) {
 			cluster.Spec.Version = tt.version
 			request := selfInitVersionRequest(tt.control)
 			cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{
-				Enabled: !tt.disabled, Requests: []openbaov1alpha1.SelfInitRequest{request},
+				Enabled: !tt.disabled, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: !tt.disabled}, Requests: []openbaov1alpha1.SelfInitRequest{request},
 			}
 			object, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
 			require.NoError(t, err)
@@ -51,7 +52,20 @@ func TestVAP_OpenBaoCluster_SelfInitRequestVersions(t *testing.T) {
 				requests[0].(map[string]any)["headers"] = map[string]any{}
 				require.NoError(t, unstructured.SetNestedSlice(object, requests, "spec", "selfInit", "requests"))
 			}
-			err = k8sClient.Create(ctx, candidate, client.DryRunAll)
+			if tt.disabled {
+				// Only legacy Shared objects can keep self-init disabled.
+				c, _, _ := startIsolatedEnv(t, isolatedEnvOptions{
+					crdDirs: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+				})
+				ns := createNamespace(t, ctx, c)
+				candidate.SetNamespace(ns)
+				require.NoError(t, unstructured.SetNestedField(candidate.Object, "Shared", "spec", "controllerJWTMode"))
+				require.NoError(t, c.Create(ctx, candidate))
+				installControllerJWTAdmission(t, c, ns)
+				err = c.Update(ctx, candidate, client.DryRunAll)
+			} else {
+				err = k8sClient.Create(ctx, candidate, client.DryRunAll)
+			}
 			if tt.denied {
 				requireAdmissionDenied(t, err)
 				require.ErrorContains(t, err, "headers and when require OpenBao >= 2.6.0")
@@ -68,7 +82,7 @@ func TestVAP_OpenBaoCluster_SelfInitRequestVersionUpdates(t *testing.T) {
 	cluster := newMinimalClusterObj(namespace, "selfinit-version-update")
 	cluster.Spec.Version = "2.5.5"
 	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{
-		Enabled: true, Requests: []openbaov1alpha1.SelfInitRequest{selfInitVersionRequest("")},
+		Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true}, Requests: []openbaov1alpha1.SelfInitRequest{selfInitVersionRequest("")},
 	}
 	require.NoError(t, k8sClient.Create(ctx, cluster))
 	cluster.Spec.SelfInit.Requests[0] = selfInitVersionRequest("false")

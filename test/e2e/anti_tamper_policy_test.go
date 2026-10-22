@@ -66,7 +66,7 @@ var _ = Describe("Security: Anti-Tamper Policy", Label("security", "tamper", "cl
 					Namespace: tenantNamespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeShared,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           openBaoVersion,
 					Image:             openBaoImage,
@@ -76,7 +76,7 @@ var _ = Describe("Security: Anti-Tamper Policy", Label("security", "tamper", "cl
 						Image:   configInitImage,
 					},
 					SelfInit: &openbaov1alpha1.SelfInitConfig{
-						Enabled:  true,
+						Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true},
 						Requests: framework.DefaultAdminSelfInitRequests(),
 					},
 					TLS: openbaov1alpha1.TLSConfig{

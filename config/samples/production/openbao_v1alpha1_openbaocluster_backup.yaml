@@ -27,7 +27,7 @@ spec:
   version: "2.4.4"
   replicas: 3
   profile: Development
-  controllerJWTMode: Shared
+  controllerJWTMode: Target
   tls:
     enabled: true
     rotationPeriod: "720h"
@@ -46,6 +46,8 @@ spec:
   # are configured. This example shows manual configuration for non-Hardened clusters.
   selfInit:
     enabled: true
+    oidc:
+      enabled: true
     requests:
       # Enable JWT authentication (or opt-in to bootstrap via spec.selfInit.oidc.enabled: true)
       - name: enable-jwt-auth
