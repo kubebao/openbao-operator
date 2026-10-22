@@ -33,3 +33,26 @@ func TestParse(t *testing.T) {
 		})
 	}
 }
+
+func TestParseStrategySwitch(t *testing.T) {
+	for _, tc := range []struct {
+		name, sequence, wantErr string
+	}{
+		{name: "historical", sequence: DefaultSequence},
+		{name: "modern", sequence: "2.6.4,2.7.0,2.7.1"},
+		{name: "same forwarding generation", sequence: "2.6.0-rc.1,2.6.0,2.6.4"},
+		{name: "crossing boundary", sequence: "2.5.5,2.6.4,2.7.1", wantErr: "BlueGreen step"},
+		{name: "prerelease boundary", sequence: "2.5.5,2.6.0-rc.1,2.6.4", wantErr: "BlueGreen step"},
+		{name: "next major boundary", sequence: "2.5.5,3.0.0,3.0.1", wantErr: "BlueGreen step"},
+		{name: "invalid sequence", sequence: "2.6.4,2.7.1", wantErr: "requires three"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseStrategySwitch(tc.sequence)
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

@@ -71,3 +71,8 @@ func twoStepUpgradeVersions() ([3]string, error) {
 	sequence := envOrDefault("E2E_UPGRADE_SEQUENCE", upgradeversions.DefaultSequence)
 	return upgradeversions.Parse(sequence)
 }
+
+func strategySwitchUpgradeVersions() ([3]string, error) {
+	sequence := envOrDefault("E2E_UPGRADE_SEQUENCE", upgradeversions.DefaultSequence)
+	return upgradeversions.ParseStrategySwitch(sequence)
+}

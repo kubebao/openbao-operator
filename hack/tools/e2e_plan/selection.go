@@ -245,6 +245,11 @@ func selectScenarios(
 				if sequence == "" {
 					sequence = upgradeversions.DefaultSequence
 				}
+				if tc.ID == "idle-upgrade-strategy-switch" {
+					if _, err := upgradeversions.ParseStrategySwitch(sequence); err != nil {
+						return githubMatrix{}, fmt.Errorf("lane %s upgrade sequence: %w", row.ID, err)
+					}
+				}
 			default:
 				if sequence != "" {
 					return githubMatrix{}, fmt.Errorf("lane %s sets an upgrade sequence for unrelated scenario %s", row.ID, tc.ID)

@@ -47,7 +47,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 
 	BeforeAll(func() {
 		var err error
-		versions, err = twoStepUpgradeVersions()
+		versions, err = strategySwitchUpgradeVersions()
 		Expect(err).NotTo(HaveOccurred())
 		AddReportEntry("upgrade-sequence", versions)
 		tenantFW, err = framework.NewSetup(ctx, "tenant-strategy-switch", operatorNamespace)

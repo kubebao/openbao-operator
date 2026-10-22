@@ -55,6 +55,9 @@ The consecutive rolling and idle strategy-switch scenarios require two upgrades.
 `E2E_UPGRADE_SEQUENCE=2.6.4,2.7.0,2.7.1` to select their initial, intermediate, and final
 OpenBao versions. The sequence must contain exactly three increasing semantic versions
 without build metadata. The tests use these versions as container image tags.
+The first strategy-switch step uses BlueGreen. The operator currently blocks this step
+from pre-2.6 OpenBao to 2.6 or newer, including 2.6 prereleases. See the
+[BlueGreen compatibility restriction]({{< relref "/docs/reference/compatibility" >}}).
 It is independent of the single-hop `E2E_UPGRADE_FROM_VERSION`, `E2E_UPGRADE_TO_VERSION`,
 and blue-green overrides. The default sequence remains `2.4.4,2.5.5,2.6.4`.
 The release gate retains the default runs and adds both scenarios with the sequence ending at 2.7.1.
