@@ -1,0 +1,3 @@
+9ff2c5c42a9eca1fff22bd77ba7b1fd6bcc9b047da7d5680f31a2505ce8b9305  install.yaml
+855dac1263dc26f871b0945a8b050c7fcc327975888219ea24fc6613531cae42  crds.yaml
+98f812d4616bfbcbf10e3bac7bef0de0e2ece2db7fa2a9f8fc7fc00e055055ed  openbao-operator-0.0.0-edge.39777703286.1.g9dd6052ceaa0.tgz
