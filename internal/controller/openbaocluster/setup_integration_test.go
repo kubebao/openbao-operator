@@ -129,7 +129,12 @@ func TestSetupWithManager_WaitsForTenantRoleBindingReplacement(t *testing.T) {
 	binding.RoleRef.Name = constants.TenantRoleName
 	err := liveClient.Update(ctx, binding)
 	require.True(t, apierrors.IsInvalid(err), "the API server must reject changing RoleRef: %v", err)
-	require.ErrorContains(t, err, "cannot change roleRef")
+	var statusErr *apierrors.StatusError
+	require.ErrorAs(t, err, &statusErr)
+	require.NotNil(t, statusErr.ErrStatus.Details)
+	require.True(t, slices.ContainsFunc(statusErr.ErrStatus.Details.Causes, func(cause metav1.StatusCause) bool {
+		return cause.Field == "roleRef"
+	}), "the API server must reject the immutable roleRef field: %v", err)
 	require.NoError(t, liveClient.Delete(ctx, binding))
 	require.NoError(t, ensureProvisionedTenantNamespace(ctx, liveClient, namespace))
 	require.NoError(t, liveClient.Get(ctx, key, binding))
