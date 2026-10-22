@@ -86,8 +86,8 @@ policy enabled throughout the migration.
 
 1. Allow `github/codeql-action/init` and `github/codeql-action/analyze` at the exact revision in `codeql.yml` in
    KubeBao's organization Actions policy. The existing `upload-sarif` allowlist entry does not allow these actions.
-2. Prepare reviewed workflow PRs for `main` and each supported release branch. Confirm that default setup has scanned
-   the current branch heads. Keep default setup enabled until the replacement PRs are ready for validation.
+2. Prepare reviewed workflow PRs for `main` and each supported release branch. Record the latest analyses for the
+   current branch heads and any coverage gaps. Keep default setup enabled until the replacement PRs are ready for validation.
 3. In the repository's Code Security settings, switch CodeQL from default to advanced setup. GitHub documents the
    transition under [configuring advanced setup](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/configure-code-scanning/configuring-advanced-setup-for-code-scanning).
    Enable the `CodeQL` workflow if GitHub disabled it.
