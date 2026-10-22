@@ -8,9 +8,14 @@ verifiedBy:
   - charts/openbao-operator/templates/controller/deployment.yaml
   - charts/openbao-operator/templates/provisioner/deployment.yaml
   - config/policy
+  - hack/tools/admission_contracts/main.go
   - internal/controller/openbaocluster/admission_runtime.go
   - internal/controller/openbaorestore/controller.go
   - internal/platform/admission/check.go
+  - internal/platform/admission/contract.go
+  - internal/platform/admission/contract_integration_test.go
+  - internal/platform/admission/installation_test.go
+  - internal/platform/admission/sync_callers.go
   - internal/platform/entrypoint/flags.go
   - internal/service/workload/pod_deletion.go
   - internal/service/provisioner/namespace_finalization.go
