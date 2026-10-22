@@ -73,6 +73,76 @@ func TestSetupWithManager_ReconcilesClusterInMultiTenantMode(t *testing.T) {
 	waitForManagedConfigMap(t, ctx, liveClient, namespace, cluster.Name)
 }
 
+func TestSetupWithManager_WaitsForCorrectTenantOnboardingSubject(t *testing.T) {
+	ctx := context.Background()
+	const namespace = "multi-tenant-handoff-test"
+	liveClient := startOpenBaoClusterManager(t, namespace, false)
+	binding := &rbacv1.RoleBinding{}
+	key := client.ObjectKey{Namespace: namespace, Name: constants.TenantRoleBindingName}
+	require.NoError(t, liveClient.Get(ctx, key, binding))
+	binding.Subjects[0].Name = "unrelated-controller"
+	require.NoError(t, liveClient.Update(ctx, binding))
+
+	cluster := newManagerTestCluster(namespace, "handoff-cluster")
+	require.NoError(t, liveClient.Create(ctx, cluster))
+	t.Cleanup(func() { _ = liveClient.Delete(context.Background(), cluster) })
+	require.Never(t, func() bool {
+		current := &openbaov1alpha1.OpenBaoCluster{}
+		require.NoError(t, liveClient.Get(ctx, client.ObjectKeyFromObject(cluster), current))
+		return slices.Contains(current.Finalizers, openbaov1alpha1.OpenBaoClusterFinalizer)
+	}, time.Second, 100*time.Millisecond, "a malformed handoff must pause reconciliation")
+
+	require.NoError(t, liveClient.Get(ctx, key, binding))
+	binding.Subjects[0].Name = "openbao-operator-controller"
+	require.NoError(t, liveClient.Update(ctx, binding))
+	waitForClusterFinalizer(t, ctx, liveClient, cluster)
+	waitForManagedConfigMap(t, ctx, liveClient, namespace, cluster.Name)
+}
+
+func TestSetupWithManager_WaitsForTenantRoleBindingReplacement(t *testing.T) {
+	ctx := context.Background()
+	const namespace = "multi-tenant-role-repair-test"
+	liveClient := startOpenBaoClusterManager(t, namespace, false)
+	key := client.ObjectKey{Namespace: namespace, Name: constants.TenantRoleBindingName}
+	binding := &rbacv1.RoleBinding{}
+	require.NoError(t, liveClient.Get(ctx, key, binding))
+	require.NoError(t, liveClient.Delete(ctx, binding))
+	binding = &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace},
+		RoleRef:    rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: "unexpected-role"},
+		Subjects: []rbacv1.Subject{{
+			Kind: "ServiceAccount", Namespace: "openbao-operator-system", Name: "openbao-operator-controller",
+		}},
+	}
+	require.NoError(t, liveClient.Create(ctx, binding))
+	wrongBindingUID := binding.UID
+
+	cluster := newManagerTestCluster(namespace, "role-repair-cluster")
+	require.NoError(t, liveClient.Create(ctx, cluster))
+	t.Cleanup(func() { _ = liveClient.Delete(context.Background(), cluster) })
+	require.Never(t, func() bool {
+		current := &openbaov1alpha1.OpenBaoCluster{}
+		require.NoError(t, liveClient.Get(ctx, client.ObjectKeyFromObject(cluster), current))
+		return slices.Contains(current.Finalizers, openbaov1alpha1.OpenBaoClusterFinalizer)
+	}, time.Second, 100*time.Millisecond, "an incorrect RoleRef must pause reconciliation")
+
+	binding.RoleRef.Name = constants.TenantRoleName
+	err := liveClient.Update(ctx, binding)
+	require.True(t, apierrors.IsInvalid(err), "the API server must reject changing RoleRef: %v", err)
+	var statusErr *apierrors.StatusError
+	require.ErrorAs(t, err, &statusErr)
+	require.NotNil(t, statusErr.ErrStatus.Details)
+	require.True(t, slices.ContainsFunc(statusErr.ErrStatus.Details.Causes, func(cause metav1.StatusCause) bool {
+		return cause.Field == "roleRef"
+	}), "the API server must reject the immutable roleRef field: %v", err)
+	require.NoError(t, liveClient.Delete(ctx, binding))
+	require.NoError(t, ensureProvisionedTenantNamespace(ctx, liveClient, namespace))
+	require.NoError(t, liveClient.Get(ctx, key, binding))
+	require.NotEqual(t, wrongBindingUID, binding.UID)
+	waitForClusterFinalizer(t, ctx, liveClient, cluster)
+	waitForManagedConfigMap(t, ctx, liveClient, namespace, cluster.Name)
+}
+
 func TestSetupWithManager_SingleTenantRecreatesDeletedConfigMap(t *testing.T) {
 	ctx := context.Background()
 	namespace := "single-tenant-watch-test"
