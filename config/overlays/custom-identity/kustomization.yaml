@@ -258,6 +258,20 @@ replacements:
       fieldPath: metadata.name
     targets:
       - select:
+          group: apps
+          version: v1
+          kind: Deployment
+          name: openbao-operator-controller
+        fieldPaths:
+          - spec.template.spec.containers.[name=manager].env.[name=OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME].value
+      - select:
+          group: apps
+          version: v1
+          kind: Deployment
+          name: openbao-operator-provisioner
+        fieldPaths:
+          - spec.template.spec.containers.[name=manager].env.[name=OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME].value
+      - select:
           group: admissionregistration.k8s.io
           version: v1
           kind: ValidatingAdmissionPolicy
@@ -297,3 +311,15 @@ replacements:
         options:
           delimiter: "'"
           index: 1
+
+# Namespace transformation in this overlay runs after the base's strip patches.
+# Admission policies and bindings remain cluster-scoped.
+patchesJson6902:
+  - target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: ValidatingAdmissionPolicy(Binding)?
+      name: ".*"
+    patch: |-
+      - op: remove
+        path: /metadata/namespace

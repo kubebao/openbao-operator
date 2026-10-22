@@ -33,15 +33,34 @@ The required set covers these boundaries:
 - StatefulSet and other managed-resource mutation locks; and
 - digest enforcement for Hardened operator-managed StatefulSets and Jobs.
 
-The startup check verifies both each policy and its binding, including that the binding enforces `Deny`. Repository
-tests keep the dependency inventory aligned with `config/policy`; do not install a hand-selected subset.
+Startup and periodic runtime checks compare all 13 required policies and their bindings with specifications embedded
+in the operator binary. The comparison includes Common Expression Language (CEL) expressions, identity variables, match conditions, resource rules,
+namespace and object selectors, parameter references, and validation actions. Policy annotations do not establish
+integrity. Repository tests keep the dependency inventory aligned with `config/policy`; do not install a hand-selected
+subset.
+
+The embedded specifications cover the release Helm templates and manifests rendered with the repository's pinned
+Kustomize version. Helm release names, operator namespaces, ServiceAccount names, and the supported external Pod
+Security label mode come from the manager's installation settings. The checker normalizes Kubernetes API defaults
+and empty collections. It does not accept arbitrary edits that appear semantically equivalent to the release policies.
+
+Both manager Deployments receive `OPERATOR_SERVICE_ACCOUNT_NAME` for the controller identity and
+`OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME` for the provisioner identity. They also receive the namespace and, for
+Helm, `OPENBAO_TENANT_NAMESPACE_POD_SECURITY_LABELS_MODE`. Without identity settings, the checker uses the default
+Kustomize namespace and ServiceAccount names. Custom installations must set these values consistently with their
+admission policies. An installation name prefix selects only that installation's policies.
 
 ## Use fail-closed mode
 
 `--admission-enforcement=fail` is the manager default. The controller and provisioner wait up to
 `--admission-startup-timeout` (60 seconds by default) and refuse to start if the policy dependencies are not ready.
-While running, cluster, restore, tenant-provisioning, and tenant Secret-RBAC paths pause when the dependency set is
-lost.
+While running, cluster, restore, tenant-provisioning, and tenant Secret-RBAC paths pause when a dependency is missing
+or its specification differs from the release contract. Readiness also fails after its next dependency refresh. Repair
+the policies and bindings from the matching release to restore readiness and resume paused operations.
+
+These checks detect drift at refresh boundaries. They do not make admission configuration immutable or provide an
+atomic check across a subsequent privileged operation. The API server remains responsible for enforcing admission.
+The provisioner's dry-run Role canary also checks one denial through the API server.
 
 {{< callout type="warning" title="Disabling chart admission is unsafe mode" >}}
 Setting Helm `admissionPolicies.enabled: false` starts both managers with warning enforcement and

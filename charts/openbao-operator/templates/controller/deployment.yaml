@@ -83,6 +83,10 @@ spec:
               value: {{ include "openbao-operator.fullname" . }}-
             - name: OPERATOR_SERVICE_ACCOUNT_NAME
               value: {{ include "openbao-operator.controllerServiceAccountName" . }}
+            - name: OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME
+              value: {{ include "openbao-operator.provisionerServiceAccountName" . }}
+            - name: OPENBAO_TENANT_NAMESPACE_POD_SECURITY_LABELS_MODE
+              value: {{ .Values.tenancy.namespacePodSecurityLabels.mode | quote }}
             - name: OPERATOR_VERSION
               value: {{ include "openbao-operator.operatorVersion" . | quote }}
             {{- if and .Values.helperImages .Values.helperImages.init }}

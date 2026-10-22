@@ -48,6 +48,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: OPERATOR_SERVICE_ACCOUNT_NAME
               value: controller
+            - name: OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME
+              value: provisioner
             - name: OPERATOR_NAMESPACE
               valueFrom:
                 fieldRef:

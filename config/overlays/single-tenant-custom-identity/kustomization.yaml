@@ -1,5 +1,17 @@
 namespace: openbao-operator-system
 
+# Namespace transformation runs after the base's patches. Keep admission
+# policies and bindings cluster-scoped in the final overlay.
+patchesJson6902:
+  - target:
+      group: admissionregistration.k8s.io
+      version: v1
+      kind: ValidatingAdmissionPolicy(Binding)?
+      name: ".*"
+    patch: |-
+      - op: remove
+        path: /metadata/namespace
+
 resources:
   - ../custom-identity
   - single_tenant_clusterrole.yaml
