@@ -37,6 +37,8 @@ spec:
             object.metadata.labels["openbao.org/component"] :
             (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.labels) && ("openbao.org/component" in oldObject.metadata.labels) ?
               oldObject.metadata.labels["openbao.org/component"] : ""))
+  # Role and RoleBinding share this policy. Resource guards select each kind.
+  # Native lists can be present with null values; retain their null guards.
   validations:
     # Rule 0: Role restriction
     # The controller may only create/update/delete Roles used for pod discovery and service registration.
@@ -49,37 +51,37 @@ spec:
           has(object.metadata) &&
           has(object.metadata.name) &&
           object.metadata.name.endsWith("-role") &&
-          has(object.rules) &&
-          object.rules != null &&
+          has(dyn(object).rules) &&
+          dyn(object).rules != null &&
           (
             (
               variables.component_label in ["backup", "restore"] &&
-              (object.rules.size() == 1 || (variables.component_label == "restore" && object.rules.size() == 3 &&
-                object.rules[1].apiGroups == ["openbao.org"] && object.rules[1].resources == ["openbaorestores"] &&
-                object.rules[1].verbs == ["get"] && has(object.rules[1].resourceNames) && object.rules[1].resourceNames.size() == 1 &&
-                object.rules[2].apiGroups == ["openbao.org"] && object.rules[2].resources == ["openbaorestores/status"] &&
-                object.rules[2].verbs == ["patch"] && object.rules[2].resourceNames == object.rules[1].resourceNames)) &&
-              object.rules[0].apiGroups == [""] &&
-              object.rules[0].resources == ["pods"] &&
-              has(object.rules[0].verbs) &&
-              object.rules[0].verbs != null &&
-              object.rules[0].verbs.all(v, v in ["get", "list", "watch"]) &&
-              object.rules[0].verbs.exists(v, v == "get") &&
-              object.rules[0].verbs.exists(v, v == "list") &&
-              object.rules[0].verbs.exists(v, v == "watch")
+              (dyn(object).rules.size() == 1 || (variables.component_label == "restore" && dyn(object).rules.size() == 3 &&
+                dyn(object).rules[1].apiGroups == ["openbao.org"] && dyn(object).rules[1].resources == ["openbaorestores"] &&
+                dyn(object).rules[1].verbs == ["get"] && has(dyn(object).rules[1].resourceNames) && dyn(object).rules[1].resourceNames.size() == 1 &&
+                dyn(object).rules[2].apiGroups == ["openbao.org"] && dyn(object).rules[2].resources == ["openbaorestores/status"] &&
+                dyn(object).rules[2].verbs == ["patch"] && dyn(object).rules[2].resourceNames == dyn(object).rules[1].resourceNames)) &&
+              dyn(object).rules[0].apiGroups == [""] &&
+              dyn(object).rules[0].resources == ["pods"] &&
+              has(dyn(object).rules[0].verbs) &&
+              dyn(object).rules[0].verbs != null &&
+              dyn(object).rules[0].verbs.all(v, v in ["get", "list", "watch"]) &&
+              dyn(object).rules[0].verbs.exists(v, v == "get") &&
+              dyn(object).rules[0].verbs.exists(v, v == "list") &&
+              dyn(object).rules[0].verbs.exists(v, v == "watch")
             ) ||
             (
               variables.component_label == "" &&
-              object.rules.size() == 2 &&
-              object.rules.all(r, r.apiGroups == [""] && r.resources == ["pods"] && has(r.verbs) && r.verbs != null) &&
-              object.rules.exists(r,
+              dyn(object).rules.size() == 2 &&
+              dyn(object).rules.all(r, r.apiGroups == [""] && r.resources == ["pods"] && has(r.verbs) && r.verbs != null) &&
+              dyn(object).rules.exists(r,
                 r.verbs.all(v, v in ["get", "list", "watch"]) &&
                 r.verbs.exists(v, v == "get") &&
                 r.verbs.exists(v, v == "list") &&
                 r.verbs.exists(v, v == "watch") &&
                 (!has(r.resourceNames) || r.resourceNames == null || r.resourceNames.size() == 0)
               ) &&
-              object.rules.exists(r,
+              dyn(object).rules.exists(r,
                 r.verbs.all(v, v in ["patch", "update"]) &&
                 (r.verbs.exists(v, v == "patch") || r.verbs.exists(v, v == "update")) &&
                 has(r.resourceNames) &&
@@ -102,23 +104,23 @@ spec:
           has(object.metadata) &&
           has(object.metadata.name) &&
           object.metadata.name.endsWith("-rolebinding") &&
-          has(object.roleRef) &&
-          object.roleRef.apiGroup == "rbac.authorization.k8s.io" &&
-          object.roleRef.kind == "Role" &&
-          has(object.roleRef.name) &&
-          has(object.subjects) &&
-          object.subjects != null &&
-          object.subjects.size() == 1 &&
-          object.subjects[0].kind == "ServiceAccount" &&
-          (!has(object.subjects[0].apiGroup) || object.subjects[0].apiGroup == "") &&
-          object.subjects[0].namespace == request.namespace &&
+          has(dyn(object).roleRef) &&
+          dyn(object).roleRef.apiGroup == "rbac.authorization.k8s.io" &&
+          dyn(object).roleRef.kind == "Role" &&
+          has(dyn(object).roleRef.name) &&
+          has(dyn(object).subjects) &&
+          dyn(object).subjects != null &&
+          dyn(object).subjects.size() == 1 &&
+          dyn(object).subjects[0].kind == "ServiceAccount" &&
+          (!has(dyn(object).subjects[0].apiGroup) || dyn(object).subjects[0].apiGroup == "") &&
+          dyn(object).subjects[0].namespace == request.namespace &&
           (
-            (object.metadata.name == object.subjects[0].name + "-rolebinding" &&
-             object.roleRef.name == object.subjects[0].name + "-role") ||
+            (object.metadata.name == dyn(object).subjects[0].name + "-rolebinding" &&
+             dyn(object).roleRef.name == dyn(object).subjects[0].name + "-role") ||
             (variables.component_label == "restore" && has(object.metadata.labels) &&
              "openbao.org/cluster" in object.metadata.labels &&
              object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-rolebinding" &&
-             object.roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
+             dyn(object).roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
              has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(owner,
                owner.apiVersion == "openbao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
                owner.name == object.metadata.labels["openbao.org/cluster"] && owner.uid != "" &&

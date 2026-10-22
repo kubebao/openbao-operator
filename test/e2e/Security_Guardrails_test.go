@@ -1973,6 +1973,19 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 
 			Expect(dependencyNames).To(ConsistOf(expectedDependencyNames))
+
+			By("waiting for every required policy to finish type checking without warnings")
+			Eventually(func(g Gomega) {
+				for _, dep := range admission.DefaultDependencies() {
+					binding, err := findAdmissionPolicyBinding(ctx, admin, dep.BindingName, admission.DefaultNamePrefixes())
+					g.Expect(err).NotTo(HaveOccurred())
+					policy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+					g.Expect(admin.Get(ctx, client.ObjectKey{Name: binding.Spec.PolicyName}, policy)).To(Succeed())
+					g.Expect(policy.Status.ObservedGeneration).To(Equal(policy.Generation), policy.Name)
+					g.Expect(policy.Status.TypeChecking).NotTo(BeNil(), policy.Name)
+					g.Expect(policy.Status.TypeChecking.ExpressionWarnings).To(BeEmpty(), policy.Name)
+				}
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 		})
 	})
 })

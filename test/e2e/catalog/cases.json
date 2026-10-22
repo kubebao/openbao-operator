@@ -1895,7 +1895,9 @@
       "critical",
       "rbac"
     ],
-    "steps": null,
+    "steps": [
+      "waiting for every required policy to finish type checking without warnings"
+    ],
     "focused": false,
     "pending": false,
     "suiteFile": "",
