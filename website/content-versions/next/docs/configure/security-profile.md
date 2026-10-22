@@ -24,6 +24,7 @@ every required trust, identity, storage, and network dependency is ready.
 | TLS | Operator-managed, External, or ACME | External or ACME, with TLS enabled |
 | Unseal | Static or external | Explicit non-static provider |
 | Initialization | Standard init or self-init | Self-init with a non-empty request list |
+| Controller JWT for new clusters | Declare Shared or Target; recommend Target with self-init OIDC | Declare Target with self-init OIDC |
 | Root token | Can be stored in an operator-managed Secret | Self-init revokes the bootstrap root token |
 | Image verification | Optional; `Warn` or `Block` when enabled | Enabled for OpenBao and helper images; `Warn` and explicit disablement are rejected |
 | Network and runtime escape hatches | Permitted where the API supports them | Broad or insecure forms are rejected |
@@ -45,6 +46,7 @@ metadata:
 spec:
   version: "2.6.2"
   profile: Development
+  controllerJWTMode: Shared
   replicas: 1
   tls:
     enabled: true
@@ -71,15 +73,19 @@ Before you create a `Hardened` cluster, define all of these fields and dependenc
 1. Set `profile: Hardened`, at least three voters, a supported OpenBao version, and persistent storage.
 2. Set `tls.enabled: true` and choose `tls.mode: External` or `ACME`.
 3. Configure an explicit non-static unseal provider. Use workload identity or a namespace-local Secret for credentials.
-4. Enable self-init and provide at least one request.
+4. Set `controllerJWTMode: Target`, enable self-init and self-init OIDC, and provide at least one request.
 5. Create a usable human authentication method, policy, and role before self-init revokes the bootstrap credential.
-6. Enable operator OIDC bootstrap when backup, upgrade, or restore Jobs will use projected JWT authentication.
+6. Verify operator OIDC discovery and the controller JWT role before relying on JWT authentication.
 7. Configure external identity and egress for unseal, issuers, object storage, and other dependencies.
 8. Test a real login, recovery-key custody, backup, restore, and loss of a voter before go-live.
 
 The exact TLS and unseal fields depend on the provider. Use [initialize the cluster](../initialize/) and
 [configure unseal](../unseal/) to build those parts. Do not publish an incomplete provider-neutral manifest as an
 executable production example.
+
+Existing Hardened clusters with an omitted or Shared controller JWT mode retain their authentication during an
+operator upgrade. Follow [controller JWT migration](../../operate/controller-jwt-migration/) before selecting Target.
+The creation requirement does not force a role migration during an ordinary update.
 
 ## Understand enforced restrictions
 

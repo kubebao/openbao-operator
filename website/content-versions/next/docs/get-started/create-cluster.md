@@ -39,7 +39,11 @@ For evaluation, the output must identify one default StorageClass. Stop and conf
 | `Development` | Local evaluation, CI, and disposable environments | Permits operator-managed TLS, static auto-unseal, and a root token Secret; reports security risk |
 | `Hardened` | Production | Requires External or ACME TLS, non-static unseal, self-init, and at least three replicas |
 
-`spec.profile` is required. Changing the word `Development` to `Hardened` does not complete the production contract.
+`spec.profile` and `spec.controllerJWTMode` must be declared for a new cluster. Use `Target` with self-init
+OIDC; the evaluation manifest below uses `Shared` because it uses standard initialization. New Hardened clusters
+require `Target` and self-init OIDC. See [controller JWT authentication](../../operate/controller-jwt-mode/).
+
+Changing the word `Development` to `Hardened` does not complete the production contract.
 
 ## Create an evaluation cluster
 
@@ -55,6 +59,7 @@ For evaluation, the output must identify one default StorageClass. Stop and conf
      version: "2.6.2"
      replicas: 1
      profile: Development
+     controllerJWTMode: Shared
      tls:
        enabled: true
        mode: OperatorManaged
@@ -136,7 +141,7 @@ logs, support bundles, and backups even for evaluation. Do not reuse this cluste
 
 A complete production manifest must define all of these contracts before the first reconcile:
 
-1. Set `profile: Hardened` and at least three replicas.
+1. Set `profile: Hardened`, `controllerJWTMode: Target`, and at least three replicas. Enable self-init OIDC.
 2. Configure `tls.mode: External` or `ACME` and verify the issuer, Secret, domain, and termination boundary.
 3. Configure a non-static unseal provider and its workload identity or Secret references.
 4. Enable self-init and provide a non-empty request list.

@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:a83dd07e9419383ca40f4933607a79fbf9ebf6ccf4e22059628b4ff7ab2efe6a
+    openbao.org/admission-policy-fingerprint: sha256:fcbfc7ef92183cfbc04aa724cbbdded6e7bc531f17c47afa51d7377e1f5ce787
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -570,6 +570,13 @@ spec:
         authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()
       message: "Restore testing requires use authority for the destination StorageClass."
 
+    - expression: >-
+        request.operation != "CREATE" || has(object.spec.controllerJWTMode)
+      message: "spec.controllerJWTMode is required when creating a cluster; select Target (recommended) or Shared"
+    - expression: >-
+        request.operation != "CREATE" || !has(object.spec.profile) || object.spec.profile != "Hardened" ||
+        (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
+      message: "new Hardened clusters require spec.controllerJWTMode Target"
     - expression: >-
         !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" ||
         (has(object.spec.selfInit) && object.spec.selfInit.enabled &&

@@ -69,6 +69,13 @@ func Fixtures() []Fixture {
 	return []Fixture{
 		{Name: "valid-baseline"},
 		{
+			Name:          "controller-jwt-shared",
+			AdmissionRule: hardenedcontract.RuleControllerJWTTarget,
+			Configure: func(cluster *openbaov1alpha1.OpenBaoCluster) {
+				cluster.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeShared
+			},
+		},
+		{
 			Name: "backup-nested-s3-identity",
 			Configure: func(cluster *openbaov1alpha1.OpenBaoCluster) {
 				configureBackup(cluster)

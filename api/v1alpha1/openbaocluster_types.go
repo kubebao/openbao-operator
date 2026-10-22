@@ -274,7 +274,9 @@ type OpenBaoClusterSpec struct {
 	// +optional
 	ReconcilePolicies bool `json:"reconcilePolicies,omitempty"`
 	// ControllerJWTMode selects the credential used by the controller for OpenBao.
-	// Shared (also the behavior when omitted) preserves the installation-wide
+	// Admission requires a declared mode on CREATE and Target for new Hardened clusters.
+	// Existing clusters that omit the field retain Shared authentication on reads and updates.
+	// Shared preserves the installation-wide
 	// projected JWT. Target requests a short-lived JWT whose sole audience is
 	// urn:openbao:controller:<metadata.uid>. Prepare the OpenBao controller role
 	// before switching an initialized cluster to Target. Target never falls back

@@ -67,6 +67,8 @@ primary:
         url: docs/operate/operator-policies/
       - title: Migrate controller JWT authentication
         url: docs/operate/controller-jwt-migration/
+      - title: Choose controller JWT authentication
+        url: docs/operate/controller-jwt-mode/
       - title: Run planned maintenance
         url: docs/operate/maintenance/
       - title: Troubleshoot a cluster
