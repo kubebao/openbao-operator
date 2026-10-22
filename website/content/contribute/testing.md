@@ -193,7 +193,7 @@ set `OPENBAO_JWT_TEST_IMAGE` to select another image. The test removes its conta
 The `controller-jwt` E2E scenario runs the deployed controller against self-initialized OpenBao Pods. It verifies the
 generated controller role, Raft Autopilot repair, and approved policy repair after the original ten-minute JWT expires,
 with the same controller Pod and process. It also restores older shared role trust onto a Target cluster and repairs
-those audience restrictions through an independent administrator login. New Shared clusters are rejected throughout.
+those audience restrictions through an independent administrator login.
 
 The operator-upgrade harness owns existing-CR migration. It creates a Shared Hardened cluster with the previous
 release, verifies continuity after installing the candidate, then prepares its existing role, patches the same CR to
