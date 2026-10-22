@@ -10342,10 +10342,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-e881cfc8e7d6
+          value: edge-49498ee6e8c7
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:8ef4e640af8f59ae661fc50bc63a99ef39ba847ba5a0e5d5284a9a054c189012
+        image: ghcr.io/kubebao/openbao-operator@sha256:cc4c2406c329421d8c31764facd1decc235c150f3559efc5ac038f17c746ae84
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10460,8 +10460,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-e881cfc8e7d6
-        image: ghcr.io/kubebao/openbao-operator@sha256:8ef4e640af8f59ae661fc50bc63a99ef39ba847ba5a0e5d5284a9a054c189012
+          value: edge-49498ee6e8c7
+        image: ghcr.io/kubebao/openbao-operator@sha256:cc4c2406c329421d8c31764facd1decc235c150f3559efc5ac038f17c746ae84
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10710,7 +10710,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:18eb68323eb0a4f85c11117678093b49226f64c3238cce99ac8ada1aa79c0afe
+    openbao.org/admission-policy-fingerprint: sha256:56374a99adcf4041536eb619c7bddb62f23afa847f5f417a34c7860fa0ab14e2
   name: openbao-operator-openbao-lock-managed-resource-mutations
 spec:
   failurePolicy: Fail
@@ -10827,6 +10827,9 @@ spec:
       resources:
       - ciliumnetworkpolicies
   validations:
+  - expression: '!variables.is_provisioner_rbac_gc_delete'
+    message: Tenant RBAC must remain available until OpenBao resource finalization
+      completes; the provisioner removes it.
   - expression: '!variables.is_recovery_secret_delete || variables.is_operator_controller
       || variables.is_operator_provisioner || variables.maintenance_authorized ||
       (namespaceObject != null && has(namespaceObject.metadata.deletionTimestamp))'
@@ -11266,10 +11269,14 @@ spec:
 
         !k.startsWith("openbao.org/") && !k.startsWith("vcluster.loft.sh/") &&
         !k.matches("(^|[.])(kubernetes[.]io|k8s[.]io)/")) &&
-      has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && ("openbao.org/component" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/component"] == "openbaocluster" && (!variables.has_old_owner_uid_annotation || oldObject.metadata.annotations["openbao.org/owner-uid"] != "") && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
+      has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && ("openbao.org/component" in oldObject.metadata.labels) && (!variables.has_old_owner_uid_annotation || oldObject.metadata.annotations["openbao.org/owner-uid"] != "") && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
 
-        ref.apiVersion == "apps/v1" && ref.kind == "StatefulSet" && ref.name != "" && ref.uid != "" &&
-        has(ref.controller) && ref.controller) &&
+        ref.name != "" && ref.uid != "" && has(ref.controller) && ref.controller &&
+        ((oldObject.metadata.labels["openbao.org/component"] == "openbaocluster" &&
+            ref.apiVersion == "apps/v1" && ref.kind == "StatefulSet") ||
+          (oldObject.metadata.labels["openbao.org/component"] in
+            ["backup", "restore", "upgrade", "upgrade-snapshot", "validation-hook"] &&
+            ref.apiVersion == "batch/v1" && ref.kind == "Job"))) &&
       object.spec == oldObject.spec && (has(object.status) == has(oldObject.status) && (!has(object.status) || object.status == oldObject.status)) && has(object.metadata.labels) && object.metadata.labels == oldObject.metadata.labels && has(object.metadata.ownerReferences) && object.metadata.ownerReferences == oldObject.metadata.ownerReferences && (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
 
         (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)) &&
@@ -11345,6 +11352,17 @@ spec:
         oldObject.metadata.labels["openbao.org/cluster"] + "-root-token"
       ]
     name: is_recovery_secret_delete
+  - expression: |-
+      request.operation == "DELETE" && (variables.is_kube_controller_manager || variables.is_system_controller ||
+
+        variables.is_namespace_controller_serviceaccount || variables.is_garbage_collector_sa) &&
+      oldObject != null && has(oldObject.metadata.labels) && "app.kubernetes.io/managed-by" in oldObject.metadata.labels && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && "openbao.org/component" in oldObject.metadata.labels && oldObject.metadata.labels["openbao.org/component"] == "provisioner" && "app.kubernetes.io/name" in oldObject.metadata.labels && oldObject.metadata.labels["app.kubernetes.io/name"] == "openbao-operator" && "app.kubernetes.io/component" in oldObject.metadata.labels && oldObject.metadata.labels["app.kubernetes.io/component"] == "provisioner" && ((request.resource.resource == "roles" && oldObject.metadata.name in
+
+          ["openbao-operator-tenant-role", "openbao-operator-tenant-secrets-reader", "openbao-operator-tenant-secrets-writer"]) ||
+        (request.resource.resource == "rolebindings" && oldObject.metadata.name in
+          ["openbao-operator-tenant-rolebinding", "openbao-operator-tenant-secrets-reader-rolebinding",
+            "openbao-operator-tenant-secrets-writer-rolebinding"]))
+    name: is_provisioner_rbac_gc_delete
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
