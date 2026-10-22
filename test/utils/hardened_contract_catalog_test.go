@@ -40,17 +40,6 @@ func TestHardenedRuleCatalogMatchesAdmissionPolicy(t *testing.T) {
 		t.Fatalf("decode Hardened admission policy: %v", err)
 	}
 
-	policyMessages := make(map[string]struct{})
-	for _, validation := range policy.Spec.Validations {
-		if !strings.Contains(validation.Expression, `"Hardened"`) {
-			continue
-		}
-		if _, duplicate := policyMessages[validation.Message]; duplicate {
-			t.Fatalf("Hardened admission message is not unique: %q", validation.Message)
-		}
-		policyMessages[validation.Message] = struct{}{}
-	}
-
 	catalogMessages := make(map[string]hardenedcontract.RuleID)
 	for _, rule := range hardenedcontract.Rules() {
 		if !rule.EnforcedBy(hardenedcontract.LayerAdmissionPolicy) {
@@ -68,6 +57,20 @@ func TestHardenedRuleCatalogMatchesAdmissionPolicy(t *testing.T) {
 			)
 		}
 		catalogMessages[rule.AdmissionMessage] = rule.ID
+	}
+
+	policyMessages := make(map[string]struct{})
+	for _, validation := range policy.Spec.Validations {
+		// Catalog rules can also apply to every profile, so their expressions
+		// do not necessarily contain a Hardened-specific condition.
+		_, cataloged := catalogMessages[validation.Message]
+		if !cataloged && !strings.Contains(validation.Expression, `"Hardened"`) {
+			continue
+		}
+		if _, duplicate := policyMessages[validation.Message]; duplicate {
+			t.Fatalf("catalog admission message is not unique: %q", validation.Message)
+		}
+		policyMessages[validation.Message] = struct{}{}
 	}
 
 	for message := range policyMessages {
