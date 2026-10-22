@@ -68,11 +68,37 @@ jobs:
         run: go build -mod=vendor ./...
 
       - name: Analyze
+        id: analyze
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:${{ matrix.language }}
           upload: always
           wait-for-processing: true
+
+      - name: Require processed results
+        timeout-minutes: 6
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SARIF_ID: ${{ steps.analyze.outputs.sarif-id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SARIF_ID}" ]]; then
+            echo "CodeQL did not return a SARIF upload ID." >&2
+            exit 1
+          fi
+          for attempt in {1..30}; do
+            processing_status="$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs/${SARIF_ID}" --jq '.processing_status')"
+            case "${processing_status}" in
+              complete) exit 0 ;;
+              pending) ;;
+              *) echo "CodeQL SARIF processing did not complete: ${processing_status}" >&2; exit 1 ;;
+            esac
+            if [[ "${attempt}" -lt 30 ]]; then
+              sleep 10
+            fi
+          done
+          echo "Timed out waiting for CodeQL SARIF processing." >&2
+          exit 1
 
   codeql-required:
     name: CodeQL Required

@@ -25,8 +25,14 @@ View findings in the repository [code scanning alerts](https://github.com/kubeba
 CodeQL runs on hosted runners through `pull_request`, with no repository secrets or persisted checkout credentials.
 Dependency caching is disabled. GitHub restricts fork PR tokens to read-only access; CodeQL supports
 [uploading results from `pull_request` runs](https://docs.github.com/en/code-security/reference/code-scanning/troubleshoot-analysis-errors/resource-not-accessible)
-without a personal access token. The `CodeQL Required` job rejects failed, cancelled, or
+without a personal access token. Each analysis independently confirms SARIF processing through the GitHub API;
+API errors, failed processing, and timeouts fail the job. The `CodeQL Required` job rejects failed, cancelled, or
 skipped analysis. Add it to required status checks during the [advanced setup migration](#activate-advanced-codeql-scanning).
+
+The active [review-approvals ruleset](https://github.com/kubebao/openbao-operator/rules/25297885) requires CODEOWNER
+approval for [workflow changes](https://github.com/kubebao/openbao-operator/blob/main/.github/CODEOWNERS).
+Keep this review control enabled because pull requests can modify their workflow code. The project lead's review
+exception applies only through pull requests; required CI checks have no bypass actors.
 
 {{< command label="verify" title="Run the local pull-request baseline" >}}
 devenv test
@@ -84,10 +90,10 @@ policy enabled throughout the migration.
    the current branch heads. Keep default setup enabled until the replacement PRs are ready for validation.
 3. In the repository's Code Security settings, switch CodeQL from default to advanced setup. GitHub documents the
    transition under [configuring advanced setup](https://docs.github.com/en/code-security/how-tos/find-and-fix-code-vulnerabilities/configure-code-scanning/configuring-advanced-setup-for-code-scanning).
+   Enable the `CodeQL` workflow if GitHub disabled it.
    Rerun the replacement workflows if their uploads failed while default setup was enabled. Verify successful analyses
    for all four language groups, processed results, and `CodeQL Required` on each PR's final commit before merging.
-4. Merge the reviewed workflow PRs. Enable the `CodeQL` workflow if GitHub disabled it, then dispatch it on `main` and
-   each supported release branch. Verify all four analyses, processed results, and `CodeQL Required` again.
+4. Merge the reviewed workflow PRs. Dispatch the workflow on `main` and each supported release branch. Verify all four analyses, processed results, and `CodeQL Required` again.
 5. Verify a real fork PR against its final commit. Approve the fork workflow when the repository policy requires it.
    Check that all four analyses and `CodeQL Required` finish. A same-repository PR does not establish fork coverage.
 6. Add `CodeQL Required` to the required status checks for `main` and the protected release branches. Retain the existing
