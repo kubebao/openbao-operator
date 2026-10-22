@@ -30,6 +30,8 @@ spec:
       # Matches the ServiceAccount of the Provisioner.
       expression: >-
         request.userInfo.username == variables.provisioner_principal
+  # Role and RoleBinding share this policy. Resource guards select each kind.
+  # Native lists can be present with null values; retain their null guards.
   validations:
     # Rule 0: Namespace Restriction
     # The Provisioner must not manage tenant RBAC in system namespaces.
@@ -81,14 +83,14 @@ spec:
         request.resource.resource != 'roles' ||
         object.metadata.name != 'openbao-operator-tenant-role' ||
         (
-          has(object.rules) &&
-          object.rules != null &&
-          !object.rules.exists(rule,
+          has(dyn(object).rules) &&
+          dyn(object).rules != null &&
+          !dyn(object).rules.exists(rule,
             has(rule.nonResourceURLs) &&
             rule.nonResourceURLs != null &&
             rule.nonResourceURLs.size() > 0
           ) &&
-          object.rules.all(rule,
+          dyn(object).rules.all(rule,
             (
               rule.apiGroups.size() == 1 &&
               rule.apiGroups[0] == 'openbao.org' &&
@@ -254,7 +256,7 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'rolebindings' ||
-        object.roleRef.name in [
+        dyn(object).roleRef.name in [
           'openbao-operator-tenant-role',
           'openbao-operator-tenant-secrets-reader',
           'openbao-operator-tenant-secrets-writer'
@@ -267,7 +269,7 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'rolebindings' ||
-        object.subjects.all(s, s.kind == 'ServiceAccount')
+        dyn(object).subjects.all(s, s.kind == 'ServiceAccount')
       message: "The Provisioner can only grant permissions to ServiceAccounts."
 
     # Rule 4b: Subject API Group Restriction
@@ -276,7 +278,7 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'rolebindings' ||
-        object.subjects.all(s, !has(s.apiGroup) || s.apiGroup == '')
+        dyn(object).subjects.all(s, !has(s.apiGroup) || s.apiGroup == '')
       message: "The Provisioner can only bind to core ServiceAccount subjects (apiGroup must be empty)."
 
     # Rule 4c: RoleRef Kind/API Group Restriction
@@ -285,7 +287,7 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'rolebindings' ||
-        (object.roleRef.kind == 'Role' && object.roleRef.apiGroup == 'rbac.authorization.k8s.io')
+        (dyn(object).roleRef.kind == 'Role' && dyn(object).roleRef.apiGroup == 'rbac.authorization.k8s.io')
       message: "The Provisioner can only create RoleBindings that reference a Role (not ClusterRole)."
 
     # Rule 5: Subject Restriction (Prevent Backdoor Creation)
@@ -297,27 +299,27 @@ spec:
         (
           (
             object.metadata.name == 'openbao-operator-tenant-rolebinding' &&
-            object.roleRef.name == 'openbao-operator-tenant-role' &&
-            object.subjects.size() == 1 &&
-            object.subjects[0].kind == 'ServiceAccount' &&
-            object.subjects[0].name == variables.controller_serviceaccount_name &&
-            object.subjects[0].namespace == variables.operator_namespace
+            dyn(object).roleRef.name == 'openbao-operator-tenant-role' &&
+            dyn(object).subjects.size() == 1 &&
+            dyn(object).subjects[0].kind == 'ServiceAccount' &&
+            dyn(object).subjects[0].name == variables.controller_serviceaccount_name &&
+            dyn(object).subjects[0].namespace == variables.operator_namespace
           ) ||
           (
             object.metadata.name == 'openbao-operator-tenant-secrets-reader-rolebinding' &&
-            object.roleRef.name == 'openbao-operator-tenant-secrets-reader' &&
-            object.subjects.size() == 1 &&
-            object.subjects[0].kind == 'ServiceAccount' &&
-            object.subjects[0].name == variables.controller_serviceaccount_name &&
-            object.subjects[0].namespace == variables.operator_namespace
+            dyn(object).roleRef.name == 'openbao-operator-tenant-secrets-reader' &&
+            dyn(object).subjects.size() == 1 &&
+            dyn(object).subjects[0].kind == 'ServiceAccount' &&
+            dyn(object).subjects[0].name == variables.controller_serviceaccount_name &&
+            dyn(object).subjects[0].namespace == variables.operator_namespace
           ) ||
           (
             object.metadata.name == 'openbao-operator-tenant-secrets-writer-rolebinding' &&
-            object.roleRef.name == 'openbao-operator-tenant-secrets-writer' &&
-            object.subjects.size() == 1 &&
-            object.subjects[0].kind == 'ServiceAccount' &&
-            object.subjects[0].name == variables.controller_serviceaccount_name &&
-            object.subjects[0].namespace == variables.operator_namespace
+            dyn(object).roleRef.name == 'openbao-operator-tenant-secrets-writer' &&
+            dyn(object).subjects.size() == 1 &&
+            dyn(object).subjects[0].kind == 'ServiceAccount' &&
+            dyn(object).subjects[0].name == variables.controller_serviceaccount_name &&
+            dyn(object).subjects[0].namespace == variables.operator_namespace
           )
         )
       message: "The Provisioner can only bind tenant RBAC to the operator controller ServiceAccount."
@@ -330,9 +332,9 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'roles' ||
-        !has(object.rules) ||
-        object.rules == null ||
-        !object.rules.exists(rule,
+        !has(dyn(object).rules) ||
+        dyn(object).rules == null ||
+        !dyn(object).rules.exists(rule,
           has(rule.verbs) &&
           rule.verbs != null &&
           rule.verbs.exists(v,
@@ -350,9 +352,9 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'roles' ||
-        !has(object.rules) ||
-        object.rules == null ||
-        !object.rules.exists(rule,
+        !has(dyn(object).rules) ||
+        dyn(object).rules == null ||
+        !dyn(object).rules.exists(rule,
           (
             has(rule.apiGroups) &&
             rule.apiGroups != null &&
@@ -372,9 +374,9 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'roles' ||
-        !has(object.rules) ||
-        object.rules == null ||
-        !object.rules.exists(rule,
+        !has(dyn(object).rules) ||
+        dyn(object).rules == null ||
+        !dyn(object).rules.exists(rule,
           has(rule.nonResourceURLs) &&
           rule.nonResourceURLs != null &&
           rule.nonResourceURLs.size() > 0
@@ -388,9 +390,9 @@ spec:
         !variables.is_provisioner ||
         request.operation == 'DELETE' ||
         request.resource.resource != 'roles' ||
-        !has(object.rules) ||
-        object.rules == null ||
-        !object.rules.exists(rule,
+        !has(dyn(object).rules) ||
+        dyn(object).rules == null ||
+        !dyn(object).rules.exists(rule,
           has(rule.resources) &&
           rule.resources != null &&
           rule.resources.exists(r, r == 'secrets') &&
@@ -409,15 +411,15 @@ spec:
         request.resource.resource != 'roles' ||
         object.metadata.name != 'openbao-operator-tenant-secrets-reader' ||
         (
-          has(object.rules) &&
-          object.rules != null &&
-          object.rules.size() == 1 &&
-          object.rules[0].apiGroups == [''] &&
-          object.rules[0].resources == ['secrets'] &&
-          object.rules[0].verbs == ['get'] &&
-          has(object.rules[0].resourceNames) &&
-          object.rules[0].resourceNames != null &&
-          object.rules[0].resourceNames.size() > 0
+          has(dyn(object).rules) &&
+          dyn(object).rules != null &&
+          dyn(object).rules.size() == 1 &&
+          dyn(object).rules[0].apiGroups == [''] &&
+          dyn(object).rules[0].resources == ['secrets'] &&
+          dyn(object).rules[0].verbs == ['get'] &&
+          has(dyn(object).rules[0].resourceNames) &&
+          dyn(object).rules[0].resourceNames != null &&
+          dyn(object).rules[0].resourceNames.size() > 0
         )
       message: "The Provisioner can only create the secrets reader Role with a non-empty, name-scoped (resourceNames) get-only rule."
 
@@ -429,17 +431,17 @@ spec:
         request.resource.resource != 'roles' ||
         object.metadata.name != 'openbao-operator-tenant-secrets-writer' ||
         (
-          has(object.rules) &&
-          object.rules != null &&
-          object.rules.size() == 2 &&
-          object.rules.all(r, r.apiGroups == [''] && r.resources == ['secrets']) &&
-          object.rules.exists(r,
+          has(dyn(object).rules) &&
+          dyn(object).rules != null &&
+          dyn(object).rules.size() == 2 &&
+          dyn(object).rules.all(r, r.apiGroups == [''] && r.resources == ['secrets']) &&
+          dyn(object).rules.exists(r,
             has(r.verbs) &&
             r.verbs != null &&
             r.verbs == ['create'] &&
             (!has(r.resourceNames) || r.resourceNames == null || r.resourceNames.size() == 0)
           ) &&
-          object.rules.exists(r,
+          dyn(object).rules.exists(r,
             has(r.verbs) &&
             r.verbs != null &&
             r.verbs.size() > 0 &&

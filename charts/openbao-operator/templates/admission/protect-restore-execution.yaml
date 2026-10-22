@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:c9af55789ddce38e9c2227b2b4b527abea0af9094e82a56eaa4cc2f17a5b8e69
+    openbao.org/admission-policy-fingerprint: sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8
   name: {{ include "openbao-operator.fullname" . }}-openbao-protect-restore-execution
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -29,12 +29,12 @@ spec:
     - name: is_restore
       expression: "request.resource.resource == 'openbaorestores'"
     - name: old_claim
-      expression: "variables.is_restore && oldObject != null && has(oldObject.status) && has(oldObject.status.submissionClaim)"
+      expression: "variables.is_restore && oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).submissionClaim)"
     - name: helper
       expression: >-
         variables.is_restore && oldObject != null && request.userInfo.username ==
           'system:serviceaccount:' + request.namespace + ':' +
-          (has(oldObject.spec.serviceAccountName) ? oldObject.spec.serviceAccountName : oldObject.spec.cluster + '-restore-serviceaccount')
+          (has(dyn(oldObject.spec).serviceAccountName) ? dyn(oldObject.spec).serviceAccountName : dyn(oldObject.spec).cluster + '-restore-serviceaccount')
     - name: old_hold
       expression: >-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-hold' in oldObject.metadata.annotations ?
@@ -54,9 +54,9 @@ spec:
     - name: submission_excluded
       expression: >-
         variables.is_restore && oldObject != null && has(oldObject.status) &&
-        !has(oldObject.status.submissionClaim) && has(oldObject.status.execution) &&
-        oldObject.status.phase == 'Failed' && oldObject.status.execution.stage == 'TerminalObserved' &&
-        oldObject.status.execution.terminalResult == 'Failed'
+        !has(dyn(oldObject.status).submissionClaim) && has(dyn(oldObject.status).execution) &&
+        dyn(oldObject.status).phase == 'Failed' && dyn(oldObject.status).execution.stage == 'TerminalObserved' &&
+        dyn(oldObject.status).execution.terminalResult == 'Failed'
     - name: old_acknowledgement
       expression: >-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-acknowledge' in oldObject.metadata.annotations ?
@@ -73,26 +73,29 @@ spec:
       expression: >-
         object != null && has(object.metadata.annotations) && 'openbao.org/restore-test-acknowledge' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''
+  # Cluster and Restore share metadata but have different spec/status fields.
+  # Resource guards select each schema; dynamic access also permits complete-map
+  # comparisons that restrict helper writes to the submission claim.
   validations:
     - expression: >-
         !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
-        (has(object.status) && has(object.status.restart) ? object.status.restart : null) ==
-        (oldObject != null && has(oldObject.status) && has(oldObject.status.restart) ? oldObject.status.restart : null)
+        (has(object.status) && has(dyn(object.status).restart) ? dyn(object.status).restart : null) ==
+        (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)
       message: "Only the controller can record managed restore restarts; use the acknowledgement annotation."
     - expression: >-
         variables.is_restore || request.operation == 'DELETE' || variables.new_test_acknowledgement == variables.old_test_acknowledgement ||
         variables.new_test_acknowledgement == '' ||
-        (oldObject != null && has(oldObject.status) && has(oldObject.status.backup) &&
-         has(oldObject.status.backup.restoreTest) && has(oldObject.status.backup.restoreTest.active) &&
-         (!has(oldObject.status.backup.restoreTest.active.uid) || oldObject.status.backup.restoreTest.active.uid == '') &&
-         variables.new_test_acknowledgement == oldObject.status.backup.restoreTest.active.name + '/Release' &&
+        (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).backup) &&
+         has(dyn(oldObject.status).backup.restoreTest) && has(dyn(oldObject.status).backup.restoreTest.active) &&
+         (!has(dyn(oldObject.status).backup.restoreTest.active.uid) || dyn(oldObject.status).backup.restoreTest.active.uid == '') &&
+         variables.new_test_acknowledgement == dyn(oldObject.status).backup.restoreTest.active.name + '/Release' &&
          authorizer.group('openbao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
       message: "Restore test release requires the active unbound run name followed by /Release and restore permission on the source cluster. Inspect the destination and stop the old controller first."
     # Approval is checked only for new requests and new targets. Revocation must
     # not block status updates, administrator handoff, or resource cleanup.
     - expression: >-
         request.operation != 'CREATE' ||
-        !(variables.is_restore ? has(object.spec.clusterTemplate) : variables.new_origin != '') ||
+        !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') ||
         (namespaceObject != null && has(namespaceObject.metadata.labels) &&
          'openbao.org/restore-target-approved' in namespaceObject.metadata.labels &&
          namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')
@@ -106,9 +109,9 @@ spec:
       message: "Only the controller can assign or change a restore test source."
     - expression: >-
         !variables.is_restore || request.operation != 'UPDATE' || !has(oldObject.status) ||
-        !has(oldObject.status.target) || !has(oldObject.spec.targetLifecycle) || oldObject.spec.targetLifecycle != 'Disposable' ||
-        (has(oldObject.status.administratorDisposition) && oldObject.status.administratorDisposition == 'Abandon') ||
-        (has(oldObject.status.target.cleanup) && oldObject.status.target.cleanup == 'Complete') ||
+        !has(dyn(oldObject.status).target) || !has(dyn(oldObject.spec).targetLifecycle) || dyn(oldObject.spec).targetLifecycle != 'Disposable' ||
+        (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition == 'Abandon') ||
+        (has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Complete') ||
         !has(oldObject.metadata.finalizers) || !('openbao.org/openbaorestore-finalizer' in oldObject.metadata.finalizers) ||
         (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
       message: "Disposable restores retain their finalizer until target cleanup completes."
@@ -119,28 +122,28 @@ spec:
 
     - expression: >-
         !variables.old_claim || request.operation == 'DELETE' ||
-          (has(object.status.submissionClaim) && object.status.submissionClaim == oldObject.status.submissionClaim)
+          (has(dyn(object.status).submissionClaim) && dyn(object.status).submissionClaim == dyn(oldObject.status).submissionClaim)
       message: "A submission claim cannot be changed or removed."
     - expression: >-
         !variables.helper ||
         (request.subResource == 'status' && request.operation == 'UPDATE' &&
-         !variables.old_claim && has(object.status.submissionClaim) &&
-         oldObject.status.phase == 'Running' && oldObject.status.execution.stage == 'Created' &&
-         oldObject.status.execution.operationID == oldObject.metadata.uid &&
+         !variables.old_claim && has(dyn(object.status).submissionClaim) &&
+         dyn(oldObject.status).phase == 'Running' && dyn(oldObject.status).execution.stage == 'Created' &&
+         dyn(oldObject.status).execution.operationID == oldObject.metadata.uid &&
          !has(oldObject.metadata.deletionTimestamp) &&
          has(request.userInfo.extra) && 'authentication.kubernetes.io/pod-uid' in request.userInfo.extra &&
-         request.userInfo.extra['authentication.kubernetes.io/pod-uid'] == [object.status.submissionClaim.podUID] &&
-         object.metadata.all(k, k == "managedFields" || (k in oldObject.metadata && object.metadata[k] == oldObject.metadata[k])) &&
-         oldObject.metadata.all(k, k == "managedFields" || k in object.metadata) &&
-         object.status.all(k, k == 'submissionClaim' || (k in oldObject.status && object.status[k] == oldObject.status[k])) &&
-         oldObject.status.all(k, k in object.status))
+         request.userInfo.extra['authentication.kubernetes.io/pod-uid'] == [dyn(object.status).submissionClaim.podUID] &&
+         dyn(object.metadata).all(k, k == "managedFields" || (k in dyn(oldObject.metadata) && dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) &&
+         dyn(oldObject.metadata).all(k, k == "managedFields" || k in dyn(object.metadata)) &&
+         dyn(object.status).all(k, k == 'submissionClaim' || (k in dyn(oldObject.status) && dyn(object.status)[k] == dyn(oldObject.status)[k])) &&
+         dyn(oldObject.status).all(k, k in dyn(object.status)))
       message: "The executor can only append its own Pod-bound submission claim."
     - expression: >-
         !variables.is_restore || request.operation != 'DELETE' || !has(oldObject.status) ||
-        !has(oldObject.status.execution) || oldObject.status.execution.stage == 'Prepared' || variables.submission_excluded ||
-        oldObject.status.phase == 'Completed' ||
-        (has(oldObject.spec.targetLifecycle) && oldObject.spec.targetLifecycle == 'Disposable') ||
-        (has(oldObject.status.administratorDisposition) && oldObject.status.administratorDisposition != '')
+        !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage == 'Prepared' || variables.submission_excluded ||
+        dyn(oldObject.status).phase == 'Completed' ||
+        (has(dyn(oldObject.spec).targetLifecycle) && dyn(oldObject.spec).targetLifecycle == 'Disposable') ||
+        (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition != '')
       message: "A committed restore requires administrator acknowledgement before deletion."
     - expression: >-
         variables.is_restore || variables.is_controller ||
@@ -149,35 +152,35 @@ spec:
       message: "Only the controller can change a restore hold; acknowledge the restore before deleting its target."
     - expression: >-
         !variables.is_restore || request.operation != 'UPDATE' || !has(oldObject.status) ||
-        !has(oldObject.status.execution) || oldObject.status.execution.stage == 'Prepared' || variables.submission_excluded ||
-        oldObject.status.phase == 'Completed' ||
-        (has(oldObject.status.target) && has(oldObject.status.target.cleanup) && oldObject.status.target.cleanup == 'Complete') ||
-        (has(oldObject.status.administratorDisposition) && oldObject.status.administratorDisposition != '') ||
+        !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage == 'Prepared' || variables.submission_excluded ||
+        dyn(oldObject.status).phase == 'Completed' ||
+        (has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Complete') ||
+        (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition != '') ||
         !has(oldObject.metadata.finalizers) || !('openbao.org/openbaorestore-finalizer' in oldObject.metadata.finalizers) ||
         (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
       message: "A committed restore retains its finalizer until administrator acknowledgement."
     - expression: >-
         !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
-        (has(object.status) && has(object.status.administratorDisposition) ? object.status.administratorDisposition : '') ==
-        (oldObject != null && has(oldObject.status) && has(oldObject.status.administratorDisposition) ? oldObject.status.administratorDisposition : '')
+        (has(object.status) && has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') ==
+        (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')
       message: "Only the controller can record administrator disposition; use the acknowledgement annotation."
     - expression: >-
         !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement ||
         variables.new_acknowledgement == '' || oldObject == null || !has(oldObject.status) ||
-        !has(oldObject.status.administratorDisposition) || oldObject.status.administratorDisposition == '' ||
-        variables.new_acknowledgement == oldObject.metadata.uid + '/' + oldObject.status.administratorDisposition
+        !has(dyn(oldObject.status).administratorDisposition) || dyn(oldObject.status).administratorDisposition == '' ||
+        variables.new_acknowledgement == oldObject.metadata.uid + '/' + dyn(oldObject.status).administratorDisposition
       message: "Recovery has already been released. The recorded Resume or Abandon decision cannot be changed; manage the target directly."
     - expression: >-
         !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement ||
         variables.new_acknowledgement == '' ||
         (oldObject != null && has(oldObject.status) &&
-         ((oldObject.status.phase == 'Unknown' &&
-           !(has(oldObject.status.target) && has(oldObject.status.target.cleanup) && oldObject.status.target.cleanup == 'Failed') &&
+         ((dyn(oldObject.status).phase == 'Unknown' &&
+           !(has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Failed') &&
            (variables.new_acknowledgement == oldObject.metadata.uid + '/Abandon' ||
             (variables.new_acknowledgement == oldObject.metadata.uid + '/Resume' &&
-             (!has(oldObject.spec.targetLifecycle) || oldObject.spec.targetLifecycle != 'Disposable') &&
-             has(oldObject.status.execution) && has(oldObject.status.execution.jobUID) && oldObject.status.execution.jobUID != ''))) ||
-          (has(oldObject.status.target) && has(oldObject.status.target.cleanup) && oldObject.status.target.cleanup == 'Failed' &&
+             (!has(dyn(oldObject.spec).targetLifecycle) || dyn(oldObject.spec).targetLifecycle != 'Disposable') &&
+             has(dyn(oldObject.status).execution) && has(dyn(oldObject.status).execution.jobUID) && dyn(oldObject.status).execution.jobUID != ''))) ||
+          (has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Failed' &&
            variables.new_acknowledgement == oldObject.metadata.uid + '/Abandon')))
       message: "Acknowledge only after Unknown or blocked cleanup. Resume requires a bound Job UID and a non-disposable target without failed cleanup; otherwise use Abandon."
 ---

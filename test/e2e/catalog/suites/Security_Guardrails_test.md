@@ -226,6 +226,9 @@ Covers: _none_
 
 Labels: `security`, `critical`, `rbac`
 
+Recorded checkpoints:
+- waiting for every required policy to finish type checking without warnings
+
 
 ## `security-guardrails-restricts-openbao-pod-serviceaccount-pod-patching-abbf5716`
 
