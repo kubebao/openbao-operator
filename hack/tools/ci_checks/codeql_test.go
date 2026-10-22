@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,11 +19,14 @@ const (
 )
 
 type codeQLStep struct {
-	Uses string            `yaml:"uses"`
-	If   string            `yaml:"if"`
-	Run  string            `yaml:"run"`
-	With map[string]string `yaml:"with"`
-	Env  map[string]string `yaml:"env"`
+	Name           string            `yaml:"name"`
+	ID             string            `yaml:"id"`
+	TimeoutMinutes int               `yaml:"timeout-minutes"`
+	Uses           string            `yaml:"uses"`
+	If             string            `yaml:"if"`
+	Run            string            `yaml:"run"`
+	With           map[string]string `yaml:"with"`
+	Env            map[string]string `yaml:"env"`
 }
 
 type codeQLJob struct {
@@ -128,6 +132,10 @@ func TestCodeQLBuildAndUploadPreserveForkIsolation(t *testing.T) {
 	positions := make(map[string]int)
 	steps := make(map[string]codeQLStep)
 	for i, step := range analyze.Steps {
+		if step.Name == "Require processed results" {
+			positions["processing"], steps["processing"] = i, step
+			continue
+		}
 		if step.Uses == "" {
 			if step.Run != "go build -mod=vendor ./..." || step.If != "matrix.language == 'go'" ||
 				step.Env["CGO_ENABLED"] != "0" {
@@ -165,12 +173,13 @@ func TestCodeQLBuildAndUploadPreserveForkIsolation(t *testing.T) {
 		init.With["dependency-caching"] != routingFalse || init.With["token"] != "" {
 		t.Fatal("CodeQL initialization must use the language matrix, disabled dependency caching, and the default token")
 	}
-	if upload.With["upload"] != "always" || upload.With["wait-for-processing"] != routingTrue ||
+	if upload.ID != "analyze" || upload.With["upload"] != "always" || upload.With["wait-for-processing"] != routingTrue ||
 		upload.With["token"] != "" {
 		t.Fatal("CodeQL must upload and process results with the default token")
 	}
 	order := []string{
 		"actions/checkout", "actions/setup-go", "github/codeql-action/init", "build", "github/codeql-action/analyze",
+		"processing",
 	}
 	for i := 1; i < len(order); i++ {
 		if positions[order[i-1]] >= positions[order[i]] {
@@ -201,4 +210,114 @@ func TestCodeQLGateRequiresSuccessfulAnalysis(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCodeQLProcessingPermissions(t *testing.T) {
+	processing := codeQLProcessingStep(t)
+	if processing.Uses != "" || processing.Run == "" || processing.If != "" || processing.TimeoutMinutes != 6 ||
+		!reflect.DeepEqual(processing.Env, map[string]string{
+			"GH_TOKEN": "${{ github.token }}", "SARIF_ID": "${{ steps.analyze.outputs.sarif-id }}",
+		}) {
+		t.Fatal("CodeQL must independently require processed SARIF results with the default token and a bounded wait")
+	}
+}
+
+func TestCodeQLRequiresProcessedSARIF(t *testing.T) {
+	script := codeQLProcessingStep(t).Run
+	for _, tt := range []struct {
+		name    string
+		id      string
+		states  string
+		success bool
+		calls   int
+	}{
+		{name: "complete", id: "test-upload", states: "complete", success: true, calls: 1},
+		{name: "pending then complete", id: "test-upload", states: "pending,complete", success: true, calls: 2},
+		{name: "missing upload ID", states: "complete"},
+		{name: "failed processing", id: "test-upload", states: "failed", calls: 1},
+		{name: "unknown status", id: "test-upload", states: "unknown", calls: 1},
+		{name: "missing status", id: "test-upload", states: "null", calls: 1},
+		{name: "API error", id: "test-upload", states: "API_ERROR", calls: 1},
+		{name: "API error after pending", id: "test-upload", states: "pending,API_ERROR", calls: 2},
+		{name: "processing timeout", id: "test-upload", states: "pending", calls: 30},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := codeQLMockCommands(t)
+			callsFile := filepath.Join(dir, "calls")
+			cmd := exec.Command("bash", "-c", script)
+			cmd.Env = append(os.Environ(),
+				"PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"),
+				"GH_TOKEN=test-token", "GITHUB_REPOSITORY=kubebao/openbao-operator", "SARIF_ID="+tt.id,
+				"CODEQL_TEST_STATES="+tt.states, "CODEQL_TEST_CALLS="+callsFile,
+			)
+			output, err := cmd.CombinedOutput()
+			if (err == nil) != tt.success {
+				t.Fatalf("unexpected processing result: error=%v, output=%s", err, output)
+			}
+			if calls := codeQLReadCalls(t, callsFile); calls != tt.calls {
+				t.Fatalf("processing calls: got %d, want %d", calls, tt.calls)
+			}
+		})
+	}
+}
+
+func codeQLReadCalls(t *testing.T, path string) int {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return calls
+}
+
+func codeQLMockCommands(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	api := `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" != "api repos/kubebao/openbao-operator/code-scanning/sarifs/test-upload --jq .processing_status" ]]; then
+  echo "unexpected API arguments" >&2
+  exit 64
+fi
+calls=0
+if [[ -f "${CODEQL_TEST_CALLS}" ]]; then
+  read -r calls < "${CODEQL_TEST_CALLS}"
+fi
+calls=$((calls + 1))
+printf '%s\n' "${calls}" > "${CODEQL_TEST_CALLS}"
+IFS=',' read -r -a states <<< "${CODEQL_TEST_STATES}"
+index=$((calls - 1))
+if (( index >= ${#states[@]} )); then
+  index=$((${#states[@]} - 1))
+fi
+if [[ "${states[index]}" == "API_ERROR" ]]; then
+  exit 42
+fi
+printf '%s\n' "${states[index]}"
+`
+	for name, script := range map[string]string{"gh": api, "sleep": "#!/usr/bin/env bash\nexit 0\n"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func codeQLProcessingStep(t *testing.T) codeQLStep {
+	t.Helper()
+	_, _, jobs := readCodeQLWorkflow(t)
+	for _, step := range jobs["analyze"].Steps {
+		if step.Name == "Require processed results" {
+			return step
+		}
+	}
+	t.Fatal("missing strict SARIF processing check")
+	return codeQLStep{}
 }
