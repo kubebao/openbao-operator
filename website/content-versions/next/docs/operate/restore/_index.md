@@ -11,6 +11,8 @@ verifiedBy:
   - config/rbac/openbaocluster_restore_role.yaml
   - internal/service/restore/manager_validation.go
   - internal/service/restore/manager_effects.go
+  - internal/service/restore/manager_status.go
+  - test/integration/restore_authority_test.go
   - internal/adapter/openbao/client_bootstrap.go
   - internal/adapter/config/selfinit_gohcl.go
   - cmd/bao-backup/restore_flow.go
@@ -160,6 +162,28 @@ Admission requires the caller to have `restore` on the named target `OpenBaoClus
 `usecustomexecutables` or `usehelperimages`. The spec cannot be edited after creation; create a new request to change
 restore intent.
 
+## Understand authorization and cancellation
+
+API acceptance authorizes one execution of the immutable request. The controller uses its own identity to prepare
+and execute that work. Removing the submitter's `restore` permission or other delegated permissions does not cancel
+an accepted request. The controller does not reauthorize the original submitter before creating the Job.
+
+The request names a target in its namespace. During preparation, the controller records that target's UID in
+`status.execution.targetUID`. It also binds the execution to the request UID, then records the Job and executor Pod
+identities. A replacement target does not inherit a prepared execution. Before preparation, the named target can be
+replaced. Referenced Secrets and ServiceAccounts are selected by name; API acceptance does not freeze their contents
+or pin their UIDs. Set `expectedDigest` to bind the request to expected snapshot bytes.
+
+To cancel accepted work, delete the request before `status.execution.stage` changes from `Prepared` to `Committed`.
+You must have permission to delete the request. If deletion reaches the API server first, the stale commitment write
+conflicts and the controller does not create the Job. If commitment wins, an existing-target or `Retain` restore can
+proceed and admission rejects deletion until recovery permits it. A `Disposable` request permits deletion after
+commitment, but its finalizer starts Job and target cleanup; that does not prove that snapshot submission was canceled.
+Inspect the current request after either response; a client-side timeout does not prove cancellation.
+
+After commitment, use the [uncertain-restore recovery procedure](recover-uncertain/) when execution cannot be proved.
+Revoking permission, deleting the Job, or restarting the controller does not authorize another submission.
+
 ## Monitor the lifecycle
 
 {{< command label="verify" title="Watch restore and cluster state together" >}}
@@ -180,9 +204,9 @@ kubectl -n <namespace> get openbaocluster <cluster> -o yaml
 `status.execution` records the operation ID and Job identity, and `status.submissionClaim` records the executor that
 submitted. The operator retains the Job for inspection.
 
-Deleting a request before its Job is committed cancels it. After commitment, admission rejects deletion until the
-request has failed before submission, completed, finished disposable cleanup, or been acknowledged. Do not remove
-finalizers or the `openbao.org/restore-hold` annotation to bypass recovery.
+An existing-target or `Retain` request permits deletion after commitment only when it has failed before submission,
+completed, or been acknowledged. Disposable cleanup retains its finalizer until cleanup completes or an administrator
+accepts responsibility. Do not remove finalizers or the `openbao.org/restore-hold` annotation to bypass recovery.
 
 ## Use a force restore
 
