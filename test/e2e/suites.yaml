@@ -401,6 +401,16 @@ nightly:
             - networking
 
       rows:
+        - lane: upgrade-rolling
+          kubernetes: "@primary"
+          coverage: upgrade-sequence-latest
+          labelFilter: "case:rolling-consecutive-execution-identity"
+          upgradeSequence: "2.5.5,2.6.4,2.7.1"
+        - lane: upgrade-bluegreen-core
+          kubernetes: "@primary"
+          coverage: upgrade-sequence-latest
+          labelFilter: "case:idle-upgrade-strategy-switch"
+          upgradeSequence: "2.6.4,2.7.0,2.7.1"
         - lane: core
           kubernetes: "@primary"
           coverage: network-ipv6

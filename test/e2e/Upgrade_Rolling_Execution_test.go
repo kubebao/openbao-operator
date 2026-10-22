@@ -23,6 +23,9 @@ var _ = Describe("Rolling execution identity", Label("upgrade", "upgrades", "rol
 	It("completes consecutive upgrades while prior step-down Jobs remain", Label(
 		"case:rolling-consecutive-execution-identity", "covers:rolling-execution-identity", "e2e-anchor",
 	), func() {
+		versions, err := twoStepUpgradeVersions()
+		Expect(err).NotTo(HaveOccurred())
+		AddReportEntry("upgrade-sequence", versions)
 		ctx := context.Background()
 		f, err := framework.NewSetup(ctx, "tenant-rolling-executions", operatorNamespace)
 		Expect(err).NotTo(HaveOccurred())
@@ -30,8 +33,8 @@ var _ = Describe("Rolling execution identity", Label("upgrade", "upgrades", "rol
 		cluster := &api.OpenBaoCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: "rolling-executions", Namespace: f.Namespace},
 			Spec: api.OpenBaoClusterSpec{
-				Profile: api.ProfileDevelopment, Version: defaultBlueGreenUpgradeFromVersion,
-				Image: fmt.Sprintf("openbao/openbao:%s", defaultBlueGreenUpgradeFromVersion), Replicas: 3,
+				Profile: api.ProfileDevelopment, Version: versions[0],
+				Image: fmt.Sprintf("openbao/openbao:%s", versions[0]), Replicas: 3,
 				InitContainer: &api.InitContainerConfig{Enabled: true, Image: configInitImage},
 				SelfInit: &api.SelfInitConfig{
 					Enabled: true, OIDC: &api.SelfInitOIDCConfig{Enabled: true},
@@ -55,14 +58,14 @@ var _ = Describe("Rolling execution identity", Label("upgrade", "upgrades", "rol
 		Eventually(func(g Gomega) {
 			g.Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
 			g.Expect(cluster.Status.Initialized).To(BeTrue())
-			g.Expect(cluster.Status.CurrentVersion).To(Equal(defaultBlueGreenUpgradeFromVersion))
+			g.Expect(cluster.Status.CurrentVersion).To(Equal(versions[0]))
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 		_, err = f.WaitForStatefulSetReady(ctx, cluster.Name, 3, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval)
 		Expect(err).NotTo(HaveOccurred())
 
 		priorExecution := ""
 		history := map[types.NamespacedName]types.UID{}
-		for _, target := range []string{defaultUpgradeFromVersion, defaultUpgradeToVersion} {
+		for _, target := range versions[1:] {
 			By("Requesting rolling target " + target)
 			Eventually(func(g Gomega) {
 				g.Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())

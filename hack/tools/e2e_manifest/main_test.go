@@ -433,3 +433,30 @@ func TestLoadCatalogRejectsMalformedJSON(t *testing.T) {
 		t.Fatalf("error = %q, want parse catalog message", err)
 	}
 }
+
+func TestValidateNightlyUpgradeSequence(t *testing.T) {
+	for _, tc := range []struct {
+		sequence string
+		valid    bool
+	}{
+		{"2.5.5,2.6.4,2.7.1", true},
+		{"2.6.4,2.7.0,2.7.1", true},
+		{"", false},
+		{"2.6.4,2.7.1", false},
+		{"2.6.4,2.6.4,2.7.1", false},
+	} {
+		t.Run(tc.sequence, func(t *testing.T) {
+			plan := nightlyPlanConfig{Profiles: []nightlyProfile{{
+				ID: "release-gate", Rows: []nightlyRowConfig{{
+					Lane: "upgrade", Kubernetes: "@primary", Coverage: "upgrade-sequence-latest",
+					UpgradeSequence: tc.sequence,
+				}},
+			}}}
+			lanes := map[string]ciLaneConfig{"upgrade": testCILane("upgrade")}
+			errs := validateNightlyPlan(plan, testVersionPolicy().Kubernetes, lanes)
+			if (len(errs) == 0) != tc.valid {
+				t.Fatalf("errors = %v, want valid=%t", errs, tc.valid)
+			}
+		})
+	}
+}

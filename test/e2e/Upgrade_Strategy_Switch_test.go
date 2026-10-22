@@ -38,6 +38,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 	ctx := context.Background()
 
 	var (
+		versions        [3]string
 		tenantNamespace string
 		tenantFW        *framework.Framework
 		cluster         *openbaov1alpha1.OpenBaoCluster
@@ -46,6 +47,9 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 
 	BeforeAll(func() {
 		var err error
+		versions, err = twoStepUpgradeVersions()
+		Expect(err).NotTo(HaveOccurred())
+		AddReportEntry("upgrade-sequence", versions)
 		tenantFW, err = framework.NewSetup(ctx, "tenant-strategy-switch", operatorNamespace)
 		Expect(err).NotTo(HaveOccurred())
 		tenantNamespace = tenantFW.Namespace
@@ -67,8 +71,8 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
 				Profile:  openbaov1alpha1.ProfileDevelopment,
-				Version:  defaultBlueGreenUpgradeFromVersion,
-				Image:    fmt.Sprintf("openbao/openbao:%s", defaultBlueGreenUpgradeFromVersion),
+				Version:  versions[0],
+				Image:    fmt.Sprintf("openbao/openbao:%s", versions[0]),
 				Replicas: 3,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
@@ -112,7 +116,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
 			g.Expect(updated.Status.Initialized).To(BeTrue())
-			g.Expect(updated.Status.CurrentVersion).To(Equal(defaultBlueGreenUpgradeFromVersion))
+			g.Expect(updated.Status.CurrentVersion).To(Equal(versions[0]))
 			g.Expect(updated.Status.AcceptedUpgradeStrategy).To(Equal(openbaov1alpha1.UpdateStrategyRollingUpdate))
 			available := meta.FindStatusCondition(updated.Status.Conditions, string(openbaov1alpha1.ConditionAvailable))
 			g.Expect(available).NotTo(BeNil())
@@ -162,13 +166,13 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			g.Expect(stable.Spec.UpdateStrategy.Type).To(Equal(appsv1.OnDeleteStatefulSetStrategyType))
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
-		By("performing a blue-green upgrade from 2.4.4 to 2.5.5")
+		By("performing a blue-green upgrade to the intermediate version")
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
 			original := updated.DeepCopy()
-			updated.Spec.Version = defaultBlueGreenUpgradeToVersion
-			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", defaultBlueGreenUpgradeToVersion)
+			updated.Spec.Version = versions[1]
+			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", versions[1])
 			g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -177,7 +181,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
-			g.Expect(updated.Status.CurrentVersion).To(Equal(defaultBlueGreenUpgradeToVersion))
+			g.Expect(updated.Status.CurrentVersion).To(Equal(versions[1]))
 			g.Expect(updated.Status.BlueGreen).NotTo(BeNil())
 			g.Expect(updated.Status.BlueGreen.Phase).To(Equal(openbaov1alpha1.PhaseIdle))
 			g.Expect(updated.Status.BlueGreen.BlueRevision).NotTo(BeEmpty())
@@ -209,20 +213,20 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			g.Expect(stable.Spec.UpdateStrategy.Type).To(Equal(appsv1.RollingUpdateStatefulSetStrategyType))
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
-		By("performing a rolling upgrade from 2.5.5 to 2.6.4 against the same StatefulSet")
+		By("performing a rolling upgrade to the final version against the same StatefulSet")
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
 			original := updated.DeepCopy()
-			updated.Spec.Version = defaultUpgradeToVersion
-			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", defaultUpgradeToVersion)
+			updated.Spec.Version = versions[2]
+			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", versions[2])
 			g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			updated := &openbaov1alpha1.OpenBaoCluster{}
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
-			g.Expect(updated.Status.CurrentVersion).To(Equal(defaultUpgradeToVersion))
+			g.Expect(updated.Status.CurrentVersion).To(Equal(versions[2]))
 			g.Expect(updated.Status.Upgrade).To(BeNil())
 
 			stable := &appsv1.StatefulSet{}
@@ -239,7 +243,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			)).To(Succeed())
 			g.Expect(pods.Items).To(HaveLen(int(cluster.Spec.Replicas)))
 			for _, pod := range pods.Items {
-				e2ehelpers.ExpectOpenBaoPodVersion(g, pod, defaultUpgradeToVersion)
+				e2ehelpers.ExpectOpenBaoPodVersion(g, pod, versions[2])
 			}
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 	})

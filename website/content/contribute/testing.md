@@ -51,6 +51,16 @@ Manual platform and external-cluster scenarios retain their separate qualificati
 Generated matrices list `expected_case_ids` for every lane. CI validates those IDs against the Ginkgo report and
 requires every planned scenario to pass exactly once. A dry run can check selection but cannot prove execution.
 
+The consecutive rolling and idle strategy-switch scenarios require two upgrades. Set
+`E2E_UPGRADE_SEQUENCE=2.6.4,2.7.0,2.7.1` to select their initial, intermediate, and final
+OpenBao versions. The sequence must contain exactly three increasing semantic versions.
+It is independent of the single-hop `E2E_UPGRADE_FROM_VERSION`, `E2E_UPGRADE_TO_VERSION`,
+and blue-green overrides. The default sequence remains `2.4.4,2.5.5,2.6.4`.
+The release gate retains the default runs and adds both scenarios with the sequence ending at 2.7.1.
+The rolling row uses `2.5.5,2.6.4,2.7.1`. The strategy-switch row uses `2.6.4,2.7.0,2.7.1`
+because the operator blocks a pre-2.6 to 2.6-or-newer blue-green step.
+Ginkgo reports record the selected sequence, and Kind preloads its images.
+
 Set `E2E_FAIL_ON_EMPTY=true` with label filters. Write Ginkgo JSON and JUnit reports so a failed lane retains selected specs, failure details, and slow-test evidence.
 
 ```sh

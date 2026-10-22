@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kubebao/openbao-operator/test/e2e/upgradeversions"
 )
 
 const (
@@ -100,14 +102,15 @@ type nightlyLaneSet struct {
 }
 
 type nightlyRowConfig struct {
-	NetworkProfile string `yaml:"networkProfile"`
-	Lane           string `yaml:"lane"`
-	Kubernetes     string `yaml:"kubernetes"`
-	Coverage       string `yaml:"coverage"`
-	LabelFilter    string `yaml:"labelFilter"`
-	TimeoutMinutes int    `yaml:"timeoutMinutes"`
-	E2ETimeout     string `yaml:"e2eTimeout"`
-	OpenBaoImage   string `yaml:"openbaoImage"`
+	UpgradeSequence string `yaml:"upgradeSequence"`
+	NetworkProfile  string `yaml:"networkProfile"`
+	Lane            string `yaml:"lane"`
+	Kubernetes      string `yaml:"kubernetes"`
+	Coverage        string `yaml:"coverage"`
+	LabelFilter     string `yaml:"labelFilter"`
+	TimeoutMinutes  int    `yaml:"timeoutMinutes"`
+	E2ETimeout      string `yaml:"e2eTimeout"`
+	OpenBaoImage    string `yaml:"openbaoImage"`
 }
 
 type manifestSuite struct {
@@ -644,6 +647,14 @@ func validateNightlyPlan(
 		}
 		for rowIdx, row := range profile.Rows {
 			rowPrefix := fmt.Sprintf("%s.rows[%d]", prefix, rowIdx)
+			if row.Coverage == "upgrade-sequence-latest" && row.UpgradeSequence == "" {
+				errs = append(errs, fmt.Sprintf("%s.upgradeSequence is required for upgrade-sequence-latest", rowPrefix))
+			}
+			if row.UpgradeSequence != "" {
+				if _, err := upgradeversions.Parse(row.UpgradeSequence); err != nil {
+					errs = append(errs, fmt.Sprintf("%s.upgradeSequence: %v", rowPrefix, err))
+				}
+			}
 			if !validNetworkProfile(row.NetworkProfile) {
 				errs = append(errs, fmt.Sprintf("%s.networkProfile %q is not recognized", rowPrefix, row.NetworkProfile))
 			}
@@ -764,13 +775,14 @@ var allowedNightlyPolicies = map[string]bool{
 }
 
 var allowedNightlyCoverage = map[string]bool{
-	"network-ipv4":        true,
-	"network-ipv6":        true,
-	"network-dual-ipv4":   true,
-	"network-dual-ipv6":   true,
-	"compatibility-smoke": true,
-	"full":                true,
-	"release-gate":        true,
+	"upgrade-sequence-latest": true,
+	"network-ipv4":            true,
+	"network-ipv6":            true,
+	"network-dual-ipv4":       true,
+	"network-dual-ipv6":       true,
+	"compatibility-smoke":     true,
+	"full":                    true,
+	"release-gate":            true,
 }
 
 func validNetworkProfile(profile string) bool {

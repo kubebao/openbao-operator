@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/onsi/ginkgo/v2/types"
+
+	"github.com/kubebao/openbao-operator/test/e2e/upgradeversions"
 )
 
 const manualPolicy = "manual"
@@ -237,7 +239,18 @@ func selectScenarios(
 			if !fullFilter(tc.Labels) {
 				return githubMatrix{}, fmt.Errorf("lane %s selects scenario %s outside its full owner", row.ID, tc.ID)
 			}
-			key := strings.Join([]string{row.Kubernetes, row.OpenBaoImage, row.NetworkProfile, tc.ID}, "\x00")
+			sequence := row.UpgradeSequence
+			switch tc.ID {
+			case "rolling-consecutive-execution-identity", "idle-upgrade-strategy-switch":
+				if sequence == "" {
+					sequence = upgradeversions.DefaultSequence
+				}
+			default:
+				if sequence != "" {
+					return githubMatrix{}, fmt.Errorf("lane %s sets an upgrade sequence for unrelated scenario %s", row.ID, tc.ID)
+				}
+			}
+			key := strings.Join([]string{row.Kubernetes, row.OpenBaoImage, row.NetworkProfile, sequence, tc.ID}, "\x00")
 			if previous, exists := seen[key]; exists {
 				return githubMatrix{}, fmt.Errorf("scenario %s repeats in %s and %s on Kubernetes %s / %s",
 					tc.ID, previous, row.ID, row.Kubernetes, row.OpenBaoImage)

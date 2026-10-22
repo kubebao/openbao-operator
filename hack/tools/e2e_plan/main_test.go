@@ -530,7 +530,7 @@ func TestRepoManifestKubernetesMatrixPolicy(t *testing.T) {
 	assertKubernetesRowCounts(t, releaseMatrix, map[string]int{
 		"1.34.3": 12,
 		"1.35.1": 12,
-		"1.36.1": 21,
+		"1.36.1": 23,
 	})
 }
 
@@ -968,5 +968,75 @@ func assertKubernetesRowCounts(t *testing.T, matrix githubMatrix, want map[strin
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Kubernetes row counts = %v, want %v", got, want)
+	}
+}
+
+func TestReleaseGateTwoStepUpgradeSequences(t *testing.T) {
+	m := loadRepoManifest(t)
+	matrix, err := buildGithubNightlyMatrix(m, "release-gate", nightlyFilters{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := repoCases(t)
+	if _, err := selectScenarios(matrix, m, cases, nil); err != nil {
+		t.Fatal(err)
+	}
+	duplicate := matrix
+	duplicate.Include = append(append([]matrixRow{}, matrix.Include...), matrix.Include[0])
+	if _, err := selectScenarios(duplicate, m, cases, nil); err == nil {
+		t.Fatal("duplicate qualification context was accepted")
+	}
+	expected := map[string]string{
+		"upgrade-rolling":        "rolling-consecutive-execution-identity",
+		"upgrade-bluegreen-core": "idle-upgrade-strategy-switch",
+	}
+	seen := map[string]bool{}
+	for _, row := range matrix.Include {
+		if row.Coverage != "upgrade-sequence-latest" {
+			continue
+		}
+		wantSequence := "2.5.5,2.6.4,2.7.1"
+		if row.ID == "upgrade-bluegreen-core" {
+			wantSequence = "2.6.4,2.7.0,2.7.1"
+		}
+		if row.UpgradeSequence != wantSequence || row.Kubernetes != m.Versions.Kubernetes.Primary {
+			t.Fatalf("unexpected upgrade sequence row: %+v", row)
+		}
+		id := expected[row.ID]
+		if id == "" || seen[id] {
+			t.Fatalf("unexpected or duplicate lane: %s", row.ID)
+		}
+		filter, err := types.ParseLabelFilter(row.LabelFilter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		selected := []string{}
+		for _, tc := range cases {
+			if filter(tc.Labels) {
+				selected = append(selected, tc.ID)
+			}
+		}
+		if len(selected) != 1 || selected[0] != id {
+			t.Fatalf("selected %v, want only %s", selected, id)
+		}
+		seen[id] = true
+	}
+	if len(seen) != len(expected) {
+		t.Fatalf("covered %v, want %v", seen, expected)
+	}
+	for i := range m.Nightly.Profiles {
+		if m.Nightly.Profiles[i].ID != "release-gate" {
+			continue
+		}
+		for j := range m.Nightly.Profiles[i].Rows {
+			row := &m.Nightly.Profiles[i].Rows[j]
+			if row.UpgradeSequence != "" {
+				row.UpgradeSequence = "2.6.4,2.6.4,2.7.1"
+				break
+			}
+		}
+	}
+	if _, err := buildGithubNightlyMatrix(m, "release-gate", nightlyFilters{}); err == nil {
+		t.Fatal("invalid sequence was accepted")
 	}
 }

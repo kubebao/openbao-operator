@@ -124,6 +124,16 @@ class LaneConfiguration(unittest.TestCase):
             self.assertEqual(json.loads((root / "reports/expected-cases.json").read_text()), row["expected_case_ids"])
             return result, values
 
+    def test_two_step_upgrade_sequence_is_exported_and_cleared(self):
+        row = dict(self.rows[0], upgrade_sequence="2.5.5,2.6.4,2.7.1")
+        result, values = self.configure(row)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(values["E2E_UPGRADE_SEQUENCE"], row["upgrade_sequence"])
+        row.pop("upgrade_sequence")
+        result, values = self.configure(row)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(values["E2E_UPGRADE_SEQUENCE"], "")
+
     def test_every_lane_retains_its_execution_settings(self):
         for row in self.rows:
             with self.subTest(lane=row["id"]):
