@@ -94,11 +94,12 @@ var _ = Describe("Cluster PKCS#11 Unseal", Label("cluster", "lifecycle", "unseal
 				Namespace: f.Namespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				Profile:  openbaov1alpha1.ProfileDevelopment,
-				Version:  openBaoVersion,
-				Image:    openBaoImage,
-				Replicas: 1,
-				Plugins:  []openbaov1alpha1.Plugin{plugin},
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+				Profile:           openbaov1alpha1.ProfileDevelopment,
+				Version:           openBaoVersion,
+				Image:             openBaoImage,
+				Replicas:          1,
+				Plugins:           []openbaov1alpha1.Plugin{plugin},
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
 					Image:   configInitImage,

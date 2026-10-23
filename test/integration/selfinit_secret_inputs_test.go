@@ -33,7 +33,7 @@ func secretInputCluster(namespace, name string) *openbaov1alpha1.OpenBaoCluster 
 	cluster.Spec.Version = "2.6.0"
 	cluster.Spec.Image = "openbao/openbao:2.6.0"
 	cluster.Spec.InitContainer = nil
-	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{Enabled: true, Requests: []openbaov1alpha1.SelfInitRequest{{
+	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true}, Requests: []openbaov1alpha1.SelfInitRequest{{
 		Name: "login", Operation: openbaov1alpha1.SelfInitOperationUpdate, Path: "auth/userpass/users/admin",
 		DataFrom: map[string]openbaov1alpha1.SelfInitDataSource{
 			"password": {SecretKeyRef: openbaov1alpha1.SelfInitSecretKeyReference{Name: "bootstrap-login", Key: "password"}},
@@ -303,7 +303,11 @@ func TestSelfInitSecretInputMappingsImmutable(t *testing.T) {
 			mutate(candidate)
 			err := k8sClient.Update(ctx, candidate, client.DryRunAll)
 			requireAdmissionDenied(t, err)
-			require.ErrorContains(t, err, "immutable after cluster creation")
+			if name == "removed self-init" {
+				require.ErrorContains(t, err, "spec.controllerJWTMode Target requires")
+			} else {
+				require.ErrorContains(t, err, "immutable after cluster creation")
+			}
 		})
 	}
 	// The projection identity does not depend on request order or inline data.
@@ -318,17 +322,27 @@ func TestSelfInitSecretInputMappingsImmutable(t *testing.T) {
 	err := k8sClient.Update(ctx, withoutInputs, client.DryRunAll)
 	requireAdmissionDenied(t, err)
 	require.ErrorContains(t, err, "immutable after cluster creation")
-	disabled := secretInputCluster(namespace, "disabled-immutable-inputs")
-	disabled.Spec.SelfInit.Requests = append(disabled.Spec.SelfInit.Requests, *second)
-	require.NoError(t, k8sClient.Create(ctx, disabled))
-	updateClusterStatus(t, disabled, func(status *openbaov1alpha1.OpenBaoClusterStatus) {
-		status.Initialized, status.SelfInitialized = true, true
+}
+
+func TestLegacySelfInitSecretInputMappingsAfterDisablement(t *testing.T) {
+	c, _, _ := startIsolatedEnv(t, isolatedEnvOptions{
+		crdDirs: []string{filepath.Join("..", "..", "config", "crd", "bases")},
 	})
-	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(disabled), disabled))
-	disabled.Spec.SelfInit.Enabled = false
-	require.NoError(t, k8sClient.Update(ctx, disabled))
-	disabled.Spec.SelfInit.Requests[1] = *disabled.Spec.SelfInit.Requests[0].DeepCopy()
-	err = k8sClient.Update(ctx, disabled, client.DryRunAll)
+	namespace := createNamespace(t, ctx, c)
+	cluster := secretInputCluster(namespace, "legacy-inputs")
+	cluster.Spec.ControllerJWTMode = ""
+	cluster.Spec.SelfInit.OIDC = nil
+	second := cluster.Spec.SelfInit.Requests[0].DeepCopy()
+	second.Name = "second-request"
+	cluster.Spec.SelfInit.Requests = append(cluster.Spec.SelfInit.Requests, *second)
+	require.NoError(t, c.Create(ctx, cluster))
+	cluster.Status.Initialized, cluster.Status.SelfInitialized = true, true
+	require.NoError(t, c.Status().Update(ctx, cluster))
+	installControllerJWTAdmission(t, c, namespace)
+	cluster.Spec.SelfInit.Enabled = false
+	require.NoError(t, c.Update(ctx, cluster))
+	cluster.Spec.SelfInit.Requests[1] = *cluster.Spec.SelfInit.Requests[0].DeepCopy()
+	err := c.Update(ctx, cluster, client.DryRunAll)
 	requireAdmissionDenied(t, err)
 	require.ErrorContains(t, err, "unique source-bearing request names")
 }
@@ -340,20 +354,20 @@ func TestSelfInitSecretInputEnablement(t *testing.T) {
 	disabled.Spec.SelfInit.Enabled = false
 	err := k8sClient.Create(ctx, disabled, client.DryRunAll)
 	requireAdmissionDenied(t, err)
-	require.ErrorContains(t, err, "must be enabled at creation and until initialization completes")
+	require.ErrorContains(t, err, "spec.controllerJWTMode Target requires")
 	cluster := secretInputCluster(namespace, "enabled-inputs")
 	require.NoError(t, k8sClient.Create(ctx, cluster))
 	cluster.Spec.SelfInit.Enabled = false
 	err = k8sClient.Update(ctx, cluster, client.DryRunAll)
 	requireAdmissionDenied(t, err)
-	require.ErrorContains(t, err, "must be enabled at creation and until initialization completes")
+	require.ErrorContains(t, err, "spec.controllerJWTMode Target requires")
 	updateClusterStatus(t, cluster, func(status *openbaov1alpha1.OpenBaoClusterStatus) {
 		status.Initialized, status.SelfInitialized = true, true
 	})
 	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster))
 	cluster.Spec.SelfInit.Enabled = false
-	// Completed bootstrap can be disabled or re-enabled without replaying it.
-	require.NoError(t, k8sClient.Update(ctx, cluster))
+	// Target retains its bootstrap prerequisites after initialization.
+	requireAdmissionDenied(t, k8sClient.Update(ctx, cluster))
 	cluster.Spec.SelfInit.Enabled = true
 	require.NoError(t, k8sClient.Update(ctx, cluster, client.DryRunAll))
 }

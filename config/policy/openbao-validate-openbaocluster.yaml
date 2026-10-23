@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-validate-openbaocluster
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:a83dd07e9419383ca40f4933607a79fbf9ebf6ccf4e22059628b4ff7ab2efe6a
+    openbao.org/admission-policy-fingerprint: sha256:c1251c37fc34b9d3b5bc8d4250fe608770e227ff416a75ba21ddbd68fef9c469
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -567,6 +567,10 @@ spec:
         authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()
       message: "Restore testing requires use authority for the destination StorageClass."
 
+    - expression: >-
+        request.operation != "CREATE" ||
+        (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
+      message: "spec.controllerJWTMode is required to be Target when creating a cluster"
     - expression: >-
         !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" ||
         (has(object.spec.selfInit) && object.spec.selfInit.enabled &&

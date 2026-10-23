@@ -90,6 +90,7 @@ metadata:
 spec:
   # Hardened security profile - REQUIRED for production
   profile: Development
+  controllerJWTMode: Target
   workloadHardening:
     appArmorEnabled: false
   configuration:
@@ -294,3 +295,9 @@ spec:
     retention:
       maxCount: 7
       maxAge: "168h"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bao-gateway-cert-client

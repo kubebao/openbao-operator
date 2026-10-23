@@ -32,6 +32,9 @@ spec:
             path "secret/*" { capabilities = ["create", "read", "update", "delete", "list"] }
             path "secret/data/*" { capabilities = ["create", "read", "update", "delete", "list"] }
             path "secret/metadata/*" { capabilities = ["read", "list", "delete"] }
+            # Independent fixture administrator for the optional post-upgrade migration.
+            path "auth/jwt-operator/role/openbao-operator" { capabilities = ["read", "update"] }
+            path "sys/storage/raft/autopilot/configuration" { capabilities = ["read", "update"] }
       - name: create-upgrade-role
         operation: update
         path: auth/jwt-operator/role/operator-upgrade-hardened

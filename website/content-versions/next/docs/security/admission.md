@@ -29,6 +29,10 @@ The operator treats its `ValidatingAdmissionPolicy` objects and bindings as runt
 resources, constrain operator identities, protect managed resources, and enforce digest-only images where required.
 Keep the complete policy set installed with the matching operator release.
 
+Cluster creation requires `spec.controllerJWTMode: Target` with self-init OIDC for both Development and Hardened
+profiles. Existing clusters with an omitted or Shared mode retain their authentication on ordinary updates. See
+[controller JWT authentication](../../operate/controller-jwt-mode/) for the creation and migration boundaries.
+
 ## Keep the release policy set intact
 
 The required set covers these boundaries:

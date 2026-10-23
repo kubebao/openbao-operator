@@ -46,6 +46,36 @@ spec:
   version: "2.4.4"
   replicas: 3
   profile: Development
+  controllerJWTMode: Target
+  selfInit:
+    enabled: true
+    oidc:
+      enabled: true
+    requests:
+      - name: enable-stdout-audit
+        operation: update
+        path: sys/audit/stdout
+        auditDevice:
+          type: file
+          fileOptions:
+            filePath: stdout
+      # This evaluation role can read health. Add administrator access before production.
+      # Update bound_subject when applying the sample outside the default namespace.
+      - name: create-sample-client-policy
+        operation: update
+        path: sys/policies/acl/sample-read
+        policy:
+          policy: 'path "sys/health" { capabilities = ["read"] }'
+      - name: bind-sample-client-role
+        operation: update
+        path: auth/jwt-operator/role/sample-client
+        data:
+          role_type: jwt
+          user_claim: sub
+          bound_audiences: [openbao-sample-client]
+          bound_subject: system:serviceaccount:default:bao-gateway-selfsigned-issuer-client
+          token_policies: [sample-read]
+          token_ttl: 10m
   initContainer:
     enabled: true
     # For k3d clusters, use the k3d registry path: k3d-registry.localhost:5000/openbao-init:dev
@@ -102,3 +132,9 @@ spec:
 #         certificateRefs:
 #           - name: wildcard-tls-secret
 #             namespace: gateway-system
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bao-gateway-selfsigned-issuer-client

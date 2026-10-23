@@ -231,10 +231,11 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 			Namespace: f.sourceFW.Namespace,
 		},
 		Spec: api.OpenBaoClusterSpec{
-			Profile:  api.ProfileDevelopment,
-			Version:  "2.7.1",
-			Image:    image,
-			Replicas: 1,
+			ControllerJWTMode: api.ControllerJWTModeTarget,
+			Profile:           api.ProfileDevelopment,
+			Version:           "2.7.1",
+			Image:             image,
+			Replicas:          1,
 			InitContainer: &api.InitContainerConfig{
 				Enabled: true,
 				Image:   configInitImage,

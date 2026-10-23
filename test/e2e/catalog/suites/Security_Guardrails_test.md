@@ -29,7 +29,7 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 | `security-guardrails-prevents-sidecar-injection-via-statefulset-updates-145c71ee` | prevents sidecar injection via StatefulSet updates | active | _none_ | `security`, `critical`, `tamper` |
 | `security-guardrails-prevents-unauthorized-deletion-of-the-tls-9e011135` | prevents unauthorized deletion of the TLS CA secret | active | _none_ | `security`, `critical`, `tamper` |
 | `security-guardrails-prevents-unauthorized-deletion-of-the-unseal-2ea235de` | prevents unauthorized deletion of the unseal Secret | active | _none_ | `security`, `critical`, `tamper` |
-| `restore-static-token-secret-labels` | rejects an unlabeled static restore token Secret before creating a restore Job | active | `restore-static-token-secret-identity` | `security`, `critical`, `tokens`, `pentest` |
+| `restore-target-jwt-ignores-static-token-secret` | uses Target JWT authentication without mounting a supplied static token Secret | active | `restore-target-jwt-precedence` | `security`, `critical`, `tokens`, `pentest` |
 
 ## `admission-runtime-binding-loss`
 
@@ -301,18 +301,18 @@ Covers: _none_
 Labels: `security`, `critical`, `tamper`
 
 
-## `restore-static-token-secret-labels`
+## `restore-target-jwt-ignores-static-token-secret`
 
-Path: `Security Guardrails > Restore Token Guardrails > rejects an unlabeled static restore token Secret before creating a restore Job`
+Path: `Security Guardrails > Restore Token Guardrails > uses Target JWT authentication without mounting a supplied static token Secret`
 
 State: `active`
 
-Generated fallback ID: `security-guardrails-rejects-an-unlabeled-static-restore-token-191fbffe`
+Generated fallback ID: `security-guardrails-uses-target-jwt-authentication-without-mounting-1cf38427`
 
-Covers: `restore-static-token-secret-identity`
+Covers: `restore-target-jwt-precedence`
 
 Labels: `security`, `critical`, `tokens`, `pentest`
 
 Recorded checkpoints:
-- waiting for restore validation to reject the unlabeled static token Secret
-- ensuring no restore Job was created
+- waiting for restore validation to select JWT authentication
+- checking the restore Job uses JWT authentication and excludes the static token

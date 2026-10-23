@@ -19,6 +19,7 @@ const (
 
 const (
 	RuleHardenedBaseline                   RuleID = "hardened.baseline"
+	RuleControllerJWTTarget                RuleID = "hardened.controller-jwt.target"
 	RuleTransitInlineToken                 RuleID = "hardened.unseal.transit-inline-token"
 	RuleAWSInlineSecretKey                 RuleID = "hardened.unseal.aws-inline-secret-key"
 	RuleAWSInlineSessionToken              RuleID = "hardened.unseal.aws-inline-session-token"
@@ -70,6 +71,11 @@ func (r Rule) EnforcedBy(layer EnforcementLayer) bool {
 }
 
 var rules = []Rule{
+	{
+		ID:               RuleControllerJWTTarget,
+		Layers:           []EnforcementLayer{LayerAdmissionPolicy},
+		AdmissionMessage: "spec.controllerJWTMode is required to be Target when creating a cluster",
+	},
 	{
 		ID:     RuleHardenedBaseline,
 		Layers: []EnforcementLayer{LayerAdmissionPolicy},

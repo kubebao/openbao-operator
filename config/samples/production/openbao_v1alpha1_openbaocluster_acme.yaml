@@ -28,6 +28,7 @@ metadata:
 spec:
   # Hardened profile is compatible with ACME mode
   profile: Hardened
+  controllerJWTMode: Target
   version: "2.4.4"
   replicas: 3
   # ACME TLS mode - OpenBao manages certificates automatically

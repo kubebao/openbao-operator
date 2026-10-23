@@ -30,10 +30,11 @@ func NewValidCluster(namespace, name string) *openbaov1alpha1.OpenBaoCluster {
 			Namespace: namespace,
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Version:  "2.4.4",
-			Image:    "openbao/openbao:2.4.4",
-			Replicas: 3,
-			Profile:  openbaov1alpha1.ProfileHardened,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+			Version:           "2.4.4",
+			Image:             "openbao/openbao:2.4.4",
+			Replicas:          3,
+			Profile:           openbaov1alpha1.ProfileHardened,
 			TLS: openbaov1alpha1.TLSConfig{
 				Enabled: true,
 				Mode:    openbaov1alpha1.TLSModeExternal,
@@ -41,6 +42,7 @@ func NewValidCluster(namespace, name string) *openbaov1alpha1.OpenBaoCluster {
 			Storage: openbaov1alpha1.StorageConfig{Size: "10Gi"},
 			SelfInit: &openbaov1alpha1.SelfInitConfig{
 				Enabled: true,
+				OIDC:    &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true},
 				Requests: []openbaov1alpha1.SelfInitRequest{
 					{
 						Name:      "health-check",
@@ -66,6 +68,13 @@ func NewValidCluster(namespace, name string) *openbaov1alpha1.OpenBaoCluster {
 func Fixtures() []Fixture {
 	return []Fixture{
 		{Name: "valid-baseline"},
+		{
+			Name:          "controller-jwt-shared",
+			AdmissionRule: hardenedcontract.RuleControllerJWTTarget,
+			Configure: func(cluster *openbaov1alpha1.OpenBaoCluster) {
+				cluster.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeShared
+			},
+		},
 		{
 			Name: "backup-nested-s3-identity",
 			Configure: func(cluster *openbaov1alpha1.OpenBaoCluster) {

@@ -3062,6 +3062,10 @@
           "message": "Restore testing requires use authority for the destination StorageClass."
         },
         {
+          "expression": "request.operation != \"CREATE\" || (has(object.spec.controllerJWTMode) \u0026\u0026 object.spec.controllerJWTMode == \"Target\")",
+          "message": "spec.controllerJWTMode is required to be Target when creating a cluster"
+        },
+        {
           "expression": "!has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != \"Target\" || (has(object.spec.selfInit) \u0026\u0026 object.spec.selfInit.enabled \u0026\u0026\n has(object.spec.selfInit.oidc) \u0026\u0026 object.spec.selfInit.oidc.enabled)",
           "message": "spec.controllerJWTMode Target requires spec.selfInit.enabled and spec.selfInit.oidc.enabled"
         },
@@ -3859,6 +3863,10 @@
           {
             "expression": "!variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName) || object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName.trim() == '' || authorizer.group(\"storage.k8s.io\").resource(\"storageclasses\").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check(\"use\").allowed()",
             "message": "Restore testing requires use authority for the destination StorageClass."
+          },
+          {
+            "expression": "request.operation != \"CREATE\" || (has(object.spec.controllerJWTMode) \u0026\u0026 object.spec.controllerJWTMode == \"Target\")",
+            "message": "spec.controllerJWTMode is required to be Target when creating a cluster"
           },
           {
             "expression": "!has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != \"Target\" || (has(object.spec.selfInit) \u0026\u0026 object.spec.selfInit.enabled \u0026\u0026\n\n has(object.spec.selfInit.oidc) \u0026\u0026 object.spec.selfInit.oidc.enabled)",

@@ -251,6 +251,7 @@ var _ = Describe("ACME TLS (OpenBao native ACME client)", Label("tls", "security
 				Namespace: f.Namespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 				// Hardened profile with 3 replicas (VAP requires >= 3 for Raft quorum HA)
 				Profile:  openbaov1alpha1.ProfileHardened,
 				Version:  openBaoVersion,
@@ -261,6 +262,7 @@ var _ = Describe("ACME TLS (OpenBao native ACME client)", Label("tls", "security
 					Image:   hardenedConfigInitImage,
 				},
 				SelfInit: &openbaov1alpha1.SelfInitConfig{
+					OIDC:    &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true},
 					Enabled: true,
 					Requests: []openbaov1alpha1.SelfInitRequest{
 						{

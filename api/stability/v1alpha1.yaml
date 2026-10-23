@@ -138,8 +138,8 @@ resources:
         classification: additive-unfrozen
         owner: authentication
         enforcement: [crd-schema, admission-policy, controller]
-        omission: installation-scoped Shared controller JWT authentication
-        rationale: Target mode requires administrator preparation of existing JWT roles; executor identities are unchanged.
+        omission: existing clusters retain Shared authentication; enforced admission rejects omitted modes on CREATE
+        rationale: New clusters in every profile require Target and self-init OIDC. Existing Shared clusters require administrator preparation of JWT roles before migration; executor identities are unchanged.
       - path: spec.gateway
         classification: additive-unfrozen
         owner: networking

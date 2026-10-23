@@ -371,7 +371,7 @@ func TestWaitOverlapKeepsDedicatedJWTAndParallelRestoreWitnesses(t *testing.T) {
 	}
 	jwtOwners := 0
 	for _, row := range planned.Include {
-		if slices.Contains(row.ExpectedCaseIDs, "controller-jwt-renewal-migration-recovery") {
+		if slices.Contains(row.ExpectedCaseIDs, "controller-jwt-renewal-recovery") {
 			jwtOwners++
 			if row.ID != "controller-jwt" || row.ParallelNodes != 1 || len(row.ExpectedCaseIDs) != 1 {
 				t.Fatalf("JWT process lifetime witness shares its lane: %+v", row)

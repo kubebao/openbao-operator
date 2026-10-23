@@ -11,8 +11,9 @@ verifiedBy:
 ---
 
 Migrate one OpenBaoCluster at a time. The procedure changes controller authentication without recreating OpenBao or
-its storage. Existing clusters keep Shared mode after an operator upgrade. New-cluster manifests should select
-`spec.controllerJWTMode: Target` with self-init OIDC enabled.
+its storage. Existing clusters keep Shared mode after an operator upgrade, including existing Hardened clusters.
+For new clusters, [declare the controller JWT mode](../controller-jwt-mode/). All new clusters require Target and
+self-init OIDC, regardless of security profile.
 
 ## Prepare the installation
 

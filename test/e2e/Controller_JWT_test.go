@@ -31,9 +31,9 @@ import (
 )
 
 var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt", "slow"), Serial, func() {
-	It("renews Target credentials and recovers an initialized migration from an older snapshot", Label(
-		"case:controller-jwt-renewal-migration-recovery",
-		"covers:controller-jwt-renewal", "covers:controller-jwt-migration", "covers:controller-jwt-recovery",
+	It("renews Target credentials and recovers older snapshot authentication", Label(
+		"case:controller-jwt-renewal-recovery",
+		"covers:controller-jwt-renewal", "covers:controller-jwt-recovery",
 	), func(ctx SpecContext) {
 		f, err := framework.NewSetup(ctx, "controller-jwt", operatorNamespace)
 		Expect(err).NotTo(HaveOccurred())
@@ -54,7 +54,7 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 		}
 
 		By("bootstrapping Target mode with the operator-generated roles and policy approval")
-		target, targetAPI := newControllerJWTCluster(ctx, f, "target", openbaov1alpha1.ControllerJWTModeTarget)
+		target, targetAPI := newControllerJWTCluster(ctx, f, "target")
 		targetAudience, err := portauth.ControllerJWTAudience(target, "")
 		Expect(err).NotTo(HaveOccurred())
 		targetAPI.expectAudiences([]string{targetAudience}, controller)
@@ -71,62 +71,62 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 		By("deleting an operational policy while the original Target credential ages")
 		targetAPI.request(http.MethodDelete, "sys/policies/acl/openbao-operator", nil, http.StatusNoContent)
 
-		By("initializing an existing-style Shared cluster and saving its actual Raft snapshot")
-		legacy, legacyAPI := newControllerJWTCluster(ctx, f, "migrate", "")
-		legacyUID := legacy.UID
-		legacyAPI.expectAudiences([]string{portauth.TokenAudienceOpenBaoInternal}, controller)
-		legacyAPI.expectJWT(sharedToken, true)
-		legacyAPI.write("secret/validation", map[string]any{"value": "before-migration"})
-		snapshot := legacyAPI.request(http.MethodGet, "sys/storage/raft/snapshot", nil, http.StatusOK)
-		Expect(snapshot).NotTo(BeEmpty())
-		legacy.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeTarget
-		legacyAudience, err := portauth.ControllerJWTAudience(legacy, "")
+		By("capturing a snapshot with older shared role trust on a Target cluster")
+		// Existing-CR Shared-to-Target migration is covered by the previous-release
+		// operator upgrade harness. Candidate CREATE admission remains enabled here.
+		recovery, recoveryAPI := newControllerJWTCluster(ctx, f, "recovery")
+		recoveryUID := recovery.UID
+		recoveryAudience, err := portauth.ControllerJWTAudience(recovery, "")
 		Expect(err).NotTo(HaveOccurred())
-		legacyToken := controllerJWTFor(ctx, clientset, controller, legacyAudience)
+		recoveryToken := controllerJWTFor(ctx, clientset, controller, recoveryAudience)
+		recoveryAPI.expectAudiences([]string{recoveryAudience}, controller)
+		recoveryAPI.setAudiences([]string{portauth.TokenAudienceOpenBaoInternal})
+		recoveryAPI.expectJWT(sharedToken, true)
+		recoveryAPI.write("secret/validation", map[string]any{"value": "older-snapshot"})
+		snapshot := recoveryAPI.request(http.MethodGet, "sys/storage/raft/snapshot", nil, http.StatusOK)
+		Expect(snapshot).NotTo(BeEmpty())
 
-		By("preparing the existing role, switching the CR, then removing shared trust")
-		legacyAPI.setAudiences([]string{portauth.TokenAudienceOpenBaoInternal, legacyAudience})
-		legacyAPI.expectJWT(legacyToken, true)
-		Expect(f.Client.Patch(ctx, legacy, client.RawPatch("application/merge-patch+json",
-			[]byte(`{"spec":{"controllerJWTMode":"Target"}}`)))).To(Succeed())
-		legacyAPI.setAudiences([]string{legacyAudience})
-		legacyAPI.expectAudiences([]string{legacyAudience}, controller)
-		legacyAPI.expectJWT(sharedToken, false)
-		legacyAPI.expectJWT(targetToken, false)
-		targetAPI.expectJWT(legacyToken, false)
-		legacyAPI.repairAutopilot(ctx, f, legacy)
-		legacyAPI.write("secret/validation", map[string]any{"value": "after-migration"})
+		By("repairing role trust before restoring the older snapshot")
+		recoveryAPI.setAudiences([]string{portauth.TokenAudienceOpenBaoInternal, recoveryAudience})
+		recoveryAPI.expectJWT(recoveryToken, true)
+		recoveryAPI.setAudiences([]string{recoveryAudience})
+		recoveryAPI.expectAudiences([]string{recoveryAudience}, controller)
+		recoveryAPI.expectJWT(sharedToken, false)
+		recoveryAPI.expectJWT(targetToken, false)
+		targetAPI.expectJWT(recoveryToken, false)
+		recoveryAPI.repairAutopilot(ctx, f, recovery)
+		recoveryAPI.write("secret/validation", map[string]any{"value": "before-restore"})
 
-		By("restoring the pre-migration snapshot while the CR remains in Target mode")
-		legacyAPI.request(http.MethodPost, "sys/storage/raft/snapshot-force", snapshot, http.StatusNoContent, http.StatusOK)
-		Eventually(legacyAPI.login, 2*time.Minute, 2*time.Second).Should(Succeed())
+		By("restoring the older snapshot while the CR remains in Target mode")
+		recoveryAPI.request(http.MethodPost, "sys/storage/raft/snapshot-force", snapshot, http.StatusNoContent, http.StatusOK)
+		Eventually(recoveryAPI.login, 2*time.Minute, 2*time.Second).Should(Succeed())
 		Eventually(func() (string, error) {
-			data, err := legacyAPI.read("secret/validation")
+			data, err := recoveryAPI.read("secret/validation")
 			if err != nil {
 				return "", err
 			}
 			value, _ := data["value"].(string)
 			return value, nil
-		}, 2*time.Minute, 2*time.Second).Should(Equal("before-migration"))
-		Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(legacy), legacy)).To(Succeed())
-		Expect(legacy.UID).To(Equal(legacyUID))
-		Expect(legacy.Spec.ControllerJWTMode).To(Equal(openbaov1alpha1.ControllerJWTModeTarget))
-		legacyAPI.expectAudiences([]string{portauth.TokenAudienceOpenBaoInternal}, controller)
-		legacyAPI.expectJWT(legacyToken, false)
-		legacyAPI.expectJWT(sharedToken, true)
-		legacyAPI.write("sys/storage/raft/autopilot/configuration", map[string]any{"min_quorum": 99})
-		Expect(f.TriggerReconcile(ctx, legacy.Name)).To(Succeed())
+		}, 2*time.Minute, 2*time.Second).Should(Equal("older-snapshot"))
+		Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(recovery), recovery)).To(Succeed())
+		Expect(recovery.UID).To(Equal(recoveryUID))
+		Expect(recovery.Spec.ControllerJWTMode).To(Equal(openbaov1alpha1.ControllerJWTModeTarget))
+		recoveryAPI.expectAudiences([]string{portauth.TokenAudienceOpenBaoInternal}, controller)
+		recoveryAPI.expectJWT(recoveryToken, false)
+		recoveryAPI.expectJWT(sharedToken, true)
+		recoveryAPI.write("sys/storage/raft/autopilot/configuration", map[string]any{"min_quorum": 99})
+		Expect(f.TriggerReconcile(ctx, recovery.Name)).To(Succeed())
 		Consistently(func() (any, error) {
-			data, err := legacyAPI.read("sys/storage/raft/autopilot/configuration")
+			data, err := recoveryAPI.read("sys/storage/raft/autopilot/configuration")
 			return data["min_quorum"], err
 		}, 70*time.Second, 5*time.Second).Should(Equal(float64(99)), "the controller must not fall back to the restored shared role")
 
 		By("repairing restored audience trust through the independent administrator login")
-		legacyAPI.setAudiences([]string{legacyAudience})
-		legacyAPI.expectJWT(legacyToken, true)
-		legacyAPI.expectJWT(sharedToken, false)
-		legacyAPI.expectJWT(targetToken, false)
-		legacyAPI.repairAutopilot(ctx, f, legacy)
+		recoveryAPI.setAudiences([]string{recoveryAudience})
+		recoveryAPI.expectJWT(recoveryToken, true)
+		recoveryAPI.expectJWT(sharedToken, false)
+		recoveryAPI.expectJWT(targetToken, false)
+		recoveryAPI.repairAutopilot(ctx, f, recovery)
 
 		By("observing periodic policy repair during the original Target credential's lifetime")
 		targetAPI.waitForOperatorPolicy(6 * time.Minute)
@@ -172,9 +172,9 @@ var _ = Describe("Controller JWT lifecycle", Label("lifecycle", "controller-jwt"
 		Expect(finalController.UID).To(Equal(controller.UID))
 		Expect(finalController.Status.ContainerStatuses[0].RestartCount).To(Equal(controller.Status.ContainerStatuses[0].RestartCount))
 		AddReportEntry("controller-jwt-validation", map[string]any{
-			"targetUID": targetUID, "migratedUID": legacyUID, "controllerPodUID": controller.UID,
+			"targetUID": targetUID, "recoveryUID": recoveryUID, "controllerPodUID": controller.UID,
 			"elapsedSeconds": int(time.Since(started).Seconds()), "transport": "inline",
-			"snapshotRestore": "pre-migration role restored and repaired", "policyRepair": "verified after JWT expiration",
+			"snapshotRestore": "older shared role restored and repaired", "policyRepair": "verified after JWT expiration",
 			"initialJWTExpiresAt":                targetCredential.ExpirationTimestamp.Time,
 			"periodicPolicyRepairElapsedSeconds": int(periodicRepairElapsed.Seconds()),
 		})
@@ -227,13 +227,13 @@ type controllerJWTAPI struct {
 	token    string
 }
 
-func newControllerJWTCluster(ctx context.Context, f *framework.Framework, name string, mode openbaov1alpha1.ControllerJWTMode) (*openbaov1alpha1.OpenBaoCluster, *controllerJWTAPI) {
+func newControllerJWTCluster(ctx context.Context, f *framework.Framework, name string) (*openbaov1alpha1.OpenBaoCluster, *controllerJWTAPI) {
 	password := uuid.NewString()
 	userData, err := json.Marshal(map[string]any{"password": password, "token_policies": []string{"jwt-validation-admin"}, "token_ttl": "1h"})
 	Expect(err).NotTo(HaveOccurred())
 	cluster := &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: f.Namespace}, Spec: openbaov1alpha1.OpenBaoClusterSpec{
 		Profile: openbaov1alpha1.ProfileDevelopment, Version: openBaoVersion, Image: openBaoImage, Replicas: 1,
-		ControllerJWTMode: mode, ReconcilePolicies: true,
+		ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget, ReconcilePolicies: true,
 		InitContainer: &openbaov1alpha1.InitContainerConfig{Enabled: true, Image: configInitImage},
 		TLS:           openbaov1alpha1.TLSConfig{Enabled: true, Mode: openbaov1alpha1.TLSModeOperatorManaged, RotationPeriod: "720h"},
 		Storage:       openbaov1alpha1.StorageConfig{Size: "1Gi"}, DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,

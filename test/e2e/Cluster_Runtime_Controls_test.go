@@ -47,10 +47,13 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 				Namespace: f.Namespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				Profile:  openbaov1alpha1.ProfileDevelopment,
-				Version:  openBaoVersion,
-				Image:    openBaoImage,
-				Replicas: 1,
+				SelfInit: &openbaov1alpha1.SelfInitConfig{Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true}, Requests: framework.DefaultAdminSelfInitRequests()},
+
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+				Profile:           openbaov1alpha1.ProfileDevelopment,
+				Version:           openBaoVersion,
+				Image:             openBaoImage,
+				Replicas:          1,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
 					Image:   configInitImage,

@@ -18,6 +18,7 @@ metadata:
   name: openbaocluster-oci
 spec:
   profile: Hardened
+  controllerJWTMode: Target
   version: "2.4.4"
   replicas: 3
   tls:
@@ -55,6 +56,8 @@ spec:
   # Self-initialization (required for Hardened profile)
   selfInit:
     enabled: true
+    oidc:
+      enabled: true
     requests:
       # Replace the example issuer and audience with values tested against your identity provider.
       - name: enable-human-jwt-auth

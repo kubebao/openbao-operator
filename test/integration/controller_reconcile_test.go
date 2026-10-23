@@ -184,30 +184,9 @@ func TestOpenBaoClusterReconciler_DeletionWithRetainPolicy(t *testing.T) {
 	namespace := newTestNamespace(t)
 	clusterName := "deletion-retain"
 
-	// Create cluster with Retain deletion policy
-	cluster := &openbaov1alpha1.OpenBaoCluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterName,
-			Namespace: namespace,
-		},
-		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Version:  "2.4.4",
-			Image:    "openbao/openbao:2.4.4",
-			Replicas: 1,
-			Profile:  openbaov1alpha1.ProfileDevelopment,
-			TLS: openbaov1alpha1.TLSConfig{
-				Enabled:        true,
-				RotationPeriod: "720h",
-			},
-			Storage: openbaov1alpha1.StorageConfig{
-				Size: "10Gi",
-			},
-			InitContainer: &openbaov1alpha1.InitContainerConfig{
-				Image: "openbao/openbao-init:latest",
-			},
-			DeletionPolicy: openbaov1alpha1.DeletionPolicyRetain,
-		},
-	}
+	cluster := newMinimalClusterObj(namespace, clusterName)
+	cluster.Spec.Replicas = 1
+	cluster.Spec.DeletionPolicy = openbaov1alpha1.DeletionPolicyRetain
 
 	if err := k8sClient.Create(ctx, cluster); err != nil && !apierrors.IsAlreadyExists(err) {
 		t.Fatalf("create cluster: %v", err)

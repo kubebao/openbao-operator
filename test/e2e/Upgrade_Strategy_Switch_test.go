@@ -75,10 +75,11 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 				Namespace: tenantNamespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				Profile:  openbaov1alpha1.ProfileDevelopment,
-				Version:  versions[0],
-				Image:    fmt.Sprintf("openbao/openbao:%s", versions[0]),
-				Replicas: 3,
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+				Profile:           openbaov1alpha1.ProfileDevelopment,
+				Version:           versions[0],
+				Image:             fmt.Sprintf("openbao/openbao:%s", versions[0]),
+				Replicas:          3,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
 					Image:   configInitImage,

@@ -351,10 +351,11 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 				Namespace: f.Namespace,
 			},
 			Spec: openbaov1alpha1.OpenBaoClusterSpec{
-				Profile:  openbaov1alpha1.ProfileHardened,
-				Version:  openBaoVersion,
-				Image:    openBaoImage,
-				Replicas: 3,
+				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+				Profile:           openbaov1alpha1.ProfileHardened,
+				Version:           openBaoVersion,
+				Image:             openBaoImage,
+				Replicas:          3,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
 					Image:   hardenedConfigInitImage,
@@ -759,10 +760,11 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 					Namespace: f.Namespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileHardened,
-					Version:  initialVersion,
-					Image:    initialImage,
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+					Profile:           openbaov1alpha1.ProfileHardened,
+					Version:           initialVersion,
+					Image:             initialImage,
+					Replicas:          3,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   hardenedConfigInitImage,
@@ -996,10 +998,11 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 					Namespace: f.Namespace,
 				},
 				Spec: openbaov1alpha1.OpenBaoClusterSpec{
-					Profile:  openbaov1alpha1.ProfileHardened,
-					Version:  initialVersion,
-					Image:    initialImage,
-					Replicas: 3,
+					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+					Profile:           openbaov1alpha1.ProfileHardened,
+					Version:           initialVersion,
+					Image:             initialImage,
+					Replicas:          3,
 					InitContainer: &openbaov1alpha1.InitContainerConfig{
 						Enabled: true,
 						Image:   hardenedConfigInitImage,

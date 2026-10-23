@@ -20,12 +20,15 @@ complete human login path and the recovery procedure for that path.
 Self-initialization request `headers` and `when` require OpenBao 2.6.0 or newer. The operator rejects these
 fields for older versions because those servers can ignore them, including a condition that prevents a request.
 
-## Choose the initialization path
+## Use self-init for new clusters
 
 | Path | Use it when | Root-token behavior |
 | --- | --- | --- |
-| Self-init | Required for `Hardened`; preferred when bootstrap state is declarative | OpenBao revokes the bootstrap root token after the requests complete; the operator does not create a root-token Secret |
-| Standard init | Disposable Development clusters and controlled compatibility work | The operator can store the root token in an immutable Kubernetes Secret |
+| Self-init with OIDC | Required for every new cluster, regardless of profile | OpenBao revokes the bootstrap root token after the requests complete; the operator does not create a root-token Secret |
+| Standard init | Existing Development clusters created before the Target requirement | The operator can store the root token in an immutable Kubernetes Secret |
+
+The new requirement applies on CREATE. Existing clusters retain their initialization and authentication behavior
+during ordinary updates. Follow [controller JWT migration](../../operate/controller-jwt-migration/) to opt in.
 
 Self-init is a one-time bootstrap mechanism. It does not continuously reconcile OpenBao auth methods, policies,
 secret engines, audit devices, or upstream workflow definitions.
@@ -43,7 +46,7 @@ Bootstrap these surfaces together:
 1. Choose the human authentication method and external identity owner.
 2. Add requests that enable the auth method, configure it, create the policy, and bind a role or user to that policy.
 3. Add any secret engines and audit devices required at first login.
-4. Enable `selfInit.oidc` if the operator and lifecycle Jobs will authenticate with projected Kubernetes JWTs.
+4. Set `controllerJWTMode: Target` and enable `selfInit.oidc` for controller authentication.
 5. Configure initial recovery keys when a non-static auto-unseal cluster needs a generate-root recovery path.
 
 `selfInit.oidc` is only for operator lifecycle access. It does not create a human login path.
@@ -213,10 +216,11 @@ owner of OpenBao workflow definitions.
 
 ## Configure operator JWT authentication
 
-Enable operator OIDC bootstrap inside the complete self-init block:
+Every new cluster requires operator OIDC bootstrap and Target mode inside its complete specification:
 
 {{< command label="configure" title="Add operator OIDC bootstrap" >}}
 spec:
+  controllerJWTMode: Target
   selfInit:
     enabled: true
     oidc:

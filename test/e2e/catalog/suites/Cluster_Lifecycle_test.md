@@ -8,30 +8,15 @@ Note: recorded checkpoints are best-effort extracts from literal `By(...)` calls
 
 | Case ID | Spec | State | Covers | Labels |
 | --- | --- | --- | --- | --- |
-| `cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f` | creates a cluster with self-init disabled and produces expected Secrets | active | _none_ | `lifecycle`, `cluster`, `profile-development` |
 | `cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c` | creates a cluster with 1 replica and verifies autopilot min_quorum=1 | active | _none_ | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke` |
 | `cluster-lifecycle-scales-down-to-1-replica-remains-f03c312f` | scales down to 1 replica, remains responsive, and verifies autopilot min_quorum=1 | active | _none_ | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke` |
 | `cluster-lifecycle-scales-up-to-3-replicas-and-9bd63a38` | scales up to 3 replicas and verifies autopilot min_quorum=3 | active | _none_ | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke` |
+| `cluster-lifecycle-requires-target-self-init-for-new-clusters` | requires Target self-init for new clusters and revokes the bootstrap root token | active | _none_ | `lifecycle`, `cluster`, `profile-development` |
 | `cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b` | creates an OpenBaoCluster and converges to Available | active | _none_ | `lifecycle`, `cluster`, `critical`, `tenant` |
 | `cluster-lifecycle-expands-storage-by-increasing-spec-storage-212f934d` | expands storage by increasing spec.storage.size (if supported) | active | _none_ | `lifecycle`, `cluster`, `critical`, `tenant` |
 | `cluster-lifecycle-provisions-tenant-rbac-via-openbaotenant-1798196a` | provisions tenant RBAC via OpenBaoTenant | active | _none_ | `lifecycle`, `cluster`, `critical`, `tenant` |
 | `wrapper-graceful-pod-termination` | terminates OpenBao gracefully when deleting a Pod | active | _none_ | `lifecycle`, `cluster`, `critical`, `tenant` |
 | `cluster-lifecycle-writes-file-audit-records-to-managed-fd0d4c2f` | writes file audit records to managed audit storage | active | _none_ | `lifecycle`, `cluster`, `critical`, `tenant`, `audit` |
-
-## `cluster-lifecycle-creates-a-cluster-with-self-init-19ac290f`
-
-Path: `Cluster Lifecycle > Development Profile: Manual Init (Self-Init Disabled) > creates a cluster with self-init disabled and produces expected Secrets`
-
-State: `active`
-
-Covers: _none_
-
-Labels: `lifecycle`, `cluster`, `profile-development`
-
-Recorded checkpoints:
-- waiting for Secrets to be created
-- waiting for root token Secret (self-init disabled)
-
 
 ## `cluster-lifecycle-creates-a-cluster-with-1-replica-9792a98c`
 
@@ -90,6 +75,24 @@ Recorded checkpoints:
 - getting public service for autopilot verification
 - triggering reconcile after scale up so autopilot settings are refreshed promptly
 - verifying Raft Autopilot min_quorum=3 (Development profile with 3 replicas)
+
+
+## `cluster-lifecycle-requires-target-self-init-for-new-clusters`
+
+Path: `Cluster Lifecycle > Development Profile: Target Self-Initialization > requires Target self-init for new clusters and revokes the bootstrap root token`
+
+State: `active`
+
+Generated fallback ID: `cluster-lifecycle-requires-target-self-init-for-new-9603cf9f`
+
+Covers: _none_
+
+Labels: `lifecycle`, `cluster`, `profile-development`
+
+Recorded checkpoints:
+- waiting for Secrets to be created
+- rejecting a new standard-init Shared cluster
+- waiting for native self-initialization without a stored root token
 
 
 ## `cluster-lifecycle-creates-an-openbaocluster-and-converges-to-00cd448b`

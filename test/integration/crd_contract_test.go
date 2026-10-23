@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -595,12 +596,20 @@ func TestCRD_OpenBaoCluster_AcceptsMigratedStabilityFixture(t *testing.T) {
 	if err := json.Unmarshal(data, &cluster.Object); err != nil {
 		t.Fatalf("decode migrated API fixture: %v", err)
 	}
-	cluster.SetNamespace(newTestNamespace(t))
+	c, _, _ := startIsolatedEnv(t, isolatedEnvOptions{
+		crdDirs: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+	})
+	namespace := createNamespace(t, ctx, c)
+	cluster.SetNamespace(namespace)
 	cluster.SetName("cluster-migrated-api")
-
-	if err := k8sClient.Create(ctx, cluster); err != nil {
-		t.Fatalf("expected migrated 0.5.0 API fixture to be accepted, got: %v", err)
-	}
+	// The historical fixture represents a stored object from before the new
+	// CREATE contract. Preserve its omission through admission installation.
+	require.NoError(t, c.Create(ctx, cluster))
+	uid := cluster.GetUID()
+	installControllerJWTAdmission(t, c, namespace)
+	cluster.SetLabels(map[string]string{"migration": "preserved"})
+	require.NoError(t, c.Update(ctx, cluster))
+	require.Equal(t, uid, cluster.GetUID())
 }
 
 func TestCRD_OpenBaoCluster_RequiresSelectedUnsealConfiguration(t *testing.T) {
@@ -1497,7 +1506,7 @@ func TestVAP_OpenBaoCluster_RejectsOIDCBootstrapWithoutSelfInitEnabled(t *testin
 
 	err := k8sClient.Create(ctx, cluster)
 	requireAdmissionDenied(t, err)
-	if !strings.Contains(err.Error(), "spec.selfInit.oidc.enabled requires spec.selfInit.enabled to be true") {
+	if !strings.Contains(err.Error(), "spec.controllerJWTMode Target requires spec.selfInit.enabled and spec.selfInit.oidc.enabled") {
 		t.Fatalf("unexpected error message: %v", err)
 	}
 }
@@ -2008,8 +2017,11 @@ func TestVAP_OpenBaoCluster_RejectsHardenedTransitAddressWithoutHTTPS(t *testing
 
 	cluster := newMinimalClusterObj(namespace, "cluster-hardened-transit-http")
 	cluster.Spec.Profile = openbaov1alpha1.ProfileHardened
+	cluster.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeTarget
 	cluster.Spec.TLS.Mode = openbaov1alpha1.TLSModeExternal
-	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{Enabled: true}
+	cluster.Spec.SelfInit = &openbaov1alpha1.SelfInitConfig{
+		Enabled: true, OIDC: &openbaov1alpha1.SelfInitOIDCConfig{Enabled: true},
+	}
 	cluster.Spec.Unseal = &openbaov1alpha1.UnsealConfig{
 		Type: "transit",
 		Transit: &openbaov1alpha1.TransitSealConfig{
@@ -2159,10 +2171,14 @@ func TestVAP_OpenBaoCluster_RejectsDisabledInitContainerOverride(t *testing.T) {
 					"namespace": namespace,
 				},
 				"spec": map[string]any{
-					"version":  testOpenBaoVersion244,
-					"image":    testOpenBaoImage244,
-					"replicas": int64(3),
-					"profile":  "Development",
+					"version":           testOpenBaoVersion244,
+					"image":             testOpenBaoImage244,
+					"replicas":          int64(3),
+					"profile":           "Development",
+					"controllerJWTMode": "Target",
+					"selfInit": map[string]any{"enabled": true, "oidc": map[string]any{"enabled": true},
+						"requests": []any{map[string]any{"name": "audit", "operation": "update", "path": "sys/audit/stdout",
+							"auditDevice": map[string]any{"type": "file", "fileOptions": map[string]any{"filePath": "stdout"}}}}},
 					"tls": map[string]any{
 						"enabled":        true,
 						"rotationPeriod": "720h",
