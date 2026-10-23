@@ -10421,15 +10421,21 @@ spec:
               fieldPath: metadata.namespace
         - name: OPERATOR_SERVICE_ACCOUNT_NAME
           value: openbao-operator-controller
+        - name: OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME
+          value: openbao-operator-provisioner
+        - name: OPENBAO_ADMISSION_PVC_BINDING_SYNC_CALLERS
+          value: '{}'
+        - name: OPENBAO_ADMISSION_POD_METADATA_SYNC_CALLERS
+          value: '{}'
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-0b366137939f
+          value: edge-55369e488fd7
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:0ab078de6b3aec92672037adf4da6bb30a18fc27d31b9c8e9be041061772f9b9
+        image: ghcr.io/kubebao/openbao-operator@sha256:2246c3e972cb0ce55c87dd7d0ea1ba85bd35894383e5c66c303f324c79b6812d
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10539,13 +10545,19 @@ spec:
               fieldPath: metadata.namespace
         - name: OPERATOR_SERVICE_ACCOUNT_NAME
           value: openbao-operator-controller
+        - name: OPERATOR_PROVISIONER_SERVICE_ACCOUNT_NAME
+          value: openbao-operator-provisioner
+        - name: OPENBAO_ADMISSION_PVC_BINDING_SYNC_CALLERS
+          value: '{}'
+        - name: OPENBAO_ADMISSION_POD_METADATA_SYNC_CALLERS
+          value: '{}'
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-0b366137939f
-        image: ghcr.io/kubebao/openbao-operator@sha256:0ab078de6b3aec92672037adf4da6bb30a18fc27d31b9c8e9be041061772f9b9
+          value: edge-55369e488fd7
+        image: ghcr.io/kubebao/openbao-operator@sha256:2246c3e972cb0ce55c87dd7d0ea1ba85bd35894383e5c66c303f324c79b6812d
         livenessProbe:
           httpGet:
             path: /healthz
