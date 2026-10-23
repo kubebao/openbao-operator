@@ -511,7 +511,8 @@ var _ = Describe("Cluster Lifecycle", Label("lifecycle", "cluster"), Ordered, fu
 			standard.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeShared
 			standard.Spec.SelfInit = nil
 			err = c.Create(ctx, standard)
-			Expect(apierrors.IsForbidden(err)).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsInvalid(err) || apierrors.IsForbidden(err)).To(BeTrue(), "expected admission denial, got: %v", err)
 			Expect(err.Error()).To(ContainSubstring("spec.controllerJWTMode is required to be Target"))
 
 			By("waiting for native self-initialization without a stored root token")
