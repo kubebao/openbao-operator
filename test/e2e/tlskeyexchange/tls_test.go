@@ -56,7 +56,9 @@ func TestHybridPQKeyExchange(t *testing.T) {
 	bootstrap, err := openbao.NewClient(clientConfig)
 	require.NoError(t, err)
 	waitForHealth(t, bootstrap, false)
-	initialized, err := bootstrap.Init(t.Context(), openbao.InitRequest{})
+	initCtx, cancelInit := context.WithTimeout(t.Context(), 30*time.Second)
+	initialized, err := bootstrap.Init(initCtx, openbao.InitRequest{})
+	cancelInit()
 	require.NoError(t, err)
 	require.NotEmpty(t, initialized.RootToken)
 	clientConfig.Token = initialized.RootToken
