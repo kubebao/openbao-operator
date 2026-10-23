@@ -7,8 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 )
 
 func TestBoundedDNSLabelSanitizesRunIDs(t *testing.T) {
@@ -73,6 +76,27 @@ func TestNativeSelfInitRequestsUseJSONPayload(t *testing.T) {
 	}
 	if got, want := rolePayload["bound_subject"], "system:serviceaccount:perf-example:default"; got != want {
 		t.Fatalf("bound_subject = %v, want %q", got, want)
+	}
+}
+
+func TestNativeClustersUseTargetSelfInit(t *testing.T) {
+	t.Parallel()
+
+	native := &nativeScenarioContext{namespace: "perf-test", opts: Config{
+		UpgradeFromVersion: "2.6.1", UpgradeFromImage: "openbao/openbao:2.6.1",
+	}}
+	for _, cluster := range []*api.OpenBaoCluster{
+		native.buildCluster("perf-life", "2.6.4", "openbao/openbao:2.6.4", 1),
+		native.buildRollingUpgradeCluster(),
+	} {
+		t.Run(cluster.Name, func(t *testing.T) {
+			require.Equal(t, api.ControllerJWTModeTarget, cluster.Spec.ControllerJWTMode)
+			require.NotNil(t, cluster.Spec.SelfInit)
+			require.True(t, cluster.Spec.SelfInit.Enabled)
+			require.NotNil(t, cluster.Spec.SelfInit.OIDC)
+			require.True(t, cluster.Spec.SelfInit.OIDC.Enabled)
+			require.NotEmpty(t, cluster.Spec.SelfInit.Requests)
+		})
 	}
 }
 

@@ -680,10 +680,11 @@ func (n *nativeScenarioContext) buildCluster(
 			Labels:    n.resourceLabels(),
 		},
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Profile:  openbaov1alpha1.ProfileDevelopment,
-			Version:  version,
-			Image:    image,
-			Replicas: replicas,
+			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
+			Profile:           openbaov1alpha1.ProfileDevelopment,
+			Version:           version,
+			Image:             image,
+			Replicas:          replicas,
 			InitContainer: &openbaov1alpha1.InitContainerConfig{
 				Enabled: true,
 				Image:   n.opts.ConfigInitImage,
