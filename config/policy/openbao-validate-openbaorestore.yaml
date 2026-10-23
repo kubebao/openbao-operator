@@ -2,7 +2,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:264436b9c41f6573c359df17276d53ed0a0b07402a6cdeb2c0e9e1ecbf841280
+    openbao.org/admission-policy-fingerprint: sha256:9293c5d0e32b8d15b89894ca22fc4c129ce6dc5c8f2da0306f90b2158a3ce542
   name: openbao-validate-openbaorestore
 spec:
   failurePolicy: Fail
@@ -20,6 +20,19 @@ spec:
     - name: is_controller
       expression: >-
         request.userInfo.username == 'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name
+    # Garbage collection removes only its own finalizer after controller cleanup.
+    # Bind every other field, including acknowledgement annotations and status.
+    - name: is_foreground_finalizer_cleanup
+      expression: >-
+        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') && oldObject != null &&
+        has(oldObject.metadata.deletionTimestamp) &&
+        has(oldObject.metadata.finalizers) && oldObject.metadata.finalizers == ['foregroundDeletion'] &&
+        (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) &&
+        dyn(object).all(k, k == 'metadata' || (k in dyn(oldObject) && dyn(object)[k] == dyn(oldObject)[k])) &&
+        dyn(oldObject).all(k, k == 'metadata' || k in dyn(object)) &&
+        dyn(object.metadata).all(k, k in ['finalizers', 'managedFields'] ||
+          (k in dyn(oldObject.metadata) && dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) &&
+        dyn(oldObject.metadata).all(k, k in ['finalizers', 'managedFields'] || k in dyn(object.metadata))
     - name: delegated_authority
       expression: >-
         variables.is_controller ||
@@ -153,7 +166,7 @@ spec:
       message: "spec is immutable; create a new OpenBaoRestore for changed restore parameters."
     # Destructive restore target authorization: restore can replace data, policies, and keys.
     - expression: >-
-        variables.is_controller || variables.restore_authorized
+        variables.is_controller || variables.is_foreground_finalizer_cleanup || variables.restore_authorized
       message: "Users creating or updating an OpenBaoRestore must be authorized to restore the target OpenBaoCluster."
     # Reference authorization: restore cloud identity metadata delegates cloud authority
     # to the generated restore ServiceAccount or Job pod.
