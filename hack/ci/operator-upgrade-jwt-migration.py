@@ -41,6 +41,15 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def canonical_role(role):
+    # OpenBao 2.6.2 writes these empty OIDC lists as [] after reading them as null.
+    result = dict(role)
+    for field in ("allowed_redirect_uris", "oidc_scopes", "oauth2_metadata"):
+        if field in result and result[field] is None:
+            result[field] = []
+    return result
+
+
 @contextlib.contextmanager
 def port_forward():
     process = subprocess.Popen(
@@ -99,7 +108,7 @@ class API:
     def role_audiences(self, role, audiences):
         self.request("POST", ROLE, {**role, "bound_audiences": audiences})
         actual = self.request("GET", ROLE)["data"]
-        require(actual == {**role, "bound_audiences": audiences},
+        require(canonical_role(actual) == canonical_role({**role, "bound_audiences": audiences}),
                 "role update changed restrictions other than bound_audiences")
 
 

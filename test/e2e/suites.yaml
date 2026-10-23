@@ -845,7 +845,7 @@ suites:
     coverage:
       - admission-runtime-recheck
       - managed-resource-pause-on-policy-loss
-      - restore-static-token-secret-identity
+      - restore-target-jwt-precedence
     runtime:
       observed: 2m17.926s
       budget: 4m

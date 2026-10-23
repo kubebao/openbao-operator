@@ -45,6 +45,26 @@ class RoleMigrationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "changed restrictions"):
                 api.role_audiences({"bound_subject": "controller"}, ["target"])
 
+    def test_empty_oidc_lists_match_server_normalization(self):
+        role = {"bound_subject": "controller", "bound_audiences": ["shared"],
+                "allowed_redirect_uris": None, "oidc_scopes": None, "oauth2_metadata": None}
+        actual = {**role, "bound_audiences": ["target"],
+                  "allowed_redirect_uris": [], "oidc_scopes": [], "oauth2_metadata": []}
+        api = object.__new__(migration.API)
+        with patch.object(api, "request", side_effect=[{}, {"data": actual}]):
+            api.role_audiences(role, ["target"])
+        self.assertIsNone(role["oidc_scopes"])
+
+    def test_nonempty_oidc_restrictions_cannot_be_lost(self):
+        for field in ("allowed_redirect_uris", "oidc_scopes", "oauth2_metadata"):
+            with self.subTest(field=field):
+                role = {"bound_subject": "controller", field: ["restriction"]}
+                actual = {**role, field: [], "bound_audiences": ["target"]}
+                api = object.__new__(migration.API)
+                with patch.object(api, "request", side_effect=[{}, {"data": actual}]):
+                    with self.assertRaisesRegex(RuntimeError, "changed restrictions"):
+                        api.role_audiences(role, ["target"])
+
     def test_server_failure_is_not_accepted_as_rejected_replay(self):
         api = object.__new__(migration.API)
         api.port, api.context, api.token = 8200, None, "private-admin-token"

@@ -619,9 +619,9 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 		})
 
-		It("rejects an unlabeled static restore token Secret before creating a restore Job", Label(
-			"case:restore-static-token-secret-labels",
-			"covers:restore-static-token-secret-identity",
+		It("uses Target JWT authentication without mounting a supplied static token Secret", Label(
+			"case:restore-target-jwt-ignores-static-token-secret",
+			"covers:restore-target-jwt-precedence",
 		), func() {
 			clusterName := "restore-token-guardrail"
 			tokenSecret := &corev1.Secret{
@@ -713,29 +713,42 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 			}
 			Expect(admin.Create(ctx, restore)).To(Succeed())
 
-			By("waiting for restore validation to reject the unlabeled static token Secret")
+			By("waiting for restore validation to select JWT authentication")
 			Eventually(func(g Gomega) {
 				updated := &openbaov1alpha1.OpenBaoRestore{}
 				g.Expect(admin.Get(ctx, types.NamespacedName{
 					Name:      restore.Name,
 					Namespace: tenantNamespace,
 				}, updated)).To(Succeed())
-				g.Expect(updated.Status.Phase).To(Equal(openbaov1alpha1.RestorePhaseFailed))
-
 				configuration := meta.FindStatusCondition(updated.Status.Conditions, restoresvc.RestoreConfigurationConditionType)
 				g.Expect(configuration).NotTo(BeNil())
-				g.Expect(configuration.Status).To(Equal(metav1.ConditionFalse))
-				g.Expect(configuration.Reason).To(Equal(constants.ReasonTokenSecretInvalid))
-				g.Expect(configuration.Message).To(ContainSubstring(constants.LabelOpenBaoCluster))
+				g.Expect(configuration.Status).To(Equal(metav1.ConditionTrue))
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
-			By("ensuring no restore Job was created")
+			By("checking the restore Job uses JWT authentication and excludes the static token")
 			job := &batchv1.Job{}
-			err := admin.Get(ctx, types.NamespacedName{
-				Name:      restoresvc.RestoreJobNamePrefix + restore.Name,
-				Namespace: tenantNamespace,
-			}, job)
-			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "expected no restore Job, got error: %v", err)
+			Eventually(func() error {
+				return admin.Get(ctx, types.NamespacedName{
+					Name:      restoresvc.RestoreJobNamePrefix + restore.Name,
+					Namespace: tenantNamespace,
+				}, job)
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			container := job.Spec.Template.Spec.Containers[0]
+			Expect(container.Env).To(ContainElement(corev1.EnvVar{
+				Name: constants.EnvBackupAuthMethod, Value: constants.BackupAuthMethodJWT,
+			}))
+			Expect(container.Env).To(ContainElement(corev1.EnvVar{
+				Name: constants.EnvBackupJWTAuthRole, Value: "openbao-operator-restore",
+			}))
+			for _, volume := range job.Spec.Template.Spec.Volumes {
+				Expect(volume.Name).NotTo(Equal("restore-token"))
+				if volume.Secret != nil {
+					Expect(volume.Secret.SecretName).NotTo(Equal(tokenSecret.Name))
+				}
+			}
+			for _, mount := range container.VolumeMounts {
+				Expect(mount.Name).NotTo(Equal("restore-token"))
+			}
 		})
 	})
 

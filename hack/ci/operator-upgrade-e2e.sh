@@ -811,6 +811,63 @@ assert_equal "Hardened PVC UIDs changed during JWT migration" "${hardened_pvc_ui
   "$(pvc_uid_set operator-upgrade-hardened 3)"
 assert_resource_absent secret/operator-upgrade-hardened-root-token
 
+echo "Checking static restore-token labeling on the legacy Development cluster..." >&2
+"${KUBECTL_BIN}" get "${CLUSTER_RESOURCE}" -n "${TENANT_NAMESPACE}" -o json | \
+  jq -e --arg uid "${cluster_uid}" '.metadata.uid == $uid and
+    (.spec.controllerJWTMode // "Shared") == "Shared" and
+    (.spec.selfInit.enabled // false) == false' >/dev/null
+"${KUBECTL_BIN}" apply -n "${TENANT_NAMESPACE}" -f - <<'EOF' >/dev/null
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operator-upgrade-unlabeled-restore-token
+type: Opaque
+stringData:
+  token: fixture-not-a-valid-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operator-upgrade-restore-storage
+type: Opaque
+stringData:
+  accessKeyId: fixture
+  secretAccessKey: fixture
+---
+apiVersion: openbao.org/v1alpha1
+kind: OpenBaoRestore
+metadata:
+  name: operator-upgrade-static-token-guardrail
+spec:
+  cluster: operator-upgrade
+  source:
+    target:
+      provider: s3
+      endpoint: http://unused-restore-store:9000
+      bucket: backups
+      usePathStyle: true
+      credentialsSecretRef:
+        name: operator-upgrade-restore-storage
+    key: fixture.snap
+  tokenSecretRef:
+    name: operator-upgrade-unlabeled-restore-token
+  force: true
+EOF
+"${KUBECTL_BIN}" wait openbaorestore/operator-upgrade-static-token-guardrail \
+  -n "${TENANT_NAMESPACE}" --for=jsonpath='{.status.phase}'=Failed --timeout=2m >/dev/null
+legacy_restore_json="$("${KUBECTL_BIN}" get openbaorestore/operator-upgrade-static-token-guardrail \
+  -n "${TENANT_NAMESPACE}" -o json)"
+jq -e '.status.execution == null and any(.status.conditions[]?; .type == "RestoreConfigurationReady" and
+  .status == "False" and .reason == "TokenSecretInvalid" and
+  (.message | contains("openbao.org/cluster")))' <<<"${legacy_restore_json}" >/dev/null
+"${KUBECTL_BIN}" get jobs -n "${TENANT_NAMESPACE}" -o json | \
+  jq -e --arg uid "$(jq -r '.metadata.uid' <<<"${legacy_restore_json}")" \
+    'all(.items[]; all(.metadata.ownerReferences[]?; .uid != $uid))' >/dev/null
+jq -n --arg uid "${cluster_uid}" \
+  '{legacyStaticRestoreGuardrail: "passed", clusterUID: $uid, restoreJobCreated: false}'
+"${KUBECTL_BIN}" delete openbaorestore/operator-upgrade-static-token-guardrail \
+  -n "${TENANT_NAMESPACE}" --wait=true --timeout=2m >/dev/null
+
 echo "Verifying retained legacy root-token and unseal-key custody..." >&2
 legacy_root_uid="$("${KUBECTL_BIN}" get secret/operator-upgrade-root-token -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
 legacy_unseal_uid="$("${KUBECTL_BIN}" get secret/operator-upgrade-unseal-key -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"

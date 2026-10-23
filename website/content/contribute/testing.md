@@ -199,7 +199,8 @@ The operator-upgrade harness owns existing-CR migration. It creates a Shared Har
 release, verifies continuity after installing the candidate, then prepares its existing role, patches the same CR to
 Target, removes shared trust, checks rejected shared and unrelated audiences, and verifies controller Autopilot repair.
 It preserves the cluster and PVC UIDs. This uses a fixture administrator role; production users must supply their own
-independent administrator login. Run `make test-e2e-operator-upgrade` for that path.
+independent administrator login. The harness also checks static restore-token labeling on the legacy Development
+cluster before verifying retained credential custody. Run `make test-e2e-operator-upgrade` for these paths.
 
 ```sh
 make test-e2e-ci \

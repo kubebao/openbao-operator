@@ -2083,27 +2083,27 @@
     "suiteTitle": ""
   },
   {
-    "id": "restore-static-token-secret-labels",
-    "generatedId": "security-guardrails-rejects-an-unlabeled-static-restore-token-191fbffe",
-    "caseLabel": "restore-static-token-secret-labels",
+    "id": "restore-target-jwt-ignores-static-token-secret",
+    "generatedId": "security-guardrails-uses-target-jwt-authentication-without-mounting-1cf38427",
+    "caseLabel": "restore-target-jwt-ignores-static-token-secret",
     "coverage": [
-      "restore-static-token-secret-identity"
+      "restore-target-jwt-precedence"
     ],
     "file": "test/e2e/Security_Guardrails_test.go",
     "type": "It",
-    "name": "rejects an unlabeled static restore token Secret before creating a restore Job",
+    "name": "uses Target JWT authentication without mounting a supplied static token Secret",
     "path": [
       "Security Guardrails",
       "Restore Token Guardrails",
-      "rejects an unlabeled static restore token Secret before creating a restore Job"
+      "uses Target JWT authentication without mounting a supplied static token Secret"
     ],
     "labels": [
       "security",
       "critical",
       "tokens",
       "pentest",
-      "case:restore-static-token-secret-labels",
-      "covers:restore-static-token-secret-identity"
+      "case:restore-target-jwt-ignores-static-token-secret",
+      "covers:restore-target-jwt-precedence"
     ],
     "domainLabels": [
       "security",
@@ -2112,8 +2112,8 @@
       "pentest"
     ],
     "steps": [
-      "waiting for restore validation to reject the unlabeled static token Secret",
-      "ensuring no restore Job was created"
+      "waiting for restore validation to select JWT authentication",
+      "checking the restore Job uses JWT authentication and excludes the static token"
     ],
     "focused": false,
     "pending": false,
