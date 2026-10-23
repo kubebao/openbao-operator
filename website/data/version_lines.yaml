@@ -1,24 +1,35 @@
-"0.5.x":
-  label: "0.5.x"
-  release: "0.5.3"
-  state: "Current stable"
-  showNotice: false
-  sourceRef: "0.5.3"
-  fallbackSourceRef: "16048e2c7bed48a69b489939794534f6a2e3c1bb"
+"0.6.x":
+  label: "0.6.x"
+  release: "0.6.0"
+  state: "Release preparation"
+  showNotice: true
+  sourceRef: "0.6.0"
+  fallbackSourceRef: "35c0aafea3302efdc0408b92fcf086e93f687b2d"
   editRef: "main"
   contentRoot: "website/content"
   editable: true
-  notice: "Current stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3."
+  notice: "Prepared documentation for OpenBao Operator 0.6.0. Publication and final current-candidate qualification are pending."
+"0.5.x":
+  label: "0.5.x"
+  release: "0.5.3"
+  state: "Previous stable"
+  showNotice: true
+  sourceRef: "0.5.3"
+  fallbackSourceRef: "16048e2c7bed48a69b489939794534f6a2e3c1bb"
+  editRef: "main"
+  contentRoot: "website/content-versions/0.5.x"
+  editable: true
+  notice: "Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3."
 "0.4.x":
   label: "0.4.x"
   release: "0.4.2"
-  state: "Previous stable"
+  state: "Archived stable"
   showNotice: true
   sourceRef: "0.4.2"
   editRef: "main"
   contentRoot: "website/content-versions/0.4.x"
   editable: true
-  notice: "Previous stable documentation for the 0.4 minor line through OpenBao Operator 0.4.2."
+  notice: "Archived stable documentation for the 0.4 minor line through OpenBao Operator 0.4.2."
 "next":
   label: "Next"
   release: "main"

@@ -77,17 +77,30 @@ authorizing publication.
 
 Set the previous stable version, target release, and pinned baseline init image in
 `test/fixtures/operator-upgrade/versions.env`. Keep the Hardened fixture's init image consistent with that pin.
-Add the target migration fixture and an upgrade section in its release notes. The runtime upgrade baseline is
-independent of the historical API stability baseline in `api/stability/v1alpha1.yaml`.
+Add an upgrade section for the target release. Add or update API migration fixtures only when a manifest migration
+needs coverage, and wire each new fixture into a test. Preserve approved historical migration pairs: the runtime
+upgrade baseline, the fixture pair, and the schema compatibility baseline are independent.
+
+`CRD_COMPAT_TARGET` labels the compatibility report; it does not select a version-named migration fixture. Advancing
+the release target alone does not require an unused target fixture. Keep the existing 0.5.0-to-0.5.1 operator-upgrade
+fixture pair and the schema baseline unless a separately reviewed migration changes them.
 
 {{< callout type="note" title="Hugo versions documentation by minor line" >}}
 `next` tracks `main`; the unprefixed site is the latest stable minor line. Before the first `X.Y.0` tag, copy the
-reviewed `next` contract into `X.Y.x`, pin its API source to the final tag, and make it the stable default. Patch
-releases update that same `X.Y.x` line and its release notes; they do not create another documentation route. `latest`
+reviewed `next` contract into `X.Y.x`, pin its API source to the final tag, and make it the stable default. Archive
+the previous stable product tree before promotion. Keep release installation commands version-pinned instead of
+copying the edge installation procedure. Patch releases update that same `X.Y.x` line and its release notes; they do not create another documentation route. `latest`
 remains an alias to stable and never tracks unreleased code.
 
 The release workflow builds the complete Hugo site from the tagged tree and publishes that validated artifact. There
 is no generated patch-level snapshot command: the reviewed minor-line content must already be in the release change.
+Normal main Pages runs always build and validate, but publish only when the configured stable version has a published,
+non-prerelease GitHub release. Missing or draft releases retain the existing live site; unexpected API or configuration
+errors fail publication. The tagged release deployment remains after artifact promotion.
+
+During preparation, mark unpublished release content and incomplete qualification as pending. Before authorizing
+publication, replace those preparation notices with the reviewed release status, check the final tagged API source,
+and include the final release evidence. Do not add future pass claims.
 {{< /callout >}}
 
 ## Request an exact version

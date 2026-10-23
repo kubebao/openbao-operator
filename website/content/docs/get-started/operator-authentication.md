@@ -21,7 +21,7 @@ with its projected token, OpenBao JWT role, and policy.
 | Actor | Kubernetes identity | OpenBao authentication | Boundary |
 | --- | --- | --- | --- |
 | Provisioner | Provisioner ServiceAccount in the operator namespace | None | Kubernetes RBAC only |
-| Controller | Controller ServiceAccount in the operator namespace | Projected JWT bound to `openbao-operator` | Routine lifecycle and maintenance |
+| Controller | Controller ServiceAccount in the operator namespace | Shared or target-specific JWT bound to `openbao-operator` | Routine lifecycle and maintenance |
 | OpenBao Pods | Per-cluster ServiceAccount | Runtime and unseal integrations | Server workload identity |
 | Backup Job | Generated backup ServiceAccount | Projected JWT or backup token Secret | Snapshot read and object storage |
 | Restore Job | Generated restore ServiceAccount | Projected JWT or restore token Secret | Destructive snapshot restore |
@@ -30,9 +30,39 @@ with its projected token, OpenBao JWT role, and policy.
 Changing JWT transport does not merge these identities. Each actor retains its own ServiceAccount, role, audience,
 and policy.
 
-## Understand the default JWT path
+## Select the controller credential
 
-The controller Deployment mounts a projected one-hour ServiceAccount token. Its audience and
+For every new cluster, set `spec.controllerJWTMode: Target` and enable self-init OIDC. This configuration fragment selects
+short-lived credentials for the controller; keep your human access requests in `spec.selfInit.requests`.
+
+```yaml
+spec:
+  controllerJWTMode: Target
+  selfInit:
+    enabled: true
+    oidc:
+      enabled: true
+```
+
+The controller requests a ten-minute Kubernetes ServiceAccount JWT with the sole audience
+`urn:openbao:controller:<metadata.uid>`. The token is bound to the controller Pod. The controller caches it in memory
+until one minute before the API server's returned expiration. Each cluster UID has a separate credential.
+Self-init binds the `openbao-operator` role to this audience and the controller ServiceAccount subject.
+Raft maintenance and approved policy reconciliation use the selected credential. Executor Jobs retain their existing
+ServiceAccounts and installation-scoped audiences.
+
+On existing clusters, `Shared`, or an omitted field, preserves the projected installation-wide credential. There is no CRD default or
+mutating webhook that changes existing objects. An operator upgrade does not migrate OpenBao roles. Use the
+[migration procedure](../../operate/controller-jwt-migration/) before selecting `Target` on an initialized cluster.
+Enforced admission prevents removing `Target` or changing it to `Shared`. Authentication failures never trigger shared fallback.
+
+The installation grants `create` on `serviceaccounts/token` only for the controller ServiceAccount in the operator
+namespace. Custom installations must also provide `POD_NAME` and `POD_UID` through the Downward API, alongside
+`POD_NAMESPACE` and `OPERATOR_SERVICE_ACCOUNT_NAME`.
+
+## Select the JWT transport
+
+In Shared mode, the controller Deployment uses a projected one-hour ServiceAccount token. Its audience and
 `OPENBAO_JWT_AUDIENCE` both default to `openbao-internal`. OpenBao validates the JWT against the bound audience and
 the controller ServiceAccount subject.
 
@@ -52,7 +82,7 @@ Leave the variable unset, or set it to `inline`, for the default path. The contr
 to JWT-backed backup, restore, and upgrade Jobs.
 
 {{< callout type="warning" title="Redact inline-auth headers" >}}
-`X-Vault-Inline-Auth-Parameter-jwt` contains the projected ServiceAccount credential. Redact it wherever you redact
+`X-Vault-Inline-Auth-Parameter-jwt` contains the selected ServiceAccount credential. Redact it wherever you redact
 `Authorization` and `X-Vault-Token`, including ingress, proxy, service-mesh, debug, and audit pipelines. Logging the
 method, path, status, and duration is safe; logging complete request headers is not.
 {{< /callout >}}
@@ -68,19 +98,15 @@ Add at least one human authentication method and its usable role or policy to `s
 operator can maintain the cluster while people remain permanently locked out.
 {{< /callout >}}
 
-Self-init is one-shot. The operator uses the generated auth surface after initialization but does not continuously
-reconcile OpenBao policies. A human administrator must apply later policy changes required by an operator upgrade.
-
-For a planned snapshot recovery target whose generated ServiceAccount subjects differ from the source, configure
-`spec.selfInit.oidc.additionalSubjects` on the source before self-initialization. Keep controller, backup, restore, and
-upgrade subjects in their corresponding lists. The operator renders a separate exact allowlist for each role and does
-not combine their policies. See [Restore a snapshot](../../operate/restore/#preserve-lifecycle-jwt-identities) for the
-recovery sequence and the separate JWT trust requirement.
+Self-init is one-shot. Later policy changes require administrator action. Optional
+[approved policy reconciliation](../../operate/operator-policies/) can restore built-in policy contents within an
+administrator-approved grant. Auth methods and JWT roles remain administrator-managed after initialization.
 
 ## Configure a manual controller role
 
-Use manual JWT configuration only for a controlled bootstrap or a custom install that cannot use self-init OIDC.
-Render the operator installation first, then substitute the actual namespace, ServiceAccount, and audience.
+Use manual JWT configuration to maintain an existing cluster that did not bootstrap operator OIDC.
+New clusters require self-init OIDC and Target. The following compatibility example uses Shared mode. Render the operator installation first, then substitute the actual namespace,
+ServiceAccount, and audience. For Target mode on an initialized cluster, follow the migration procedure instead.
 
 {{< command label="configure" title="Bind a custom controller identity" >}}
 bao write auth/jwt-operator/role/openbao-operator \
@@ -129,10 +155,10 @@ Do not add backup, restore, or upgrade permissions to this policy. Those belong 
 Check these values together:
 
 1. The rendered controller ServiceAccount name and operator namespace.
-2. The Deployment's projected `openbao-token` volume and one-hour expiration.
-3. The projected audience and `OPENBAO_JWT_AUDIENCE`.
+2. The selected `controllerJWTMode`; omission means Shared.
+3. For Shared mode, the projected audience and `OPENBAO_JWT_AUDIENCE`; for Target, the cluster UID audience and token issuance RBAC.
 4. The JWT role's `bound_audiences` and `bound_subject`.
-5. The controller's reachability to the configured OIDC discovery or JWKS endpoint.
+5. OpenBao's reachability to the configured OIDC discovery or JWKS endpoint.
 6. The separate ServiceAccounts and JWT roles generated for lifecycle Jobs.
 
 ## Troubleshoot authentication
@@ -143,6 +169,5 @@ Check these values together:
 | Self-init finishes but operator auth does not settle | Discovery or JWKS cannot be reached or validated | Issuer, discovery URL, CA, and network path |
 | Backup or restore auth fails while the controller works | Job-specific identity or role is missing | The Job's ServiceAccount and JWT role |
 | A custom namespace or prefix breaks auth | OpenBao still trusts the default subject | All rendered identity references and `bound_subject` |
-| A recovery target works for its first restore but later lifecycle Jobs fail | The restored source roles do not trust the target subjects | Source-side `additionalSubjects` and the restored `jwt-operator` roles |
 
 If JWT login succeeds but a specific request is denied, continue with [operator authorization](../operator-authorization/).

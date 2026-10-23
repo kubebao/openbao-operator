@@ -11,12 +11,6 @@ verifiedBy:
   - internal/app/openbaocluster/applications.go
   - internal/app/openbaocluster/applications_test.go
   - internal/app/openbaocluster/patch_test.go
-  - internal/port/adminops/status.go
-  - internal/app/openbaocluster/adminopsstatus/mutate_test.go
-  - test/integration/adminops_status_test.go
-  - test/integration/adminops_restore_status_test.go
-  - test/integration/adminops_upgrade_requests_test.go
-  - internal/service/upgrade/acknowledgements.go
   - internal/platform/statusapply/openbaocluster_test.go
 ---
 
@@ -85,43 +79,12 @@ The `OpenBaoCluster` status is divided among server-side apply field managers.
 | --- | --- |
 | Observed status | Phase, leader, replicas, current version, observed generation, and conditions |
 | Workload status | Initialization, self-initialization, and workload progress |
-| AdminOps status | Backup, upgrade, restore, blue-green, requests, break-glass, and AdminOps state |
+| AdminOps status | Backup, upgrade, blue-green, requests, break-glass, and AdminOps state |
 | Operation lock | `status.operationLock` only |
 
 A writer applies only its plane. Within the shared AdminOps plane, a writer must read the latest object, mutate its
 concern, and apply the complete plane; omitting a sibling field with the same field manager can clear it. Read directly
 from the API after a write when the next decision depends on the committed value because the controller cache can lag.
-
-The AdminOps mutation gateway returns the object read after the apply, including any concurrent updates visible to that
-read. It does not substitute the intended state for the observed state. If read-back fails, it returns an error even
-though the apply succeeded. The application wrapper updates the caller's AdminOps fields and resource version only
-after a successful read-back; it leaves other fields unchanged.
-
-The final AdminOps patch persists pending changes to accepted upgrade strategy, blue-green state, break-glass state,
-and AdminOps state. Managers persist backup, rolling-upgrade progress, and restore restart state.
-The final patch preserves the latest API values for those manager-owned fields in the complete SSA payload. Changes to
-those fields alone do not trigger a final patch.
-
-Upgrade managers return pending request acknowledgements in `upgrade.ReconcileResult`, separate from observed cluster
-status. The application accumulates these tokens across sub-reconcilers and applies only those acknowledgements in its
-final write, including error and requeue paths. Checkpoint read-back cannot discard pending acknowledgements. A newer
-request in spec remains pending because the write records the captured token, and unrelated acknowledgement fields
-retain their latest API values. Promotion and rollback acknowledgements are saved with their resulting blue-green
-state. Failed rolling retries retain their immediate checkpoint, which clears failure state and acknowledges the retry
-in the same write.
-
-Managers share the `adminops.StatusMutator` contract. The application layer binds it to the API reader and client through
-`adminopsstatus.NewMutator`. Each write selects an ownership policy:
-
-| Policy | Field ownership behavior |
-| --- | --- |
-| `RespectOwnership` | Never force ownership. |
-| `ForceOwnershipOnConflict` | Retry without force first. If conflicts persist, retry with forced ownership. |
-| `ForceOwnership` | Force ownership from the first attempt. |
-
-Every policy retries conflicts with a fresh read and mutation. The fallback policy applies to both resource-version and
-field-ownership conflicts. Routine AdminOps writes use that fallback; rolling upgrade finalization and retry cleanup
-force ownership immediately. These policies apply to the AdminOps status plane.
 
 ## Account for tenancy watch boundaries
 

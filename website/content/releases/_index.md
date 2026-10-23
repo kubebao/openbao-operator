@@ -8,7 +8,12 @@ hideChildren: true
 
 The current manual stays focused on the current contract. Release pages preserve historical changes, migration notes, artifacts, and links to archived documentation when exact older behavior matters.
 
-## Latest highlighted release
+## Prepared release
+
+[0.6.0](0.6.0/) prepares target-specific controller authentication and guarded restore recovery. Publication and final
+current-candidate qualification remain pending. The published stable release is still 0.5.3.
+
+## Latest published release
 
 <div class="link-grid">
   <a href="0.5.3/"><strong>0.5.3</strong><p>Go 1.27.3 rejects the compromised eMudhra intermediate CA keys.</p></a>

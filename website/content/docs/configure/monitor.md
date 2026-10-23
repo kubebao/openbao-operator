@@ -194,13 +194,16 @@ is still required. Workload and administrative operations retain their immediate
 | Reconciliation | `openbao_reconcile_errors_total` and `openbao_reconcile_duration_seconds` |
 | Kubernetes API requests | `openbao_kube_client_requests_total` |
 | Backup | `openbao_backup_last_success_timestamp` and backup readiness or failure state |
+| Restore and restore tests | `openbao_restore_state`, `openbao_restore_test_success`, and `openbao_restore_test_last_success_timestamp_seconds` |
 | Upgrade | `openbao_upgrade_in_progress`, failure, rollback, and duration metrics |
 | Read pool | `openbao_cluster_read_replicas_desired`, `_ready`, `_registered`, and `_healthy` |
 
 The repository includes focused dashboards under `config/grafana/dashboards/`; apply `config/grafana` as a starting
 point. Alert rules remain user-managed. Begin with availability, stale backups, sustained reconciliation errors, and
 read-pool degradation, then tune thresholds from observed behavior. The last-success backup metric exists only after
-the first successful backup, so a freshness rule must also detect an absent or never-successful series.
+the first successful backup, so a freshness rule must also detect an absent or never-successful series. The same
+applies to restore tests: alert on the age of the last passed test, and treat zero as never passed. The backup and
+restore dashboard shows both, with age thresholds you should adjust to your test schedule.
 
 Keep audit records out of the metrics pipeline. The audit PVC is a collector handoff buffer, not the final retention
 or tamper-resistance boundary.

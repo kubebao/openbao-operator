@@ -8,7 +8,7 @@ MODE="write"
 LINE="all"
 
 usage() {
-  echo "usage: $0 [--check] [--line 0.4.x|0.5.x|next|--all]" >&2
+  echo "usage: $0 [--check] [--line 0.4.x|0.5.x|0.6.x|next|--all]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -223,12 +223,12 @@ generate_line() {
 
 status=0
 if [[ "${LINE}" == "all" ]]; then
-  for line in 0.4.x 0.5.x next; do
+  for line in 0.4.x 0.5.x 0.6.x next; do
     generate_line "${line}" || status=1
   done
 else
   case "${LINE}" in
-    0.4.x|0.5.x|next)
+    0.4.x|0.5.x|0.6.x|next)
       generate_line "${LINE}" || status=1
       ;;
     *)

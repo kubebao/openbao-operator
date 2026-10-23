@@ -24,6 +24,7 @@ restore path, an upgrade policy, monitored conditions, and named owners for main
 | Establish the production operating baseline | [Review production readiness](production-readiness/) |
 | Create and retain Raft snapshots | [Back up a cluster](backups/) |
 | Change the OpenBao version | [Upgrade a cluster](upgrades/) |
+| Repair approved built-in policies | [Reconcile operator policies](operator-policies/) |
 | Drain, scale, restart, or pause a cluster | [Run planned maintenance](maintenance/) |
 | Find the cause of a degraded service | [Troubleshoot a cluster](troubleshoot/) |
 | Delete a cluster intentionally | [Decommission a cluster](decommission/) |

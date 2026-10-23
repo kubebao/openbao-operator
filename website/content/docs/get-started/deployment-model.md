@@ -10,8 +10,6 @@ verifiedBy:
   - api/v1alpha1/openbaocluster_selfinit_types.go
   - api/v1alpha1/openbaocluster_operations_types.go
   - config/policy/openbao-validate-openbaocluster.yaml
-aliases:
-  - /latest/user-guide/deployment-decision-guide/
 ---
 
 ## Decide the tenancy model
@@ -58,7 +56,7 @@ Operator lifecycle access and human login are different contracts:
 
 - `spec.selfInit.oidc.enabled` bootstraps projected-JWT authentication for the controller and lifecycle Jobs.
 - `spec.selfInit.requests` must create at least one usable human authentication path before the root token is revoked.
-- Existing clusters own later OpenBao policy changes; self-init does not continuously reconcile them.
+- Later OpenBao permission changes require administrator approval. [Approved policy reconciliation](../../operate/operator-policies/) can restore built-in policy contents after self-init.
 
 Review [operator authentication](../operator-authentication/) and [operator authorization](../operator-authorization/)
 before a production bootstrap or any custom controller identity.

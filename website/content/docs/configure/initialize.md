@@ -17,12 +17,18 @@ verifiedBy:
 Use self-init to apply one-time bootstrap requests and revoke the bootstrap root token. Before enabling it, define a
 complete human login path and the recovery procedure for that path.
 
-## Choose the initialization path
+Self-initialization request `headers` and `when` require OpenBao 2.6.0 or newer. The operator rejects these
+fields for older versions because those servers can ignore them, including a condition that prevents a request.
+
+## Use self-init for new clusters
 
 | Path | Use it when | Root-token behavior |
 | --- | --- | --- |
-| Self-init | Required for `Hardened`; preferred when bootstrap state is declarative | OpenBao revokes the bootstrap root token after the requests complete; the operator does not create a root-token Secret |
-| Standard init | Disposable Development clusters and controlled compatibility work | The operator can store the root token in an immutable Kubernetes Secret |
+| Self-init with OIDC | Required for every new cluster, regardless of profile | OpenBao revokes the bootstrap root token after the requests complete; the operator does not create a root-token Secret |
+| Standard init | Existing Development clusters created before the Target requirement | The operator can store the root token in an immutable Kubernetes Secret |
+
+The new requirement applies on CREATE. Existing clusters retain their initialization and authentication behavior
+during ordinary updates. Follow [controller JWT migration](../../operate/controller-jwt-migration/) to opt in.
 
 Self-init is a one-time bootstrap mechanism. It does not continuously reconcile OpenBao auth methods, policies,
 secret engines, audit devices, or upstream workflow definitions.
@@ -40,7 +46,7 @@ Bootstrap these surfaces together:
 1. Choose the human authentication method and external identity owner.
 2. Add requests that enable the auth method, configure it, create the policy, and bind a role or user to that policy.
 3. Add any secret engines and audit devices required at first login.
-4. Enable `selfInit.oidc` if the operator and lifecycle Jobs will authenticate with projected Kubernetes JWTs.
+4. Set `controllerJWTMode: Target` and enable `selfInit.oidc` for controller authentication.
 5. Configure initial recovery keys when a non-static auto-unseal cluster needs a generate-root recovery path.
 
 `selfInit.oidc` is only for operator lifecycle access. It does not create a human login path.
@@ -101,6 +107,7 @@ must be unique and paths can contain at most 256 characters.
 | `secretEngine` | Enable a mount through `sys/mounts/*` |
 | `auditDevice` | Enable an audit device through `sys/audit/*` |
 | `data` | Send an object payload when no structured field exists |
+| `dataFrom` | Supply top-level string fields from same-namespace Secret keys during first initialization |
 | `headers` | Add request-specific HTTP headers as `map[string][]string` |
 | `when` | Execute conditionally from a boolean or OpenBao profile value object |
 | `allowFailure` | Continue initialization after an optional request fails |
@@ -109,6 +116,79 @@ Supported operations are `create`, `read`, `update`, `patch`, `delete`, and `lis
 
 Use `allowFailure` only for genuinely optional state. An authentication, policy, audit, or recovery request that is
 part of the access contract must fail the bootstrap when it cannot be applied.
+
+### Supply Secret inputs
+
+OpenBao 2.6.0 and later can read bootstrap values from files. Use `dataFrom` to
+project selected Secret keys into a raw self-init request:
+
+```yaml
+spec:
+  selfInit:
+    enabled: true
+    requests:
+      - name: enable-human-oidc
+        operation: update
+        path: sys/auth/human
+        authMethod:
+          type: oidc
+      - name: configure-human-oidc
+        operation: update
+        path: auth/human/config
+        data:
+          oidc_discovery_url: https://login.microsoftonline.com/<tenant-id>/v2.0
+          oidc_client_id: <application-id>
+          default_role: platform-admin
+        dataFrom:
+          oidc_client_secret:
+            secretKeyRef:
+              name: openbao-entra-oidc
+              key: client-secret
+```
+
+This fragment enables and configures the auth mount. Add the role, redirect URIs,
+claim mappings, and policies required for your human login path.
+
+Create the Secret in the `OpenBaoCluster` namespace. The identity that submits
+the cluster must be authorized to `get` each referenced Secret. References to
+operator system Secrets are rejected. The controller does not read Secret
+values or receive additional Secret read permissions for these inputs.
+
+Each `dataFrom` entry supplies one string without trimming whitespace or parsing
+JSON. Field names must match `^[A-Za-z_][A-Za-z0-9_-]*$`. A field cannot occur in
+both `data` and `dataFrom`; the operator rejects overlaps before creating the
+workload. Use at most 64 inputs per request. Structured request fields and paths
+under `sys/auth/`, `sys/audit/`, `sys/mounts/`, and `sys/policies/` do not support
+`dataFrom`.
+
+All requests together can reference at most two distinct Secrets. Multiple keys
+and requests can share either Secret. This limit keeps name-scoped authorization
+checks within Kubernetes' CEL evaluation budget.
+
+Declare the mappings and enable self-init when you create the cluster. Keep
+self-init enabled until initialization completes. The mappings, including their
+request names, field names, Secret names, and keys, are immutable after cluster
+creation. To repair a missing input, create or update the referenced Secret and
+key. This preserves the file projections in the existing StatefulSet template.
+
+The init container checks that every selected file is readable before OpenBao
+starts initialization. Missing Secrets or keys block startup, including inputs
+on requests with `when: false` or `allowFailure: true`. Keep the Secret unchanged
+until bootstrap completes. OpenBao reads the values from read-only files; the
+values do not enter the generated ConfigMaps or rendered configuration.
+
+After initialization, the operator removes these projections from future Pod
+templates. Completed bootstrap configuration also permits startup from a stale
+Pod template when the Secret is absent. The operator does not delete the source
+Secret. You can delete it after verifying successful bootstrap and human login.
+Cluster updates that preserve the completed bootstrap request list do not require
+read access to its bootstrap Secrets.
+
+Updating the Secret after initialization does not rotate credentials in OpenBao.
+Use an authenticated OpenBao configuration change for rotation. Deleting the
+Kubernetes Secret does not revoke the credential at the identity provider.
+OpenBao TRACE logging includes sensitive request and response data; use normal
+log levels when bootstrapping credentials.
 
 ### Gate profile-engine requests
 
@@ -130,15 +210,17 @@ support those request fields:
     enabled: true
 {{< /command >}}
 
-`when` can also be a JSON boolean. These controls remain one-time bootstrap inputs; they do not make the operator an
+`when` can also be a JSON boolean. Admission rejects enabled requests that use either control with a `spec.version`
+older than 2.6.0. These controls remain one-time bootstrap inputs; they do not make the operator an
 owner of OpenBao workflow definitions.
 
 ## Configure operator JWT authentication
 
-Enable operator OIDC bootstrap inside the complete self-init block:
+Every new cluster requires operator OIDC bootstrap and Target mode inside its complete specification:
 
 {{< command label="configure" title="Add operator OIDC bootstrap" >}}
 spec:
+  controllerJWTMode: Target
   selfInit:
     enabled: true
     oidc:
@@ -155,7 +237,7 @@ aligned:
 
 - The operator ServiceAccount must be allowed to read the Kubernetes OIDC discovery and JWKS non-resource URLs.
 - `selfInit.oidc.audience`, when set, must match the installation-scoped `OPENBAO_JWT_AUDIENCE`. It cannot define a
-  per-cluster audience.
+  per-cluster audience. Use `spec.controllerJWTMode: Target` for target-specific controller credentials.
 - Manually managed roles must bind the rendered controller and Job ServiceAccount identities, not guessed defaults.
 
 Review [operator authentication](../../get-started/operator-authentication/) and

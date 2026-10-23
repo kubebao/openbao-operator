@@ -9,10 +9,6 @@ verifiedBy:
   - .ast-grep/policy/architecture-boundaries.yml
   - internal/app/openbaocluster/runtime_applications.go
   - internal/controller/openbaocluster/split_reconcilers.go
-aliases:
-  - /latest/architecture/
-  - /dev/architecture/
-  - /docs/next/architecture/
 ---
 
 OpenBao Operator separates fast workload repair from long-running operations and destructive recovery. The architecture

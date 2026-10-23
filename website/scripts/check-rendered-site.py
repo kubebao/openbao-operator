@@ -219,7 +219,7 @@ def main() -> int:
     documents: dict[Path, Document] = {}
     errors: list[str] = []
 
-    required_routes = ("/", "/docs/", "/0.4.x/", "/next/")
+    required_routes = ("/", "/docs/", "/0.5.x/", "/0.4.x/", "/next/")
     for route in required_routes:
         if route not in routes:
             errors.append(f"missing required route: {route}")

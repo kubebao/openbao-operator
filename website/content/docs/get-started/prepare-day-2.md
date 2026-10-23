@@ -82,10 +82,12 @@ pending request, failure, operation lock, or safe-mode recovery can be active.
 1. Finish or recover every active disruptive operation.
 2. Verify `status.phase=Running`, `Available=True`, all replicas Ready, and BlueGreen absent or `Idle` without a Green
    revision.
-3. Before switching to `BlueGreen`, configure a resolvable upgrade executor image and ensure its JWT role already has
-   the [BlueGreen peer-management capabilities](../operator-authorization/#define-the-upgrade-policy).
+3. Before switching to `BlueGreen`, configure a resolvable upgrade executor image. Enroll
+   [approved policy reconciliation](../../operate/operator-policies/) or give the upgrade JWT role the
+   [BlueGreen peer-management capabilities](../operator-authorization/#define-the-upgrade-policy).
 4. Patch only `spec.upgrade.strategy`.
-5. Wait for `status.acceptedUpgradeStrategy` to report the requested value.
+5. Wait for `status.acceptedUpgradeStrategy` to report the requested value and, when policy reconciliation is enabled,
+   `PolicyReconciliationReady=True`.
 6. Change the OpenBao version, image, replicas, storage, or restart controls in a later request.
 
 {{< command label="switch" title="Switch BlueGreen to RollingUpdate" >}}

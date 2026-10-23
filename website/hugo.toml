@@ -3,7 +3,7 @@ locale = "en-US"
 title = "OpenBao Operator"
 enableGitInfo = true
 disableKinds = ["taxonomy", "term", "RSS"]
-defaultContentVersion = "0.5.x"
+defaultContentVersion = "0.6.x"
 defaultContentVersionInSubdir = false
 
 [params]
@@ -11,26 +11,35 @@ description = "OpenBao Operator documentation for secure lifecycle management on
 repository = "https://github.com/kubebao/openbao-operator"
 repository_api = "https://api.github.com/repos/kubebao/openbao-operator"
 
-[versions."0.5.x"]
+[versions."0.6.x"]
 weight = 1
 
-[versions."0.4.x"]
+[versions."0.5.x"]
 weight = 2
 
-[versions.next]
+[versions."0.4.x"]
 weight = 3
+
+[versions.next]
+weight = 4
 
 [[module.mounts]]
 source = "content"
 target = "content"
 files = ["_index.md", "docs/**"]
 [module.mounts.sites.matrix]
-versions = ["0.5.x"]
+versions = ["0.6.x"]
 
 [[module.mounts]]
 source = "content"
 target = "content"
 files = ["project/**", "releases/**", "contribute/**"]
+[module.mounts.sites.matrix]
+versions = ["0.6.x"]
+
+[[module.mounts]]
+source = "content-versions/0.5.x"
+target = "content"
 [module.mounts.sites.matrix]
 versions = ["0.5.x"]
 
