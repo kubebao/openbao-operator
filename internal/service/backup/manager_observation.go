@@ -43,7 +43,13 @@ func (m *Manager) observeBackup(
 
 	observation.initialNextSchedule = schedule.Next(now)
 	if cluster.Status.Backup != nil && cluster.Status.Backup.NextScheduledBackup != nil {
-		observation.initialNextSchedule = cluster.Status.Backup.NextScheduledBackup.Time
+		persisted := cluster.Status.Backup.NextScheduledBackup.Time
+		// Keep a valid overdue occurrence across restarts, but do not let an old
+		// deadline hide an earlier occurrence or an updated cron expression.
+		if schedule.Next(persisted.Add(-time.Second)).Equal(persisted) &&
+			!persisted.After(observation.initialNextSchedule) {
+			observation.initialNextSchedule = persisted
+		}
 	}
 
 	observation.scheduledTime = observation.initialNextSchedule

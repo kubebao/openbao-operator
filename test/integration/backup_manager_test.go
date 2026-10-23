@@ -90,6 +90,53 @@ func TestBackupManager_InitialSchedulePersistsAcrossReconciles(t *testing.T) {
 	}
 }
 
+func TestBackupManager_ScheduleChangesRefreshPersistedDeadline(t *testing.T) {
+	for _, offset := range []time.Duration{4 * time.Hour, 20 * time.Hour} {
+		t.Run(offset.String(), func(t *testing.T) {
+			now := time.Now().UTC()
+			originalDeadline := now.Add(12 * time.Hour).Truncate(time.Minute)
+			deadline := now.Add(offset).Truncate(time.Minute)
+			cluster := newMinimalClusterObj(newTestNamespace(t), "schedule-change")
+			cluster.Spec.Backup = &openbaov1alpha1.BackupSchedule{
+				Schedule: fmt.Sprintf("%d %d * * *", originalDeadline.Minute(), originalDeadline.Hour()),
+				Target: openbaov1alpha1.BackupTarget{
+					Endpoint: "https://minio.example", Bucket: testBackupBucket,
+				},
+				JWTAuthRole: "backup", Image: "openbao-backup:dev",
+			}
+			require.NoError(t, k8sClient.Create(ctx, cluster))
+			key := client.ObjectKeyFromObject(cluster)
+			manager := newIntegrationBackupManager(t)
+			_, err := manager.Reconcile(ctx, logr.Discard(), cluster)
+			require.NoError(t, err)
+			require.NoError(t, k8sClient.Get(ctx, key, cluster))
+			require.NotNil(t, cluster.Status.Backup.NextScheduledBackup)
+			require.True(t, cluster.Status.Backup.NextScheduledBackup.Time.Equal(originalDeadline))
+
+			original := cluster.DeepCopy()
+			cluster.Spec.Backup.Schedule = fmt.Sprintf("%d %d * * *", deadline.Minute(), deadline.Hour())
+			require.NoError(t, k8sClient.Patch(ctx, cluster, client.MergeFrom(original)))
+			require.Greater(t, cluster.Generation, original.Generation)
+			require.NoError(t, k8sClient.Get(ctx, key, cluster))
+			manager = newIntegrationBackupManager(t)
+			_, err = manager.Reconcile(ctx, logr.Discard(), cluster)
+			require.NoError(t, err)
+			require.NoError(t, k8sClient.Get(ctx, key, cluster))
+			require.True(t, cluster.Status.Backup.NextScheduledBackup.Time.Equal(deadline))
+			require.Nil(t, cluster.Status.Backup.LastAttemptTime)
+
+			manager = newIntegrationBackupManager(t)
+			_, err = manager.Reconcile(ctx, logr.Discard(), cluster)
+			require.NoError(t, err)
+			require.NoError(t, k8sClient.Get(ctx, key, cluster))
+			require.True(t, cluster.Status.Backup.NextScheduledBackup.Time.Equal(deadline))
+			var jobs batchv1.JobList
+			require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+			require.Empty(t, jobs.Items, "editing a future schedule must not trigger a manual backup")
+		})
+	}
+}
+
 func TestBackupManager_ManualTrigger_CreatesJobAndWiring(t *testing.T) {
 	namespace := newTestNamespace(t)
 
