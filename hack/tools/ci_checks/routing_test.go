@@ -81,19 +81,32 @@ func runRouting(t *testing.T, base, head, failure, event string) (map[string]str
 			env = append(env, strings.ToUpper(key)+"=false")
 		}
 	}
+	failureMarker := ""
 	if failure != "" {
 		binDir := t.TempDir()
 		gitPath, err := exec.LookPath("git")
 		if err != nil {
 			t.Fatal(err)
 		}
-		wrapper := "#!/bin/bash\nif [[ $1 == " + failure + " ]]; then exit 128; fi\nexec '" + gitPath + "' \"$@\"\n"
+		bashPath, err := exec.LookPath("bash")
+		if err != nil {
+			t.Fatal(err)
+		}
+		failureMarker = filepath.Join(binDir, "injected-command")
+		wrapper := "#!" + bashPath + "\n" + `if [[ "$1" == "$CI_TEST_GIT_FAILURE" ]]; then
+  printf '%s\n' "$1" > "$CI_TEST_GIT_FAILURE_MARKER"
+  exit 128
+fi
+exec "$CI_TEST_REAL_GIT" "$@"
+`
 		path := filepath.Join(binDir, "git")
 		writeFile(t, path, wrapper)
 		if err := os.Chmod(path, 0755); err != nil {
 			t.Fatal(err)
 		}
-		env = append(env, "PATH="+binDir+":"+os.Getenv("PATH"))
+		env = append(env, "PATH="+binDir+":"+os.Getenv("PATH"),
+			"CI_TEST_REAL_GIT="+gitPath, "CI_TEST_GIT_FAILURE="+failure,
+			"CI_TEST_GIT_FAILURE_MARKER="+failureMarker)
 	}
 	var script string
 	for _, step := range readWorkflow(t)["changes"].Steps {
@@ -110,6 +123,16 @@ func runRouting(t *testing.T, base, head, failure, event string) (map[string]str
 	log, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Logf("routing failed as expected: %s", log)
+	}
+	if failureMarker != "" {
+		marker, markerErr := os.ReadFile(failureMarker)
+		if failure == "fetch" {
+			if !os.IsNotExist(markerErr) {
+				t.Fatalf("existing base attempted fetch: marker=%q, error=%v", marker, markerErr)
+			}
+		} else if markerErr != nil || strings.TrimSpace(string(marker)) != failure {
+			t.Fatalf("Git %s fault injection was not reached: marker=%q, error=%v", failure, marker, markerErr)
+		}
 	}
 	data, readErr := os.ReadFile(outputPath)
 	if readErr != nil {

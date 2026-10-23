@@ -67,6 +67,7 @@ check_cmd docker "docker" "required for image builds and config compatibility ch
 check_cmd kubectl "kubectl" "required for install/deploy workflows"
 check_cmd helm "helm" "required for verify-helm and helm-test"
 check_cmd trivy "trivy" "required for security-ci and security-scan"
+check_cmd perl "perl" "required for API/reference generation"
 check_cmd python3 "python3" "required for manifest patch helpers, Tilt manifest rendering, and API/reference generation"
 
 if command -v kind >/dev/null 2>&1; then
