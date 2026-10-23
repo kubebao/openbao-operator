@@ -4650,7 +4650,7 @@
           "message": "spec is immutable; create a new OpenBaoRestore for changed restore parameters."
         },
         {
-          "expression": "variables.is_controller || variables.restore_authorized",
+          "expression": "variables.is_controller || variables.is_foreground_finalizer_cleanup || variables.restore_authorized",
           "message": "Users creating or updating an OpenBaoRestore must be authorized to restore the target OpenBaoCluster."
         },
         {
@@ -4707,6 +4707,10 @@
         {
           "name": "is_controller",
           "expression": "request.userInfo.username == 'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name"
+        },
+        {
+          "name": "is_foreground_finalizer_cleanup",
+          "expression": "request.operation == 'UPDATE' \u0026\u0026 (!has(request.subResource) || request.subResource == '') \u0026\u0026 oldObject != null \u0026\u0026 has(oldObject.metadata.deletionTimestamp) \u0026\u0026 has(oldObject.metadata.finalizers) \u0026\u0026 oldObject.metadata.finalizers == ['foregroundDeletion'] \u0026\u0026 (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) \u0026\u0026 dyn(object).all(k, k == 'metadata' || (k in dyn(oldObject) \u0026\u0026 dyn(object)[k] == dyn(oldObject)[k])) \u0026\u0026 dyn(oldObject).all(k, k == 'metadata' || k in dyn(object)) \u0026\u0026 dyn(object.metadata).all(k, k in ['finalizers', 'managedFields'] ||\n  (k in dyn(oldObject.metadata) \u0026\u0026 dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) \u0026\u0026\ndyn(oldObject.metadata).all(k, k in ['finalizers', 'managedFields'] || k in dyn(object.metadata))"
         },
         {
           "name": "delegated_authority",
@@ -4847,7 +4851,7 @@
             "message": "spec is immutable; create a new OpenBaoRestore for changed restore parameters."
           },
           {
-            "expression": "variables.is_controller || variables.restore_authorized",
+            "expression": "variables.is_controller || variables.is_foreground_finalizer_cleanup || variables.restore_authorized",
             "message": "Users creating or updating an OpenBaoRestore must be authorized to restore the target OpenBaoCluster."
           },
           {
@@ -4904,6 +4908,10 @@
           {
             "name": "is_controller",
             "expression": "request.userInfo.username == 'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name"
+          },
+          {
+            "name": "is_foreground_finalizer_cleanup",
+            "expression": "request.operation == 'UPDATE' \u0026\u0026 (!has(request.subResource) || request.subResource == '') \u0026\u0026 oldObject != null \u0026\u0026 has(oldObject.metadata.deletionTimestamp) \u0026\u0026 has(oldObject.metadata.finalizers) \u0026\u0026 oldObject.metadata.finalizers == ['foregroundDeletion'] \u0026\u0026 (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) \u0026\u0026 dyn(object).all(k, k == 'metadata' || (k in dyn(oldObject) \u0026\u0026 dyn(object)[k] == dyn(oldObject)[k])) \u0026\u0026 dyn(oldObject).all(k, k == 'metadata' || k in dyn(object)) \u0026\u0026 dyn(object.metadata).all(k, k in ['finalizers', 'managedFields'] ||\n\n  (k in dyn(oldObject.metadata) \u0026\u0026 dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) \u0026\u0026\ndyn(oldObject.metadata).all(k, k in ['finalizers', 'managedFields'] || k in dyn(object.metadata))"
           },
           {
             "name": "delegated_authority",
