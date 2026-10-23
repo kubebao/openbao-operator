@@ -1982,7 +1982,9 @@ spec:
               controllerJWTMode:
                 description: |-
                   ControllerJWTMode selects the credential used by the controller for OpenBao.
-                  Shared (also the behavior when omitted) preserves the installation-wide
+                  Admission requires Target on CREATE for every security profile.
+                  Existing clusters that omit the field retain Shared authentication on reads and updates.
+                  Shared preserves the installation-wide
                   projected JWT. Target requests a short-lived JWT whose sole audience is
                   urn:openbao:controller:<metadata.uid>. Prepare the OpenBao controller role
                   before switching an initialized cluster to Target. Target never falls back

@@ -1982,7 +1982,9 @@ spec:
               controllerJWTMode:
                 description: |-
                   ControllerJWTMode selects the credential used by the controller for OpenBao.
-                  Shared (also the behavior when omitted) preserves the installation-wide
+                  Admission requires Target on CREATE for every security profile.
+                  Existing clusters that omit the field retain Shared authentication on reads and updates.
+                  Shared preserves the installation-wide
                   projected JWT. Target requests a short-lived JWT whose sole audience is
                   urn:openbao:controller:<metadata.uid>. Prepare the OpenBao controller role
                   before switching an initialized cluster to Target. Target never falls back
@@ -10432,10 +10434,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-55369e488fd7
+          value: edge-6179a4a2eb9b
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:2246c3e972cb0ce55c87dd7d0ea1ba85bd35894383e5c66c303f324c79b6812d
+        image: ghcr.io/kubebao/openbao-operator@sha256:be21a128459f39fd590747bf06e639910cb85952723aebd1e48f36ddbbc26da5
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10556,8 +10558,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-55369e488fd7
-        image: ghcr.io/kubebao/openbao-operator@sha256:2246c3e972cb0ce55c87dd7d0ea1ba85bd35894383e5c66c303f324c79b6812d
+          value: edge-6179a4a2eb9b
+        image: ghcr.io/kubebao/openbao-operator@sha256:be21a128459f39fd590747bf06e639910cb85952723aebd1e48f36ddbbc26da5
         livenessProbe:
           httpGet:
             path: /healthz
@@ -12620,7 +12622,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:a83dd07e9419383ca40f4933607a79fbf9ebf6ccf4e22059628b4ff7ab2efe6a
+    openbao.org/admission-policy-fingerprint: sha256:c1251c37fc34b9d3b5bc8d4250fe608770e227ff416a75ba21ddbd68fef9c469
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -12698,6 +12700,9 @@ spec:
       || object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName.trim()
       == '''' || authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()'
     message: Restore testing requires use authority for the destination StorageClass.
+  - expression: request.operation != "CREATE" || (has(object.spec.controllerJWTMode)
+      && object.spec.controllerJWTMode == "Target")
+    message: spec.controllerJWTMode is required to be Target when creating a cluster
   - expression: |-
       !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" || (has(object.spec.selfInit) && object.spec.selfInit.enabled &&
 
