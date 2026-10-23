@@ -184,3 +184,5 @@ Labels: `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-
 
 Recorded checkpoints:
 - waiting for the original cron deadline without sending a manual trigger
+- moving the persisted cron deadline later without a manual backup
+- moving the cron deadline earlier and observing a new schedule-originated backup

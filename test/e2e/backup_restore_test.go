@@ -724,6 +724,44 @@ var _ = Describe("DR: Storage Providers Backup & Restore", Label("dr", "backup",
 				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), updated)).To(Succeed())
 				g.Expect(validateScheduledBackupAttempt(updated, scheduledDeadline)).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+
+			By("moving the persisted cron deadline later without a manual backup")
+			laterDeadline := time.Now().UTC().Add(12 * time.Hour).Truncate(time.Minute)
+			Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), scheduledCluster)).To(Succeed())
+			previous := scheduledCluster.DeepCopy()
+			scheduledCluster.Spec.Backup.Schedule = fmt.Sprintf("%d %d * * *", laterDeadline.Minute(), laterDeadline.Hour())
+			Expect(admin.Patch(ctx, scheduledCluster, client.MergeFrom(previous))).To(Succeed())
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), updated)).To(Succeed())
+				g.Expect(updated.Status.Backup.NextScheduledBackup).NotTo(BeNil())
+				g.Expect(updated.Status.Backup.NextScheduledBackup.Time.Equal(laterDeadline)).To(BeTrue())
+				g.Expect(updated.Status.Backup.LastBackupName).To(Equal(job.Annotations[backupKeyAnnotation]))
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+
+			By("moving the cron deadline earlier and observing a new schedule-originated backup")
+			earlierDeadline := time.Now().UTC().Add(3 * time.Minute).Truncate(time.Minute)
+			observation, err := captureBackupObservation(ctx, admin, scheduledCluster)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), scheduledCluster)).To(Succeed())
+			previous = scheduledCluster.DeepCopy()
+			scheduledCluster.Spec.Backup.Schedule = fmt.Sprintf("%d %d * * *", earlierDeadline.Minute(), earlierDeadline.Hour())
+			Expect(admin.Patch(ctx, scheduledCluster, client.MergeFrom(previous))).To(Succeed())
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), updated)).To(Succeed())
+				g.Expect(updated.Status.Backup.NextScheduledBackup).NotTo(BeNil())
+				g.Expect(updated.Status.Backup.NextScheduledBackup.Time.Equal(earlierDeadline)).To(BeTrue())
+				g.Expect(time.Now().UTC().Before(earlierDeadline)).To(BeTrue())
+				g.Expect(updated.Status.Backup.LastBackupName).To(Equal(job.Annotations[backupKeyAnnotation]))
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+			nextJob := waitForBackupJobCreated(ctx, admin, observation)
+			waitForSuccessfulBackupJob(ctx, admin, observation, nextJob)
+			Eventually(func(g Gomega) {
+				updated := &openbaov1alpha1.OpenBaoCluster{}
+				g.Expect(admin.Get(ctx, client.ObjectKeyFromObject(scheduledCluster), updated)).To(Succeed())
+				g.Expect(validateScheduledBackupAttempt(updated, earlierDeadline)).To(Succeed())
+			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 		})
 
 		It("handles transient S3 auth failure with backup retry after controller restart", Label(

@@ -25,8 +25,12 @@ func (m *Manager) applyBackupDecision(
 	decision backupDecision,
 ) (recon.Result, error) {
 	observation := decision.observation
-	if err := m.applyInitialBackupSchedule(ctx, cluster, observation); err != nil {
-		return recon.Result{}, fmt.Errorf("failed to initialize backup schedule: %w", err)
+	current, err := m.applyBackupSchedule(ctx, cluster, observation)
+	if err != nil {
+		return recon.Result{}, fmt.Errorf("failed to persist backup schedule: %w", err)
+	}
+	if !current {
+		return recon.Result{RequeueAfter: constants.RequeueShort}, nil
 	}
 
 	switch decision.kind {
@@ -45,29 +49,51 @@ func (m *Manager) applyBackupDecision(
 	}
 }
 
-func (m *Manager) applyInitialBackupSchedule(
+func (m *Manager) applyBackupSchedule(
 	ctx context.Context,
 	cluster *openbaov1alpha1.OpenBaoCluster,
 	observation backupObservation,
-) error {
-	if !observation.configured || observation.initialNextSchedule.IsZero() || cluster.Status.Backup == nil || cluster.Status.Backup.NextScheduledBackup != nil {
-		return nil
+) (bool, error) {
+	if !observation.configured || observation.initialNextSchedule.IsZero() || cluster.Status.Backup == nil {
+		return true, nil
 	}
+	next := metav1.NewTime(observation.initialNextSchedule)
+	previous := cluster.Status.Backup.NextScheduledBackup.DeepCopy()
+	if previous.Equal(&next) && !observation.due {
+		return true, nil
+	}
+	schedule := cluster.Spec.Backup.Schedule
+	uid := cluster.UID
 	if m.adminOpsMutator == nil {
-		return fmt.Errorf("adminops status mutator is required")
+		return false, fmt.Errorf("adminops status mutator is required")
 	}
 
-	return m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+	current := false
+	err := m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		current = false
+		if obj.UID != uid || obj.Spec.Backup == nil || obj.Spec.Backup.Schedule != schedule {
+			return nil
+		}
+		var liveNext *metav1.Time
+		if obj.Status.Backup != nil {
+			liveNext = obj.Status.Backup.NextScheduledBackup
+		}
+		// A newer spec or deadline invalidates the decision as well as the write.
+		// The caller must re-observe before it can create a backup Job.
+		if !previous.Equal(liveNext) {
+			return nil
+		}
 		if obj.Status.Backup == nil {
 			obj.Status.Backup = &openbaov1alpha1.BackupStatus{}
 		}
-		// Preserve a deadline or backup history persisted after our observation.
-		if obj.Status.Backup.NextScheduledBackup == nil {
-			next := metav1.NewTime(observation.initialNextSchedule)
-			obj.Status.Backup.NextScheduledBackup = &next
-		}
+		obj.Status.Backup.NextScheduledBackup = &next
+		current = true
 		return nil
 	}, adminops.ForceOwnershipOnConflict)
+	if err != nil {
+		return false, err
+	}
+	return current && cluster.Status.Backup != nil && next.Equal(cluster.Status.Backup.NextScheduledBackup), nil
 }
 
 func applyIdleBackup(logger logr.Logger, observation backupObservation) (recon.Result, error) {
