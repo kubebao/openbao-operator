@@ -322,6 +322,7 @@ verify_harness() {
     "${FIXTURE_DIR}/hardened-seed-data-job.yaml"
     "${FIXTURE_DIR}/hardened-read-data-job.yaml"
     "${FIXTURE_DIR}/post-upgrade-tenant.yaml"
+    "${FIXTURE_DIR}/static-restore-token-guardrail.yaml"
   )
 
   if [[ -z "${FROM_VERSION}" || -z "${TARGET_RELEASE}" || -z "${MIGRATION_TO_VERSION}" ]]; then
@@ -816,43 +817,8 @@ echo "Checking static restore-token labeling on the legacy Development cluster..
   jq -e --arg uid "${cluster_uid}" '.metadata.uid == $uid and
     (.spec.controllerJWTMode // "Shared") == "Shared" and
     (.spec.selfInit.enabled // false) == false' >/dev/null
-"${KUBECTL_BIN}" apply -n "${TENANT_NAMESPACE}" -f - <<'EOF' >/dev/null
-apiVersion: v1
-kind: Secret
-metadata:
-  name: operator-upgrade-unlabeled-restore-token
-type: Opaque
-stringData:
-  token: fixture-not-a-valid-token
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: operator-upgrade-restore-storage
-type: Opaque
-stringData:
-  accessKeyId: fixture
-  secretAccessKey: fixture
----
-apiVersion: openbao.org/v1alpha1
-kind: OpenBaoRestore
-metadata:
-  name: operator-upgrade-static-token-guardrail
-spec:
-  cluster: operator-upgrade
-  source:
-    target:
-      provider: s3
-      endpoint: http://unused-restore-store:9000
-      bucket: backups
-      usePathStyle: true
-      credentialsSecretRef:
-        name: operator-upgrade-restore-storage
-    key: fixture.snap
-  tokenSecretRef:
-    name: operator-upgrade-unlabeled-restore-token
-  force: true
-EOF
+"${KUBECTL_BIN}" apply -n "${TENANT_NAMESPACE}" \
+  -f "${FIXTURE_DIR}/static-restore-token-guardrail.yaml" >/dev/null
 "${KUBECTL_BIN}" wait openbaorestore/operator-upgrade-static-token-guardrail \
   -n "${TENANT_NAMESPACE}" --for=jsonpath='{.status.phase}'=Failed --timeout=2m >/dev/null
 legacy_restore_json="$("${KUBECTL_BIN}" get openbaorestore/operator-upgrade-static-token-guardrail \

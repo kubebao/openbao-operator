@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operator-upgrade-unlabeled-restore-token
+type: Opaque
+stringData:
+  token: fixture-not-a-valid-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operator-upgrade-restore-storage
+type: Opaque
+stringData:
+  accessKeyId: fixture
+  secretAccessKey: fixture
+---
+apiVersion: openbao.org/v1alpha1
+kind: OpenBaoRestore
+metadata:
+  name: operator-upgrade-static-token-guardrail
+spec:
+  cluster: operator-upgrade
+  source:
+    target:
+      provider: s3
+      endpoint: https://unused-restore-store.invalid:9000
+      bucket: backups
+      usePathStyle: true
+      credentialsSecretRef:
+        name: operator-upgrade-restore-storage
+    key: fixture.snap
+  tokenSecretRef:
+    name: operator-upgrade-unlabeled-restore-token
+  force: true
