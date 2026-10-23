@@ -25,9 +25,11 @@
 <a href=/next/docs/get-started/>Get started</a>
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
 <span aria-current=page>Create the first cluster</span></nav><aside class="version-notice version-notice-next" aria-label="Documentation version notice"><strong>Next · Unreleased</strong>
-<span>Tracks unreleased behavior on main. Do not use it as a stable production contract.</span></aside><article class=doc-article><header class=article-header><h1>Create the first cluster</h1><p class=article-lede>Create and verify a Development cluster, or complete the full Hardened contract before production.</p><p class=page-meta>Updated 26 August 2026 · 4 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#before-you-begin>Before you begin</a></li><li><a href=#choose-the-profile>Choose the profile</a></li><li><a href=#create-an-evaluation-cluster>Create an evaluation cluster</a></li><li><a href=#prepare-a-hardened-cluster>Prepare a Hardened cluster</a></li><li><a href=#troubleshoot-the-first-reconcile>Troubleshoot the first reconcile</a></li></ul></nav></details><div class=article-content><p>Create a disposable Development cluster for evaluation. Do not create a production cluster until its entire
+<span>Tracks unreleased behavior on main. Do not use it as a stable production contract.</span></aside><article class=doc-article><header class=article-header><h1>Create the first cluster</h1><p class=article-lede>Create and verify a Development cluster, or complete the full Hardened contract before production.</p><p class=page-meta>Updated 23 October 2026 · 5 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#before-you-begin>Before you begin</a></li><li><a href=#choose-the-profile>Choose the profile</a></li><li><a href=#create-an-evaluation-cluster>Create an evaluation cluster</a></li><li><a href=#prepare-a-hardened-cluster>Prepare a Hardened cluster</a></li><li><a href=#troubleshoot-the-first-reconcile>Troubleshoot the first reconcile</a></li></ul></nav></details><div class=article-content><p>Create a disposable Development cluster for evaluation. Do not create a production cluster until its entire
 <code>Hardened</code> contract is complete.</p><h2 id=before-you-begin>Before you begin</h2><ul><li>Verify the controller and Provisioner are available.</li><li>In multi-tenant mode, confirm <code>OpenBaoTenant.status.provisioned: true</code> and the tenant RoleBinding.</li><li>In single-tenant mode, confirm that the controller&rsquo;s <code>WATCH_NAMESPACE</code> equals the target namespace.</li><li>Confirm a default StorageClass exists for evaluation. Choose the StorageClass and capacity explicitly for
-production.</li><li>Decide whether the cluster is disposable or intended for production before the first reconcile.</li></ul><div class=command-block><div class=command-head><div><span>verify</span><p>Verify evaluation storage</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl get storageclass</code></pre></div><p>For evaluation, the output must identify one default StorageClass. Stop and configure storage when no default exists.</p><h2 id=choose-the-profile>Choose the profile</h2><table><thead><tr><th>Profile</th><th>Intended use</th><th>Security behavior</th></tr></thead><tbody><tr><td><code>Development</code></td><td>Local evaluation, CI, and disposable environments</td><td>Permits operator-managed TLS, static auto-unseal, and a root token Secret; reports security risk</td></tr><tr><td><code>Hardened</code></td><td>Production</td><td>Requires External or ACME TLS, non-static unseal, self-init, and at least three replicas</td></tr></tbody></table><p><code>spec.profile</code> is required. Changing the word <code>Development</code> to <code>Hardened</code> does not complete the production contract.</p><h2 id=create-an-evaluation-cluster>Create an evaluation cluster</h2><ol><li><p>Save this manifest as <code>cluster.yaml</code>.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Declare the evaluation cluster</p></div><button type=button data-copy-button>Copy</button></div><pre><code>apiVersion: openbao.org/v1alpha1
+production.</li><li>Decide whether the cluster is disposable or intended for production before the first reconcile.</li></ul><div class=command-block><div class=command-head><div><span>verify</span><p>Verify evaluation storage</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl get storageclass</code></pre></div><p>For evaluation, the output must identify one default StorageClass. Stop and configure storage when no default exists.</p><h2 id=choose-the-profile>Choose the profile</h2><table><thead><tr><th>Profile</th><th>Intended use</th><th>Security behavior</th></tr></thead><tbody><tr><td><code>Development</code></td><td>Local evaluation, CI, and disposable environments</td><td>Permits operator-managed TLS and static auto-unseal; requires Target and self-init OIDC</td></tr><tr><td><code>Hardened</code></td><td>Production</td><td>Requires External or ACME TLS, non-static unseal, self-init, and at least three replicas</td></tr></tbody></table><p>Declare <code>spec.profile</code>, <code>spec.controllerJWTMode: Target</code>, and self-init OIDC for every new cluster. Both profiles use
+the same controller authentication requirement. The evaluation manifest creates a separate, read-only client role;
+self-init revokes its bootstrap root token. See <a href=../../operate/controller-jwt-mode/>controller JWT authentication</a>.</p><p>Changing the word <code>Development</code> to <code>Hardened</code> does not complete the production contract.</p><h2 id=create-an-evaluation-cluster>Create an evaluation cluster</h2><ol><li><p>Save this manifest as <code>cluster.yaml</code>.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Declare the evaluation cluster</p></div><button type=button data-copy-button>Copy</button></div><pre><code>apiVersion: openbao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   name: dev-cluster
@@ -36,35 +38,60 @@ spec:
   version: &#34;2.6.2&#34;
   replicas: 1
   profile: Development
+  controllerJWTMode: Target
+  selfInit:
+    enabled: true
+    oidc:
+      enabled: true
+    requests:
+      - name: create-evaluation-policy
+        operation: update
+        path: sys/policies/acl/dev-evaluation
+        policy:
+          policy: &#39;path &#34;sys/health&#34; { capabilities = [&#34;read&#34;] }&#39;
+      - name: create-evaluation-role
+        operation: update
+        path: auth/jwt-operator/role/dev-evaluation
+        data:
+          role_type: jwt
+          user_claim: sub
+          bound_audiences: [openbao-evaluation]
+          bound_subject: system:serviceaccount:openbao-demo:dev-cluster-client
+          token_policies: [dev-evaluation]
+          token_ttl: 10m
   tls:
     enabled: true
     mode: OperatorManaged
     rotationPeriod: &#34;720h&#34;
   storage:
     size: &#34;10Gi&#34;
-  deletionPolicy: Retain</code></pre></div><p>Replace <code>openbao-demo</code> only with a namespace authorized by the chosen tenancy model. Version 2.6.x is the primary
+  deletionPolicy: Retain
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dev-cluster-client
+  namespace: openbao-demo</code></pre></div><p>Replace both <code>openbao-demo</code> namespace fields and the role&rsquo;s <code>bound_subject</code> together when choosing another authorized namespace. Version 2.6.x is the primary
 current validation line; the manifest pins the concrete version exercised by current CI.</p></li><li><p>Apply the manifest.</p><div class=command-block><div class=command-head><div><span>apply</span><p>Create the cluster</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl apply -f cluster.yaml</code></pre></div></li><li><p>In a separate terminal, optionally watch the custom resource converge. Stop the watch with <code>Ctrl-C</code> after the
 availability condition becomes true.</p><div class=command-block><div class=command-head><div><span>inspect</span><p>Watch cluster creation</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n openbao-demo get openbaocluster dev-cluster -w</code></pre></div></li><li><p>Wait for the availability condition.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Wait for cluster availability</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n openbao-demo wait \
   --for=condition=Available \
   openbaocluster/dev-cluster \
   --timeout=10m</code></pre></div></li><li><p>Inspect the final status and storage.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Verify status and persistent storage</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n openbao-demo get openbaocluster dev-cluster -o yaml
 kubectl -n openbao-demo get pods,pvc,services \
-  -l openbao.org/cluster=dev-cluster</code></pre></div><p>Confirm:</p><ul><li><code>status.phase</code> is <code>Running</code>;</li><li><code>status.readyReplicas</code> equals <code>spec.replicas</code>;</li><li><code>Available=True</code> and <code>TLSReady=True</code>;</li><li>every voter Pod is Ready and its PVC is Bound;</li><li>the TLS mode and storage match the declared configuration.</li></ul></li><li><p>Prove that the evaluation credential can authenticate to OpenBao from inside the cluster.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Run an authenticated OpenBao check</p></div><button type=button data-copy-button>Copy</button></div><pre><code>(
-  kubectl -n openbao-demo get secret dev-cluster-root-token \
-    -o jsonpath=&#39;{.data.token}&#39; | base64 -d
-  printf &#39;\n&#39;
-) | kubectl -n openbao-demo exec -i -c openbao dev-cluster-0 -- \
-  sh -ec &#39;
-    IFS= read -r BAO_TOKEN
+  -l openbao.org/cluster=dev-cluster</code></pre></div><p>Confirm:</p><ul><li><code>status.phase</code> is <code>Running</code>;</li><li><code>status.readyReplicas</code> equals <code>spec.replicas</code>;</li><li><code>Available=True</code> and <code>TLSReady=True</code>;</li><li>every voter Pod is Ready and its PVC is Bound;</li><li>the TLS mode and storage match the declared configuration.</li></ul></li><li><p>Prove that the evaluation credential can authenticate to OpenBao from inside the cluster.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Run an authenticated OpenBao check</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n openbao-demo create token dev-cluster-client \
+  --audience=openbao-evaluation --duration=10m | \
+  kubectl -n openbao-demo exec -i -c openbao dev-cluster-0 -- sh -ec &#39;
+    IFS= read -r jwt
     export BAO_ADDR=https://127.0.0.1:8200
     export BAO_CACERT=/etc/bao/tls/ca.crt
     export BAO_TLS_SERVER_NAME=openbao-cluster-dev-cluster.local
+    BAO_TOKEN=&#34;$(printf &#34;%s&#34; &#34;$jwt&#34; | bao write -field=token auth/jwt-operator/login role=dev-evaluation jwt=-)&#34;
     export BAO_TOKEN
     bao token capabilities sys/health
-  &#39;</code></pre></div><p>The command must print <code>root</code>. This check proves authenticated API access through the Pod-local endpoint. It does
-not place the token in the exec command or expose OpenBao outside the cluster. Use
-<a href=../../configure/expose/>Expose OpenBao</a> when the evaluation requires a client entry path.</p></li></ol><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>Development stores sensitive material in Kubernetes Secrets</p><div class=callout-body>The default static auto-unseal key and root token are stored in Kubernetes Secrets. Protect etcd encryption, RBAC,
-logs, support bundles, and backups even for evaluation. Do not reuse this cluster for production.</div></div></aside><h2 id=prepare-a-hardened-cluster>Prepare a Hardened cluster</h2><p>A complete production manifest must define all of these contracts before the first reconcile:</p><ol><li>Set <code>profile: Hardened</code> and at least three replicas.</li><li>Configure <code>tls.mode: External</code> or <code>ACME</code> and verify the issuer, Secret, domain, and termination boundary.</li><li>Configure a non-static unseal provider and its workload identity or Secret references.</li><li>Enable self-init and provide a non-empty request list.</li><li>Enable operator OIDC when lifecycle Jobs will use projected JWT authentication.</li><li>Create at least one usable human authentication path in <code>selfInit.requests</code> before root-token revocation.</li><li>Set persistent storage, voter resources, and deletion policy explicitly. Size read replicas separately when used.</li><li>Configure and test backup identity, object storage, and restore before the first risky change.</li><li>Define network egress for external unseal, backup, issuer, or discovery dependencies.</li></ol><p>Use the <a href=../../configure/>configuration baseline</a> for these choices. Do not publish an incomplete <code>Hardened</code> YAML
+  &#39;</code></pre></div><p>The command must print <code>read</code>. This check proves authenticated API access through the Pod-local endpoint. The check does
+not place credentials in the exec command or expose OpenBao outside the cluster. Use
+<a href=../../configure/expose/>Expose OpenBao</a> when the evaluation requires a client entry path.</p></li></ol><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>Development stores sensitive material in Kubernetes Secrets</p><div class=callout-body>The default static auto-unseal key is stored in a Kubernetes Secret. Self-init revokes the bootstrap root token. Protect etcd encryption, RBAC,
+logs, support bundles, and backups even for evaluation. Do not reuse this cluster for production.</div></div></aside><h2 id=prepare-a-hardened-cluster>Prepare a Hardened cluster</h2><p>A complete production manifest must define all of these contracts before the first reconcile:</p><ol><li>Set <code>profile: Hardened</code>, <code>controllerJWTMode: Target</code>, and at least three replicas. Enable self-init OIDC.</li><li>Configure <code>tls.mode: External</code> or <code>ACME</code> and verify the issuer, Secret, domain, and termination boundary.</li><li>Configure a non-static unseal provider and its workload identity or Secret references.</li><li>Enable self-init and provide a non-empty request list.</li><li>Enable self-init OIDC for controller authentication.</li><li>Create at least one usable human authentication path in <code>selfInit.requests</code> before root-token revocation.</li><li>Set persistent storage, voter resources, and deletion policy explicitly. Size read replicas separately when used.</li><li>Configure and test backup identity, object storage, and restore before the first risky change.</li><li>Define network egress for external unseal, backup, issuer, or discovery dependencies.</li></ol><p>Use the <a href=../../configure/>configuration baseline</a> for these choices. Do not publish an incomplete <code>Hardened</code> YAML
 block as if it were executable.</p><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>ProductionReady does not prove human access</p><div class=callout-body><code>UserAccessBootstrap</code> is a best-effort recognition signal. <code>ProductionReady=True</code> does not prove that a human auth
 method, role, identity, or network path works. Test a real human login before declaring the service ready.</div></div></aside><h2 id=troubleshoot-the-first-reconcile>Troubleshoot the first reconcile</h2><table><thead><tr><th>Symptom</th><th>Check first</th></tr></thead><tbody><tr><td>No workload resources appear</td><td>Tenant handoff RoleBinding or single-tenant <code>WATCH_NAMESPACE</code></td></tr><tr><td>Admission rejects the profile</td><td>Required <code>Hardened</code> TLS, unseal, self-init, requests, or replica fields</td></tr><tr><td>Pods remain Pending</td><td>StorageClass, PVC events, resource availability, and placement rules</td></tr><tr><td>Pods crash or remain sealed</td><td>Generated configuration, unseal Secret or identity, TLS mounts, and events</td></tr><tr><td><code>Available=False</code> with some Ready Pods</td><td>Desired versus ready replica count and per-Pod conditions</td></tr><tr><td><code>ProductionReady=False</code></td><td>The exact condition reason; do not infer it from Pod readiness alone</td></tr></tbody></table><p>Continue with <a href=../prepare-day-2/>production operations</a>.</p></div><nav class=journey-nav aria-label="Multi-tenant Get Started path"><a href=/next/docs/get-started/onboard-namespace/><span>Previous</span>
 <strong>Onboard a namespace</strong>
