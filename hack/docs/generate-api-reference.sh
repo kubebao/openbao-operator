@@ -15,12 +15,18 @@ if [[ ! -x "${CRD_REF_DOCS_BIN}" ]]; then
   exit 1
 fi
 
+if ! command -v perl >/dev/null 2>&1; then
+  echo "perl is required to generate the API reference." >&2
+  exit 1
+fi
+
 SOURCE_PATH="./api"
 CONFIG_PATH="hack/docs/crd-ref-docs.yaml"
-OUT_PATH="website/generated/api-reference.md"
+PUBLISHED_OUT_PATH="website/generated/api-reference.md"
+OUT_PATH=""
 
 TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "${TMP_DIR}"' EXIT
+trap 'rm -rf "${TMP_DIR}"; if [[ -n "${OUT_PATH}" ]]; then rm -f "${OUT_PATH}"; fi' EXIT
 
 RAW_PATH="${TMP_DIR}/api-reference.raw.md"
 KINDS_PATH="${TMP_DIR}/api-reference.kinds.txt"
@@ -48,7 +54,9 @@ in_types && /^- \[/ {
 
 mapfile -t RESOURCE_KINDS < "${KINDS_PATH}"
 
-mkdir -p "$(dirname "${OUT_PATH}")"
+mkdir -p "$(dirname "${PUBLISHED_OUT_PATH}")"
+# Keep the temporary output on the destination filesystem for atomic publication.
+OUT_PATH="$(mktemp "${PUBLISHED_OUT_PATH}.tmp.XXXXXX")"
 
 cat > "${OUT_PATH}" <<'HDR'
 # OpenBao Operator API reference source
@@ -217,3 +225,6 @@ fi
 
 # Keep the generated artifact stable and avoid accumulating blank lines at EOF.
 perl -0pi -e 's/\n+\z/\n/' "${OUT_PATH}"
+
+chmod 0644 "${OUT_PATH}"
+mv "${OUT_PATH}" "${PUBLISHED_OUT_PATH}"

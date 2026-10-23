@@ -136,7 +136,7 @@ fi
 ok "Tilt matches tool-versions.env (${current_tilt})"
 
 for command_name in \
-  bash check-jsonschema curl docker git go helm hugo jq kind kubectl make python3 tilt trivy; do
+  bash check-jsonschema curl docker git go helm hugo jq kind kubectl make perl python3 tilt trivy; do
   require_nix_command "${command_name}"
 done
 

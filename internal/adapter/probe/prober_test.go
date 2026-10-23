@@ -2,14 +2,21 @@ package probe
 
 import (
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -474,59 +481,57 @@ func TestParseAddr(t *testing.T) {
 }
 
 func TestVerifyLoopbackCertificate(t *testing.T) {
-	tests := []struct {
-		name    string
-		cert    *x509.Certificate
-		wantErr bool
-	}{
-		{
-			name: "valid self-signed certificate",
-			cert: &x509.Certificate{
-				NotBefore: time.Now().Add(-1 * time.Hour),
-				NotAfter:  time.Now().Add(24 * time.Hour),
-			},
-			wantErr: false,
-		},
-		{
-			name: "expired certificate",
-			cert: &x509.Certificate{
-				NotBefore: time.Now().Add(-25 * time.Hour),
-				NotAfter:  time.Now().Add(-1 * time.Hour),
-			},
-			wantErr: true,
-		},
-		{
-			name: "not yet valid certificate",
-			cert: &x509.Certificate{
-				NotBefore: time.Now().Add(1 * time.Hour),
-				NotAfter:  time.Now().Add(25 * time.Hour),
-			},
-			wantErr: true,
-		},
+	strongKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
 	}
-
+	weakKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	tests := []struct {
+		name                string
+		notBefore, notAfter time.Time
+		key                 crypto.Signer
+		wantError           string
+	}{
+		{"valid self-signed certificate", now.Add(-time.Hour), now.Add(24 * time.Hour), strongKey, ""},
+		{"expired certificate", now.Add(-25 * time.Hour), now.Add(-time.Hour), strongKey, "certificate expired"},
+		{"not yet valid certificate", now.Add(time.Hour), now.Add(25 * time.Hour), strongKey, "certificate not valid yet"},
+		{"weak key", now.Add(-time.Hour), now.Add(time.Hour), weakKey, "key policy"},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			certDER, err := x509.CreateCertificate(nil, tt.cert, tt.cert, &tt.cert.PublicKey, nil)
+			cert := &x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: tt.notBefore, NotAfter: tt.notAfter}
+			certDER, err := x509.CreateCertificate(rand.Reader, cert, cert, tt.key.Public(), tt.key)
 			if err != nil {
-				// For testing, we'll create a minimal cert
-				// In practice, we'd need a real key pair
-				t.Skip("Skipping test that requires certificate creation")
-				return
+				t.Fatalf("create certificate fixture: %v", err)
 			}
-
-			rawCerts := [][]byte{certDER}
-			err = verifyLoopbackCertificate(rawCerts)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("verifyLoopbackCertificate() error = %v, wantErr %v", err, tt.wantErr)
+			err = verifyLoopbackCertificate([][]byte{certDER})
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("verifyLoopbackCertificate() error = %v, want %q", err, tt.wantError)
 			}
 		})
 	}
-
-	// Test empty certificates
-	err := verifyLoopbackCertificate([][]byte{})
-	if err == nil {
-		t.Error("verifyLoopbackCertificate() expected error for empty certificates, got nil")
+	for _, tt := range []struct {
+		name      string
+		raw       [][]byte
+		wantError string
+	}{
+		{"missing certificate", nil, "no peer certificates"},
+		{"malformed DER", [][]byte{[]byte("not a certificate")}, "failed to parse"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := verifyLoopbackCertificate(tt.raw)
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("error = %v, want %q", err, tt.wantError)
+			}
+		})
 	}
 }
 

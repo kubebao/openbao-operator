@@ -91,14 +91,46 @@ if [[ ! -f "${downloaded_binary}" ]]; then
 fi
 chmod 0755 "${downloaded_binary}"
 
-downloaded_version="$("${downloaded_binary}" --version 2>/dev/null || true)"
+# The pinned devenv supplies an immutable loader and library path on Linux.
+# NixOS does not provide the GNU archive's /lib64 ELF interpreter.
+linux_loader="${AST_GREP_LINUX_LOADER:-}"
+linux_library_path="${AST_GREP_LINUX_LIBRARY_PATH:-}"
+runner=("${downloaded_binary}")
+if [[ "${target}" == *-linux-gnu && -n "${linux_loader}${linux_library_path}" ]]; then
+  if [[ ! -x "${linux_loader}" || -z "${linux_library_path}" ]]; then
+    echo "ast-grep Linux loader must be executable and its library path must be set" >&2
+    exit 1
+  fi
+  runner=("${linux_loader}" --library-path "${linux_library_path}" "${downloaded_binary}")
+fi
+if ! downloaded_version="$("${runner[@]}" --version 2>"${tmp_dir}/runtime-error")"; then
+  cat "${tmp_dir}/runtime-error" >&2
+  echo "ast-grep ${AST_GREP_VERSION} could not execute; use the pinned devenv on NixOS" >&2
+  exit 1
+fi
 if [[ "${downloaded_version}" != "ast-grep ${AST_GREP_VERSION}" ]]; then
   echo "ast-grep version mismatch: expected ${AST_GREP_VERSION}, found ${downloaded_version:-unknown}" >&2
   exit 1
 fi
 
 staged_binary="${versioned_binary}.tmp.$$"
-cp "${downloaded_binary}" "${staged_binary}"
+if [[ "${#runner[@]}" -gt 1 ]]; then
+  raw_binary="${versioned_binary}.elf"
+  cp "${downloaded_binary}" "${raw_binary}.tmp.$$"
+  chmod 0755 "${raw_binary}.tmp.$$"
+  mv "${raw_binary}.tmp.$$" "${raw_binary}"
+  python3 - "${staged_binary}" "${linux_loader}" "${linux_library_path}" "${raw_binary}" <<'PYWRAPPER'
+import pathlib
+import shlex
+import sys
+
+output, loader, libraries, binary = sys.argv[1:]
+command = " ".join(map(shlex.quote, [loader, "--library-path", libraries, binary]))
+pathlib.Path(output).write_text("#!/bin/sh\nexec " + command + ' "$@"\n')
+PYWRAPPER
+else
+  cp "${downloaded_binary}" "${staged_binary}"
+fi
 chmod 0755 "${staged_binary}"
 mv "${staged_binary}" "${versioned_binary}"
 ln -sfn "${versioned_binary}" "${AST_GREP_DESTINATION}"

@@ -89,6 +89,7 @@ in
     (exactPackage "Kind" (toolVersion "KIND_VERSION") pkgs.kind)
     (exactPackage "kubectl" (toolVersion "KUBECTL_VERSION") pkgs.kubectl)
     pkgs.gnumake
+    pkgs.perl
     pkgs.python3
     (exactPackage "Tilt" (toolVersion "TILT_VERSION") pkgs.tilt)
     (exactPackage "Trivy" (toolVersion "TRIVY_VERSION") pkgs.trivy)
@@ -104,6 +105,10 @@ in
     SPDX_SCHEMA_2_3 = "${spdxSchema23}";
     SPDX_FIXTURE_2_2 = "${spdxFixture22}";
     SPDX_FIXTURE_2_3 = "${spdxFixture23}";
+  } // lib.optionalAttrs pkgs.stdenv.isLinux {
+    # Upstream GNU ast-grep binaries need the Nix loader on NixOS.
+    AST_GREP_LINUX_LOADER = pkgs.stdenv.cc.bintools.dynamicLinker;
+    AST_GREP_LINUX_LIBRARY_PATH = lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib pkgs.glibc ];
   };
 
   profiles.editor.module = {
