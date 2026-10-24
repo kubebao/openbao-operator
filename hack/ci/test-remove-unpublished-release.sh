@@ -22,7 +22,8 @@ with open(os.environ["TEST_CALLS"], "a", encoding="utf-8") as calls:
 if "DELETE" in args:
     sys.exit(0)
 endpoint = args[1]
-if endpoint.endswith("/jobs?filter=all&per_page=100"):
+if endpoint.endswith("/jobs?filter=all&per_page=20"):
+    assert "--paginate" in args
     jobs = [{"name": "API Contract Gate", "status": "completed", "conclusion": "success", "steps": []}]
     promotion = {"name": "Promote + Publish Release", "status": "completed", "conclusion": "cancelled", "steps": []}
     if case == "promotion_started":
@@ -33,6 +34,10 @@ if endpoint.endswith("/jobs?filter=all&per_page=100"):
         jobs.append({**promotion, "conclusion": "success", "steps": [{"name": "Promote tags (no rebuild)"}]})
     if case != "missing_promotion":
         jobs.append(promotion)
+    if case == "previous_promotion_later_page":
+        print(json.dumps({"jobs": jobs}))
+        print(json.dumps({"jobs": [{**promotion, "conclusion": "success", "steps": [{"name": "Promote tags (no rebuild)"}]}]}))
+        sys.exit(0)
     data = {"jobs": [] if case == "no_jobs" else jobs}
 elif "/actions/runs/" in endpoint:
     data = {"head_sha": sha, "head_branch": "0.5.2", "event": "push", "path": ".github/workflows/release.yml", "status": "completed", "conclusion": "cancelled"}
@@ -67,7 +72,7 @@ EXPECTED_COMMIT_SHA="$(git rev-parse HEAD)"
 export EXPECTED_COMMIT_SHA GH_READ_TOKEN=test-read GH_WRITE_TOKEN=test-write
 export TEST_CALLS="${tmp_dir}/calls"
 
-for TEST_CASE in wrong_commit wrong_version wrong_tag unsigned_tag running successful_run published assets duplicate_release promotion_started previous_promotion missing_promotion unknown_steps no_jobs; do
+for TEST_CASE in wrong_commit wrong_version wrong_tag unsigned_tag running successful_run published assets duplicate_release promotion_started previous_promotion previous_promotion_later_page missing_promotion unknown_steps no_jobs; do
   export TEST_CASE
   : > "${TEST_CALLS}"
   if bash "${SCRIPT}" > "${tmp_dir}/output" 2>&1; then

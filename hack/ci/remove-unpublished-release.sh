@@ -25,7 +25,7 @@ jq -e --arg sha "${EXPECTED_COMMIT_SHA}" --arg version "${VERSION}" '
   (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")
 ' <<<"${run}" >/dev/null
 
-jobs="$(gh_read api "repos/${REPO}/actions/runs/${FAILED_RUN_ID}/jobs?filter=all&per_page=100" --paginate | jq -s '[.[].jobs[]]')"
+jobs="$(gh_read api "repos/${REPO}/actions/runs/${FAILED_RUN_ID}/jobs?filter=all&per_page=20" --paginate | jq -s '[.[].jobs[]]')"
 jq -e '
   any(.[]; .name == "Promote + Publish Release") and
   all(.[] | select(.name == "Promote + Publish Release");
