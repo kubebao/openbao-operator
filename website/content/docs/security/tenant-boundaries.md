@@ -13,6 +13,8 @@ verifiedBy:
   - internal/service/provisioner/manager_cleanup.go
   - internal/service/provisioner/rbac.go
   - internal/service/networking/manager.go
+  - config/policy/openbao-validate-openbaocluster.yaml
+  - test/integration/cloud_identity_test.go
   - config/rbac/openbaocluster_admin_role.yaml
   - config/rbac/openbaocluster_editor_role.yaml
   - config/rbac/openbaotenant_editor_role.yaml
@@ -44,7 +46,11 @@ Services, Pods, Jobs, Secrets, or the other generated resources.
 
 `OpenBaoTenant` names an existing target namespace. The Provisioner creates
 `openbao-operator-tenant-rolebinding`, which binds the controller ServiceAccount to the generated tenant Role. The
-cluster controller treats that RoleBinding as the handoff marker and pauses until it exists.
+cluster controller pauses until that binding refers to `openbao-operator-tenant-role` and has the expected controller
+ServiceAccount as its only subject. A missing or deleting binding pauses reconciliation until the Provisioner
+recreates it. The Provisioner can repair an incorrect subject list. An incorrect `RoleRef` blocks reconciliation
+because Kubernetes makes that field immutable. A platform administrator must delete the incorrect binding so the
+Provisioner can recreate it. The handoff check does not inspect Role rules; Kubernetes RBAC determines actual access.
 
 Admission and runtime checks enforce two onboarding paths:
 
@@ -70,6 +76,15 @@ until the handoff is ready instead of treating that ordering as a permanent fail
 The base tenant Role contains no Secret permissions. The Provisioner derives separate reader and writer allowlists
 from the `OpenBaoCluster` and `OpenBaoRestore` specifications in that namespace and removes empty allowlist roles.
 
+{{< callout type="warning" title="Controller trust crosses onboarded namespaces" >}}
+These allowlists constrain direct Secret API access. They do not contain a compromised controller: its tenant Role
+also permits creating Jobs and StatefulSets, which can consume namespace Secrets and run as namespace ServiceAccounts.
+Admission restricts operator-managed resource mutation and selected resource shapes, but does not validate every new
+workload's Secret references and execution identity against the owning custom resource. Treat the controller as
+trusted infrastructure for every onboarded namespace. Use separate installations with independently scoped identities
+and permissions when controller compromise must not cross tenant boundaries.
+{{< /callout >}}
+
 ## Bind tenant users deliberately
 
 The supplied user-facing roles are all `ClusterRole` objects. A `ClusterRole` defines reusable rules; the binding
@@ -88,6 +103,10 @@ or modify Kubernetes RBAC.
 
 Protected operations such as restore, network publication, custom executable use, cloud identity, and image trust
 roots require separate delegated verbs. Do not add those permissions to the ordinary editor binding for convenience.
+
+The `usecloudidentities` verb applies to cloud identity annotations and labels in both `spec.podMetadata` and
+`spec.readReplicas.template.metadata`. Admission checks these fields on creation and update, including when
+`spec.readReplicas.replicas` is zero. Unrelated Pod metadata does not require this delegation.
 
 ## Verify the effective boundary
 

@@ -75,8 +75,13 @@ kubectl -n <namespace> get openbaocluster <name> \
 {{< /command >}}
 
 Before switching to `BlueGreen`, configure `spec.upgrade.jwtAuthRole` or use the default
-`openbao-operator-upgrade` role created by self-init OIDC bootstrap. A role created for a rolling-only cluster might
-need its policy expanded before the switch; self-init requests are not replayed later.
+`openbao-operator-upgrade` role created by self-init OIDC bootstrap. Without policy reconciliation, a role created for
+a rolling-only cluster might need its policy expanded before the switch; self-init requests are not replayed later.
+
+With [approved policy reconciliation](../operator-policies/), enrollment approves both supported strategies. The operator
+updates the built-in upgrade policy after a strategy change, without another approval. Wait for
+`PolicyReconciliationReady=True` as well as strategy acceptance before requesting the version change. Custom policies
+attached to a custom upgrade role remain administrator-managed.
 
 ## Request the version change
 
@@ -136,6 +141,18 @@ kubectl -n <namespace> patch openbaocluster <name> --type merge -p "{
 }"
 {{< /command >}}
 
+Before resetting failed Pods, the operator waits for the StatefulSet to reflect the current cluster generation
+and for the StatefulSet controller to observe that template. The Bao container image must match the resolved
+image recorded by workload reconciliation, including a verified digest when image verification succeeds.
+If the image differs or the resolved-image annotation is missing, the retry waits for workload reconciliation.
+
+The operator records each rolling attempt in `status.upgrade.executionID`. Controller restarts preserve this value.
+A new upgrade or accepted retry uses a new value, so retained leader step-down Jobs cannot satisfy a later attempt.
+Before accepting a retry or changing the target version, the operator waits for the previous step-down Job and its Pods
+to terminate. Progress created by an older operator can resume with its existing Jobs only when their ownership,
+action, and creation time identify the current attempt. If that evidence is missing, the operator holds the upgrade;
+inspect `status.upgrade.failure`, resolve the cause, and submit a new retry request.
+
 Each request is edge-triggered: use a new non-empty value. For blue-green rollback repair failures, use
 [Recover a failed rollback](../recover-failed-rollback/) instead of retrying blindly.
 
@@ -146,6 +163,11 @@ after the current upgrade completes. The operator records Green's target image, 
 original replica count in `status.blueGreen`. Changes to `spec.replicas` do not change the active upgrade's cleanup
 checks or rollback quorum. When resuming an older operation without these fields, the operator recovers its image and
 replica counts from the existing StatefulSets; it stops if those inputs cannot be recovered.
+
+Before deleting a retired Blue or aborted Green StatefulSet, the operator verifies its current-cluster controller
+owner reference, `openbao.org/owner-uid` annotation, and Pod-template revision. An ownership or revision mismatch
+stops cleanup and preserves the StatefulSet. For an unrevisioned Blue workload, the operator also checks
+`status.blueGreen.blueControllerRevision` when that field is recorded.
 
 ## Verify the result
 

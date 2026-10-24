@@ -8,6 +8,10 @@ runs:
       shell: bash
       run: bash hack/docs/test-publish-gh-pages.sh
 
+    - name: Test stable documentation publication eligibility
+      shell: bash
+      run: bash hack/docs/test-check-published-stable.sh
+
     - name: Install pinned Hugo
       shell: bash
       run: |

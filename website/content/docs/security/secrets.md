@@ -56,10 +56,9 @@ operator-owned Secret names and provenance. Ordinary cluster-editor access must 
 
 ## Plan deletion and recovery
 
-`deletionPolicy: Retain` removes only the deleting `OpenBaoCluster` owner reference from the generated unseal-key and
-root-token Secrets before cluster cleanup. It preserves unrelated owner references and metadata. The policy does not
-retain every generated or referenced Secret. TLS Secrets and user-managed credential Secrets follow their own owners
-and policies.
+`deletionPolicy: Retain` removes owner references from the generated unseal-key and root-token Secrets before cluster
+cleanup. It does not retain every generated or referenced Secret. TLS Secrets and user-managed credential Secrets
+follow their own owners and policies.
 
 {{< callout type="warning" title="Retention preserves sensitive bootstrap material" >}}
 Retaining an unseal key or root token improves recoverability but leaves a high-value credential in Kubernetes.

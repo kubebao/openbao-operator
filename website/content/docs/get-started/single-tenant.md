@@ -8,9 +8,6 @@ verifiedBy:
   - charts/openbao-operator/templates/controller/deployment.yaml
   - charts/openbao-operator/templates/rbac/single-tenant-clusterrole.yaml
   - hack/helmchart/main_test.go
-  - config/manager/kustomization.yaml at 0.5.3
-  - config/manager/controller.yaml at 0.5.3
-  - config/manager/provisioner.yaml at 0.5.3
   - config/overlays/single-tenant/kustomization.yaml
   - config/overlays/single-tenant/target_namespace_config.yaml
   - config/overlays/single-tenant/target_namespace_rolebinding.yaml
@@ -34,7 +31,8 @@ in the target namespace, so the platform must own that RoleBinding explicitly.
 
 ## Install with Helm
 
-Use Helm for a released 0.5.x installation.
+After publication, use the pinned 0.6.0 chart. Complete [artifact verification](../../security/supply-chain/) before
+installation.
 
 1. Create the target namespace through the platform's normal workflow. The chart must create a RoleBinding in this
    namespace during installation.
@@ -48,7 +46,7 @@ Use Helm for a released 0.5.x installation.
    {{< command label="apply" title="Install a single-tenant operator" >}}
    helm upgrade --install openbao-operator \
      oci://ghcr.io/kubebao/charts/openbao-operator \
-     --version 0.5.3 \
+     --version 0.6.0 \
      --namespace openbao-operator-system \
      --create-namespace \
      --set tenancy.mode=single \
@@ -83,41 +81,28 @@ that namespace.
    kubectl create namespace openbao
    {{< /command >}}
 
-2. Obtain the operator source for the version you intend to install.
+2. Obtain the matching published operator source.
 
-   {{< command label="configure" title="Clone a pinned operator release" >}}
-   git clone --branch 0.5.3 --depth 1 \
-     https://github.com/kubebao/openbao-operator.git openbao-operator-0.5.3
-   cd openbao-operator-0.5.3
+   {{< command label="configure" title="Clone the operator source" >}}
+   git clone https://github.com/kubebao/openbao-operator.git
+   cd openbao-operator
+   git checkout 0.6.0
    {{< /command >}}
 
-3. In `config/manager/kustomization.yaml`, replace `newName` and `newTag` in the existing `controller` image entry
-   with the values in this YAML fragment:
+3. Set the manager image and `OPERATOR_VERSION` to the verified 0.6.0 release, as described in
+   [Install with a custom raw identity](../install/#install-with-a-custom-raw-identity).
 
-   ```yaml
-   images:
-   - name: controller
-     newName: ghcr.io/kubebao/openbao-operator
-     newTag: 0.5.3
-   ```
-
-   The tagged source contains a placeholder image until this entry is changed.
-
-4. Set the existing `OPERATOR_VERSION` environment entry to `0.5.3` in both `config/manager/controller.yaml` and
-   `config/manager/provisioner.yaml`. This value selects the matching helper images. The single-tenant overlay removes
-   the Provisioner when it renders the common base.
-
-5. Set the operator namespace in `config/overlays/single-tenant/kustomization.yaml`.
+4. Set the operator namespace in `config/overlays/single-tenant/kustomization.yaml`.
 
    The shipped value is `openbao-operator-system`. Change both the `namespace` field and the namespace resource when
    your platform uses another namespace.
 
-6. Set `data.WATCH_NAMESPACE` in `config/overlays/single-tenant/target_namespace_config.yaml`.
+5. Set `data.WATCH_NAMESPACE` in `config/overlays/single-tenant/target_namespace_config.yaml`.
 
    The overlay uses this value for both the controller environment and the target RoleBinding namespace. The shipped
    value is `openbao`.
 
-7. Render the overlay before applying it.
+6. Render the overlay before applying it.
 
    {{< command label="inspect" title="Render the single-tenant install" >}}
    kubectl kustomize config/overlays/single-tenant
@@ -125,20 +110,18 @@ that namespace.
 
    Confirm that:
 
-   - the controller Deployment uses `ghcr.io/kubebao/openbao-operator:0.5.3`;
-   - the controller Deployment sets `OPERATOR_VERSION` to `0.5.3`;
    - the controller Deployment contains the intended `WATCH_NAMESPACE`;
    - the `openbao-operator-single-tenant` RoleBinding is in that namespace;
    - the RoleBinding subject names the rendered controller ServiceAccount and operator namespace;
    - no Provisioner Deployment, ServiceAccount, Service, or binding remains.
 
-8. Apply the overlay.
+7. Apply the overlay.
 
    {{< command label="apply" title="Install the single-tenant operator" >}}
    kubectl apply -k config/overlays/single-tenant
    {{< /command >}}
 
-9. Verify the controller and namespace scope.
+8. Verify the controller and namespace scope.
 
    {{< command label="verify" title="Verify single-tenant mode" >}}
    kubectl -n openbao-operator-system rollout status \

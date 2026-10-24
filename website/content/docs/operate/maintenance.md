@@ -13,6 +13,8 @@ verifiedBy:
   - internal/service/workload/maintenance.go
   - internal/service/workload/pdb.go
   - internal/app/openbaocluster/infra_scale_down.go
+  - internal/app/openbaocluster/infra_scale_down_resume.go
+  - cmd/bao-wrapper/process_runner.go
 ---
 
 Use the parent `OpenBaoCluster` controls for planned work. Directly changing operator-managed StatefulSets, Pods, or
@@ -45,11 +47,42 @@ kubectl drain <node-name> --ignore-daemonsets --delete-emptydir-data
 
 Do not use `--disable-eviction` to bypass the PDB during routine maintenance.
 
+During normal Pod termination, the wrapper forwards `SIGTERM` to OpenBao and waits for it to exit. It sends
+`SIGKILL` if the child remains alive after 25 seconds. Managed OpenBao Pods use the default 30-second termination grace
+period. Forced deletion or a shorter grace period can prevent OpenBao from completing shutdown.
+
 ## Scale with the parent resource
 
 Change `spec.replicas`, not the StatefulSet. During a voter scale-down, the operator removes the highest ordinal one
 step at a time, steps it down if it is the leader, removes its Raft peer, and waits for the StatefulSet to settle before
 the next decrement.
+
+If peer removal succeeds but the replica update is interrupted, the removed process can remain Ready. If a
+separate disruption leaves the removed Pod terminating, the operator can finish that decrement after authenticated
+Raft observations confirm that the selected peer is absent and every retained member has the expected role,
+address, health, and ready Pod.
+
+Recovery changes only the replica count, then requeues before applying other workload changes. Unavailable or
+ambiguous observations keep the workload unchanged. For a terminating victim, recovery requires the same
+highest-ordinal Pod UID, StatefulSet owner, and current revision. Only that target workload can have one fewer
+current replica; companion workloads retain their normal checks.
+
+Recovery compares two authenticated configurations that bracket fresh retained-member health checks. The member
+IDs, normalized addresses, roles, and leader must match. OpenBao 2.6.4 returns a zero configuration index, so
+recovery treats zero as unavailable metadata. A changed index still blocks recovery when either observation
+supplies a nonzero value. These observations do not establish a committed configuration epoch. Recovery assumes
+operator-managed membership without concurrent native membership changes. Matching observations cannot exclude a
+change that is reverted between reads.
+
+[Raft permits one uncommitted membership change at a
+time](https://github.com/hashicorp/raft/blob/v1.7.3/configuration.go#L139-L160). Interrupted voter recovery
+requires enough healthy retained voters for a majority of the pre-decrement voter count. This permits recovery
+from three voters to two. Interrupted recovery from two voters to one remains blocked and requires manual
+recovery. Read-replica recovery retains every voter and requires the voter workload to be settled and healthy.
+
+This recovery applies to voters and read replicas. Status observations and operation-lock renewals do not block
+it. The operator checks the scale decision and operation identity again before changing the replica count. A
+changed operation, active restore hold, or break-glass state blocks recovery.
 
 {{< command label="apply" title="Set the voter count" >}}
 kubectl -n <namespace> patch openbaocluster <name> --type merge -p '{

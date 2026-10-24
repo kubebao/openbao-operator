@@ -8,10 +8,10 @@ hideChildren: true
 
 The current manual stays focused on the current contract. Release pages preserve historical changes, migration notes, artifacts, and links to archived documentation when exact older behavior matters.
 
-## Latest highlighted release
+## Latest published release
 
 <div class="link-grid">
-  <a href="0.5.3/"><strong>0.5.3</strong><p>Go 1.27.3 rejects the compromised eMudhra intermediate CA keys.</p></a>
+  <a href="0.6.0/"><strong>0.6.0</strong><p>Target-specific controller authentication, guarded restore recovery, and scheduled restore tests.</p></a>
   <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
 
@@ -19,6 +19,7 @@ The current manual stays focused on the current contract. Release pages preserve
 
 | Release | Published | Context |
 | --- | --- | --- |
+| [0.6.0](0.6.0/) | 2026-10-24 | Target JWT authentication, restore recovery, and networking changes |
 | [0.5.3](0.5.3/) | 2026-10-20 | Security update for compromised intermediate CA keys |
 | [0.5.2](0.5.2/) | 2026-10-14 | Backup scheduling and compatible fixes |
 | [0.5.1](0.5.1/) | 2026-09-24 | OpenBao 2.7 preparation and lifecycle fixes |

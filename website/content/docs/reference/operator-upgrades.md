@@ -26,6 +26,27 @@ operator installation. Changes to the OpenBao workload version use `spec.version
 Take and verify a current backup for every managed production cluster. An operator rollback is not a data rollback.
 {{< /callout >}}
 
+## Prepare new-cluster templates
+
+New Development and Hardened clusters require `controllerJWTMode: Target`, self-init OIDC, and a non-empty self-init
+request list. Update templates and automation before they create objects. Existing omitted or Shared objects retain
+read and ordinary update behavior. An operator upgrade does not migrate their roles or revoke existing bootstrap
+Secrets. Their optional [in-place migration](../../operate/controller-jwt-migration/) requires administrator preparation
+and is one-way. Deleting and recreating a CR uses the new CREATE contract.
+
+## Restore changes in this release
+
+- Finish in-flight restores before upgrading. Requests from older releases do not use the submission claim.
+- A restore into an existing cluster now ends `Unknown` and waits for an administrator acknowledgement. The operator
+  no longer drains read replicas or restarts voters automatically; `Resume` runs a managed restart instead. See
+  [Recover an uncertain restore](../../operate/restore/recover-uncertain/).
+- `status.restore` on `OpenBaoCluster` is deprecated and no longer written.
+- `openbao_restore_state` adds values 4–7. An unresolved recovery takes precedence; otherwise the newest retained
+  request determines the value. Update alerts that assume the previous values.
+- Static-unseal clusters can use `spec.unseal.credentialsSecretRef` as their key source, and admission prevents
+  changing it later. Earlier releases ignored this field for static clusters. A cluster that already has an
+  operator-generated `<cluster>-unseal-key` keeps using that key, so an existing reference stays ignored.
+
 ## Upgrade a Helm installation
 
 1. Replace `X.Y.Z` with the exact target release.
@@ -44,10 +65,6 @@ Take and verify a current backup for every managed production cluster. An operat
      --version X.Y.Z \
      --namespace openbao-operator-system
    ```
-
-For 0.5.2, follow the [release upgrade procedure](../../../releases/0.5.2/). With `--reuse-values`, update the manager
-repository and any image pins; the saved 0.5.1 values retain `ghcr.io/dc-tec/openbao-operator`. Historical releases
-through 0.5.1 remain in the `dc-tec` chart namespace.
 
 Helm does not upgrade CRDs stored in a chart's `crds/` directory. Applying the release bundle first prevents the new
 controller from starting against an older schema.

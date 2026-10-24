@@ -4,6 +4,8 @@ description: Condition types, phases, Kubernetes Events, and audit-log signals e
 eyebrow: Reference
 weight: 2
 verifiedBy:
+  - api/v1alpha1/openbaocluster_status_types.go
+  - internal/app/openbaocluster/statusops/policy_reconciliation.go
   - api/v1alpha1/openbaocluster_types.go
   - api/v1alpha1/openbaorestore_types.go
   - api/v1alpha1/openbaotenant_types.go
@@ -41,7 +43,9 @@ Use `kubectl describe` on the parent custom resource to see status and recent Ev
 | Strict NetworkPolicy | `APIServerNetworkReady` |
 | Scheduled backups | `BackupConfigurationReady`, `BackingUp` |
 | File audit storage | `AuditFileStorageReady`; inspect `Degraded` when recreation is required |
-| Restore | `RestoreConfigurationReady`, then `RestoreComplete` |
+| Restore | `RestoreConfigurationReady`, then `RestoreComplete`; `RecoveryReleased` after an uncertain outcome |
+| Restore tests | `Passed` in `status.backup.restoreTest.conditions` on the source cluster |
+| Approved policy repair | `PolicyReconciliationReady`; inspect warning events when false |
 
 ## OpenBaoCluster status
 
@@ -58,7 +62,7 @@ specific contract.
 | `ACMECacheReady` | Shared ACME state for HA or blue-green topologies |
 | `GatewayIntegrationReady` | Referenced Gateway, GatewayClass, listener, and managed Route attachment |
 | `IngressIntegrationReady` | Managed Ingress prerequisites and load-balancer progress |
-| `APIServerNetworkReady` | Kubernetes API egress represented by operator-managed NetworkPolicy |
+| `APIServerNetworkReady` | Kubernetes API egress configuration in standard NetworkPolicies and the optional Cilium policy; does not probe live connectivity |
 | `AuditFileStorageReady` | Shared audit PVC readiness and workload mount adoption |
 
 ### Security and production conditions
@@ -97,15 +101,36 @@ specific contract.
 
 These three conditions report the labels OpenBao publishes; they are not independent API probes.
 
+## Policy reconciliation status
+
+`PolicyReconciliationReady` is present only when `spec.reconcilePolicies` is enabled. It is `True` after the current
+runtime bundle is verified, `False` while pending or failing, and `Unknown` when reconciliation is paused or blocked by
+the security profile. Policy failures also contribute to `Degraded`.
+
+| Field under `status.workload` | Meaning |
+| --- | --- |
+| `policyReconciliation.revisions` | Policy name to verified content digest; an empty value means missing or changed contents awaiting repair; an absent key means unobserved |
+| `policyReconciliation.attemptedRevision` | Runtime bundle used for the latest attempt and its retry schedule |
+| `policyReconciliation.lastVerified` | Time of the last successful complete verification |
+| `policyReconciliation.retryAfter` | Earliest retry for the same attempted runtime bundle after a failure |
+| `policyReconciliation.lastError` | Policy failure, independent of `status.workload.lastError` |
+| `policyRevision` | Last completely verified runtime bundle; informational and not an operation gate |
+
+Failed policy reads preserve previous observations. See [operation gating](../../architecture/operations/#check-policy-readiness-per-operation)
+for how backup and upgrade use them, and [policy enrollment](../../operate/operator-policies/) for administrator actions.
+
 ## OpenBaoRestore status
 
-`status.phase` moves through `Pending`, `Validating`, `Running`, and either `Completed` or `Failed`.
+`status.phase` moves through `Pending`, `Validating`, and `Running`, then ends `Completed`, `Failed`, or `Unknown`.
+`Unknown` means the snapshot was submitted but its application is not confirmed; see
+[Recover an uncertain restore](../../operate/restore/recover-uncertain/).
 
 | Type | Signal |
 | --- | --- |
 | `RestoreConfigurationReady` | Operator-known authentication, storage, identity, and egress prerequisites |
 | `RestoreComplete` | Terminal restore result |
 | `OperationLockOverride` | A forced disaster-recovery restore cleared another operation lock |
+| `RecoveryReleased` | Whether management was handed back after an uncertain outcome; the reason names the current step |
 
 `AmbientIdentityAssumed` means the operator identified a provider default chain. It does not prove that the cloud-side
 role, service account, or permission binding works.
@@ -125,6 +150,7 @@ The operator emits these lifecycle reasons on parent resources. `Normal` records
 | --- | --- |
 | Cluster safety and storage | `ProfileNotSet`, `DevelopmentProfile`, `UnsafeAdmissionDisabled`, `AmbientUnsealIdentity`, `StaticUnsealInUse`, `RootTokenStored`, image-verification reasons, `PVCResize`, `PVCResizeLeaderStepDown`, `PVCResizePodRestart` |
 | Initialization | `InitStarted`, `InitCompleted`, `InitFailed` |
+| Policy repair | `PolicyReconciliationFailed` |
 | Tenant Secret RBAC | `TenantSecretRBACSynchronized` |
 | Upgrade | `UpgradeStarted`, `PreUpgradeSnapshotJobCreated`, `PreUpgradeSnapshotCompleted`, `PreUpgradeSnapshotFailed`, `RollingRetryRequested`, `RollingRetryAccepted`, `BlueGreenHoldEntered`, `BlueGreenPromotionApproved`, `UpgradeComplete`, `UpgradeFailed`, `RollbackStarted`, `BreakGlassEntered`, `BreakGlassAcknowledged`, `OperationLockBlocked` |
 | Backup | `BackupManualTriggerAccepted`, `BackupSkipped`, `BackupStarted`, `BackupIdentityConfiguration`, `BackupJobCreated`, `BackupCompleted`, `BackupFailed`, `OperationLockBlocked` |

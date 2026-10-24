@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoTenant API.
 eyebrow: Reference · Generated API
 weight: 3
 verifiedBy:
-  - api/v1alpha1 at 0.5.3
-  - website/generated/api-reference.md at 0.5.3
+  - api/v1alpha1 at 0.6.0
+  - website/generated/api-reference.md at 0.6.0
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.5.3` for the `0.5.x` documentation line.
+This page is synchronized from the generated API reference at `0.6.0` for the `0.6.x` documentation line.
 {{< /callout >}}
 
 

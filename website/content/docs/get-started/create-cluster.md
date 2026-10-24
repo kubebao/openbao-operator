@@ -36,10 +36,14 @@ For evaluation, the output must identify one default StorageClass. Stop and conf
 
 | Profile | Intended use | Security behavior |
 | --- | --- | --- |
-| `Development` | Local evaluation, CI, and disposable environments | Permits operator-managed TLS, static auto-unseal, and a root token Secret; reports security risk |
+| `Development` | Local evaluation, CI, and disposable environments | Permits operator-managed TLS and static auto-unseal; requires Target and self-init OIDC |
 | `Hardened` | Production | Requires External or ACME TLS, non-static unseal, self-init, and at least three replicas |
 
-`spec.profile` is required. Changing the word `Development` to `Hardened` does not complete the production contract.
+Declare `spec.profile`, `spec.controllerJWTMode: Target`, and self-init OIDC for every new cluster. Both profiles use
+the same controller authentication requirement. The evaluation manifest creates a separate, read-only client role;
+self-init revokes its bootstrap root token. See [controller JWT authentication](../../operate/controller-jwt-mode/).
+
+Changing the word `Development` to `Hardened` does not complete the production contract.
 
 ## Create an evaluation cluster
 
@@ -55,6 +59,27 @@ For evaluation, the output must identify one default StorageClass. Stop and conf
      version: "2.6.2"
      replicas: 1
      profile: Development
+     controllerJWTMode: Target
+     selfInit:
+       enabled: true
+       oidc:
+         enabled: true
+       requests:
+         - name: create-evaluation-policy
+           operation: update
+           path: sys/policies/acl/dev-evaluation
+           policy:
+             policy: 'path "sys/health" { capabilities = ["read"] }'
+         - name: create-evaluation-role
+           operation: update
+           path: auth/jwt-operator/role/dev-evaluation
+           data:
+             role_type: jwt
+             user_claim: sub
+             bound_audiences: [openbao-evaluation]
+             bound_subject: system:serviceaccount:openbao-demo:dev-cluster-client
+             token_policies: [dev-evaluation]
+             token_ttl: 10m
      tls:
        enabled: true
        mode: OperatorManaged
@@ -62,9 +87,15 @@ For evaluation, the output must identify one default StorageClass. Stop and conf
      storage:
        size: "10Gi"
      deletionPolicy: Retain
+   ---
+   apiVersion: v1
+   kind: ServiceAccount
+   metadata:
+     name: dev-cluster-client
+     namespace: openbao-demo
    {{< /command >}}
 
-   Replace `openbao-demo` only with a namespace authorized by the chosen tenancy model. Version 2.6.x is the primary
+   Replace both `openbao-demo` namespace fields and the role's `bound_subject` together when choosing another authorized namespace. Version 2.6.x is the primary
    current validation line; the manifest pins the concrete version exercised by current CI.
 
 2. Apply the manifest.
@@ -108,27 +139,25 @@ For evaluation, the output must identify one default StorageClass. Stop and conf
 6. Prove that the evaluation credential can authenticate to OpenBao from inside the cluster.
 
    {{< command label="verify" title="Run an authenticated OpenBao check" >}}
-   (
-     kubectl -n openbao-demo get secret dev-cluster-root-token \
-       -o jsonpath='{.data.token}' | base64 -d
-     printf '\n'
-   ) | kubectl -n openbao-demo exec -i -c openbao dev-cluster-0 -- \
-     sh -ec '
-       IFS= read -r BAO_TOKEN
+   kubectl -n openbao-demo create token dev-cluster-client \
+     --audience=openbao-evaluation --duration=10m | \
+     kubectl -n openbao-demo exec -i -c openbao dev-cluster-0 -- sh -ec '
+       IFS= read -r jwt
        export BAO_ADDR=https://127.0.0.1:8200
        export BAO_CACERT=/etc/bao/tls/ca.crt
        export BAO_TLS_SERVER_NAME=openbao-cluster-dev-cluster.local
+       BAO_TOKEN="$(printf "%s" "$jwt" | bao write -field=token auth/jwt-operator/login role=dev-evaluation jwt=-)"
        export BAO_TOKEN
        bao token capabilities sys/health
      '
    {{< /command >}}
 
-   The command must print `root`. This check proves authenticated API access through the Pod-local endpoint. It does
-   not place the token in the exec command or expose OpenBao outside the cluster. Use
+   The command must print `read`. This check proves authenticated API access through the Pod-local endpoint. The check does
+   not place credentials in the exec command or expose OpenBao outside the cluster. Use
    [Expose OpenBao](../../configure/expose/) when the evaluation requires a client entry path.
 
 {{< callout type="warning" title="Development stores sensitive material in Kubernetes Secrets" >}}
-The default static auto-unseal key and root token are stored in Kubernetes Secrets. Protect etcd encryption, RBAC,
+The default static auto-unseal key is stored in a Kubernetes Secret. Self-init revokes the bootstrap root token. Protect etcd encryption, RBAC,
 logs, support bundles, and backups even for evaluation. Do not reuse this cluster for production.
 {{< /callout >}}
 
@@ -136,11 +165,11 @@ logs, support bundles, and backups even for evaluation. Do not reuse this cluste
 
 A complete production manifest must define all of these contracts before the first reconcile:
 
-1. Set `profile: Hardened` and at least three replicas.
+1. Set `profile: Hardened`, `controllerJWTMode: Target`, and at least three replicas. Enable self-init OIDC.
 2. Configure `tls.mode: External` or `ACME` and verify the issuer, Secret, domain, and termination boundary.
 3. Configure a non-static unseal provider and its workload identity or Secret references.
 4. Enable self-init and provide a non-empty request list.
-5. Enable operator OIDC when lifecycle Jobs will use projected JWT authentication.
+5. Enable self-init OIDC for controller authentication.
 6. Create at least one usable human authentication path in `selfInit.requests` before root-token revocation.
 7. Set persistent storage, voter resources, and deletion policy explicitly. Size read replicas separately when used.
 8. Configure and test backup identity, object storage, and restore before the first risky change.

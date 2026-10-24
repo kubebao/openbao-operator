@@ -35,6 +35,10 @@ replicas; OpenBao serves eligible reads locally and forwards writes to the activ
 currently excludes steady read replicas from this Service. The operator does not create a second Gateway or Ingress
 route for the opt-in dedicated read-replica Service.
 
+Use `spec.service.ipFamilyPolicy` and `spec.service.ipFamilies` to select the main Service's IP families. The dedicated
+read Service has the same fields under `spec.readReplicas.service`. See [IPv6 and dual-stack networking](../network/#use-ipv6-and-dual-stack-networks)
+for allocation rules and examples.
+
 ## Choose where TLS terminates
 
 | Pattern | Use it when | Required trust decision |
@@ -114,6 +118,10 @@ With `tls.mode: External`, create these same-namespace Secrets before expecting 
 | --- | --- |
 | `<cluster>-tls-ca` | `ca.crt` |
 | `<cluster>-tls-server` | `tls.crt`, `tls.key` |
+
+Put the leaf certificate first in `tls.crt`, followed by its intermediate certificates. `tls.key` must match the leaf
+certificate. Store trust anchors in the `ca.crt` key of `<cluster>-tls-ca`. Certificates in `tls.crt` do not become
+trust anchors.
 
 The server certificate must chain to `ca.crt` and cover `openbao-cluster-<cluster>.local`. It must also cover each
 enabled Ingress or Gateway hostname and every entry in `spec.tls.extraSANs`. Values that parse as IP addresses must be

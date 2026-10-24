@@ -91,8 +91,10 @@ Autopilot state before sending production traffic to the pool.
 
 - Scale-down removes the departing non-voter from Raft before reducing the StatefulSet one ordinal at a time.
 - A rolling upgrade waits for the read pool to reach the target revision and pass health checks before voters roll.
-- Blue-green upgrades and restores drain steady read replicas, complete the destructive phase, and restore the pool
-  before reporting completion.
+- Blue-green upgrades drain steady read replicas, complete the destructive phase, and restore the pool before
+  reporting completion.
+- Restores do not drain the read pool. After an administrator acknowledges `Resume`, the operator restarts voters and
+  read replicas one at a time. See [Recover an uncertain restore](../../operate/restore/recover-uncertain/).
 - Removing `spec.readReplicas` drains the pool, deletes the read StatefulSet and ConfigMap, and removes the optional
   read Service.
 

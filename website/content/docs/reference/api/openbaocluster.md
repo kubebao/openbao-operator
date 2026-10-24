@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoCluster API.
 eyebrow: Reference · Generated API
 weight: 1
 verifiedBy:
-  - api/v1alpha1 at 0.5.3
-  - website/generated/api-reference.md at 0.5.3
+  - api/v1alpha1 at 0.6.0
+  - website/generated/api-reference.md at 0.6.0
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.5.3` for the `0.5.x` documentation line.
+This page is synchronized from the generated API reference at `0.6.0` for the `0.6.x` documentation line.
 {{< /callout >}}
 
 
@@ -83,6 +83,23 @@ _Appears in:_
 | --- | --- |
 | `ManagedPVC` | ACMESharedCacheModeManagedPVC instructs the operator to create a dedicated RWX PVC.<br /> |
 | `ExistingPVC` | ACMESharedCacheModeExistingPVC instructs the operator to mount an existing RWX PVC.<br /> |
+
+
+#### APIServerEgressConfig
+
+
+
+APIServerEgressConfig selects an additional Kubernetes API egress policy.
+
+
+
+_Appears in:_
+- [NetworkConfig](#networkconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `mode` _string_ | Mode selects the Cilium kube-apiserver entity policy. This requires Cilium<br />and its namespaced cilium.io/v2 CiliumNetworkPolicy API. |  | Enum: [Cilium] <br /> |
+| `port` _integer_ | Port is the API server's TCP backend port after Service translation.<br />Set this to the cluster's actual backend port, which can differ from 443. | 6443 | Maximum: 65535 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### AWSKMSSealConfig
@@ -230,6 +247,25 @@ _Appears in:_
 | `clientSecret` _string_ | ClientSecret is the Azure client secret.<br />Note: It is strongly recommended to use CredentialsSecretRef or Managed Service Identity instead. |  | Optional: \{\} <br /> |
 | `resource` _string_ | Resource is the Azure AD resource endpoint.<br />For Managed HSM, this should usually be "managedhsm.azure.net". |  | Optional: \{\} <br /> |
 | `environment` _string_ | Environment is the Azure environment (e.g., "AzurePublicCloud", "AzureUSGovernmentCloud"). |  | Optional: \{\} <br /> |
+| `authMethod` _string_ | AuthMethod selects how the seal authenticates to Azure, rendered as the<br />seal's auth_method. When empty, OpenBao chooses: a client ID without a<br />client secret selects managed_identity, which uses the instance metadata<br />service. Set workload_identity for Azure Workload Identity, where the<br />workload identity webhook also injects AZURE_CLIENT_ID. |  | Enum: [workload_identity managed_identity client_secret environment default] <br />Optional: \{\} <br /> |
+| `workloadIdentity` _[AzureKeyVaultWorkloadIdentity](#azurekeyvaultworkloadidentity)_ | WorkloadIdentity has the operator project an Azure workload identity token<br />into the OpenBao Pods, without the Azure Workload Identity webhook. Requires<br />tenantID. The token is exchanged with the Azure public cloud. |  | Optional: \{\} <br /> |
+
+
+#### AzureKeyVaultWorkloadIdentity
+
+
+
+AzureKeyVaultWorkloadIdentity configures the federated workload identity the
+OpenBao Pods authenticate to Azure Key Vault with.
+
+
+
+_Appears in:_
+- [AzureKeyVaultSealConfig](#azurekeyvaultsealconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `clientID` _string_ | ClientID is the client ID of the identity holding the federated credential. |  | MinLength: 1 <br /> |
 
 
 #### AzureTargetConfig
@@ -246,7 +282,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `storageAccount` _string_ | StorageAccount is the Azure storage account name.<br />Required when using Azure provider. |  | MinLength: 1 <br /> |
-| `container` _string_ | Container is the blob container name. If empty, uses the Bucket field value. |  | Optional: \{\} <br /> |
+| `container` _string_ | Container is a compatibility alias for Bucket. A nonempty value takes<br />precedence over Bucket. Use Bucket alone for new configurations. |  | Optional: \{\} <br /> |
 
 
 #### BackendTLSConfig
@@ -275,12 +311,102 @@ BackupRetention defines retention policy for backups.
 
 
 _Appears in:_
+- [BackupRetentionRun](#backupretentionrun)
 - [BackupSchedule](#backupschedule)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `maxCount` _integer_ | MaxCount is the maximum number of backups to retain (0 = unlimited). |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `maxAge` _string_ | MaxAge is the maximum age of backups to retain, e.g., "168h" for 7 days.<br />Backups older than this are deleted after successful new backup upload. |  | Optional: \{\} <br /> |
+
+
+#### BackupRetentionOutcome
+
+_Underlying type:_ _string_
+
+BackupRetentionOutcome separates cleanup results from snapshot results.
+
+_Validation:_
+- Enum: [Succeeded Failed Skipped]
+
+_Appears in:_
+- [BackupRetentionResult](#backupretentionresult)
+
+| Field | Description |
+| --- | --- |
+| `Succeeded` |  |
+| `Failed` |  |
+| `Skipped` |  |
+
+
+#### BackupRetentionResult
+
+
+
+BackupRetentionResult is the last independently observed cleanup outcome.
+
+
+
+_Appears in:_
+- [BackupRetentionStatus](#backupretentionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `sourceJobUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ |  |  |  |
+| `name` _string_ |  |  |  |
+| `key` _string_ | Key identifies the successful snapshot that triggered this attempt. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  |  |
+| `finishedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ |  |  |  |
+| `outcome` _[BackupRetentionOutcome](#backupretentionoutcome)_ |  |  | Enum: [Succeeded Failed Skipped] <br /> |
+| `reason` _string_ | Reason is a stable reason code. Message describes the outcome and next action. |  |  |
+| `message` _string_ |  |  |  |
+| `deletedByCount` _integer_ | DeletedByCount and DeletedByAge count confirmed successful batch deletions.<br />A failed batch can have partial effects; its unknown partial count is not reported as success. |  | Minimum: 0 <br /> |
+| `deletedByAge` _integer_ |  |  | Minimum: 0 <br /> |
+
+
+#### BackupRetentionRun
+
+
+
+BackupRetentionRun records the immutable deletion boundary and workload identity.
+
+
+
+_Appears in:_
+- [BackupRetentionStatus](#backupretentionstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the deterministic retention Job name. |  |  |
+| `uid` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | UID binds the observed Job. Absence after submission is uncertain, not permission to retry. |  | Optional: \{\} <br /> |
+| `sourceJobName` _string_ | SourceJobName identifies the successful scheduled backup Job. |  |  |
+| `sourceJobUID` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | SourceJobUID pins the successful backup Job. |  |  |
+| `generation` _integer_ | Generation pins the source configuration used by the backup Job. |  |  |
+| `key` _string_ | Key protects the last successful snapshot throughout retention. |  |  |
+| `prefix` _string_ | Prefix confines deletion to scheduled snapshots directly under this cluster prefix. |  |  |
+| `restoreTestKey` _string_ | RestoreTestKey protects a previously reserved restore-test snapshot. |  | Optional: \{\} <br /> |
+| `policy` _[BackupRetention](#backupretention)_ | Policy is the frozen retention policy. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartedAt records reservation time. |  |  |
+| `deadlineAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | DeadlineAt is the absolute worker deadline, including time spent awaiting submission. |  |  |
+| `submittedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | SubmittedAt records the single permitted Create attempt before the API call. |  | Optional: \{\} <br /> |
+
+
+#### BackupRetentionStatus
+
+
+
+BackupRetentionStatus holds one active workload and one last result.
+
+
+
+_Appears in:_
+- [BackupStatus](#backupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `active` _[BackupRetentionRun](#backupretentionrun)_ | Active pins the retention plan until its workload has stopped. |  | Optional: \{\} <br /> |
+| `last` _[BackupRetentionResult](#backupretentionresult)_ | Last records the last finished or skipped retention attempt. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions report retention progress independently of snapshot success. |  | Optional: \{\} <br /> |
 
 
 #### BackupSchedule
@@ -296,12 +422,33 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `restoreTest` _[RestoreTest](#restoretest)_ | RestoreTest periodically restores the latest successful snapshot into a disposable target. |  | Optional: \{\} <br /> |
 | `schedule` _string_ | Schedule is a cron-style schedule, for example "0 3 * * *". |  | MinLength: 1 <br /> |
 | `target` _[BackupTarget](#backuptarget)_ | Target is the object storage configuration for backups. |  |  |
 | `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for backup operations. When set, the backup executor will use JWT Auth<br />(projected ServiceAccount token) instead of a static token. This is the preferred authentication<br />method as tokens are automatically rotated by Kubernetes.<br />The role must be configured in OpenBao and must grant the "read" capability on<br />sys/storage/raft/snapshot. The role must bind to the backup ServiceAccount<br />(&lt;cluster-name&gt;-backup-serviceaccount) in the cluster namespace.<br />If OIDC is enabled in SelfInit and this field is empty, a default role<br />named "openbao-operator-backup" will be assumed/created. |  | Optional: \{\} <br /> |
 | `tokenSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | TokenSecretRef references a Secret containing an OpenBao API token to use<br />for backup operations when JWT Auth is not effective.<br />The Secret must exist in the same namespace as the OpenBaoCluster.<br />Cross-namespace references are not allowed for security reasons.<br />If an effective JWT role exists through JWTAuthRole or the SelfInit OIDC<br />default, this field is ignored in favor of JWT Auth. Otherwise this field<br />is required and must reference a token with permission to read<br />sys/storage/raft/snapshot. The operator does not infer or fall back to a<br />&lt;cluster&gt;-root-token Secret. |  | Optional: \{\} <br /> |
 | `retention` _[BackupRetention](#backupretention)_ | Retention defines optional backup retention policy. |  | Optional: \{\} <br /> |
 | `image` _string_ | Image is the container image to use for backup operations.<br />If not specified, OPERATOR_BACKUP_IMAGE can supply a complete image reference, including a digest.<br />Otherwise, defaults to "&lt;repo&gt;:X.Y.Z" where &lt;repo&gt; is derived from OPERATOR_BACKUP_IMAGE_REPOSITORY<br />(default: "ghcr.io/kubebao/openbao-backup") and the tag matches OPERATOR_VERSION.<br />This allows users to override the image for air-gapped environments or custom registries. |  | Optional: \{\} <br /> |
+
+
+#### BackupSnapshotSummary
+
+
+
+BackupSnapshotSummary is the latest successful executor's bounded observation.
+Identity and version are observed before and after streaming the snapshot.
+
+
+
+_Appears in:_
+- [BackupStatus](#backupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `digest` _string_ | Digest is sha256: followed by the lowercase digest of the uploaded snapshot. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br /> |
+| `clusterID` _string_ | ClusterID is the source native cluster ID observed during the backup. |  | MaxLength: 128 <br /> |
+| `version` _string_ | Version is the source OpenBao version observed during the backup. |  | MaxLength: 64 <br /> |
+| `size` _integer_ | Size is the snapshot size in bytes. |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br /> |
 
 
 #### BackupStatus
@@ -317,6 +464,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `retention` _[BackupRetentionStatus](#backupretentionstatus)_ | Retention stores the active cleanup workload and its last independent outcome. |  | Optional: \{\} <br /> |
+| `successfulBackups` _integer_ | SuccessfulBackups counts newly observed successful backup Jobs. |  | Optional: \{\} <br /> |
+| `latestSnapshot` _[BackupSnapshotSummary](#backupsnapshotsummary)_ | LatestSnapshot contains the latest executor's source observation. |  | Optional: \{\} <br /> |
+| `restoreTest` _[RestoreTestStatus](#restoreteststatus)_ | RestoreTest stores one active run and one last result. |  | Optional: \{\} <br /> |
 | `lastBackupTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastBackupTime is the timestamp of the last successful backup. |  | Optional: \{\} <br /> |
 | `lastAttemptTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastAttemptTime is the timestamp of the last backup attempt, regardless of outcome.<br />This is used to avoid retry loops when a scheduled backup fails. |  | Optional: \{\} <br /> |
 | `lastAttemptScheduledTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastAttemptScheduledTime is the scheduled time of the last backup attempt.<br />It is derived from the cron schedule and used to ensure at-most-once execution<br />per scheduled window. |  | Optional: \{\} <br /> |
@@ -347,15 +498,16 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `provider` _string_ | Provider selects the storage backend. Defaults to "s3" for backward compatibility. | s3 | Enum: [s3 gcs azure] <br />Optional: \{\} <br /> |
 | `endpoint` _string_ | Endpoint is the HTTP(S) endpoint for the object storage service.<br />For S3: Required (e.g., "https://s3.amazonaws.com" or MinIO endpoint).<br />For GCS: Optional (defaults to googleapis.com).<br />For Azure: Optional (derived from StorageAccount if not specified). |  | Optional: \{\} <br /> |
-| `bucket` _string_ | Bucket is the bucket or container name. |  | MinLength: 1 <br /> |
+| `bucket` _string_ | Bucket is the bucket or container name for every provider. For Azure, a<br />nonempty azure.container compatibility alias takes precedence. |  | MinLength: 1 <br /> |
 | `pathPrefix` _string_ | PathPrefix is an optional prefix within the bucket for this cluster's snapshots. |  | Optional: \{\} <br /> |
-| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef optionally references a Secret containing credentials for the object store.<br />The Secret must exist in the same namespace as the owning OpenBao resource.<br />Cross-namespace references are not allowed for security reasons.<br />For S3: Expected keys are "accessKeyId" and "secretAccessKey" (optional: "sessionToken", "region", "caCert").<br />For GCS: Expected key is "credentials.json" containing a service account JSON key.<br />For Azure: Expected keys are "accountKey" or "connectionString".<br />Hardened clusters require an explicit storage identity path: credentialsSecretRef,<br />workloadIdentity metadata, or roleArn for S3 targets. Omitting those paths relies<br />on ambient/default credentials and is rejected for Hardened clusters. |  | Optional: \{\} <br /> |
-| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity optionally applies provider-specific metadata required by cloud workload identity integrations.<br />Use this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.<br />When omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.<br />Hardened clusters reject that ambient/default path unless credentialsSecretRef is set,<br />workloadIdentity metadata is present, or an S3 target uses roleArn. |  | Optional: \{\} <br /> |
+| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef optionally references a Secret containing credentials for the object store.<br />The Secret must exist in the same namespace as the owning OpenBao resource.<br />Cross-namespace references are not allowed for security reasons.<br />For S3: Expected keys are "accessKeyId" and "secretAccessKey" (optional: "sessionToken", "region", "caCert").<br />For GCS: Expected key is "credentials.json" containing a service account JSON key.<br />For Azure: Expected keys are "accountKey" or "connectionString".<br />Hardened clusters require an explicit storage identity path: credentialsSecretRef,<br />workloadIdentity metadata, or the effective S3 roleArn. Omitting those paths relies<br />on ambient/default credentials and is rejected for Hardened clusters. |  | Optional: \{\} <br /> |
+| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity optionally applies provider-specific metadata required by cloud workload identity integrations.<br />Use this for ambient identity setups such as EKS Pod Identity or IRSA, GKE Workload Identity, or Azure Workload Identity.<br />When omitted, backup and restore workloads can still use any credentials exposed through the pod's default provider chain.<br />Hardened clusters reject that ambient/default path unless credentialsSecretRef is set,<br />workloadIdentity metadata is present, or an S3 target uses the effective roleArn. |  | Optional: \{\} <br /> |
 | `partSize` _integer_ | PartSize is the size of each part in multipart uploads (in bytes).<br />Defaults to 10MB (10485760 bytes). Larger values may improve performance for large snapshots<br />on fast networks, while smaller values may be better for slow or unreliable networks. | 10485760 | Minimum: 5.24288e+06 <br />Optional: \{\} <br /> |
 | `concurrency` _integer_ | Concurrency is the number of concurrent parts to upload during multipart uploads.<br />Defaults to 3. Higher values may improve throughput on fast networks but increase<br />memory usage and may overwhelm slower storage backends. | 3 | Maximum: 10 <br />Minimum: 1 <br />Optional: \{\} <br /> |
-| `region` _string_ | Region is the AWS region to use for S3-compatible clients.<br />For AWS, this should match the bucket region (for example, "eu-west-1").<br />For many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.<br />Only used when Provider is "s3". | us-east-1 | Optional: \{\} <br /> |
-| `roleArn` _string_ | RoleARN is the IAM role ARN (or S3-compatible equivalent) to assume via Web Identity.<br />When set, backup and restore Jobs mount a projected ServiceAccount token and set the<br />AWS Web Identity environment variables explicitly.<br />Only used when Provider is "s3".<br />Outside Hardened S3 targets, leave this empty when relying on ambient workload identity<br />or provider-managed default credentials instead. For Hardened S3 targets, roleArn is<br />one accepted explicit identity path. It does not satisfy Hardened identity requirements<br />for GCS or Azure. |  | Optional: \{\} <br /> |
-| `usePathStyle` _boolean_ | UsePathStyle controls whether to use path-style addressing (bucket.s3.amazonaws.com/object)<br />or virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).<br />Set to true for MinIO and S3-compatible stores that require path-style.<br />Set to false for AWS S3 (default, as AWS is deprecating path-style).<br />Only used when Provider is "s3". | false | Optional: \{\} <br /> |
+| `s3` _[S3TargetConfig](#s3targetconfig)_ | S3 groups S3-specific configuration. Each configured field takes precedence<br />over its top-level compatibility field. Omitted fields use the top-level value.<br />Only used when Provider is "s3". |  | Optional: \{\} <br /> |
+| `region` _string_ | Region is the AWS region to use for S3-compatible clients.<br />For AWS, this should match the bucket region (for example, "eu-west-1").<br />For many S3-compatible stores (MinIO/Ceph), this can be any non-empty value.<br />Only used when Provider is "s3".<br />Compatibility field: use s3.region for new configurations. | us-east-1 | Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN is the IAM role ARN (or S3-compatible equivalent) to assume via Web Identity.<br />When set, backup and restore Jobs mount a projected ServiceAccount token and set the<br />AWS Web Identity environment variables explicitly.<br />Only used when Provider is "s3".<br />Outside Hardened S3 targets, leave this empty when relying on ambient workload identity<br />or provider-managed default credentials instead. For Hardened S3 targets, roleArn is<br />one accepted explicit identity path. It does not satisfy Hardened identity requirements<br />for GCS or Azure.<br />Compatibility field: use s3.roleArn for new configurations. |  | Optional: \{\} <br /> |
+| `usePathStyle` _boolean_ | UsePathStyle controls whether to use path-style addressing (s3.amazonaws.com/bucket/object)<br />or virtual-hosted-style addressing (bucket.s3.amazonaws.com/object).<br />Set to true for MinIO and S3-compatible stores that require path-style.<br />Set to false for AWS S3 (default, as AWS is deprecating path-style).<br />Only used when Provider is "s3".<br />Compatibility field: use s3.usePathStyle for new configurations. | false | Optional: \{\} <br /> |
 | `gcs` _[GCSTargetConfig](#gcstargetconfig)_ | GCS contains Google Cloud Storage specific configuration.<br />Only used when Provider is "gcs". |  | Optional: \{\} <br /> |
 | `azure` _[AzureTargetConfig](#azuretargetconfig)_ | Azure contains Azure Blob Storage specific configuration.<br />Only used when Provider is "azure". |  | Optional: \{\} <br /> |
 | `insecureSkipVerify` _boolean_ | InsecureSkipVerify allows skipping TLS verification (useful for MinIO/LocalStack/Azurite with self-signed certs).<br />This applies to all providers that support TLS.<br />Hardened clusters reject insecureSkipVerify. |  | Optional: \{\} <br /> |
@@ -593,8 +745,8 @@ _Appears in:_
 
 
 
-ClusterRestoreStatus tracks the post-snapshot workload restart for the most
-recent restore applied to the cluster.
+ClusterRestoreStatus retains restart observations from earlier operator releases.
+New restores report status, including managed restarts, on OpenBaoRestore.
 
 
 
@@ -603,9 +755,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ | Name is the name of the OpenBaoRestore whose snapshot was applied. |  | Optional: \{\} <br /> |
-| `uid` _string_ | UID is the UID of the OpenBaoRestore whose snapshot was applied. The<br />workload controller uses this value as a durable Pod-template rollout<br />token. |  | Optional: \{\} <br /> |
-| `restartCompletedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | RestartCompletedAt is when all voter Pods completed the post-restore<br />restart and became ready. |  | Optional: \{\} <br /> |
+| `name` _string_ | Name identifies the OpenBaoRestore recorded by an earlier release. |  | Optional: \{\} <br /> |
+| `uid` _string_ | UID identifies the OpenBaoRestore recorded by an earlier release. |  | Optional: \{\} <br /> |
+| `restartCompletedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | RestartCompletedAt is the legacy timestamp for a controller-observed voter<br />restart. Administrator-led recovery does not update this field. |  | Optional: \{\} <br /> |
 
 
 
@@ -621,6 +773,7 @@ can translate into high-level conditions.
 
 _Appears in:_
 - [AdminOpsControllerStatus](#adminopscontrollerstatus)
+- [PolicyReconciliationStatus](#policyreconciliationstatus)
 - [UpgradeProgress](#upgradeprogress)
 - [WorkloadControllerStatus](#workloadcontrollerstatus)
 
@@ -629,6 +782,24 @@ _Appears in:_
 | `reason` _string_ | Reason is a low-cardinality identifier for the error. |  | Optional: \{\} <br /> |
 | `message` _string_ | Message is a human-readable error message (best-effort). |  | Optional: \{\} <br /> |
 | `at` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | At is when the error was observed (best-effort). |  | Optional: \{\} <br /> |
+
+
+#### ControllerJWTMode
+
+_Underlying type:_ _string_
+
+ControllerJWTMode selects shared or target-specific controller credentials.
+
+_Validation:_
+- Enum: [Shared Target]
+
+_Appears in:_
+- [OpenBaoClusterSpec](#openbaoclusterspec)
+
+| Field | Description |
+| --- | --- |
+| `Shared` | ControllerJWTModeShared uses the installation's projected ServiceAccount JWT.<br /> |
+| `Target` | ControllerJWTModeTarget requests a JWT for this OpenBaoCluster's UID.<br /> |
 
 
 #### DeletionPolicy
@@ -868,6 +1039,7 @@ the init container is not supported and will be rejected by validation.
 
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -964,7 +1136,7 @@ _Appears in:_
 
 
 
-ListenerConfig allows tuning the TCP listener configuration.
+ListenerConfig allows tuning the API and metrics TCP listeners.
 
 
 
@@ -974,6 +1146,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `tlsDisable` _boolean_ | TLSDisable controls TLS on the listener.<br />Note: This is typically managed by the operator based on spec.tls.enabled.<br />Hardened clusters reject tlsDisable=true. |  | Optional: \{\} <br /> |
+| `tlsMinVersion` _[TLSVersion](#tlsversion)_ | TLSMinVersion sets the minimum TLS version on the API and metrics listeners.<br />If omitted, OpenBao uses TLS 1.2. TLS must be enabled. |  | Enum: [tls12 tls13] <br />Optional: \{\} <br /> |
+| `tlsMaxVersion` _[TLSVersion](#tlsversion)_ | TLSMaxVersion sets the maximum TLS version on the API and metrics listeners.<br />If omitted, OpenBao uses TLS 1.3. TLS must be enabled. |  | Enum: [tls12 tls13] <br />Optional: \{\} <br /> |
+| `tlsKeyExchangePreferences` _[TLSKeyExchangeGroup](#tlskeyexchangegroup) array_ | TLSKeyExchangePreferences selects allowed key exchange groups on the API<br />and metrics listeners. List order does not control preference; Go uses its<br />internal preference order. If omitted, OpenBao uses Go's default groups.<br />Requires OpenBao >= 2.7.0 and TLS enabled. A list containing only hybrid PQ<br />groups requires TLSMinVersion=tls13 and rejects classical-only clients.<br />This setting does not configure cluster traffic on port 8201. |  | Enum: [CurveP256 CurveP384 CurveP521 X25519 X25519MLKEM768 SecP256r1MLKEM768 SecP384r1MLKEM1024] <br />MaxItems: 7 <br />MinItems: 1 <br />Optional: \{\} <br /> |
 | `proxyProtocolBehavior` _string_ | ProxyProtocolBehavior configures PROXY protocol on the API listener.<br />Supported values are use_always, allow_authorized, and deny_unauthorized.<br />The legacy allow_any value remains in the schema for compatibility but is<br />rejected by the operator. Use allow_authorized to trust selected proxies. |  | Enum: [use_always allow_any allow_authorized deny_unauthorized] <br />Optional: \{\} <br /> |
 | `proxyProtocolAuthorizedAddrs` _string array_ | ProxyProtocolAuthorizedAddrs lists trusted proxy source IP addresses or CIDRs.<br />Required for allow_authorized and deny_unauthorized. With allow_authorized,<br />connections from other sources use the peer IP address instead of PROXY metadata.<br />This setting applies only to the API listener, not the metrics listener. |  | MinItems: 1 <br />items:MinLength: 1 <br />Optional: \{\} <br /> |
 
@@ -1067,8 +1242,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `apiServerEgress` _[APIServerEgressConfig](#apiserveregressconfig)_ | APIServerEgress adds a CNI-specific Kubernetes API egress policy alongside<br />the standard NetworkPolicies. Omit this field for standard IP-based rules. |  | Optional: \{\} <br /> |
 | `apiServerCIDR` _string_ | APIServerCIDR is an optional CIDR block for the Kubernetes API server.<br />When specified, this value is used instead of auto-detection for NetworkPolicy egress rules.<br />This is useful when you want an explicit allow-list (or when the in-cluster service VIP<br />injected into pods is unavailable/unusable in your environment).<br />Example: "10.43.0.0/16" for service network or "192.168.1.0/24" for control plane nodes. |  | Optional: \{\} <br /> |
-| `apiServerEndpointIPs` _string array_ | APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.<br />When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.<br />This is required on some CNI implementations where egress enforcement happens on the post-NAT<br />destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).<br />The operator does not auto-detect these endpoint IPs because doing so reliably requires broader<br />cluster permissions (list/watch). Configure this field explicitly when needed.<br />Example (k3d): ["192.168.166.2"] |  | Optional: \{\} <br /> |
+| `apiServerEndpointIPs` _string array_ | APIServerEndpointIPs is an optional list of Kubernetes API server endpoint IPs.<br />When set, the operator adds least-privilege NetworkPolicy egress rules for these IPs on port 6443.<br />Use this on CNI implementations where egress enforcement happens on the post-NAT<br />destination (the API server endpoint) rather than the kubernetes Service IP (10.43.0.1:443).<br />The operator does not auto-detect these endpoint IPs because doing so reliably requires broader<br />cluster permissions (list/watch). Configure this field explicitly when needed.<br />Example (k3d): ["192.168.166.2"] |  | Optional: \{\} <br /> |
 | `dnsNamespace` _string_ | DNSNamespace specifies the namespace where the cluster DNS service resides.<br />Defaults to "kube-system" if not specified. | kube-system | Optional: \{\} <br /> |
 | `dnsEndpointIPs` _string array_ | DNSEndpointIPs is an optional list of DNS resolver endpoint IPs that should be<br />allow-listed directly in the operator-managed NetworkPolicy on TCP/UDP port 53.<br />Use this for clusters that resolve DNS through node-local or host-networked caches<br />instead of pod-backed DNS Services in a namespace. These IP-based rules are additive<br />to the namespace-based allow-list controlled by DNSNamespace.<br />The operator does not auto-detect these endpoint IPs because doing so reliably would<br />require environment-specific node or DNS discovery logic outside the current trust model.<br />Example: ["169.254.20.10"] |  | Optional: \{\} <br /> |
 | `egressRules` _[NetworkPolicyEgressRule](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#networkpolicyegressrule-v1-networking) array_ | EgressRules allows users to specify additional egress rules that will be merged into<br />the operator-managed NetworkPolicy. This is useful for allowing access to external<br />services such as transit seal backends, object storage endpoints, or other dependencies.<br />The operator's default egress rules (DNS, API server, cluster pods) are always included<br />and cannot be overridden. User-provided rules are appended to the operator-managed rules.<br />Hardened clusters require every user-provided egress rule to be port-scoped and to target<br />explicit non-wildcard peers.<br />Example: Allow egress to a transit seal backend in another namespace:<br />  egressRules:<br />  - to:<br />    - namespaceSelector:<br />        matchLabels:<br />          kubernetes.io/metadata.name: transit-namespace<br />    ports:<br />    - protocol: TCP<br />      port: 8200 |  | Optional: \{\} <br /> |
@@ -1168,6 +1344,8 @@ _Appears in:_
 | `backup` _[BackupSchedule](#backupschedule)_ | Backup configures scheduled backups for the cluster. |  | Optional: \{\} <br /> |
 | `restore` _[RestoreConfig](#restoreconfig)_ | Restore configures optional restore authentication bootstrap for the cluster. |  | Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to underlying resources when the CR is deleted. |  | Enum: [Retain DeletePVCs DeleteAll] <br />Optional: \{\} <br /> |
+| `reconcilePolicies` _boolean_ | ReconcilePolicies restores the built-in operational policies after initialization.<br />Administrator-managed JWT authentication and exact-content approval are required.<br />OpenBao must independently approve their exact contents through the<br />openbao-operator-policy-approval policy. Bootstrap installs the initial approval;<br />existing clusters and later permission changes require administrator approval.<br />Auth methods, roles, and the approval policy are not reconciled. |  | Optional: \{\} <br /> |
+| `controllerJWTMode` _[ControllerJWTMode](#controllerjwtmode)_ | ControllerJWTMode selects the credential used by the controller for OpenBao.<br />Admission requires Target on CREATE for every security profile.<br />Existing clusters that omit the field retain Shared authentication on reads and updates.<br />Shared preserves the installation-wide<br />projected JWT. Target requests a short-lived JWT whose sole audience is<br />urn:openbao:controller:&lt;metadata.uid&gt;. Prepare the OpenBao controller role<br />before switching an initialized cluster to Target. Target never falls back<br />to the shared JWT. Target requires self-init and self-init OIDC to be enabled.<br />Executor Job authentication is unchanged.<br />Enforced admission prevents removal or downgrade after selecting Target. |  | Enum: [Shared Target] <br />Optional: \{\} <br /> |
 | `selfInit` _[SelfInitConfig](#selfinitconfig)_ | SelfInit configures OpenBao's native self-initialization feature.<br />When enabled, OpenBao initializes itself on first start using the configured<br />requests, and the root token is automatically revoked.<br />See: https://openbao.org/docs/configuration/self-init/ |  | Optional: \{\} <br /> |
 | `recoveryKeys` _[RecoveryKeysConfig](#recoverykeysconfig)_ | RecoveryKeys configures Operator-assisted recovery-key bootstrap surfaces.<br />The Operator creates recovery keys only during initial self-initialization;<br />recovery share custody and proof ceremonies remain user-owned processes. |  | Optional: \{\} <br /> |
 | `gateway` _[GatewayConfig](#gatewayconfig)_ | Gateway configures Kubernetes Gateway API access (alternative to Ingress).<br />When enabled, the Operator creates an HTTPRoute that routes traffic through<br />a user-managed Gateway resource. |  | Optional: \{\} <br /> |
@@ -1180,7 +1358,7 @@ _Appears in:_
 | `upgrade` _[UpgradeConfig](#upgradeconfig)_ | Upgrade configures upgrade operations.<br />Built-in upgrade executor Jobs authenticate with JWT auth using the<br />upgrade ServiceAccount (&lt;cluster-name&gt;-upgrade-serviceaccount). If<br />spec.selfInit.oidc.enabled is true during initial SelfInit bootstrap and<br />spec.upgrade.jwtAuthRole is empty, the operator creates the default<br />"openbao-operator-upgrade" role. Already-initialized clusters must keep<br />that role or configure spec.upgrade.jwtAuthRole explicitly.<br />Pre-upgrade snapshots use spec.backup configuration and backup<br />authentication rather than spec.upgrade credentials. |  | Optional: \{\} <br /> |
 | `unseal` _[UnsealConfig](#unsealconfig)_ | Unseal defines the auto-unseal configuration.<br />If omitted, defaults to "static" mode managed by the operator. |  | Optional: \{\} <br /> |
 | `imageVerification` _[ImageVerificationConfig](#imageverificationconfig)_ | ImageVerification configures supply chain security checks. |  | Optional: \{\} <br /> |
-| `operatorImageVerification` _[ImageVerificationConfig](#imageverificationconfig)_ | OperatorImageVerification configures supply chain security checks for operator-managed helper images<br />(init container and backup/upgrade/restore executors) and custom BlueGreen validation-hook images.<br />Helper images are typically signed by the operator project (e.g., dc-tec/openbao-operator)<br />rather than the OpenBao upstream project.<br />If omitted, helper image verification does not fall back to ImageVerification.<br />In Development, omitted means disabled. In Hardened, omitted means enabled. |  | Optional: \{\} <br /> |
+| `operatorImageVerification` _[ImageVerificationConfig](#imageverificationconfig)_ | OperatorImageVerification configures supply chain security checks for operator-managed helper images<br />(init container and backup/upgrade/restore executors) and custom BlueGreen validation-hook images.<br />Helper images are typically signed by the operator project (e.g., kubebao/openbao-operator)<br />rather than the OpenBao upstream project.<br />If omitted, helper image verification does not fall back to ImageVerification.<br />In Development, omitted means disabled. In Hardened, omitted means enabled. |  | Optional: \{\} <br /> |
 | `workloadHardening` _[WorkloadHardeningConfig](#workloadhardeningconfig)_ | WorkloadHardening configures opt-in workload hardening features. |  | Optional: \{\} <br /> |
 | `securityContext` _[PodSecurityContext](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podsecuritycontext-v1-core)_ | SecurityContext allows specifying the PodSecurityContext for the OpenBao Pods.<br />If set, these values override the default security context generated by the operator.<br />This is useful for OpenShift (SCC) compatibility or custom security requirements. |  | Optional: \{\} <br /> |
 | `profile` _[Profile](#profile)_ | Profile defines the security posture for this cluster.<br />When set to "Hardened", the operator enforces strict security requirements:<br />- TLS must use External or ACME trust, with no TLS disablement or skip-verify paths<br />- Unseal must use external KMS (no static unseal)<br />- SelfInit must be enabled (no root token)<br />- Network additions must be explicit and least-privilege<br />- Backup/restore storage identity must be explicit<br />- Dangerous runtime flags and backend HTTP are rejected<br />When set to "Development", relaxed security is allowed but a security warning<br />condition is set. |  | Enum: [Hardened Development] <br /> |
@@ -1212,7 +1390,7 @@ _Appears in:_
 | `upgrade` _[UpgradeProgress](#upgradeprogress)_ | Upgrade tracks the state of an in-progress upgrade (if any).<br />When non-nil, an upgrade is in progress and the UpgradeManager is orchestrating<br />the pod-by-pod rolling update with leader step-down. |  | Optional: \{\} <br /> |
 | `upgradeRequests` _[UpgradeRequestStatus](#upgraderequeststatus)_ | UpgradeRequests tracks which explicit upgrade request values have already<br />been handled so one-shot requests are edge-triggered instead of level-triggered. |  | Optional: \{\} <br /> |
 | `backup` _[BackupStatus](#backupstatus)_ | Backup tracks the state of backups for this cluster. |  | Optional: \{\} <br /> |
-| `restore` _[ClusterRestoreStatus](#clusterrestorestatus)_ | Restore tracks the post-snapshot workload restart for the most recent<br />OpenBaoRestore applied to this cluster. |  | Optional: \{\} <br /> |
+| `restore` _[ClusterRestoreStatus](#clusterrestorestatus)_ | Restore retains post-restore restart status written by earlier releases.<br />It is deprecated: new restores report status on OpenBaoRestore, and the<br />operator reads this field only to preserve legacy Pod templates. |  | Optional: \{\} <br /> |
 | `blueGreen` _[BlueGreenStatus](#bluegreenstatus)_ | BlueGreen tracks the state of blue/green upgrades (if enabled). |  | Optional: \{\} <br /> |
 | `operationLock` _[OperationLockStatus](#operationlockstatus)_ | OperationLock prevents concurrent long-running operations (upgrade/backup/restore)<br />from acting on the same cluster at the same time. |  | Optional: \{\} <br /> |
 | `breakGlass` _[BreakGlassStatus](#breakglassstatus)_ | BreakGlass records when the operator has halted quorum-risk automation and requires<br />explicit operator acknowledgment to continue. |  | Optional: \{\} <br /> |
@@ -1297,7 +1475,7 @@ _Appears in:_
 
 #### PKCS11RuntimeEnvVar
 
-
+_Underlying type:_ _`struct{Name string "json:\"name\""; SecretKey string "json:\"secretKey\""}`_
 
 PKCS11RuntimeEnvVar maps a PKCS#11 runtime environment variable to a key in
 spec.unseal.credentialsSecretRef.
@@ -1307,15 +1485,11 @@ spec.unseal.credentialsSecretRef.
 _Appears in:_
 - [PKCS11RuntimeConfig](#pkcs11runtimeconfig)
 
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `name` _string_ | Name is the environment variable name to expose to the OpenBao process.<br />Names owned by OpenBao's PKCS#11 seal configuration, such as BAO_HSM_PIN,<br />are managed by the operator and must not be configured here. |  | Pattern: `^[A-Za-z_][A-Za-z0-9_]*$` <br /> |
-| `secretKey` _string_ | SecretKey is the key in spec.unseal.credentialsSecretRef to source as the<br />environment variable value. |  | MinLength: 1 <br />Pattern: `^[-._A-Za-z0-9]+$` <br /> |
 
 
 #### PKCS11RuntimeFileEnvVar
 
-
+_Underlying type:_ _`struct{Name string "json:\"name\""; SecretKey string "json:\"secretKey\""}`_
 
 PKCS11RuntimeFileEnvVar maps a PKCS#11 runtime environment variable to the
 mounted file path for a key in spec.unseal.credentialsSecretRef.
@@ -1325,10 +1499,6 @@ mounted file path for a key in spec.unseal.credentialsSecretRef.
 _Appears in:_
 - [PKCS11RuntimeConfig](#pkcs11runtimeconfig)
 
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `name` _string_ | Name is the environment variable name to expose to the OpenBao process. |  | Pattern: `^[A-Za-z_][A-Za-z0-9_]*$` <br /> |
-| `secretKey` _string_ | SecretKey is the key in spec.unseal.credentialsSecretRef whose mounted<br />file path should become the environment variable value. |  | MinLength: 1 <br />Pattern: `^[-._A-Za-z0-9]+$` <br /> |
 
 
 #### PKCS11SealConfig
@@ -1363,18 +1533,21 @@ _Appears in:_
 
 
 Plugin defines a declarative plugin configuration.
+Declarative plugins require OpenBao 2.5.0 or newer; KMS plugins require 2.6.0 or newer.
+During upgrades, declarations must also meet the recorded running version's requirements.
 See: https://openbao.org/docs/configuration/plugins/
 
 
 
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `type` _string_ | Type is the plugin type (e.g., "secret", "auth"). |  | MinLength: 1 <br /> |
 | `name` _string_ | Name is the name of the plugin. |  | MinLength: 1 <br /> |
-| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
+| `image` _string_ | Image is the OCI image URL including registry and repository.<br />Before OpenBao 2.7.0, use an untagged repository and set Version separately.<br />Required if Command is not set. Conflicts with Command. |  | Optional: \{\} <br /> |
 | `command` _string_ | Command is the command name of a manually downloaded plugin.<br />Required if Image is not set. Conflicts with Image. |  | Optional: \{\} <br /> |
 | `version` _string_ | Version is the plugin version and, when Image has no tag, the image tag.<br />OpenBao 2.7 and later can infer it from the image tag. Command-based KMS<br />plugins on OpenBao 2.7 and later do not require a version. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `binaryName` _string_ | BinaryName is the name of the plugin binary file within the OCI image.<br />OpenBao 2.7 and later can infer it from the image ENTRYPOINT or CMD. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -1393,6 +1566,7 @@ PluginConfig allows configuring plugin behavior.
 
 _Appears in:_
 - [OpenBaoConfiguration](#openbaoconfiguration)
+- [RestoreTargetConfiguration](#restoretargetconfiguration)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -1414,11 +1588,32 @@ PodMetadataConfig configures additional metadata for the OpenBao Pod template.
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
 - [ReadReplicaTemplateConfig](#readreplicatemplateconfig)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `labels` _object (keys:string, values:string)_ | Labels are merged into the generated OpenBao Pod template labels.<br />Operator-managed labels take precedence if the same key is specified here. |  | Optional: \{\} <br /> |
 | `annotations` _object (keys:string, values:string)_ | Annotations are merged into the generated OpenBao Pod template annotations.<br />Operator-managed annotations take precedence if the same key is specified here. |  | Optional: \{\} <br /> |
+
+
+#### PolicyReconciliationStatus
+
+
+
+PolicyReconciliationStatus records progress without granting OpenBao permissions.
+
+
+
+_Appears in:_
+- [WorkloadControllerStatus](#workloadcontrollerstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `revisions` _object (keys:string, values:string)_ | Revisions contains the last verified content digest for each observed policy.<br />An empty digest means the policy was observed missing or different and awaits repair.<br />An absent entry means the policy has not been observed; it does not block operations.<br />Failed reads retain the last observation; OpenBao still authorizes every operation. |  | Optional: \{\} <br /> |
+| `attemptedRevision` _string_ | AttemptedRevision identifies the bundle used for the last attempt.<br />A desired bundle change bypasses the previous retry delay. |  | Optional: \{\} <br /> |
+| `lastVerified` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastVerified is when the complete desired bundle was last verified or repaired.<br />Unchanged successful observations are refreshed at most once every five minutes. |  | Optional: \{\} <br /> |
+| `retryAfter` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | RetryAfter delays policy requests after a failure, including during unrelated reconciles. |  | Optional: \{\} <br /> |
+| `lastError` _[ControllerErrorStatus](#controllererrorstatus)_ | LastError reports policy failures independently of infrastructure and Autopilot errors. |  | Optional: \{\} <br /> |
 
 
 #### Profile
@@ -1530,6 +1725,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 | `enabled` _boolean_ | Enabled controls whether the operator creates a dedicated Service for the<br />read-replica pool. |  | Optional: \{\} <br /> |
 | `type` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#servicetype-v1-core)_ | Type is the Kubernetes Service type, for example "ClusterIP" or<br />"LoadBalancer". |  | Optional: \{\} <br /> |
 | `annotations` _object (keys:string, values:string)_ | Annotations are additional annotations to apply to the read Service. |  | Optional: \{\} <br /> |
@@ -1650,6 +1847,36 @@ _Appears in:_
 | `initial` _[InitialRecoveryKeysConfig](#initialrecoverykeysconfig)_ | Initial configures the first recovery-key generation request for a<br />self-initialized cluster using auto-unseal. |  | Optional: \{\} <br /> |
 
 
+#### RestoreClusterTemplate
+
+
+
+RestoreClusterTemplate is the supported fresh recovery target profile.
+Administrators must prepare the destination namespace network boundary.
+
+
+
+_Appears in:_
+- [OpenBaoRestoreSpec](../openbaorestore/#openbaorestorespec)
+- [RestoreTest](#restoretest)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1] <br /> |
+| `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
+| `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
+| `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |
+| `service` _[RestoreTargetServiceConfig](#restoretargetserviceconfig)_ | Service configures an optional ClusterIP Service for the destination.<br />When omitted, the target has only its internal headless Service. |  | Optional: \{\} <br /> |
+| `unseal` _[UnsealConfig](#unsealconfig)_ | Unseal uses the same provider configuration as OpenBaoCluster. The target<br />must be able to decrypt the snapshot with the original seal key material. |  |  |
+| `serviceAccount` _[ServiceAccountConfig](#serviceaccountconfig)_ | ServiceAccount configures credentials supplied through workload identity. |  | Optional: \{\} <br /> |
+| `podMetadata` _[PodMetadataConfig](#podmetadataconfig)_ | PodMetadata supplies provider-specific workload identity metadata. |  | Optional: \{\} <br /> |
+| `plugins` _[Plugin](#plugin) array_ | Plugins declares KMS seal plugins required by Unseal. OpenBao 2.7 requires<br />plugins for AWS, Azure, GCP, OCI, and PKCS#11 seals. |  | Optional: \{\} <br /> |
+| `configuration` _[RestoreTargetConfiguration](#restoretargetconfiguration)_ | Configuration configures KMS plugin behavior for the target server. |  | Optional: \{\} <br /> |
+| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ |  |  | Optional: \{\} <br /> |
+| `initContainer` _[InitContainerConfig](#initcontainerconfig)_ |  |  | Optional: \{\} <br /> |
+| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ |  |  | MaxItems: 2 <br />Optional: \{\} <br /> |
+
+
 #### RestoreConfig
 
 
@@ -1669,6 +1896,147 @@ _Appears in:_
 | `jwtAuthRole` _string_ | JWTAuthRole is the name of the JWT Auth role configured in OpenBao<br />for restore operations. When set, and when spec.selfInit.oidc.enabled is true,<br />the operator bootstraps a restore policy and JWT role bound to the restore ServiceAccount<br />(&lt;cluster-name&gt;-restore-serviceaccount).<br />If OIDC is enabled in SelfInit and this field is empty, a default role<br />named "openbao-operator-restore" will be assumed/created.<br />The role must grant "update" capability on sys/storage/raft/snapshot and<br />sys/storage/raft/snapshot-force. The force endpoint supports explicitly<br />requested break-glass restores. |  | Optional: \{\} <br /> |
 
 
+#### RestoreTargetConfiguration
+
+
+
+RestoreTargetConfiguration exposes server settings needed by KMS seal plugins.
+
+
+
+_Appears in:_
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `plugin` _[PluginConfig](#pluginconfig)_ | Plugin controls downloads, registration, and file ownership for Plugins.<br />Set autoDownload to true to download declared OCI plugins on startup. |  | Optional: \{\} <br /> |
+
+
+#### RestoreTargetServiceConfig
+
+
+
+RestoreTargetServiceConfig selects destination client Service IP families.
+These settings do not change Pod IP allocation or the internal peer Service.
+
+
+
+_Appears in:_
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
+
+
+#### RestoreTest
+
+
+
+RestoreTest schedules one disposable restore at a time.
+The destination must be an administrator-prepared operator-managed namespace.
+
+
+
+_Appears in:_
+- [BackupSchedule](#backupschedule)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `schedule` _string_ | Schedule uses five-field cron syntax and UTC. |  | MaxLength: 128 <br />MinLength: 1 <br />Optional: \{\} <br /> |
+| `everySuccessfulBackups` _integer_ |  |  | Maximum: 10000 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `namespace` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br /> |
+| `clusterTemplate` _[RestoreClusterTemplate](#restoreclustertemplate)_ |  |  |  |
+| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef is the existing destination storage credential Secret.<br />Storage connection settings are inherited from the source backup target. |  | Optional: \{\} <br /> |
+| `serviceAccountName` _string_ | ServiceAccountName selects an existing executor ServiceAccount in Namespace.<br />The operator does not create, modify, or delete this account. It must have<br />its own storage-reader identity; backup writer identities are not inherited. |  | MaxLength: 253 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN selects the S3 reader role independently of the backup writer role. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+| `workloadIdentity` _[WorkloadIdentityConfig](#workloadidentityconfig)_ | WorkloadIdentity supplies destination reader metadata. ServiceAccount<br />annotations must already exist on ServiceAccountName; PodLabels apply to<br />the executor Pod. The operator does not update the existing account. |  | Optional: \{\} <br /> |
+| `cleanupAfterSeconds` _integer_ | CleanupAfterSeconds delays deletion after snapshot application to permit inspection. |  | Maximum: 86400 <br />Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### RestoreTestOutcome
+
+_Underlying type:_ _string_
+
+RestoreTestOutcome reports whether a disposable restore test passed or failed.
+
+_Validation:_
+- Enum: [Passed Failed]
+
+_Appears in:_
+- [RestoreTestResult](#restoretestresult)
+
+| Field | Description |
+| --- | --- |
+| `Passed` |  |
+| `Failed` |  |
+
+
+#### RestoreTestResult
+
+
+
+RestoreTestResult contains no secret data or authentication tokens.
+
+
+
+_Appears in:_
+- [RestoreTestStatus](#restoreteststatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the child OpenBaoRestore that produced this result. |  |  |
+| `finishedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | FinishedAt records when the result was recorded. |  |  |
+| `namespace` _string_ | Namespace identifies the destination namespace. |  | Optional: \{\} <br /> |
+| `key` _string_ | Key identifies the tested snapshot object in backup storage. |  | Optional: \{\} <br /> |
+| `digest` _string_ | Digest is the pinned snapshot digest, when available. |  | Optional: \{\} <br /> |
+| `reason` _string_ | Reason and Message retain a bounded summary after the child is deleted.<br />They contain operator-defined diagnostics, never provider responses or logs. |  | MaxLength: 64 <br />Optional: \{\} <br /> |
+| `message` _string_ | Message contains the operator-defined diagnostic for this result. |  | MaxLength: 512 <br />Optional: \{\} <br /> |
+| `outcome` _[RestoreTestOutcome](#restoretestoutcome)_ | Outcome is Passed or Failed. |  | Enum: [Passed Failed] <br /> |
+
+
+#### RestoreTestRun
+
+
+
+RestoreTestRun reserves one child request and protects its source key.
+
+
+
+_Appears in:_
+- [RestoreTestStatus](#restoreteststatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `namespace` _string_ | Namespace is the destination namespace of the child OpenBaoRestore. |  |  |
+| `name` _string_ | Name is the generated name of the child OpenBaoRestore. |  |  |
+| `key` _string_ | Key is the snapshot object under test; retention protects it until the run ends. |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartedAt records when the run was reserved. |  |  |
+| `uid` _[UID](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#uid-types-pkg)_ | UID identifies the child OpenBaoRestore once its creation is observed. |  | Optional: \{\} <br /> |
+
+
+#### RestoreTestStatus
+
+
+
+RestoreTestStatus stores at most one active request and one last result.
+
+
+
+_Appears in:_
+- [BackupStatus](#backupstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `active` _[RestoreTestRun](#restoretestrun)_ |  |  | Optional: \{\} <br /> |
+| `last` _[RestoreTestResult](#restoretestresult)_ |  |  | Optional: \{\} <br /> |
+| `lastSuccessTime` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastSuccessTime survives later failures and controller restarts. |  | Optional: \{\} <br /> |
+| `lastScheduledAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | LastScheduledAt records the last time a restore test was started. |  | Optional: \{\} <br /> |
+| `lastBackupCount` _integer_ | LastBackupCount is the successful-backup count at the last started test. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions reports scheduling and restore test outcomes without secret data.<br />The Passed condition summarizes the current state. |  | Optional: \{\} <br /> |
+
+
 #### RuntimeConfig
 
 
@@ -1684,6 +2052,25 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `restartAt` _string_ | RestartAt triggers a rolling restart when changed.<br />The operator propagates this value as a Pod template annotation; any change<br />results in a new StatefulSet revision and a controlled restart.<br />Recommended value is an RFC3339 timestamp string. |  | MinLength: 1 <br />Optional: \{\} <br /> |
+
+
+#### S3TargetConfig
+
+
+
+S3TargetConfig holds S3-specific configuration. Omitted fields use their
+top-level BackupTarget compatibility values; this block has no defaults.
+
+
+
+_Appears in:_
+- [BackupTarget](#backuptarget)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `region` _string_ | Region is the AWS region for S3-compatible requests. It overrides region<br />when configured. An empty value uses the default region, us-east-1. |  | Optional: \{\} <br /> |
+| `usePathStyle` _boolean_ | UsePathStyle selects path-style addressing. A configured false value<br />overrides a true top-level usePathStyle value. |  | Optional: \{\} <br /> |
+| `roleArn` _string_ | RoleARN selects the IAM role assumed with the projected ServiceAccount<br />token. It overrides roleArn when configured. An empty value disables the<br />top-level roleArn path; other configured credentials still apply.<br />A nonempty value is an explicit storage identity for the Hardened profile. |  | Optional: \{\} <br /> |
 
 
 #### SelfInitAuditDevice
@@ -1748,6 +2135,22 @@ _Appears in:_
 | `enabled` _boolean_ | Enabled activates OpenBao's self-initialization feature.<br />When true, the Operator injects initialize stanzas into config.hcl<br />and does NOT create a root token Secret (root token is auto-revoked).<br />WARNING: The root token is auto-revoked during initialization. You MUST<br />configure user authentication (e.g., userpass, JWT, Kubernetes auth) via<br />spec.selfInit.requests before enabling this. spec.selfInit.oidc.enabled<br />only provides Operator authentication for lifecycle tasks, NOT user access.<br />Enabling without user authentication results in permanent lockout. | false |  |
 | `oidc` _[SelfInitOIDCConfig](#selfinitoidcconfig)_ | OIDC configures JWT authentication for the Operator to perform cluster<br />lifecycle operations (backups, upgrades, restores). When enabled, this<br />sets up the jwt-operator auth method, OIDC discovery, and operator roles.<br />This is for Operator authentication only - users must configure their own<br />authentication methods via spec.selfInit.requests. |  | Optional: \{\} <br /> |
 | `requests` _[SelfInitRequest](#selfinitrequest) array_ | Requests defines the API operations to execute during self-initialization.<br />Each request becomes a named request block inside an initialize stanza. |  | Optional: \{\} <br /> |
+
+
+#### SelfInitDataSource
+
+
+
+SelfInitDataSource supplies one string field of a raw self-init request.
+
+
+
+_Appears in:_
+- [SelfInitRequest](#selfinitrequest)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `secretKeyRef` _[SelfInitSecretKeyReference](#selfinitsecretkeyreference)_ | SecretKeyRef selects a required Secret key in the OpenBaoCluster namespace. |  |  |
 
 
 #### SelfInitOIDCAdditionalSubjects
@@ -1845,13 +2248,14 @@ _Appears in:_
 | `name` _string_ | Name is a unique identifier for this request (used as the block name).<br />Must match regex ^[A-Za-z_][A-Za-z0-9_-]*$ |  | MaxLength: 64 <br />MinLength: 1 <br />Pattern: `^[A-Za-z_][A-Za-z0-9_-]*$` <br /> |
 | `operation` _[SelfInitOperation](#selfinitoperation)_ | Operation is the API operation type: create, read, update, delete, or list. |  | Enum: [create read update delete list patch] <br /> |
 | `path` _string_ | Path is the API path to call (e.g., "sys/audit/stdout", "auth/kubernetes/config"). |  | MinLength: 1 <br /> |
-| `headers` _object (keys:string, values:string array)_ | Headers contains additional HTTP headers to send with this self-init request.<br />Header names must not be empty. Values are rendered into OpenBao's profile-engine<br />`headers` request field as map[string][]string. |  | Optional: \{\} <br /> |
-| `when` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#json-v1-apiextensions-k8s-io)_ | When controls whether OpenBao executes this request.<br />Omit it to execute the request. Set it to a JSON boolean for static gating<br />or to an OpenBao profile value object for dynamic evaluation, for example<br />\{"eval_source":"cel","eval_type":"bool","expression":"true"\}. |  | Optional: \{\} <br /> |
+| `headers` _object (keys:string, values:string array)_ | Headers contains additional HTTP headers to send with this self-init request.<br />Requires OpenBao 2.6.0 or newer.<br />Header names must not be empty. Values are rendered into OpenBao's profile-engine<br />`headers` request field as map[string][]string. |  | Optional: \{\} <br /> |
+| `when` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#json-v1-apiextensions-k8s-io)_ | When controls whether OpenBao executes this request.<br />Requires OpenBao 2.6.0 or newer.<br />Omit it to execute the request. Set it to a JSON boolean for static gating<br />or to an OpenBao profile value object for dynamic evaluation, for example<br />\{"eval_source":"cel","eval_type":"bool","expression":"true"\}. |  | Optional: \{\} <br /> |
 | `auditDevice` _[SelfInitAuditDevice](#selfinitauditdevice)_ | AuditDevice configures an audit device when Path starts with "sys/audit/".<br />This provides structured configuration for audit devices instead of raw JSON.<br />Only used when Path matches the pattern "sys/audit/*". |  | Optional: \{\} <br /> |
 | `authMethod` _[SelfInitAuthMethod](#selfinitauthmethod)_ | AuthMethod configures an auth method when Path starts with "sys/auth/".<br />This provides structured configuration for enabling auth methods.<br />Only used when Path matches the pattern "sys/auth/*". |  | Optional: \{\} <br /> |
 | `secretEngine` _[SelfInitSecretEngine](#selfinitsecretengine)_ | SecretEngine configures a secret engine when Path starts with "sys/mounts/".<br />This provides structured configuration for enabling secret engines.<br />Only used when Path matches the pattern "sys/mounts/*". |  | Optional: \{\} <br /> |
 | `policy` _[SelfInitPolicy](#selfinitpolicy)_ | Policy configures a policy when Path starts with "sys/policies/".<br />This provides structured configuration for creating/updating policies.<br />Only used when Path matches the pattern "sys/policies/*". |  | Optional: \{\} <br /> |
 | `data` _[JSON](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#json-v1-apiextensions-k8s-io)_ | Data contains the request payload for paths that don't have structured types.<br />This must be a JSON/YAML object whose shape matches the target API endpoint.<br />Nested maps and lists are supported and are rendered into the initialize stanza as HCL objects.<br />**Note:** For common paths, use structured types instead:<br />- `sys/audit/*` → use `auditDevice`<br />- `sys/auth/*` → use `authMethod`<br />- `sys/mounts/*` → use `secretEngine`<br />- `sys/policies/*` → use `policy`<br />This payload is stored in the OpenBaoCluster resource and persisted in etcd;<br />it must not contain sensitive values such as tokens, passwords, or unseal keys. |  | Optional: \{\} <br /> |
+| `dataFrom` _object (keys:string, values:[SelfInitDataSource](#selfinitdatasource))_ | DataFrom maps top-level request fields to required keys in same-namespace<br />Secrets. Values are read as strings during first self-initialization.<br />Requires OpenBao 2.6.0 or newer. Use only with raw request payloads, not<br />auditDevice, authMethod, secretEngine, policy, or their reserved API paths.<br />Field names must match ^[A-Za-z_][A-Za-z0-9_-]*$. A field must not occur<br />in both data and dataFrom.<br />All requests together can reference at most two distinct Secrets. Mappings,<br />including their request and field names, are immutable after cluster creation.<br />Self-init must be enabled at creation and until initialization completes.<br />Missing inputs block startup before OpenBao initializes, including when<br />when is false or allowFailure is true. Changes after initialization do not<br />update OpenBao. The operator does not read or copy the Secret values. |  | MaxProperties: 64 <br />Optional: \{\} <br /> |
 | `allowFailure` _boolean_ | AllowFailure allows this request to fail without blocking initialization.<br />Defaults to false. |  | Optional: \{\} <br /> |
 
 
@@ -1875,6 +2279,23 @@ _Appears in:_
 | `options` _object (keys:string, values:string)_ | Options contains optional configuration specific to the secret engine type.<br />For KV engines, common options include: version ("1" or "2").<br />For other engines, options vary by type. |  | Optional: \{\} <br /> |
 
 
+#### SelfInitSecretKeyReference
+
+
+
+SelfInitSecretKeyReference identifies a bootstrap input without containing its value.
+
+
+
+_Appears in:_
+- [SelfInitDataSource](#selfinitdatasource)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the Secret name. The submitting identity must be authorized to get it. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br /> |
+| `key` _string_ | Key is the Secret data key. Its exact contents are used without trimming. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[-._a-zA-Z0-9]+$` <br /> |
+
+
 #### ServiceAccountConfig
 
 
@@ -1885,6 +2306,7 @@ ServiceAccountConfig configures the ServiceAccount used by OpenBao pods.
 
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -1905,6 +2327,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `ipFamilyPolicy` _[IPFamilyPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamilypolicy-v1-core)_ | IPFamilyPolicy selects single-stack or dual-stack Service allocation.<br />When omitted, Kubernetes uses its default Service policy.<br />Two IP families require PreferDualStack or RequireDualStack. |  | Enum: [SingleStack PreferDualStack RequireDualStack] <br />Optional: \{\} <br /> |
+| `ipFamilies` _[IPFamily](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ipfamily-v1-core) array_ | IPFamilies selects the Service IP families in primary-first order.<br />The primary family cannot change after the Service is created. |  | MaxItems: 2 <br />items:Enum: [IPv4 IPv6] <br />Optional: \{\} <br /> |
 | `type` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#servicetype-v1-core)_ | Type is the Kubernetes Service type, for example "ClusterIP" or "LoadBalancer". |  | Optional: \{\} <br /> |
 | `annotations` _object (keys:string, values:string)_ | Annotations are additional annotations to apply to the Service. |  | Optional: \{\} <br /> |
 
@@ -2035,6 +2459,7 @@ StorageConfig captures storage-related configuration for the StatefulSet.
 
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -2071,6 +2496,7 @@ TLSConfig captures TLS configuration for an OpenBaoCluster.
 
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -2079,6 +2505,30 @@ _Appears in:_
 | `acme` _[ACMEConfig](#acmeconfig)_ | ACME configures settings when Mode is 'ACME'. |  | Optional: \{\} <br /> |
 | `rotationPeriod` _string_ | RotationPeriod is a duration string (for example, "720h") controlling certificate rotation.<br />Only used when Mode is OperatorManaged. |  | MinLength: 1 <br />Optional: \{\} <br /> |
 | `extraSANs` _string array_ | ExtraSANs lists additional subject alternative names for server certificates.<br />In OperatorManaged mode, the operator includes these names when issuing the certificate.<br />In External mode, the operator requires the supplied certificate to contain them.<br />Values that parse as IP addresses are treated as IP SANs; all other values are DNS SANs. |  | Optional: \{\} <br /> |
+
+
+#### TLSKeyExchangeGroup
+
+_Underlying type:_ _string_
+
+TLSKeyExchangeGroup identifies a classical or hybrid post-quantum TLS group.
+Pure MLKEM1024 is not supported by the operator's default TLS clients.
+
+_Validation:_
+- Enum: [CurveP256 CurveP384 CurveP521 X25519 X25519MLKEM768 SecP256r1MLKEM768 SecP384r1MLKEM1024]
+
+_Appears in:_
+- [ListenerConfig](#listenerconfig)
+
+| Field | Description |
+| --- | --- |
+| `CurveP256` |  |
+| `CurveP384` |  |
+| `CurveP521` |  |
+| `X25519` |  |
+| `X25519MLKEM768` |  |
+| `SecP256r1MLKEM768` |  |
+| `SecP384r1MLKEM1024` |  |
 
 
 #### TLSMode
@@ -2098,6 +2548,24 @@ _Appears in:_
 | `OperatorManaged` | TLSModeOperatorManaged: The operator acts as the CA, generating keys and rotating certs (Current Behavior).<br /> |
 | `External` | TLSModeExternal: The operator assumes Secrets are managed by an external entity (cert-manager, user, or CSI driver).<br />The operator will mount them but NOT modify/rotate them.<br /> |
 | `ACME` | TLSModeACME: OpenBao uses its native ACME client to fetch certificates.<br />No Secrets are mounted. No sidecar is injected. Best for Zero Trust.<br /> |
+
+
+#### TLSVersion
+
+_Underlying type:_ _string_
+
+TLSVersion identifies a supported TLS protocol version.
+
+_Validation:_
+- Enum: [tls12 tls13]
+
+_Appears in:_
+- [ListenerConfig](#listenerconfig)
+
+| Field | Description |
+| --- | --- |
+| `tls12` | TLSVersion12 selects TLS 1.2.<br /> |
+| `tls13` | TLSVersion13 selects TLS 1.3.<br /> |
 
 
 #### TelemetryConfig
@@ -2181,6 +2649,7 @@ If omitted, defaults to "static" mode managed by the operator.
 
 _Appears in:_
 - [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -2194,7 +2663,7 @@ _Appears in:_
 | `kms` _[KMSPluginSealConfig](#kmspluginsealconfig)_ | KMS configures a plugin-backed KMS seal.<br />Required when Type is "kms". |  | Optional: \{\} <br /> |
 | `ocikms` _[OCIKMSSealConfig](#ocikmssealconfig)_ | OCIKMS configures the OCI KMS seal type.<br />Required when Type is "ocikms". |  | Optional: \{\} <br /> |
 | `pkcs11` _[PKCS11SealConfig](#pkcs11sealconfig)_ | PKCS11 configures the PKCS#11 seal type.<br />Required when Type is "pkcs11". |  | Optional: \{\} <br /> |
-| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef references a Secret containing provider credentials<br />(for example AWS access keys, GCP credentials.json, Azure client-secret keys,<br />OCI SDK config for authTypeAPIKey mode, or plugin-backed KMS runtime files).<br />If using Workload Identity (IRSA, GKE WI, Azure MSI), this can be omitted.<br />The Secret must exist in the same namespace as the OpenBaoCluster.<br />Cross-namespace references are not allowed for security reasons. |  | Optional: \{\} <br /> |
+| `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef references a Secret containing provider credentials<br />(for example AWS access keys, GCP credentials.json, Azure client-secret keys,<br />OCI SDK config for authTypeAPIKey mode, or plugin-backed KMS runtime files).<br />If using Workload Identity (IRSA, GKE WI, Azure MSI), this can be omitted.<br />For static unseal, the Secret supplies the original key instead of an<br />operator-generated key. Its files are mounted at /etc/bao/unseal; the<br />default currentKey reads its "key" entry. The operator does not create,<br />modify, or take ownership of this Secret. A cluster that already owns an<br />operator-generated unseal key keeps that key and ignores this reference.<br />The Secret must exist in the same namespace as the OpenBaoCluster.<br />Cross-namespace references are not allowed for security reasons. |  | Optional: \{\} <br /> |
 
 
 #### UpdateStrategyType
@@ -2250,6 +2719,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `executionID` _string_ | ExecutionID identifies the current rolling upgrade attempt.<br />It remains stable across controller restarts and changes when a retry is accepted.<br />Older in-flight upgrades can omit it until an explicit retry is accepted. |  | Optional: \{\} <br /> |
 | `targetVersion` _string_ | TargetVersion is the version being upgraded to. |  |  |
 | `fromVersion` _string_ | FromVersion is the version being upgraded from. |  |  |
 | `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartedAt is when the upgrade began. |  | Optional: \{\} <br /> |
@@ -2344,6 +2814,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `policyRevision` _string_ | PolicyRevision identifies the last complete built-in policy bundle verified<br />or repaired successfully. This records reconciliation progress, not authorization. |  | Optional: \{\} <br /> |
+| `policyReconciliation` _[PolicyReconciliationStatus](#policyreconciliationstatus)_ | PolicyReconciliation records individual policy observations and retry scheduling. |  | Optional: \{\} <br /> |
 | `lastError` _[ControllerErrorStatus](#controllererrorstatus)_ | LastError is the last workload-controller error observed for this cluster. |  | Optional: \{\} <br /> |
 
 
@@ -2373,8 +2845,9 @@ WorkloadIdentityConfig configures cloud workload identity metadata for backup an
 
 _Appears in:_
 - [BackupTarget](#backuptarget)
+- [RestoreTest](#restoretest)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
+| `serviceAccountAnnotations` _object (keys:string, values:string)_ | ServiceAccountAnnotations are merged into the generated backup or restore ServiceAccount.<br />An existing restore executor ServiceAccount must already have these annotations;<br />the operator validates them without modifying that account.<br />This is typically used for provider-specific bindings such as GKE Workload Identity<br />or webhook-based AWS/Azure workload identity integrations. |  | Optional: \{\} <br /> |
 | `podLabels` _object (keys:string, values:string)_ | PodLabels are merged into the generated backup or restore Job pod template.<br />This is typically used for provider-specific selectors such as Azure Workload Identity.<br />Operator-managed labels take precedence if the same key is specified here. |  | Optional: \{\} <br /> |

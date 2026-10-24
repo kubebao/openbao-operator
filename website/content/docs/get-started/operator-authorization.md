@@ -104,12 +104,17 @@ path "sys/storage/raft/demote" {
 }
 {{< /command >}}
 
-Built-in upgrade orchestration uses JWT. When an initialized cluster changes from `RollingUpdate` to `BlueGreen`,
-self-init does not update the existing role. Add the peer-management capabilities before requesting the new strategy.
+Built-in upgrade orchestration uses JWT. With [approved policy reconciliation](../../operate/operator-policies/),
+approval covers both strategies and the operator updates the built-in upgrade policy when the strategy changes.
+Otherwise, add the BlueGreen peer-management capabilities before switching from RollingUpdate; self-init does not
+update an initialized cluster's policies or roles.
 
 ## Maintain policies after bootstrap
 
-Self-init creates the initial policies only during initialization. For an existing cluster:
+Self-init creates the initial policies only during initialization.
+
+You can opt into [approved policy reconciliation](../../operate/operator-policies/) to restore built-in policies within
+an administrator-approved grant. Otherwise, maintain policies through the following procedure:
 
 1. Review operator release notes for new OpenBao capabilities.
 2. Compare the implemented policy with the cluster's current policy.
