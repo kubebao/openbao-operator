@@ -11,9 +11,10 @@ verifiedBy:
   - internal/service/upgrade/bluegreen/version_compatibility.go
 ---
 
-The operator requires Kubernetes 1.33 or newer. The tables describe configured targets and prior focused checks.
-Final current-candidate 0.6.0 runtime, cloud, performance, and distribution qualification remains pending. Earlier
-source qualification does not qualify this candidate or every cloud, distribution, or topology.
+The operator requires Kubernetes 1.33 or newer. The tables describe validation targets and focused checks.
+Release qualification covers selected scenarios on Kubernetes 1.34.3, 1.35.1, and 1.36.1 with OpenBao 2.6.4 and
+selected OpenBao 2.7.1 scenarios. These results do not qualify every cloud authentication method, distribution,
+seal, storage driver, or topology. Historical focused results below retain their original scope.
 
 ## Kubernetes versions
 
@@ -31,7 +32,7 @@ source qualification does not qualify this candidate or every cloud, distributio
 | --- | --- | --- |
 | 2.7.1 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and restore qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification; rolling-upgrade source for local 2.7.1 qualification | Use the latest qualified security patch |
-| 2.6.4 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Configured 0.6.0 target; final current-candidate qualification is pending |
+| 2.6.4 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Primary 0.6.0 qualification target; validate the production combination in staging |
 | 2.6.3 | OpenBao Operator 0.5.1 validation target; rolling-upgrade source for local 2.6.4 qualification | Use the latest qualified security patch |
 | 2.6.2 | OpenBao Operator 0.5.0 release target | Use the latest qualified security patch |
 | Other 2.6.x | Not individually release-gated | Validate the exact patch in staging |

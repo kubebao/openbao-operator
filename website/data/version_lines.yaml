@@ -1,14 +1,14 @@
 "0.6.x":
   label: "0.6.x"
   release: "0.6.0"
-  state: "Release preparation"
-  showNotice: true
+  state: "Current stable"
+  showNotice: false
   sourceRef: "0.6.0"
-  fallbackSourceRef: "35c0aafea3302efdc0408b92fcf086e93f687b2d"
+  fallbackSourceRef: "f77e21c438067c8d5dcba391735b24dd38233968"
   editRef: "main"
   contentRoot: "website/content"
   editable: true
-  notice: "Prepared documentation for OpenBao Operator 0.6.0. Publication and final current-candidate qualification are pending."
+  notice: "Current stable documentation for the 0.6 minor line through OpenBao Operator 0.6.0."
 "0.5.x":
   label: "0.5.x"
   release: "0.5.3"

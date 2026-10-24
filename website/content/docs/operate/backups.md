@@ -10,6 +10,7 @@ verifiedBy:
   - config/policy/openbao-validate-openbaocluster.yaml
   - internal/service/backup/manager_reconcile.go
   - internal/service/backup/manager_effects.go
+  - internal/service/backup/manager_observation.go
   - internal/service/backup/storage_endpoint_guard.go
   - internal/adapter/storage/endpoint_request_guard.go
   - test/integration/backup_manager_test.go
@@ -70,6 +71,11 @@ clear.
 The operator persists the first scheduled run in `status.backup.nextScheduledBackup` before it waits for that run.
 The deadline survives reconciliation and controller restarts. Check `status.backup.lastBackupTime` and
 `status.backup.lastBackupName` to verify that a scheduled backup succeeds.
+
+When you change `spec.backup.schedule`, the operator selects the next occurrence of the current cron expression.
+It preserves a persisted overdue deadline if that deadline also matches the current expression, so one missed
+occurrence can still run after a restart or schedule edit. Changing the schedule does not replace an active backup Job.
+You do not need a manual backup to activate a changed schedule.
 
 | Provider | Required target fields | Secret keys |
 | --- | --- | --- |

@@ -60,10 +60,6 @@ annotations:
     - kind: added
       description: "unseal: select the Azure Key Vault authentication method"
     - kind: fixed
-      description: "admission: accept CSI leak-protection finalizers on managed PVCs"
-    - kind: fixed
-      description: "admission: accept the AKS control plane for PVC binding updates"
-    - kind: fixed
       description: "admission: allow restore foreground finalizer cleanup"
     - kind: fixed
       description: "admission: allow scoped helper Pod annotation sync"
@@ -74,8 +70,6 @@ annotations:
     - kind: fixed
       description: "admission: support scoped PVC binding synchronization"
     - kind: fixed
-      description: "backup: persist the initial scheduled backup deadline"
-    - kind: fixed
       description: "backup: refresh persisted deadlines after schedule changes"
     - kind: fixed
       description: "certs: reject malformed CA key PEM without panicking"
@@ -84,31 +78,15 @@ annotations:
     - kind: fixed
       description: "ci: decouple edge chart versions from releases"
     - kind: fixed
-      description: "ci: discover historical attestations from published bundles"
-    - kind: fixed
       description: "ci: isolate Cilium Kind networking with VXLAN"
     - kind: fixed
-      description: "ci: look up upstream artifacts by name"
-    - kind: fixed
-      description: "ci: repair KubeBao release qualification and retries"
-    - kind: fixed
       description: "ci: separate restore lanes and pin integration tooling"
-    - kind: security
-      description: "ci: update vulnerable release tooling dependencies"
     - kind: fixed
       description: "client: release shared state for deleted cluster lifetimes"
     - kind: fixed
       description: "cluster: resume interrupted peer removal safely"
     - kind: fixed
       description: "config: enforce OpenBao configuration version contracts"
-    - kind: fixed
-      description: "config: support authorized PROXY protocol sources"
-    - kind: security
-      description: "deps: patch release-please Handlebars vulnerabilities"
-    - kind: fixed
-      description: "deps: update Go and x/net security patches"
-    - kind: fixed
-      description: "devenv: support Go 1.27 export data in Staticcheck"
     - kind: fixed
       description: "dev: make contributor runtime checks portable"
     - kind: fixed
@@ -118,13 +96,11 @@ annotations:
     - kind: fixed
       description: "ownership: bind resource mutations to observed identity"
     - kind: fixed
-      description: "perf: exclude helper endpoints and follow restore recovery"
+      description: "perf: follow restore recovery and measure availability in performance scenarios"
     - kind: fixed
       description: "provisioner: allow restore templates without unseal credential Secrets"
     - kind: fixed
       description: "provisioner: preserve tenant RBAC through namespace teardown"
-    - kind: fixed
-      description: "restore: bound snapshot staging and disable executor retries"
     - kind: fixed
       description: "restore: expose KMS plugin settings in target templates"
     - kind: fixed
@@ -137,8 +113,6 @@ annotations:
       description: "security: enforce key strength and TLS transport policy"
     - kind: security
       description: "security: harden verification dependencies and CI controls"
-    - kind: security
-      description: "security: reject compromised CA keys with Go 1.27.3"
     - kind: security
       description: "security: resolve Kubernetes registry credentials by scope"
     - kind: security

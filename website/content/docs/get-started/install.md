@@ -22,14 +22,14 @@ verifiedBy:
 ---
 
 Install a pinned 0.6.0 release and verify the rendered namespace, identities, controllers, CRDs, and admission policies.
-Version 0.6.0 publication and final current-candidate qualification remain pending. Run these commands after
-publication and [artifact verification](../../security/supply-chain/). The core procedure uses Helm in the chart's default multi-tenant mode. The release artifacts use KubeBao coordinates.
+Complete [artifact verification](../../security/supply-chain/) before installation. The core procedure uses Helm
+in the chart's default multi-tenant mode. The release artifacts use KubeBao coordinates.
 Historical 0.5.1 artifacts retain their `dc-tec` publisher identity.
 
 ## Before you begin
 
 - Confirm that the cluster meets the [compatibility requirements](../../reference/compatibility/). Kubernetes 1.33
-  satisfies the chart constraint, while the configured release gates cover Kubernetes 1.34, 1.35, and 1.36. Final 0.6.0 qualification is pending.
+  satisfies the chart constraint; release qualification covers selected scenarios on Kubernetes 1.34, 1.35, and 1.36.
 - Use an identity that can create cluster-scoped CRDs, RBAC, and ValidatingAdmissionPolicies.
 - Decide whether Helm, a release manifest, or a maintained Kustomize overlay owns future upgrades.
 - Decide the tenancy model. Use the separate [single-tenant procedure](../single-tenant/) for one watched namespace.
