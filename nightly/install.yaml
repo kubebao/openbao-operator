@@ -10434,10 +10434,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261023-7aafa62442a2
+          value: nightly-20261024-0d65169ded89
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:5960a11372b24b828e7f3c641e3c55d0bdc23b986134f452638bc414cebecec0
+        image: ghcr.io/kubebao/openbao-operator@sha256:b5fbb90f27687d1fd9cb46ce05fcad7872286484695da13660bb5cf525f0d38b
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10558,8 +10558,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261023-7aafa62442a2
-        image: ghcr.io/kubebao/openbao-operator@sha256:5960a11372b24b828e7f3c641e3c55d0bdc23b986134f452638bc414cebecec0
+          value: nightly-20261024-0d65169ded89
+        image: ghcr.io/kubebao/openbao-operator@sha256:b5fbb90f27687d1fd9cb46ce05fcad7872286484695da13660bb5cf525f0d38b
         livenessProbe:
           httpGet:
             path: /healthz
@@ -13802,7 +13802,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:264436b9c41f6573c359df17276d53ed0a0b07402a6cdeb2c0e9e1ecbf841280
+    openbao.org/admission-policy-fingerprint: sha256:9293c5d0e32b8d15b89894ca22fc4c129ce6dc5c8f2da0306f90b2158a3ce542
   name: openbao-operator-openbao-validate-openbaorestore
 spec:
   failurePolicy: Fail
@@ -13866,7 +13866,8 @@ spec:
     message: Fresh restore targets require access to image pull Secrets.
   - expression: oldObject == null || object.spec == oldObject.spec
     message: spec is immutable; create a new OpenBaoRestore for changed restore parameters.
-  - expression: variables.is_controller || variables.restore_authorized
+  - expression: variables.is_controller || variables.is_foreground_finalizer_cleanup
+      || variables.restore_authorized
     message: Users creating or updating an OpenBaoRestore must be authorized to restore
       the target OpenBaoCluster.
   - expression: |-
@@ -13943,6 +13944,12 @@ spec:
   - expression: request.userInfo.username == 'system:serviceaccount:' + variables.operator_namespace
       + ':' + variables.controller_serviceaccount_name
     name: is_controller
+  - expression: |-
+      request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') && oldObject != null && has(oldObject.metadata.deletionTimestamp) && has(oldObject.metadata.finalizers) && oldObject.metadata.finalizers == ['foregroundDeletion'] && (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) && dyn(object).all(k, k == 'metadata' || (k in dyn(oldObject) && dyn(object)[k] == dyn(oldObject)[k])) && dyn(oldObject).all(k, k == 'metadata' || k in dyn(object)) && dyn(object.metadata).all(k, k in ['finalizers', 'managedFields'] ||
+
+        (k in dyn(oldObject.metadata) && dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) &&
+      dyn(oldObject.metadata).all(k, k in ['finalizers', 'managedFields'] || k in dyn(object.metadata))
+    name: is_foreground_finalizer_cleanup
   - expression: variables.is_controller || (oldObject != null && object.spec == oldObject.spec)
     name: delegated_authority
   - expression: 'has(object.spec.source.target.endpoint) ? object.spec.source.target.endpoint.trim()
