@@ -50,11 +50,19 @@ def canonical_role(role):
     return result
 
 
+def leader_pod(cluster, uid):
+    require(cluster["metadata"]["uid"] == uid, "legacy fixture identity changed before migration")
+    leader = cluster.get("status", {}).get("activeLeader", "")
+    require(leader in {f"{CLUSTER}-{index}" for index in range(3)},
+            "legacy fixture does not identify one of its three Pods as active leader")
+    return leader
+
+
 @contextlib.contextmanager
-def port_forward():
+def port_forward(pod):
     process = subprocess.Popen(
         [os.environ.get("KUBECTL", "kubectl"), "port-forward", "-n", NAMESPACE,
-         f"pod/{CLUSTER}-0", ":8200", "--address=127.0.0.1"],
+         f"pod/{pod}", ":8200", "--address=127.0.0.1"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     try:
@@ -82,10 +90,28 @@ class FixtureConnection(http.client.HTTPSConnection):
 
 
 class API:
-    def __init__(self, port, ca):
+    def __init__(self, port, ca, pod):
         self.port, self.context, self.token = port, ssl.create_default_context(cadata=ca), ""
+        self.pod = pod
 
     def request(self, method, path, payload=None, token=None, expected=(200, 204)):
+        self.require_active()
+        result = self._request(method, path, payload, token, expected)
+        self.require_active()
+        return result
+
+    def require_active(self):
+        # This endpoint is local even when logical requests would be forwarded.
+        # Do not allow standbyok or send the fixture's administrator credential.
+        try:
+            health = self._request("GET", "sys/health", token="", expected=(200,))
+        except RuntimeError as error:
+            raise RuntimeError(f"migration endpoint {self.pod} is not verified active: {error}") from error
+        require(isinstance(health, dict) and health.get("initialized") is True and health.get("sealed") is False
+                and health.get("standby") is False,
+                f"migration endpoint {self.pod} is not initialized, unsealed and active")
+
+    def _request(self, method, path, payload=None, token=None, expected=(200, 204)):
         connection = FixtureConnection(
             f"{CLUSTER}.{NAMESPACE}.svc", self.port, context=self.context, timeout=30
         )
@@ -107,9 +133,14 @@ class API:
 
     def role_audiences(self, role, audiences):
         self.request("POST", ROLE, {**role, "bound_audiences": audiences})
+        expected = canonical_role({**role, "bound_audiences": audiences})
+        missing = object()
         actual = self.request("GET", ROLE)["data"]
-        require(canonical_role(actual) == canonical_role({**role, "bound_audiences": audiences}),
-                "role update changed restrictions other than bound_audiences")
+        normalized = canonical_role(actual)
+        changed = sorted(field for field in expected.keys() | normalized.keys()
+                         if expected.get(field, missing) != normalized.get(field, missing))
+        require(not changed, f"role update changed restrictions at {self.pod}: " + ", ".join(changed))
+        return actual
 
 
 def controller_token(pod, audience):
@@ -136,16 +167,18 @@ def main():
     admin_jwt = kubectl("create", "token", "default", "-n", NAMESPACE,
                         f"--audience={SHARED}", "--duration=10m")
     ca = base64.b64decode(resource("secret", CLUSTER + "-tls-ca")["data"]["ca.crt"]).decode()
-    with port_forward() as port:
-        api = API(port, ca)
+    leader = leader_pod(resource("openbaocluster", CLUSTER), uid)
+    with port_forward(leader) as port:
+        api = API(port, ca, leader)
         api.token = api.login("operator-upgrade-hardened", admin_jwt)["auth"]["client_token"]
+        print(json.dumps({"controllerJWTMigrationEndpoint": leader, "verifiedActive": True}))
         role = api.request("GET", ROLE)["data"]
         require(role["bound_audiences"] == [SHARED], "legacy role does not use shared trust")
         require(role["bound_subject"] == f"system:serviceaccount:{OPERATOR_NAMESPACE}:{pod['spec']['serviceAccountName']}",
                 "legacy role is bound to the wrong controller identity")
         api.login("openbao-operator", shared)
         api.login("openbao-operator", target, allowed=False)
-        api.role_audiences(role, [SHARED, audience])
+        role = api.role_audiences(role, [SHARED, audience])
         api.login("openbao-operator", target)
         patch = [{"op": "test", "path": "/metadata/uid", "value": uid},
                  {"op": "add", "path": "/spec/controllerJWTMode", "value": "Target"}]
@@ -167,7 +200,9 @@ def main():
         actual = resource("openbaocluster", CLUSTER)
         require(actual["metadata"]["uid"] == uid and actual["spec"]["controllerJWTMode"] == "Target",
                 "migration changed cluster identity or lost Target mode")
+        api.require_active()
         print(json.dumps({"controllerJWTMigration": "passed", "clusterUID": uid,
+                          "adminPod": leader,
                           "sourceMode": "Shared", "destinationMode": "Target",
                           "sharedAndUnrelatedJWTsRejected": True, "autopilotRepair": "passed",
                           "preUpgradeData": "preserved"}))
