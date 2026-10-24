@@ -1,0 +1,110 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Allow only the DNS, Kubernetes API, edge, and external dependency paths that an OpenBao cluster needs."><title>Configure network policy · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/configure/network/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/network/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/configure/network/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/configure/network/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/configure/network/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a><div class=nav-children><a href=/0.5.x/docs/configure/>Overview</a><a href=/0.5.x/docs/configure/security-profile/>Choose a security profile</a><a href=/0.5.x/docs/configure/initialize/>Initialize the cluster</a><a href=/0.5.x/docs/configure/unseal/>Configure unseal</a><a href=/0.5.x/docs/configure/storage/>Configure storage</a><a href=/0.5.x/docs/configure/server/>Configure the server runtime</a><a href=/0.5.x/docs/configure/expose/>Expose OpenBao</a><a href=/0.5.x/docs/configure/gateway/>Use Gateway API</a><a class=is-current href=/0.5.x/docs/configure/network/ aria-current=page>Configure network policy</a><a href=/0.5.x/docs/configure/monitor/>Monitor OpenBao</a><a href=/0.5.x/docs/configure/read-replicas/>Configure read replicas</a><a href=/0.5.x/docs/configure/air-gapped/>Use private registries</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/configure/>Configure a cluster</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Configure network policy</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Configure network policy</h1><p class=article-lede>Allow only the DNS, Kubernetes API, edge, and external dependency paths that an OpenBao cluster needs.</p><p class=page-meta>Updated 24 October 2026 · 5 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#understand-the-managed-baseline>Understand the managed baseline</a></li><li><a href=#configure-dns-and-kubernetes-api-egress>Configure DNS and Kubernetes API egress</a></li><li><a href=#restore-kubernetes-api-access-with-cilium>Restore Kubernetes API access with Cilium</a></li><li><a href=#allow-edge-and-monitoring-peers>Allow edge and monitoring peers</a></li><li><a href=#allow-external-dependencies>Allow external dependencies</a></li><li><a href=#read-the-conditions>Read the conditions</a></li></ul></nav></details><div class=article-content><p>The operator renders ingress-and-egress NetworkPolicies for OpenBao workload pods and lifecycle Job pods, then adds
+the paths required for cluster operation. Other pods in the namespace are not selected by these policies. Enforcement
+depends on a NetworkPolicy-capable CNI.</p><p>The operator manages standard Kubernetes <code>NetworkPolicy</code> resources. The platform administrator manages CNI settings
+and any supplementary CNI-specific policies.</p><p>Add environment-specific peers and egress explicitly; enabling an edge resource does not silently widen pod access.</p><h2 id=understand-the-managed-baseline>Understand the managed baseline</h2><table><thead><tr><th>Direction</th><th>Managed path</th><th>Purpose</th></tr></thead><tbody><tr><td>Ingress</td><td>OpenBao peers on ports 8200 and 8201</td><td>Client handling and Raft traffic</td></tr><tr><td>Ingress</td><td>Operator and operator-managed backup or restore Jobs on port 8200</td><td>Lifecycle operations</td></tr><tr><td>Egress</td><td>Cluster DNS on TCP and UDP 53</td><td>Name resolution</td></tr><tr><td>Egress</td><td>Kubernetes API service on 443 and configured endpoint IPs on 6443</td><td>Service registration and lifecycle operations</td></tr><tr><td>Egress</td><td>Cluster workload peers</td><td>OpenBao cluster communication</td></tr></tbody></table><p>The operator always keeps these baseline rules. <code>spec.network</code> adds, rather than replaces, them.</p><p>Development lifecycle Jobs are the exception to the strict default: when no <code>egressRules</code> exist, their policy permits
+IPv4 and IPv6 HTTPS egress on port 443. Adding any explicit egress rule removes that fallback. Hardened backup and
+restore paths require explicit, scoped egress.</p><h2 id=configure-dns-and-kubernetes-api-egress>Configure DNS and Kubernetes API egress</h2><p>The DNS namespace defaults to <code>kube-system</code>. Set it when the resolver pods live elsewhere. Add endpoint IPs for
+node-local or host-networked resolvers that namespace selection cannot reach.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Allow a non-default and node-local DNS path</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  network:
+    dnsNamespace: openshift-dns
+    dnsEndpointIPs:
+      - 169.254.20.10</code></pre></div><p><code>dnsEndpointIPs</code> becomes an exact host CIDR and applies to the main workload and operator-managed Jobs.</p><p>The operator normally derives the Kubernetes API service address. Some CNIs enforce egress after destination NAT and
+therefore also need the control-plane endpoint IPs.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Pin Kubernetes API destinations</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  network:
+    apiServerCIDR: 10.43.0.1/32
+    apiServerEndpointIPs:
+      - 192.168.166.2</code></pre></div><p>Use the smallest correct ranges. The operator does not auto-discover endpoint IPs because that would require broader
+cluster permissions and environment-specific assumptions.</p><h2 id=restore-kubernetes-api-access-with-cilium>Restore Kubernetes API access with Cilium</h2><p>By default, Cilium&rsquo;s CIDR rules exclude cluster nodes. An API server on a control-plane node can remain blocked
+with correct <code>apiServerEndpointIPs</code>, even when <code>APIServerNetworkReady=True</code>. See <a href=https://docs.cilium.io/en/stable/security/policy/layer3/#cidr-select-nodes>Cilium&rsquo;s node CIDR matching
+rules</a>.</p><p>Confirm that node CIDR matching is disabled and traffic to the API endpoint is dropped. If Hubble is enabled, inspect
+flows on the Cilium agent on the affected pod&rsquo;s node. Replace <code>&lt;cilium-pod></code>, <code>&lt;namespace></code>, and <code>&lt;pod></code> with their names;
+adjust <code>kube-system</code> if Cilium uses another namespace.</p><div class=command-block><div class=command-head><div><span>inspect</span><p>Check Cilium settings and API policy drops</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n kube-system get configmap cilium-config -o jsonpath=&#39;{.data.policy-cidr-match-mode}{&#34;\n&#34;}&#39;
+kubectl -n kube-system exec &lt;cilium-pod&gt; -c cilium-agent -- hubble observe --since 3m --pod &lt;namespace&gt;/&lt;pod&gt;</code></pre></div><p>An empty setting disables node CIDR matching. Look for <code>Policy denied</code> drops to the API endpoint with destination
+identity <code>kube-apiserver</code> or <code>remote-node</code>. A timeout alone does not identify this failure mode.</p><p>Keep the operator-managed NetworkPolicies and add the following supplementary policy through your platform deployment
+tooling. Replace <code>&lt;namespace></code> and <code>&lt;cluster></code> with the OpenBaoCluster namespace and name. The selector covers its
+workload and lifecycle Job pods. Use the actual API backend port if it differs from 6443.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Allow API-server egress for one OpenBao cluster</p></div><button type=button data-copy-button>Copy</button></div><pre><code>apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: &lt;cluster&gt;-apiserver
+  namespace: &lt;namespace&gt;
+spec:
+  endpointSelector:
+    matchLabels:
+      openbao.org/cluster: &lt;cluster&gt;
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: &#34;6443&#34;
+              protocol: TCP</code></pre></div><p>The platform administrator owns this policy. Cilium <a href=https://docs.cilium.io/en/stable/security/policy/deny/>deny policies</a> still take precedence.</p><p>Verify new API requests from the affected workload and Jobs. Expect forwarded connections and responses in Hubble,
+and successful API operations in application logs. An HTTP <code>401</code> or <code>403</code> confirms connectivity, not authorization.</p><aside class="callout callout-note" role=note><div class=callout-icon aria-hidden=true>i</div><div><p class=callout-title>Alternative: enable node CIDR matching</p><div class=callout-body>A cluster administrator can set Cilium&rsquo;s <code>policyCIDRMatchMode: [nodes]</code> to allow <code>ipBlock</code> rules to match node IPs.
+This changes policy interpretation across the cluster; review existing policies before choosing this alternative.</div></div></aside><h2 id=allow-edge-and-monitoring-peers>Allow edge and monitoring peers</h2><p>Use <code>trustedIngressPeers</code> for Gateway data planes, ingress controllers, passthrough proxies, and monitoring systems.
+The operator limits these peers to port 8200 and also to the configured metrics-listener port when that listener is
+enabled.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Allow selected ingress and monitoring pods</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  network:
+    trustedIngressPeers:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: gateway-system
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: monitoring</code></pre></div><p>Hardened clusters require explicit, non-wildcard sources. They reject raw <code>spec.network.ingressRules</code>. That raw field
+is a Development compatibility path; prefer <code>trustedIngressPeers</code> even outside Hardened.</p><h2 id=allow-external-dependencies>Allow external dependencies</h2><p>Add <code>egressRules</code> for transit unseal, KMS or PKI endpoints, object storage, plugin registries, and other dependencies.
+Hardened clusters require every user rule to select explicit peers and ports.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Allow a transit service and an external HTTPS endpoint</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  network:
+    egressRules:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: openbao-infra
+        ports:
+          - protocol: TCP
+            port: 8200
+      - to:
+          - ipBlock:
+              cidr: 192.0.2.40/32
+        ports:
+          - protocol: TCP
+            port: 443</code></pre></div><p>Object-store Jobs use a separate operator-managed NetworkPolicy. The same <code>egressRules</code> list is appended to both the
+OpenBao workload policy and the Job policy; it cannot currently scope a transit rule only to OpenBao or a storage rule
+only to Jobs. The explicit contract is also used to decide whether Hardened backup and restore configurations are safe.</p><h2 id=read-the-conditions>Read the conditions</h2><table><thead><tr><th>Condition</th><th>Meaning</th><th>Response</th></tr></thead><tbody><tr><td><code>APIServerNetworkReady=True</code></td><td>Service VIP and explicit endpoint IPs are configured</td><td>Continue with runtime checks</td></tr><tr><td><code>APIServerNetworkReady=Unknown</code></td><td>The service-VIP path exists, but post-DNAT requirements cannot be proven</td><td>Add <code>apiServerEndpointIPs</code> if the CNI requires them</td></tr><tr><td><code>APIServerNetworkReady=False</code> with reason <code>APIServerNetworkConfigurationInvalid</code></td><td>A safe API allow-list could not be built</td><td>Correct the CIDR or endpoint entries</td></tr><tr><td><code>OpenBaoCluster</code> <code>BackupConfigurationReady=False</code> with reason <code>NetworkEgressRulesRequired</code></td><td>Hardened backup lacks acceptable explicit storage egress</td><td>Add the storage target peers and ports</td></tr><tr><td><code>OpenBaoRestore</code> <code>RestoreConfigurationReady=False</code> with reason <code>NetworkEgressRulesRequired</code></td><td>Hardened restore lacks acceptable explicit storage egress</td><td>Add the storage target peers and ports</td></tr></tbody></table><p>Inspect both <code>&lt;cluster>-network-policy</code> and <code>&lt;cluster>-jobs-network-policy</code>, then test DNS, Kubernetes API access, the
+selected edge path, and every external dependency from the affected pod or Job context. A ready condition proves the
+configuration shape, not that the CNI, NAT path, or external firewall accepts the traffic.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#understand-the-managed-baseline>Understand the managed baseline</a></li><li><a href=#configure-dns-and-kubernetes-api-egress>Configure DNS and Kubernetes API egress</a></li><li><a href=#restore-kubernetes-api-access-with-cilium>Restore Kubernetes API access with Cilium</a></li><li><a href=#allow-edge-and-monitoring-peers>Allow edge and monitoring peers</a></li><li><a href=#allow-external-dependencies>Allow external dependencies</a></li><li><a href=#read-the-conditions>Read the conditions</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/configure/network.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>

@@ -1,0 +1,129 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Create an immutable OpenBaoRestore request, monitor the restore Job, and use lock override only for disaster recovery."><title>Restore a snapshot · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/operate/restore/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/operate/restore/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/operate/restore/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/operate/restore/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/operate/restore/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a><div class=nav-children><a href=/0.5.x/docs/operate/>Operations overview</a><a href=/0.5.x/docs/operate/production-readiness/>Review production readiness</a><a href=/0.5.x/docs/operate/backups/>Back up a cluster</a><a href=/0.5.x/docs/operate/upgrades/>Upgrade a cluster</a><a href=/0.5.x/docs/operate/openbao-270/>Upgrade OpenBao to 2.7</a><a href=/0.5.x/docs/operate/maintenance/>Run planned maintenance</a><a href=/0.5.x/docs/operate/troubleshoot/>Troubleshoot a cluster</a><a href=/0.5.x/docs/operate/recover-no-leader/>Recover from no leader</a><a href=/0.5.x/docs/operate/recover-sealed/>Recover a sealed cluster</a><a href=/0.5.x/docs/operate/recover-failed-rollback/>Recover a failed rollback</a><a class=is-current href=/0.5.x/docs/operate/restore/ aria-current=page>Restore a snapshot</a><div class=nav-children></div><a href=/0.5.x/docs/operate/decommission/>Decommission a cluster</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/operate/>Operate OpenBao</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Restore a snapshot</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Restore a snapshot</h1><p class=article-lede>Create an immutable OpenBaoRestore request, monitor the restore Job, and use lock override only for disaster recovery.</p><p class=page-meta>Updated 24 October 2026 · 7 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#before-you-begin>Before you begin</a></li><li><a href=#executor-limits>Executor limits</a></li><li><a href=#prepare-a-cross-cluster-restore>Prepare a cross-cluster restore</a><ul><li><a href=#preserve-lifecycle-jwt-identities>Preserve lifecycle JWT identities</a></li></ul></li><li><a href=#choose-restore-authentication>Choose restore authentication</a></li><li><a href=#create-the-restore-request>Create the restore request</a></li><li><a href=#monitor-the-lifecycle>Monitor the lifecycle</a></li><li><a href=#use-a-force-restore>Use a force restore</a></li><li><a href=#override-a-stuck-operation-lock>Override a stuck operation lock</a></li></ul></nav></details><div class=article-content><p>An <code>OpenBaoRestore</code> is an explicit, immutable request to download a snapshot and apply it to a target cluster. It
+uses a dedicated Job and identity, owns the cluster operation lock while destructive work runs, and records a terminal
+result.</p><aside class="callout callout-danger" role=note><div class=callout-icon aria-hidden=true>i</div><div><p class=callout-title>Restore overwrites OpenBao Raft state</p><div class=callout-body>The selected snapshot replaces the target&rsquo;s current logical state, including stored secrets, policies, auth
+configuration, and keys represented in that snapshot. Verify the namespace, cluster name, bucket, and object key with
+a second operator before applying the request.</div></div></aside><h2 id=before-you-begin>Before you begin</h2><div class=checklist><p class=checklist-title>Restore preflight</p><div><ul><li>The target <code>OpenBaoCluster</code> exists in the same namespace as the restore request.</li><li>The exact snapshot key exists and has been tested in an isolated restore rehearsal.</li><li>The restore Job can reach object storage and the target cluster.</li><li>A restore JWT role or labeled static-token Secret grants update on <code>sys/storage/raft/snapshot</code>. Grant update on
+<code>sys/storage/raft/snapshot-force</code> only when the identity must support <code>force: true</code>.</li><li>The storage identity is bound to the generated <code>&lt;cluster>-restore-serviceaccount</code> or supplied explicitly.</li><li>Prevent an upgrade or backup from running concurrently.</li></ul></div></div><p>By default, OpenBao verifies that the snapshot is compatible with the target cluster&rsquo;s Shamir or auto-unseal
+configuration. The target must also be initialized and must not have <code>Upgrading=True</code>.</p><p>For Hardened targets, configure explicit, port-scoped <code>spec.network.egressRules</code> on the target cluster and set
+<code>credentialsSecretRef</code>, workload-identity metadata, or S3 <code>roleArn</code> on the restore source.</p><h2 id=executor-limits>Executor limits</h2><p>The executor downloads the complete snapshot into a disk-backed staging volume before authenticating and submitting it.
+It checks the downloaded length and computes a SHA-256 digest. An object key and digest alone do not establish backup
+provenance. HTTP redirects, automatic request replay, and restore container retries are disabled.</p><table><thead><tr><th>Requirement</th><th>Value</th></tr></thead><tbody><tr><td>Snapshot size</td><td>Up to 8 GiB</td></tr><tr><td>Restore Pod ephemeral storage</td><td>9140 MiB requested and limited; check node capacity and namespace quotas</td></tr><tr><td>Preparation (scheduling, download, leader discovery)</td><td>About 30 minutes</td></tr><tr><td>Restore Job deadline</td><td>About 40 minutes, including image pulls</td></tr></tbody></table><p>The operator requires a terminal Job condition and terminated containers in any remaining executor Pods before
+processing the result. Job success or failure counters alone do not establish completion. These observations do not
+prove that a process stopped on an unreachable node or that OpenBao finished applying the snapshot.</p><h2 id=prepare-a-cross-cluster-restore>Prepare a cross-cluster restore</h2><p>A snapshot does not replace the target&rsquo;s unseal root. The target cluster must be able to unwrap the restored barrier
+keys with a compatible external seal. For Transit unseal, use the same Transit key and equivalent endpoint, trust,
+and credential configuration on the source and target.</p><p>Keep the source and target on the same OpenBao version for the restore event. The operator does not validate snapshot
+format compatibility across versions, so treat a cross-version restore as unqualified until it has a separate
+rehearsal and support decision.</p><p>Keep traffic on the source until the target is unsealed, has a leader and expected Raft membership, accepts a real
+human or workload login, and returns representative restored data. Cut over traffic manually after those checks.</p><h3 id=preserve-lifecycle-jwt-identities>Preserve lifecycle JWT identities</h3><p>The first restore authenticates against the target&rsquo;s current JWT configuration. The applied snapshot then replaces
+that configuration with the source cluster&rsquo;s roles. A later backup, restore, or upgrade fails if the restored role
+does not accept the target Job&rsquo;s ServiceAccount subject.</p><p>For a planned recovery target on the same Kubernetes JWT trust domain, add its exact subjects to the source cluster
+before the source self-initializes:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Authorize one recovery target without combining role privileges</p></div><button type=button data-copy-button>Copy</button></div><pre><code>selfInit:
+  enabled: true
+  oidc:
+    enabled: true
+    additionalSubjects:
+      backup:
+        - system:serviceaccount:recovery:prod-recovery-backup-serviceaccount
+      restore:
+        - system:serviceaccount:recovery:prod-recovery-restore-serviceaccount
+      upgrade:
+        - system:serviceaccount:recovery:prod-recovery-upgrade-serviceaccount</code></pre></div><p>The operator adds each subject only to its corresponding generated role. Add <code>operator</code> subjects only when a recovery
+target uses a different controller ServiceAccount. A same-cluster restore does not need additional subjects because
+the generated identities do not change.</p><p>Self-init is one-shot. Adding these fields to an initialized source does not update its OpenBao roles. Update each
+role through an authenticated administration path before taking the recovery snapshot, or create and initialize the
+source with the bindings already declared.</p><p>The subject allowlist does not extend JWT issuer or signature trust. For a target on another Kubernetes control plane,
+the restored <code>jwt-operator</code> auth method must also validate that control plane&rsquo;s projected tokens. Qualify that trust
+configuration separately before relying on the recovery path.</p><h2 id=choose-restore-authentication>Choose restore authentication</h2><p>Prefer JWT auth. When self-init OIDC bootstrap is enabled, an empty restore role resolves to
+<code>openbao-operator-restore</code>, which is bound to the generated restore ServiceAccount during initial bootstrap.</p><p>If you use a static token, the same-namespace Secret must have both identity labels:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Create a scoped restore-token Secret</p></div><button type=button data-copy-button>Copy</button></div><pre><code>apiVersion: v1
+kind: Secret
+metadata:
+  name: restore-token
+  namespace: &lt;namespace&gt;
+  labels:
+    openbao.org/cluster: &lt;cluster&gt;
+    openbao.org/credential-purpose: restore-token
+stringData:
+  token: &lt;openbao-token&gt;</code></pre></div><p>Reference it as <code>spec.tokenSecretRef.name</code>. A configured <code>jwtAuthRole</code> takes precedence.</p><h2 id=create-the-restore-request>Create the restore request</h2><div class=command-block><div class=command-head><div><span>configure</span><p>Restore an S3 snapshot</p></div><button type=button data-copy-button>Copy</button></div><pre><code>apiVersion: openbao.org/v1alpha1
+kind: OpenBaoRestore
+metadata:
+  name: prod-restore-001
+  namespace: security
+spec:
+  cluster: prod-cluster
+  source:
+    target:
+      provider: s3
+      endpoint: https://s3.amazonaws.com
+      bucket: openbao-backups
+      region: us-east-1
+      credentialsSecretRef:
+        name: s3-restore-credentials
+    key: clusters/security/prod-cluster/last-good.snap
+  jwtAuthRole: openbao-operator-restore</code></pre></div><p>The target shape is shared with backups. GCS uses <code>provider: gcs</code>, <code>bucket</code>, optional <code>gcs.project</code>, and a
+<code>credentials.json</code> Secret. Azure uses <code>provider: azure</code>, <code>bucket</code>, <code>azure.storageAccount</code>, optional
+<code>azure.container</code>, and an <code>accountKey</code> or <code>connectionString</code> Secret.</p><p>Apply the request once:</p><div class=command-block><div class=command-head><div><span>apply</span><p>Start the restore</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl apply -f restore.yaml</code></pre></div><p>Admission requires the caller to have <code>restore</code> on the named target <code>OpenBaoCluster</code>. Referenced Secrets require
+<code>get</code>; cloud identity metadata requires <code>usecloudidentities</code>; a custom restore image requires
+<code>usecustomexecutables</code>. The spec cannot be edited after creation. Create a new request to change any restore intent.</p><h2 id=monitor-the-lifecycle>Monitor the lifecycle</h2><div class=command-block><div class=command-head><div><span>verify</span><p>Watch restore and cluster state together</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; get openbaorestore &lt;restore-name&gt; -w
+kubectl -n &lt;namespace&gt; get openbaorestore &lt;restore-name&gt; -o yaml
+kubectl -n &lt;namespace&gt; get jobs -l openbao.org/cluster=&lt;cluster&gt;
+kubectl -n &lt;namespace&gt; get openbaocluster &lt;cluster&gt; -o yaml</code></pre></div><p><code>status.phase</code> moves through <code>Pending</code>, <code>Validating</code>, and <code>Running</code>, then ends at <code>Completed</code> or <code>Failed</code>.
+It changes to <code>Unknown</code> when the controller cannot prove whether a committed restore Job ran. The operator never
+recreates that Job automatically. Inspect the retained Job when it exists, verify the cluster state, and delete the
+immutable <code>OpenBaoRestore</code> only after you decide that another operation can proceed.
+<code>RestoreConfigurationReady</code> reports the operator-known auth, storage identity, Secret, and egress prerequisites.</p><p><code>status.execution</code> records the stable operation ID, expected Job name and UID, and the <code>Prepared</code>, <code>Committed</code>,
+<code>Created</code>, <code>TerminalObserved</code>, and <code>FollowThroughComplete</code> receipts. The operator retains the Job without a TTL until
+the terminal result and post-restore recovery are durable. It then removes the Job deliberately.</p><p>When steady read replicas are configured, the operator drains them before creating the restore Job. After the Job
+succeeds, the operator keeps the restore lock and restarts every voter Pod through a StatefulSet rollout. The
+<code>OpenBaoCluster</code> records the restore name, UID, and voter restart completion time in <code>status.restore</code>.</p><p>After all voter Pods run the restored revision and are Ready, the operator restores the desired read replicas. It waits
+for <code>ReadReplicasReady</code>, <code>ReadServingAvailable</code>, and <code>RaftMembershipReady</code> before recording follow-through completion,
+marking the restore <code>Completed</code>, and releasing the restore lock.</p><p>Deleting a restore before execution is committed cancels it. Deleting a committed restore does not terminate its Job.
+The finalizer observes the terminal result, completes voter and read-replica recovery, and then removes the Job and the
+restore request. Loss of an admission-policy dependency still blocks new restore work, but it does not stop this narrow
+committed-execution drain path.</p><aside class="callout callout-note" role=note><div class=callout-icon aria-hidden=true>i</div><div><p class=callout-title>Completed is not full service validation</p><div class=callout-body><code>Completed</code> means the restore Job succeeded and every voter completed the required post-restore restart. When read
+replicas are configured, it also means the read pool returned to its declared membership and readiness. The operator
+does not validate restored application data or authentication semantics. Verify seal state, leader, Raft membership,
+application data, and authentication after every restore.</div></div></aside><h2 id=use-a-force-restore>Use a force restore</h2><p>Set <code>force: true</code> only when disaster recovery cannot use the normal verified restore:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Bypass snapshot seal-consistency verification</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  force: true</code></pre></div><p>This option uses OpenBao&rsquo;s <code>sys/storage/raft/snapshot-force</code> endpoint. It bypasses verification that the snapshot is
+compatible with the target cluster&rsquo;s Shamir or auto-unseal configuration. It also skips the controller checks that
+require the target to be initialized and not upgrading.</p><p>The force endpoint does not make incompatible seal material usable after the restore. Validate the snapshot source and
+seal compatibility through another trusted process before you use it.</p><h2 id=override-a-stuck-operation-lock>Override a stuck operation lock</h2><p>Use this only when disaster recovery cannot wait for an upgrade or backup lock to clear normally:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Force restore ownership of the operation lock</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  force: true
+  overrideOperationLock: true</code></pre></div><p><code>overrideOperationLock</code> requires <code>force: true</code>. The controller can replace a non-restore operation lock and records an
+<code>OperationLockOverride</code> condition, Warning Event, and audit signal. It does not acknowledge
+<code>status.breakGlass</code>; that is a separate rollback-recovery decision.</p><p>After a forced restore, verify <code>bao status</code>, <code>bao operator raft list-peers</code>, declared replica readiness, client login,
+and representative application data before returning traffic. If the target remains sealed or leaderless, continue
+with the corresponding recovery page.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#before-you-begin>Before you begin</a></li><li><a href=#executor-limits>Executor limits</a></li><li><a href=#prepare-a-cross-cluster-restore>Prepare a cross-cluster restore</a><ul><li><a href=#preserve-lifecycle-jwt-identities>Preserve lifecycle JWT identities</a></li></ul></li><li><a href=#choose-restore-authentication>Choose restore authentication</a></li><li><a href=#create-the-restore-request>Create the restore request</a></li><li><a href=#monitor-the-lifecycle>Monitor the lifecycle</a></li><li><a href=#use-a-force-restore>Use a force restore</a></li><li><a href=#override-a-stuck-operation-lock>Override a stuck operation lock</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/operate/restore.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>

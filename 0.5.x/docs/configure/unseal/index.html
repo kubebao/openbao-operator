@@ -1,0 +1,146 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Choose the unseal trust root and meet the exact workload-identity, Secret, file, or HSM contract."><title>Configure unseal · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/configure/unseal/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/unseal/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/configure/unseal/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/configure/unseal/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/configure/unseal/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a><div class=nav-children><a href=/0.5.x/docs/configure/>Overview</a><a href=/0.5.x/docs/configure/security-profile/>Choose a security profile</a><a href=/0.5.x/docs/configure/initialize/>Initialize the cluster</a><a class=is-current href=/0.5.x/docs/configure/unseal/ aria-current=page>Configure unseal</a><a href=/0.5.x/docs/configure/storage/>Configure storage</a><a href=/0.5.x/docs/configure/server/>Configure the server runtime</a><a href=/0.5.x/docs/configure/expose/>Expose OpenBao</a><a href=/0.5.x/docs/configure/gateway/>Use Gateway API</a><a href=/0.5.x/docs/configure/network/>Configure network policy</a><a href=/0.5.x/docs/configure/monitor/>Monitor OpenBao</a><a href=/0.5.x/docs/configure/read-replicas/>Configure read replicas</a><a href=/0.5.x/docs/configure/air-gapped/>Use private registries</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/configure/>Configure a cluster</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Configure unseal</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Configure unseal</h1><p class=article-lede>Choose the unseal trust root and meet the exact workload-identity, Secret, file, or HSM contract.</p><p class=page-meta>Updated 24 October 2026 · 7 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#choose-the-trust-root>Choose the trust root</a></li><li><a href=#apply-the-universal-secret-contract>Apply the universal Secret contract</a></li><li><a href=#keep-hardened-credentials-out-of-the-custom-resource>Keep Hardened credentials out of the custom resource</a></li><li><a href=#meet-the-provider-credential-contract>Meet the provider credential contract</a></li><li><a href=#configure-a-cloud-kms>Configure a cloud KMS</a></li><li><a href=#configure-transit>Configure transit</a></li><li><a href=#openbao-27-seal-plugins>OpenBao 2.7 seal plugins</a></li><li><a href=#configure-a-plugin-backed-kms-seal>Configure a plugin-backed KMS seal</a></li><li><a href=#configure-kmip>Configure KMIP</a></li><li><a href=#configure-pkcs11>Configure PKCS#11</a></li><li><a href=#protect-the-static-key>Protect the static key</a></li><li><a href=#account-for-private-acme-trust>Account for private ACME trust</a></li><li><a href=#verify-unseal-readiness>Verify unseal readiness</a></li></ul></nav></details><div class=article-content><p>Choose an unseal provider whose root of trust survives loss or compromise of the Kubernetes cluster. <code>Hardened</code>
+requires a non-static provider. <code>Development</code> can use the operator-managed static key.</p><h2 id=choose-the-trust-root>Choose the trust root</h2><table><thead><tr><th>Type</th><th>Use it when</th><th>Primary credential path</th></tr></thead><tbody><tr><td><code>awskms</code>, <code>gcpckms</code>, <code>azurekeyvault</code></td><td>The cloud platform provides the external key service</td><td>Prefer workload identity; use a Secret only when needed</td></tr><tr><td><code>transit</code></td><td>A separate OpenBao cluster owns the wrapping key</td><td>Namespace-local Secret for the token and optional mTLS files</td></tr><tr><td><code>ocikms</code></td><td>OCI KMS is the external trust source</td><td>Principal identity or an OCI SDK config Secret</td></tr><tr><td><code>kmip</code></td><td>An enterprise key manager exposes KMIP</td><td>Secret-mounted client certificate, key, and optional CA</td></tr><tr><td><code>kms</code></td><td>An OpenBao 2.6+ KMS plugin owns the wrapping operation</td><td>Declared KMS plugin; Hardened does not permit plugin configuration entries</td></tr><tr><td><code>pkcs11</code></td><td>An HSM and vendor library are available in the OpenBao image</td><td>Secret-backed PIN and runtime environment or configuration files</td></tr><tr><td><code>static</code></td><td>The cluster is disposable and uses <code>Development</code></td><td>Operator-generated immutable Kubernetes Secret</td></tr></tbody></table><p>Supported types are <code>static</code>, <code>awskms</code>, <code>gcpckms</code>, <code>azurekeyvault</code>, <code>transit</code>, <code>kmip</code>, <code>kms</code>, <code>ocikms</code>, and <code>pkcs11</code>.</p><h2 id=apply-the-universal-secret-contract>Apply the universal Secret contract</h2><p>When <code>spec.unseal.credentialsSecretRef</code> is set:</p><ul><li>the Secret must exist in the same namespace as the <code>OpenBaoCluster</code>;</li><li>the user applying the cluster must be authorized to <code>get</code> that Secret;</li><li>the name cannot match operator-managed system Secret suffixes such as <code>-unseal-key</code>, <code>-root-token</code>, <code>-tls-ca</code>, or
+<code>-tls-server</code>;</li><li>every referenced file under <code>/etc/bao/seal-creds</code> maps to a Secret key with the same filename;</li><li>missing, empty, invalid JSON, invalid PEM, or mismatched certificate material is rejected where the provider contract
+can validate it.</li></ul><p>Use workload identity instead of long-lived cloud keys when the provider and platform support it. Inline credential
+fields remain API-supported for <code>Development</code>, but they are stored in the <code>OpenBaoCluster</code> and therefore in etcd.</p><div class=command-block><div class=command-head><div><span>reference</span><p>Map mounted paths to Secret keys</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  unseal:
+    credentialsSecretRef:
+      name: unseal-creds
+    transit:
+      tlsCACert: /etc/bao/seal-creds/ca.crt
+      tlsClientCert: /etc/bao/seal-creds/client.crt
+      tlsClientKey: /etc/bao/seal-creds/client.key</code></pre></div><p>This fragment requires <code>unseal-creds</code> keys named <code>ca.crt</code>, <code>client.crt</code>, and <code>client.key</code>.</p><h2 id=keep-hardened-credentials-out-of-the-custom-resource>Keep Hardened credentials out of the custom resource</h2><p>Hardened admission rejects these fields when they contain values:</p><table><thead><tr><th>Provider</th><th>Rejected field</th><th>Use instead</th></tr></thead><tbody><tr><td>AWS KMS</td><td><code>spec.unseal.awskms.secretKey</code> and <code>sessionToken</code></td><td>Workload identity or <code>credentialsSecretRef</code> keys <code>AWS_SECRET_ACCESS_KEY</code> and <code>AWS_SESSION_TOKEN</code></td></tr><tr><td>Azure Key Vault</td><td><code>spec.unseal.azureKeyVault.clientSecret</code></td><td>Managed identity, workload identity, or the <code>AZURE_CLIENT_SECRET</code> key in <code>credentialsSecretRef</code></td></tr><tr><td>Transit</td><td><code>spec.unseal.transit.token</code></td><td>The <code>token</code> key in <code>credentialsSecretRef</code></td></tr><tr><td>PKCS#11</td><td><code>spec.unseal.pkcs11.pin</code></td><td>The <code>BAO_HSM_PIN</code> key in <code>credentialsSecretRef</code></td></tr><tr><td>KMS plugin</td><td>Any non-empty <code>spec.unseal.kms.config</code> map</td><td>Omit the map; use plugin defaults, external identity, or Secret files under <code>/etc/bao/seal-creds</code></td></tr></tbody></table><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>Migrate existing Hardened objects before upgrade</p><div class=callout-body>Create the replacement Secret or workload identity before you install the new admission policy. Submit one
+<code>OpenBaoCluster</code> update that adds the replacement and removes each prohibited inline field. The API server rejects
+later updates while any prohibited field remains in the submitted object.</div></div></aside><h2 id=meet-the-provider-credential-contract>Meet the provider credential contract</h2><table><thead><tr><th>Provider</th><th>Secret keys or mounted-file requirements</th></tr></thead><tbody><tr><td>AWS KMS</td><td><code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code>; <code>AWS_SESSION_TOKEN</code> is optional. Omit the Secret for IRSA or the standard AWS credential chain.</td></tr><tr><td>GCP Cloud KMS</td><td>A valid JSON key, normally <code>credentials.json</code>, when not using Workload Identity or Application Default Credentials.</td></tr><tr><td>Azure Key Vault</td><td><code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>, and <code>AZURE_CLIENT_SECRET</code>; optional environment and resource keys are also wired. Omit the Secret for managed identity or Azure Workload Identity.</td></tr><tr><td>Transit</td><td>Hardened requires the <code>token</code> Secret key. Development can use an inline token. Add files referenced by <code>tlsCACert</code>, <code>tlsClientCert</code>, and <code>tlsClientKey</code>; the client certificate and key must be set together.</td></tr><tr><td>OCI KMS API key</td><td><code>config</code> with a <code>[DEFAULT]</code> profile and the key file named by <code>key_file</code>. Both files must be under <code>/etc/bao/seal-creds</code>.</td></tr><tr><td>KMIP</td><td>Files named by <code>clientCert</code>, <code>clientKey</code>, and optional <code>caCert</code>. The client certificate and key must match.</td></tr><tr><td>KMS plugin</td><td>All Secret keys are mounted under <code>/etc/bao/seal-creds</code>. Hardened requires an empty <code>spec.unseal.kms.config</code>; the plugin must use defaults, external identity, or fixed Secret-file paths.</td></tr><tr><td>PKCS#11</td><td><code>BAO_HSM_PIN</code> when <code>pin</code> is omitted, plus every key referenced by <code>runtime.env</code> and <code>runtime.fileEnv</code>.</td></tr></tbody></table><h2 id=configure-a-cloud-kms>Configure a cloud KMS</h2><p>Use a workload identity on the OpenBao ServiceAccount and omit the credential Secret. This AWS fragment shows the
+shape; GCP and Azure use their platform-specific ServiceAccount annotations or Pod labels.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Use AWS KMS with workload identity</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: &#34;arn:aws:iam::&lt;account&gt;:role/&lt;openbao-kms-role&gt;&#34;
+  unseal:
+    type: awskms
+    awskms:
+      region: eu-west-1
+      kmsKeyID: &#34;arn:aws:kms:eu-west-1:&lt;account&gt;:key/&lt;key-id&gt;&#34;</code></pre></div><p>Grant only the KMS operations required by the provider. Confirm the workload identity can use the key before relying on
+it for a production bootstrap. Lifecycle Jobs have separate ServiceAccounts and do not inherit the main Pod&rsquo;s cloud
+identity automatically.</p><h2 id=configure-transit>Configure transit</h2><p>Transit addresses must be absolute HTTPS URLs. The operator rejects userinfo, query strings, fragments, localhost,
+loopback, link-local, unspecified, scoped-IP, and ambiguous numeric-host forms.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Use transit with Secret-backed credentials</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  unseal:
+    type: transit
+    credentialsSecretRef:
+      name: transit-unseal
+    transit:
+      address: &#34;https://transit.example.com:8200&#34;
+      keyName: openbao-unseal
+      mountPath: transit
+      tlsCACert: /etc/bao/seal-creds/ca.crt</code></pre></div><p>The Secret must contain <code>token</code> and <code>ca.crt</code>. Use an orphan or periodic token with only the transit encrypt and decrypt
+permissions. Set both <code>tlsClientCert</code> and <code>tlsClientKey</code> when using client-certificate authentication.</p><h2 id=openbao-27-seal-plugins>OpenBao 2.7 seal plugins</h2><p>OpenBao 2.7 requires a matching <code>spec.plugins</code> KMS declaration for the typed
+AWS, Azure, GCP, OCI, and PKCS#11 seal settings. The operator blocks these
+configurations without a matching plugin. Follow the <a href=/0.5.x/docs/operate/openbao-270/>2.7 migration procedure</a>
+before upgrading an existing cluster.</p><h2 id=configure-a-plugin-backed-kms-seal>Configure a plugin-backed KMS seal</h2><p>OpenBao 2.6.0 and later can use a plugin catalog entry with <code>type: kms</code> as the seal implementation. The unseal
+configuration must reference the declared plugin by name. <code>Development</code> can pass plugin attributes through
+<code>spec.unseal.kms.config</code>. The next fragment uses that Development-only path:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Use a KMS seal plugin in Development</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  profile: Development
+  version: &#34;2.6.2&#34;
+  configuration:
+    plugin:
+      autoDownload: true
+      downloadBehavior: fail
+  plugins:
+    - type: kms
+      name: corp-kms
+      image: registry.example.com/openbao-kms-corp
+      version: v0.1.0
+      binaryName: openbao-kms-corp
+      sha256sum: &#34;&lt;64-character-sha256&gt;&#34;
+  unseal:
+    type: kms
+    credentialsSecretRef:
+      name: corp-kms-runtime
+    kms:
+      pluginName: corp-kms
+      config:
+        endpoint: &#34;https://kms-broker.example.com:8443&#34;
+        ca_file: &#34;/etc/bao/seal-creds/ca.crt&#34;</code></pre></div><p>Do not use this <code>kms.config</code> fragment with <code>Hardened</code>. A KMS plugin used with <code>Hardened</code> must work without entries in
+that map. It can use plugin defaults, external identity, or fixed files mounted from <code>credentialsSecretRef</code> under
+<code>/etc/bao/seal-creds</code>.</p><p>In <code>Development</code>, config keys must be valid HCL identifiers. The values are stored in the <code>OpenBaoCluster</code>. Use paths
+to mounted Secret files for sensitive material. The operator verifies the plugin reference and renders string
+attributes, but the plugin owns the meaning of its config. With a command-based plugin, the binary must already exist
+in the OpenBao image before startup.</p><h2 id=configure-kmip>Configure KMIP</h2><p>Create and activate the wrapping key in the KMIP system before the OpenBao cluster starts. Grant the client identity
+encrypt and decrypt operations. Issue a client certificate with <code>clientAuth</code> extended key usage and ensure the server
+certificate matches <code>serverName</code>.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Use KMIP with mTLS files</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  unseal:
+    type: kmip
+    credentialsSecretRef:
+      name: kmip-client
+    kmip:
+      endpoint: kmip.example.com:5696
+      kmsKeyID: &#34;1&#34;
+      clientCert: /etc/bao/seal-creds/client.crt
+      clientKey: /etc/bao/seal-creds/client.key
+      caCert: /etc/bao/seal-creds/ca.crt
+      serverName: kmip.example.com
+      encryptAlg: AES_GCM</code></pre></div><p>The Secret must contain <code>client.crt</code>, <code>client.key</code>, and <code>ca.crt</code>. Set <code>tls12Ciphers</code> only when the appliance requires a
+specific TLS 1.2 suite.</p><h2 id=configure-pkcs11>Configure PKCS#11</h2><p>Prepare the HSM and runtime before creating the cluster:</p><ul><li>build an OpenBao image with HSM support, the vendor PKCS#11 module, and dependent libraries;</li><li>create the wrapping key through vendor tooling;</li><li>choose <code>slot</code> or <code>tokenLabel</code>, but not both;</li><li>choose a mechanism compatible with the HSM object type;</li><li>store the PIN and vendor runtime material in <code>credentialsSecretRef</code>;</li><li>use <code>runtime.libraryPath</code>, <code>runtime.env</code>, and <code>runtime.fileEnv</code> instead of a custom wrapper script.</li></ul><div class=command-block><div class=command-head><div><span>configure</span><p>Wire a PKCS#11 runtime</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  image: registry.example.com/openbao-hsm-vendor:2.6.2
+  unseal:
+    type: pkcs11
+    credentialsSecretRef:
+      name: pkcs11-runtime
+    pkcs11:
+      lib: /usr/local/lib/libpkcs11.so
+      tokenLabel: OpenBao
+      keyLabel: bao-root-key-aes
+      mechanism: AES_GCM
+      runtime:
+        libraryPath: /usr/local/lib
+        env:
+          - name: CRYPTOSERVER
+            secretKey: cryptoserver
+        fileEnv:
+          - name: CS_PKCS11_R3_CFG
+            secretKey: cs_pkcs11_R3.cfg</code></pre></div><p>The Secret must contain <code>BAO_HSM_PIN</code>, <code>cryptoserver</code>, and <code>cs_pkcs11_R3.cfg</code>. Only <code>fileEnv</code> keys are mounted as files.
+The wrapper fails early when the library is missing or points to a directory.</p><h2 id=protect-the-static-key>Protect the static key</h2><p>When unseal is omitted or set to <code>static</code>, the operator creates <code>&lt;cluster-name>-unseal-key</code> with data key <code>key</code>. The
+Secret is immutable and carries owner proof for the <code>OpenBaoCluster</code>.</p><p>Do not pre-create, replace, patch, or delete that Secret. An unowned pre-existing Secret is rejected, and a replacement
+key cannot decrypt existing data. Back up and retain the operator-owned Secret according to the disposable cluster&rsquo;s
+recovery requirements.</p><h2 id=account-for-private-acme-trust>Account for private ACME trust</h2><p>When <code>spec.configuration.acmeCARoot</code> points under <code>/etc/bao/seal-creds</code>, the unseal credentials Secret must also contain
+<code>pki-ca.crt</code>. The operator and helper clients use that fixed filename to trust the private ACME issuer during probes and
+day-2 operations.</p><h2 id=verify-unseal-readiness>Verify unseal readiness</h2><div class=command-block><div class=command-head><div><span>verify</span><p>Inspect unseal and identity conditions</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; get openbaocluster &lt;name&gt; \
+  -o jsonpath=&#39;{range .status.conditions[*]}{.type}={.status}{&#34;\t&#34;}{.reason}{&#34;\t&#34;}{.message}{&#34;\n&#34;}{end}&#39;
+
+kubectl -n &lt;namespace&gt; get pods \
+  -l openbao.org/cluster=&lt;name&gt;</code></pre></div><p>Fix the first provider, Secret, identity, TLS, or network prerequisite reported by the operator. Do not bypass a failed
+unseal validation by weakening the profile.</p><p>Continue with <a href=../storage/>storage</a>.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#choose-the-trust-root>Choose the trust root</a></li><li><a href=#apply-the-universal-secret-contract>Apply the universal Secret contract</a></li><li><a href=#keep-hardened-credentials-out-of-the-custom-resource>Keep Hardened credentials out of the custom resource</a></li><li><a href=#meet-the-provider-credential-contract>Meet the provider credential contract</a></li><li><a href=#configure-a-cloud-kms>Configure a cloud KMS</a></li><li><a href=#configure-transit>Configure transit</a></li><li><a href=#openbao-27-seal-plugins>OpenBao 2.7 seal plugins</a></li><li><a href=#configure-a-plugin-backed-kms-seal>Configure a plugin-backed KMS seal</a></li><li><a href=#configure-kmip>Configure KMIP</a></li><li><a href=#configure-pkcs11>Configure PKCS#11</a></li><li><a href=#protect-the-static-key>Protect the static key</a></li><li><a href=#account-for-private-acme-trust>Account for private ACME trust</a></li><li><a href=#verify-unseal-readiness>Verify unseal readiness</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/configure/unseal.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>

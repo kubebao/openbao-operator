@@ -1,0 +1,102 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Choose data and audit storage, expand PVCs safely, and understand the current workload-resource controls."><title>Configure storage · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/configure/storage/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/storage/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/configure/storage/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/configure/storage/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/configure/storage/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a><div class=nav-children><a href=/0.5.x/docs/configure/>Overview</a><a href=/0.5.x/docs/configure/security-profile/>Choose a security profile</a><a href=/0.5.x/docs/configure/initialize/>Initialize the cluster</a><a href=/0.5.x/docs/configure/unseal/>Configure unseal</a><a class=is-current href=/0.5.x/docs/configure/storage/ aria-current=page>Configure storage</a><a href=/0.5.x/docs/configure/server/>Configure the server runtime</a><a href=/0.5.x/docs/configure/expose/>Expose OpenBao</a><a href=/0.5.x/docs/configure/gateway/>Use Gateway API</a><a href=/0.5.x/docs/configure/network/>Configure network policy</a><a href=/0.5.x/docs/configure/monitor/>Monitor OpenBao</a><a href=/0.5.x/docs/configure/read-replicas/>Configure read replicas</a><a href=/0.5.x/docs/configure/air-gapped/>Use private registries</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/configure/>Configure a cluster</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Configure storage</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Configure storage</h1><p class=article-lede>Choose data and audit storage, expand PVCs safely, and understand the current workload-resource controls.</p><p class=page-meta>Updated 24 October 2026 · 5 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#configure-voter-storage>Configure voter storage</a></li><li><a href=#understand-pvc-retention>Understand PVC retention</a></li><li><a href=#expand-data-pvcs>Expand data PVCs</a></li><li><a href=#configure-voter-and-read-replica-resources>Configure voter and read-replica resources</a></li><li><a href=#configure-audit-file-storage>Configure audit file storage</a><ul><li><a href=#let-the-operator-create-the-audit-pvc>Let the operator create the audit PVC</a></li><li><a href=#mount-a-platform-owned-audit-pvc>Mount a platform-owned audit PVC</a></li></ul></li><li><a href=#verify-storage>Verify storage</a></li></ul></nav></details><div class=article-content><p>Choose the voter StorageClass and initial capacity before creating the <code>OpenBaoCluster</code>. The storage class cannot be
+changed afterward, and capacity can only grow.</p><h2 id=configure-voter-storage>Configure voter storage</h2><p><code>spec.storage.size</code> is required. <code>storageClassName</code> is optional, but omitting it delegates the decision to the default
+StorageClass at PVC creation time.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Set the data storage contract</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  storage:
+    size: &#34;50Gi&#34;
+    storageClassName: fast-encrypted</code></pre></div><p>The operator creates one <code>ReadWriteOnce</code> data PVC for each voter. Before creating the cluster, verify that the chosen
+StorageClass provides the required IOPS, latency, topology, encryption, expansion, backup, and failure-domain behavior.</p><p>The user applying an explicit StorageClass must have the delegated <code>use</code> permission on that StorageClass. This prevents
+a tenant from selecting platform storage without authorization.</p><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>StorageClass is immutable from cluster creation</p><div class=callout-body>Admission rejects changes to <code>spec.storage.storageClassName</code> after the <code>OpenBaoCluster</code> is created. Runtime reconciliation
+also rejects any requested class that differs from existing PVCs. Moving data to another class requires an explicit
+migration or restore procedure.</div></div></aside><h2 id=understand-pvc-retention>Understand PVC retention</h2><p>The voter StatefulSet uses these retention policies:</p><ul><li>deleting the StatefulSet retains its data PVCs;</li><li>scaling the StatefulSet down deletes PVCs for removed replicas.</li></ul><p>Do not treat a replica reduction as a reversible scheduling change. Confirm Raft membership, backup state, and the data
+retention consequence before scaling down.</p><h2 id=expand-data-pvcs>Expand data PVCs</h2><p>Increase <code>spec.storage.size</code> only after confirming that the StorageClass and CSI driver support expansion. The operator
+patches each managed PVC request upward. It rejects a smaller requested size.</p><div class=command-block><div class=command-head><div><span>apply</span><p>Request a larger voter volume</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; patch openbaocluster &lt;name&gt; --type merge \
+  -p &#39;{&#34;spec&#34;:{&#34;storage&#34;:{&#34;size&#34;:&#34;100Gi&#34;}}}&#39;</code></pre></div><p>Some CSI drivers finish filesystem expansion only after the mounted Pod restarts. When a PVC reports
+<code>FileSystemResizePending</code>, enable maintenance mode so the operator can perform a controlled restart:</p><div class=command-block><div class=command-head><div><span>apply</span><p>Allow controlled resize restarts</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; patch openbaocluster &lt;name&gt; --type merge \
+  -p &#39;{&#34;spec&#34;:{&#34;maintenance&#34;:{&#34;enabled&#34;:true}}}&#39;</code></pre></div><p>If maintenance is disabled, the operator reports <code>StorageRestartRequired</code>. Disable maintenance again after the PVCs and
+Pods converge.</p><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>Expansion depends on Kubernetes and the CSI driver</p><div class=callout-body>The operator can request a larger PVC and coordinate a required restart. It cannot make a StorageClass expandable or
+guarantee that its backend expanded successfully. Inspect the PVC capacity and conditions.</div></div></aside><h2 id=configure-voter-and-read-replica-resources>Configure voter and read-replica resources</h2><p>Read replicas inherit voter storage unless <code>spec.readReplicas.storage</code> overrides it. A read-replica size cannot be
+smaller than the voter size.</p><p>Set <code>spec.resources</code> for voter OpenBao containers. Read replicas use their separate template so each pool can be sized
+for its role:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Size voter and read-replica pools</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  resources:
+    requests:
+      cpu: &#34;1&#34;
+      memory: 2Gi
+    limits:
+      cpu: &#34;2&#34;
+      memory: 4Gi
+  readReplicas:
+    replicas: 2
+    template:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: &#34;1&#34;
+          memory: 2Gi
+    storage:
+      size: 100Gi
+      storageClassName: fast-encrypted</code></pre></div><p>Resource settings do not change storage capacity or quorum. Validate Pod placement, namespace quota, disruption
+budget, and node headroom with the rendered voter and read-replica StatefulSets.</p><h2 id=configure-audit-file-storage>Configure audit file storage</h2><p>Use <code>spec.auditFileStorage</code> when file audit devices need a shared collector handoff. It is separate from the Raft data
+path and is not the authoritative retention archive.</p><h3 id=let-the-operator-create-the-audit-pvc>Let the operator create the audit PVC</h3><div class=command-block><div class=command-head><div><span>configure</span><p>Create a managed audit PVC</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  auditFileStorage:
+    mode: ManagedPVC
+    size: &#34;20Gi&#34;
+    storageClassName: rwx-encrypted
+  audit:
+    - type: file
+      path: file
+      fileOptions:
+        filePath: /openbao/audit/audit.jsonl</code></pre></div><p>Managed mode creates one dedicated, sensitive-labeled <code>ReadWriteMany</code> PVC. Size it for collector lag and replay, then
+ship records to an external log system or immutable archive for retention and search.</p><h3 id=mount-a-platform-owned-audit-pvc>Mount a platform-owned audit PVC</h3><div class=command-block><div class=command-head><div><span>configure</span><p>Use an existing audit PVC</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  auditFileStorage:
+    mode: ExistingPVC
+    existingClaimName: openbao-audit
+    mountPath: /openbao/audit</code></pre></div><p>The claim must exist in the same namespace, be <code>Bound</code>, and include <code>ReadWriteMany</code>. The applying user needs delegated
+<code>use</code> permission on the PVC. <code>size</code> and <code>storageClassName</code> are valid only in <code>ManagedPVC</code> mode.</p><p>Each OpenBao Pod writes through the same mount path but uses its own pod-name subdirectory on the shared claim. A
+collector can mount the claim read-only and read those per-Pod files.</p><p>On standard Kubernetes, generated Pods default to UID <code>100</code>, GID <code>1000</code>, and <code>fsGroup: 1000</code>. OpenShift leaves those
+IDs unset for Security Context Constraints, and <code>spec.securityContext</code> can override them. Verify writable ownership
+against the rendered Pod security context and the CSI driver&rsquo;s <code>fsGroup</code> behavior.</p><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>Adding audit storage can require StatefulSet recreation</p><div class=callout-body>Volume and mount fields are locked on an existing StatefulSet. If <code>AuditFileStorageReady=False</code> reports
+<code>AuditFileStorageStatefulSetRecreateRequired</code>, recreate or replace the StatefulSet through a controlled maintenance
+workflow while preserving every data PVC.</div></div></aside><h2 id=verify-storage>Verify storage</h2><ol><li><p>Inspect every cluster-owned PVC. The cluster label also selects audit and ACME cache claims, not only data PVCs.</p><div class=command-block><div class=command-head><div><span>inspect</span><p>Inspect cluster PVCs</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; get pvc \
+  -l openbao.org/cluster=&lt;name&gt; \
+  -o wide</code></pre></div></li><li><p>Inspect PVC capacity and resize conditions.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Check PVC capacity and conditions</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; get pvc &lt;pvc-name&gt; \
+  -o jsonpath=&#39;{.spec.resources.requests.storage}{&#34;\t&#34;}{.status.capacity.storage}{&#34;\n&#34;}{range .status.conditions[*]}{.type}={.status}{&#34;\t&#34;}{.message}{&#34;\n&#34;}{end}&#39;</code></pre></div></li><li><p>Inspect the operator&rsquo;s storage conditions.</p><div class=command-block><div class=command-head><div><span>verify</span><p>Check cluster storage conditions</p></div><button type=button data-copy-button>Copy</button></div><pre><code>kubectl -n &lt;namespace&gt; get openbaocluster &lt;name&gt; \
+  -o jsonpath=&#39;{range .status.conditions[*]}{.type}={.status}{&#34;\t&#34;}{.reason}{&#34;\t&#34;}{.message}{&#34;\n&#34;}{end}&#39;</code></pre></div></li></ol><p><code>StorageConfigured=True</code> confirms the effective voter StorageClass is resolved and consistent. It does not prove
+requested capacity or filesystem expansion completed. <code>AuditFileStorageReady=True</code> confirms the audit claim is Bound,
+RWX, and mounted by the generated workload. A configured audit claim that is not ready blocks Hardened
+<code>ProductionReady</code>; it does not independently determine Pod availability.</p><p>Continue with <a href=../server/>server runtime configuration</a>.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#configure-voter-storage>Configure voter storage</a></li><li><a href=#understand-pvc-retention>Understand PVC retention</a></li><li><a href=#expand-data-pvcs>Expand data PVCs</a></li><li><a href=#configure-voter-and-read-replica-resources>Configure voter and read-replica resources</a></li><li><a href=#configure-audit-file-storage>Configure audit file storage</a><ul><li><a href=#let-the-operator-create-the-audit-pvc>Let the operator create the audit PVC</a></li><li><a href=#mount-a-platform-owned-audit-pvc>Mount a platform-owned audit PVC</a></li></ul></li><li><a href=#verify-storage>Verify storage</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/configure/storage.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>

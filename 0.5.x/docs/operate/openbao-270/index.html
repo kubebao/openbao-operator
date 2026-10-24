@@ -1,0 +1,98 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Prepare external seal and application plugins before upgrading OpenBao to 2.7."><title>Upgrade OpenBao to 2.7 · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/operate/openbao-270/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/operate/openbao-270/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/operate/openbao-270/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/operate/openbao-270/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a><div class=nav-children><a href=/0.5.x/docs/operate/>Operations overview</a><a href=/0.5.x/docs/operate/production-readiness/>Review production readiness</a><a href=/0.5.x/docs/operate/backups/>Back up a cluster</a><a href=/0.5.x/docs/operate/upgrades/>Upgrade a cluster</a><a class=is-current href=/0.5.x/docs/operate/openbao-270/ aria-current=page>Upgrade OpenBao to 2.7</a><a href=/0.5.x/docs/operate/maintenance/>Run planned maintenance</a><a href=/0.5.x/docs/operate/troubleshoot/>Troubleshoot a cluster</a><a href=/0.5.x/docs/operate/recover-no-leader/>Recover from no leader</a><a href=/0.5.x/docs/operate/recover-sealed/>Recover a sealed cluster</a><a href=/0.5.x/docs/operate/recover-failed-rollback/>Recover a failed rollback</a><a href=/0.5.x/docs/operate/restore/>Restore a snapshot</a><div class=nav-children></div><a href=/0.5.x/docs/operate/decommission/>Decommission a cluster</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/operate/>Operate OpenBao</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Upgrade OpenBao to 2.7</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Upgrade OpenBao to 2.7</h1><p class=article-lede>Prepare external seal and application plugins before upgrading OpenBao to 2.7.</p><p class=page-meta>Updated 24 October 2026 · 4 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#prepare-seal-plugins>Prepare seal plugins</a></li><li><a href=#declare-plugins-on-openbao-27>Declare plugins on OpenBao 2.7</a></li><li><a href=#migrate-pkcs11-images>Migrate PKCS#11 images</a></li><li><a href=#inventory-application-plugins>Inventory application plugins</a></li></ul></nav></details><div class=article-content><p>OpenBao 2.7 removes several built-in seal, authentication, and secrets plugins.
+Prepare their replacements before changing <code>spec.version</code> and <code>spec.image</code>.
+Validate the exact image, plugin version, platform, and upgrade strategy in staging.</p><h2 id=prepare-seal-plugins>Prepare seal plugins</h2><p>OpenBao 2.7 requires external KMS plugins for <code>awskms</code>, <code>azurekeyvault</code>, <code>gcpckms</code>,
+<code>ocikms</code>, and <code>pkcs11</code>. The operator retains these typed <code>spec.unseal</code> settings,
+including credential Secret and workload identity wiring. Add a <code>spec.plugins</code>
+entry with <code>type: kms</code> and a <code>name</code> equal to <code>spec.unseal.type</code>.</p><p>The operator blocks workload preparation and upgrade execution when a removed
+built-in seal has no matching plugin declaration. This check verifies the declared
+configuration; it does not verify that the plugin can contact the provider or
+unwrap the existing root key.</p><p>The <code>static</code>, <code>transit</code>, and <code>kmip</code> seals remain built in. They do not require a
+plugin declaration.</p><ol><li>Back up the cluster and verify the restore procedure with the existing seal.</li><li>Select and pin the replacement plugin. Keep the existing seal provider, key,
+and configuration. Grant the manifest author permission to configure custom
+executables, as required by the operator&rsquo;s admission policy.</li><li>Install the plugin on OpenBao 2.6 first. Declare <code>version</code>, <code>binaryName</code>, and
+the plugin binary&rsquo;s <code>sha256sum</code> while using 2.6. For OCI downloads, set
+<code>spec.configuration.plugin.autoDownload: true</code>. For command-based plugins,
+include the executable under <code>/openbao/plugins</code> in the OpenBao image.</li><li>Configure registry and provider egress. Automatic OCI downloads occur inside
+the OpenBao container. Kubernetes <code>imagePullSecrets</code> do not configure that
+downloader. For a private registry, use a supported image that supplies the
+downloader credentials, or include the plugin binary in the image.</li><li>Replace Pods in staging and verify that they unseal with the existing data.
+Downloaded plugins use an <code>emptyDir</code> cache and must be available again when a
+Pod is replaced. Include registry unavailability in the recovery assessment.</li><li>Change both <code>spec.version</code> and <code>spec.image</code> to the selected 2.7 release. Observe
+the upgrade conditions, quorum, authentication, and reads and writes.</li><li>Take and restore a new snapshot in an isolated staging cluster. Verify plugin
+availability and unseal after Pod replacement there as well.</li></ol><p>Do not disable an existing authentication or secrets mount to migrate its plugin.
+Disabling a mount deletes its data.</p><h2 id=declare-plugins-on-openbao-27>Declare plugins on OpenBao 2.7</h2><p>For OCI plugins, 2.7 can infer the version from the image tag and the binary name
+from image metadata. A manifest digest can replace the binary checksum:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>version</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2.7.0&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>configuration</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>plugin</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>autoDownload</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>autoRegister</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>downloadBehavior</span><span class=p>:</span><span class=w> </span><span class=l>fail</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>plugins</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>kms</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>awskms</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>ghcr.io/openbao/openbao-plugin-kms-awskms:&lt;plugin-version&gt;@sha256:&lt;manifest-digest&gt;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>unseal</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>awskms</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>awskms</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>region</span><span class=p>:</span><span class=w> </span><span class=l>eu-west-1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>kmsKeyID</span><span class=p>:</span><span class=w> </span><span class=l>&lt;existing-key-arn&gt;</span><span class=w>
+</span></span></span></code></pre></div><p>Replace the placeholders with the selected plugin release, verified manifest
+digest, and existing KMS key. Supply credentials through the existing workload
+identity or <code>spec.unseal.credentialsSecretRef</code> configuration.</p><p>When an OCI reference has no tag, set <code>version</code>. When it has no digest, set
+<code>sha256sum</code> to the checksum of the extracted binary, not the image digest.
+Earlier OpenBao versions still require all three explicit plugin fields.</p><p>Command-based KMS plugins on 2.7 can omit <code>version</code>, <code>binaryName</code>, and <code>sha256sum</code>.
+The command must stay within the plugin directory. Checksums remain available
+when the deployment requires binary verification.</p><p>OpenBao 2.7 defaults <code>plugin_auto_register</code> to true. Set
+<code>spec.configuration.plugin.autoRegister</code> when the deployment requires a fixed
+registration policy across versions. KMS plugins are declared through server
+configuration and do not use API-based registration.</p><h2 id=migrate-pkcs11-images>Migrate PKCS#11 images</h2><p>The <code>openbao-hsm</code> distribution ends with OpenBao 2.6. Use the standard OpenBao
+image with the PKCS#11 KMS plugin and the vendor library and runtime dependencies.
+The operator&rsquo;s typed PKCS#11 settings continue to supply the existing runtime
+files, environment variables, and credential Secret references.</p><p>PKCS#11 plugin v0.1.0 contains the implementation shipped in OpenBao 2.6.x.
+Plugin v0.2.0 changes session handling and adds External Keys support. Upstream
+warns that a downgrade to v0.1.0 is not possible after v0.2.0 rewraps the root key.
+Qualify that plugin upgrade separately against the actual HSM.
+See the <a href=https://github.com/openbao/openbao-plugins/releases/tag/kms-pkcs11-v0.2.0>PKCS#11 v0.2.0 release notes</a>.</p><h2 id=inventory-application-plugins>Inventory application plugins</h2><p>Before upgrading, inventory authentication and secrets mounts in every namespace.
+The built-in LDAP, Kerberos, and RADIUS authentication plugins and LDAP secrets
+plugin are removed in 2.7. Install their external replacements on every Pod and
+verify existing mounts, authentication, lease operations, and restarts in staging.
+The operator does not discover these mounts from <code>OpenBaoCluster</code> configuration.</p><p>The existing pre-2.6 to 2.6-or-newer BlueGreen restriction remains in place until
+specific version pairs pass lifecycle qualification. A request-forwarding fix
+does not establish datastore downgrade compatibility. Use the backup and restore
+procedure for recovery when an in-place downgrade is not supported.</p><p>See the <a href=https://github.com/openbao/openbao/releases/tag/v2.7.0>OpenBao 2.7 release notes</a>
+and <a href=https://openbao.org/docs/guides/upgrade/plugins/>plugin upgrade guide</a>.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#prepare-seal-plugins>Prepare seal plugins</a></li><li><a href=#declare-plugins-on-openbao-27>Declare plugins on OpenBao 2.7</a></li><li><a href=#migrate-pkcs11-images>Migrate PKCS#11 images</a></li><li><a href=#inventory-application-plugins>Inventory application plugins</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/operate/openbao-270.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>

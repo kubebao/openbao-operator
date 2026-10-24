@@ -1,0 +1,93 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Choose Gateway API, Ingress, or a direct Service and keep certificate, DNS, and publication ownership explicit."><title>Expose OpenBao · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/configure/expose/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/expose/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/configure/expose/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/configure/expose/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/configure/expose/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a><div class=nav-children><a href=/0.5.x/docs/configure/>Overview</a><a href=/0.5.x/docs/configure/security-profile/>Choose a security profile</a><a href=/0.5.x/docs/configure/initialize/>Initialize the cluster</a><a href=/0.5.x/docs/configure/unseal/>Configure unseal</a><a href=/0.5.x/docs/configure/storage/>Configure storage</a><a href=/0.5.x/docs/configure/server/>Configure the server runtime</a><a class=is-current href=/0.5.x/docs/configure/expose/ aria-current=page>Expose OpenBao</a><a href=/0.5.x/docs/configure/gateway/>Use Gateway API</a><a href=/0.5.x/docs/configure/network/>Configure network policy</a><a href=/0.5.x/docs/configure/monitor/>Monitor OpenBao</a><a href=/0.5.x/docs/configure/read-replicas/>Configure read replicas</a><a href=/0.5.x/docs/configure/air-gapped/>Use private registries</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/configure/>Configure a cluster</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Expose OpenBao</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Expose OpenBao</h1><p class=article-lede>Choose Gateway API, Ingress, or a direct Service and keep certificate, DNS, and publication ownership explicit.</p><p class=page-meta>Updated 24 October 2026 · 4 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#choose-the-entry-path>Choose the entry path</a></li><li><a href=#choose-where-tls-terminates>Choose where TLS terminates</a></li><li><a href=#configure-the-selected-path>Configure the selected path</a></li><li><a href=#supply-external-certificates>Supply external certificates</a></li><li><a href=#preserve-delegated-authority>Preserve delegated authority</a></li></ul></nav></details><div class=article-content><p>Choose one client entry path, decide where TLS terminates, and assign ownership for the public hostname and
+certificate. The operator creates Kubernetes networking resources; it does not create public DNS records or configure
+the external data plane.</p><h2 id=choose-the-entry-path>Choose the entry path</h2><table><thead><tr><th>Path</th><th>Use it when</th><th>Operator-managed resource</th></tr></thead><tbody><tr><td>Gateway API</td><td>Gateway API is the platform edge and you need explicit listener and route ownership</td><td><code>HTTPRoute</code> or <code>TLSRoute</code>, a client Service, and optionally <code>BackendTLSPolicy</code></td></tr><tr><td>Ingress</td><td>An existing ingress controller is the established HTTP edge</td><td><code>Ingress</code> and a client Service</td></tr><tr><td>Direct Service</td><td>A cloud load balancer or private L4 boundary is sufficient</td><td>A <code>LoadBalancer</code>, <code>NodePort</code>, or <code>ClusterIP</code> Service</td></tr></tbody></table><p>Gateway API is the most explicit model for new shared platforms. Use <a href=../gateway/>the Gateway guide</a> after choosing
+that path. Ingress remains useful where it is already the platform standard. A direct Service has the fewest moving
+parts, but leaves perimeter policy to the load balancer and network. Configure one managed edge path unless you have a
+deliberate reason to publish both Gateway and Ingress; admission does not make them mutually exclusive.</p><p>The main client Service is <code>&lt;cluster>-public</code>. With RollingUpdate, it can select voters and configured steady read
+replicas; OpenBao serves eligible reads locally and forwards writes to the active leader. BlueGreen revision scoping
+currently excludes steady read replicas from this Service. The operator does not create a second Gateway or Ingress
+route for the opt-in dedicated read-replica Service.</p><h2 id=choose-where-tls-terminates>Choose where TLS terminates</h2><table><thead><tr><th>Pattern</th><th>Use it when</th><th>Required trust decision</th></tr></thead><tbody><tr><td>Passthrough</td><td>OpenBao should present the server certificate to clients</td><td>The edge forwards TLS without decrypting it</td></tr><tr><td>Edge termination with backend TLS</td><td>HTTP-aware edge policy or centralized certificate presentation is required</td><td>The edge certificate and the edge-to-OpenBao certificate are separate trust relationships</td></tr></tbody></table><p>Prefer passthrough unless the edge must inspect HTTP. ACME requires OpenBao to remain the TLS endpoint; a managed
+Gateway therefore needs <code>tlsPassthrough: true</code>, and the Gateway hostname must also appear in <code>tls.acme.domains</code>.
+Hardened clusters require <code>tls.mode: External</code> or <code>ACME</code> and reject TLS disablement.</p><p><code>OperatorManaged</code> is useful for development and internal evaluation. It makes the operator the certificate authority,
+so it is not an accepted Hardened production mode.</p><h2 id=configure-the-selected-path>Configure the selected path</h2><div class=command-block><div class=command-head><div><span>configure</span><p>Use Gateway API passthrough</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  gateway:
+    enabled: true
+    listenerName: openbao
+    tlsPassthrough: true
+    hostname: bao.example.com
+    gatewayRef:
+      name: main-gateway
+      namespace: gateway-system
+  network:
+    trustedIngressPeers:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: gateway-system
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik</code></pre></div><p>This creates a <code>TLSRoute</code>; the referenced Gateway and a compatible TLS passthrough listener must already exist. A
+cross-namespace Gateway must allow Routes from the <code>OpenBaoCluster</code> namespace.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Use a managed Ingress</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  ingress:
+    enabled: true
+    className: nginx
+    host: bao.example.com
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+  network:
+    trustedIngressPeers:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx</code></pre></div><p>The Ingress presents <code>spec.ingress.tlsSecretName</code>, or <code>&lt;cluster>-tls-server</code> when the field is empty. That Secret choice
+does not rename the certificate Secrets mounted by OpenBao. A custom Secret reference requires <code>use</code> or <code>get</code> on that
+Secret. Controller-specific backend TLS annotations remain your responsibility. Readiness defaults to a published
+load-balancer address; use <code>readinessMode: Created</code> only for controllers that intentionally do not publish one.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Use a direct load-balancer Service</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb</code></pre></div><p>Provider annotations are passed through to the generated Service, which exposes port 8200. Confirm whether the
+resulting load balancer is public or private; the operator cannot infer that boundary from the annotation. There is no
+dedicated integration-readiness condition for a direct Service.</p><h2 id=supply-external-certificates>Supply external certificates</h2><p>With <code>tls.mode: External</code>, create these same-namespace Secrets before expecting the cluster to become ready:</p><table><thead><tr><th>Secret</th><th>Required keys</th></tr></thead><tbody><tr><td><code>&lt;cluster>-tls-ca</code></td><td><code>ca.crt</code></td></tr><tr><td><code>&lt;cluster>-tls-server</code></td><td><code>tls.crt</code>, <code>tls.key</code></td></tr></tbody></table><p>The server certificate must chain to <code>ca.crt</code> and cover <code>openbao-cluster-&lt;cluster>.local</code>. It must also cover each
+enabled Ingress or Gateway hostname and every entry in <code>spec.tls.extraSANs</code>. Values that parse as IP addresses must be
+IP SANs; all other values must be DNS SANs. The operator validates this contract but does not issue or rotate External
+certificates.</p><aside class="callout callout-warning" role=note><div class=callout-icon aria-hidden=true>!</div><div><p class=callout-title>DNS remains outside the operator</p><div class=callout-body>Create the public DNS record with your DNS controller, GitOps platform, or provider tooling. Point it at the address
+published by the Gateway, Ingress, or load balancer and test the name from the client network. Setting <code>hostname</code> or
+<code>host</code> on an <code>OpenBaoCluster</code> does not publish DNS.</div></div></aside><h2 id=preserve-delegated-authority>Preserve delegated authority</h2><p>An identity that can edit an <code>OpenBaoCluster</code> still needs <code>publishnetworking</code> on that cluster to enable managed
+Gateway or Ingress exposure, create a non-<code>ClusterIP</code> Service, or add networking annotations. Gateway attachment also
+requires <code>use</code> on the referenced Gateway. Selecting an Ingress class requires <code>use</code> on that <code>IngressClass</code>.</p><p>After applying the change, require <code>TLSReady=True</code>, inspect the generated Service and route, and check
+<code>GatewayIntegrationReady</code> or <code>IngressIntegrationReady</code>. For Gateway API, <code>GatewayIntegrationReady=True</code> includes the
+current Route&rsquo;s <code>Accepted=True</code> and <code>ResolvedRefs=True</code> parent status. Finish with <code>bao status</code> or an HTTPS request that
+uses the intended CA and hostname from the real client path.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#choose-the-entry-path>Choose the entry path</a></li><li><a href=#choose-where-tls-terminates>Choose where TLS terminates</a></li><li><a href=#configure-the-selected-path>Configure the selected path</a></li><li><a href=#supply-external-certificates>Supply external certificates</a></li><li><a href=#preserve-delegated-authority>Preserve delegated authority</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/configure/expose.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>

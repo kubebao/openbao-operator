@@ -1,0 +1,94 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Attach OpenBao to a compatible Gateway with TLS passthrough or verified backend TLS."><title>Use Gateway API · 0.5.x · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/0.5.x/docs/configure/gateway/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class="is-doc has-doc-sidebar"><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open documentation navigation" aria-controls=site-sidebar aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/0.5.x/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/0.5.x/docs/ aria-current=location>Docs</a>
+<a href=/releases/>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.5.x"><span>0.5.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/gateway/><span>0.6.x</span>
+<small>Current stable</small>
+</a><a href=/0.5.x/docs/configure/gateway/ aria-current=page><span>0.5.x</span>
+<small>Previous stable</small>
+</a><a href=/0.4.x/docs/configure/gateway/><span>0.4.x</span>
+<small>Archived stable</small>
+</a><a href=/next/docs/configure/gateway/><span>Next</span>
+<small>Unreleased</small></a></div></details><button class=sidebar-collapse type=button aria-controls=site-sidebar aria-expanded=true title="Collapse sidebar" data-sidebar-collapse>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 3-5 5 5 5"/></svg>
+<span class=sr-only data-sidebar-collapse-label>Collapse sidebar</span></button></div></div><nav aria-label=Documentation><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/get-started/><span>Get started</span></a></div><div class="nav-group is-active"><a class=nav-group-link href=/0.5.x/docs/configure/><span>Configure</span></a><div class=nav-children><a href=/0.5.x/docs/configure/>Overview</a><a href=/0.5.x/docs/configure/security-profile/>Choose a security profile</a><a href=/0.5.x/docs/configure/initialize/>Initialize the cluster</a><a href=/0.5.x/docs/configure/unseal/>Configure unseal</a><a href=/0.5.x/docs/configure/storage/>Configure storage</a><a href=/0.5.x/docs/configure/server/>Configure the server runtime</a><a href=/0.5.x/docs/configure/expose/>Expose OpenBao</a><a class=is-current href=/0.5.x/docs/configure/gateway/ aria-current=page>Use Gateway API</a><a href=/0.5.x/docs/configure/network/>Configure network policy</a><a href=/0.5.x/docs/configure/monitor/>Monitor OpenBao</a><a href=/0.5.x/docs/configure/read-replicas/>Configure read replicas</a><a href=/0.5.x/docs/configure/air-gapped/>Use private registries</a></div></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/operate/><span>Operate</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/security/><span>Security</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/reference/><span>Reference</span></a></div><div class=nav-group><a class=nav-group-link href=/0.5.x/docs/architecture/><span>Architecture</span></a></div><div class=nav-divider></div><a class=nav-secondary href=/releases/>Releases</a><details class=nav-secondary-group><summary class=nav-secondary>Project</summary><div class=nav-children><a href=/project/>Project overview</a><a href=/project/roadmap/>Roadmap</a><a href=/project/claims-and-service-offerings/>Claims and Service Offerings</a></div></details><details class=nav-secondary-group><summary class=nav-secondary>Contribute</summary><div class=nav-children><a href=/contribute/>Contributor overview</a><a href=/contribute/setup/>Set up a workstation</a><a href=/contribute/standards/>Project standards</a><a href=/contribute/testing/>Testing</a><a href=/contribute/ci/>CI</a><a href=/contribute/supply-chain/>Supply chain</a><a href=/contribute/release/>Release management</a><a href=/contribute/incident-response/>Incident response</a></div></details></nav></aside><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/0.5.x/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/>Documentation</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/0.5.x/docs/configure/>Configure a cluster</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>Use Gateway API</span></nav><aside class="version-notice version-notice-05x" aria-label="Documentation version notice"><strong>0.5.x · Previous stable</strong>
+<span>Previous stable documentation for the 0.5 minor line through OpenBao Operator 0.5.3.</span></aside><article class=doc-article><header class=article-header><h1>Use Gateway API</h1><p class=article-lede>Attach OpenBao to a compatible Gateway with TLS passthrough or verified backend TLS.</p><p class=page-meta>Updated 24 October 2026 · 3 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#choose-the-route-mode>Choose the route mode</a></li><li><a href=#configure-passthrough>Configure passthrough</a></li><li><a href=#configure-termination-and-backend-trust>Configure termination and backend trust</a></li><li><a href=#allow-the-data-plane-to-reach-openbao>Allow the data plane to reach OpenBao</a></li><li><a href=#check-compatibility-and-readiness>Check compatibility and readiness</a></li></ul></nav></details><div class=article-content><p>Use this page after choosing Gateway API as the <a href=../expose/>external entry path</a>. The cluster must serve Gateway API
+<code>v1</code> resources used by the operator. OpenBao Operator 0.5.x is built against Gateway API v1.6.1.</p><h2 id=choose-the-route-mode>Choose the route mode</h2><table><thead><tr><th>Mode</th><th>Operator creates</th><th>Gateway listener</th><th>Use it when</th></tr></thead><tbody><tr><td>TLS passthrough</td><td><code>TLSRoute</code></td><td><code>protocol: TLS</code>, <code>tls.mode: Passthrough</code></td><td>OpenBao should remain the TLS endpoint; required for ACME</td></tr><tr><td>Gateway termination</td><td><code>HTTPRoute</code> and, by default, <code>BackendTLSPolicy</code></td><td>HTTP or HTTPS</td><td>The Gateway must apply HTTP-aware policy or present the client certificate</td></tr></tbody></table><p>Passthrough is the smaller trust model because the Gateway never holds or uses the OpenBao server private key.</p><h2 id=configure-passthrough>Configure passthrough</h2><p>Create the Gateway and listener first:</p><div class=command-block><div class=command-head><div><span>apply</span><p>Create a TLS passthrough listener</p></div><button type=button data-copy-button>Copy</button></div><pre><code>apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: gateway-system
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: openbao
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              openbao.org/gateway-access: &#34;true&#34;</code></pre></div><p>Label each <code>OpenBaoCluster</code> namespace admitted by this shared listener with <code>openbao.org/gateway-access=true</code>. Gateway
+API defaults <code>allowedRoutes.namespaces.from</code> to <code>Same</code>, so a Route in another namespace will not attach unless the
+listener says otherwise.</p><p>Attach the cluster to that exact listener:</p><div class=command-block><div class=command-head><div><span>configure</span><p>Create the OpenBao TLSRoute</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  gateway:
+    enabled: true
+    listenerName: openbao
+    tlsPassthrough: true
+    hostname: bao.example.com
+    gatewayRef:
+      name: main-gateway
+      namespace: gateway-system</code></pre></div><p>The operator routes ordinary TLS traffic to <code>&lt;cluster>-public</code> on port 8200. In ACME mode it routes to the dedicated
+ACME Service on port 443. Add <code>bao.example.com</code> to <code>spec.tls.acme.domains</code>; Gateway hostnames are not copied into the
+ACME domain list. The selected GatewayClass must advertise <code>TLSRoute</code> support.</p><h2 id=configure-termination-and-backend-trust>Configure termination and backend trust</h2><p>When <code>tlsPassthrough</code> is false or omitted, the operator creates an <code>HTTPRoute</code>. Backend TLS is enabled by default when
+cluster TLS is enabled.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Create an HTTPRoute with verified backend TLS</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  gateway:
+    enabled: true
+    listenerName: openbao-https
+    hostname: bao.example.com
+    gatewayRef:
+      name: main-gateway
+      namespace: gateway-system
+    backendTLS:
+      enabled: true
+      hostname: openbao-cluster-prod-cluster.local</code></pre></div><p>The Gateway listener certificate is configured on the Gateway, not on the <code>OpenBaoCluster</code>. For the backend hop, the
+operator creates a <code>BackendTLSPolicy</code> and a <code>&lt;cluster>-tls-ca</code> ConfigMap containing <code>ca.crt</code>. Its default verification
+name is the stable internal TLS server name, <code>openbao-cluster-&lt;cluster>.local</code>. Set <code>backendTLS.hostname</code> only when the
+backend certificate deliberately uses another DNS SAN.</p><p>Hardened clusters reject <code>backendTLS.enabled: false</code>. The GatewayClass must advertise <code>HTTPRoute</code> and
+<code>BackendTLSPolicy</code> support for the default terminated path.</p><h2 id=allow-the-data-plane-to-reach-openbao>Allow the data plane to reach OpenBao</h2><p>Route attachment and pod reachability are separate controls. Add the actual Gateway data-plane pods to
+<code>spec.network.trustedIngressPeers</code>; referencing a Gateway does not allow its entire namespace through NetworkPolicy.</p><div class=command-block><div class=command-head><div><span>configure</span><p>Allow the Gateway data plane</p></div><button type=button data-copy-button>Copy</button></div><pre><code>spec:
+  network:
+    trustedIngressPeers:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: gateway-system
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik</code></pre></div><p>Use selectors that match the data-plane pods, which might not be the same pods as the Gateway controller.</p><h2 id=check-compatibility-and-readiness>Check compatibility and readiness</h2><p>The operator validates the referenced Gateway, listener compatibility, GatewayClass acceptance, advertised features,
+installed API version, the Gateway <code>Programmed</code> condition, and attachment of its managed Route. For a Gateway in
+another namespace, its listener must also allow Routes from the <code>OpenBaoCluster</code> namespace.</p><table><thead><tr><th>Condition</th><th>Meaning</th></tr></thead><tbody><tr><td><code>GatewayIntegrationReady=True</code></td><td>The operator verified the Gateway contract and the current Route reports <code>Accepted=True</code> and <code>ResolvedRefs=True</code></td></tr><tr><td><code>GatewayIntegrationReady=Unknown</code></td><td>Capability or current Route status is not available yet; <code>GatewayRoutePending</code> identifies the attachment wait</td></tr><tr><td><code>GatewayIntegrationReady=False</code></td><td>A reference, listener, feature, programmed-state, Route acceptance, or Route reference check failed</td></tr></tbody></table><p>Read the condition reason before changing the manifest. A missing <code>status.supportedFeatures</code> is reported as Unknown,
+not assumed compatible. <code>GatewayRouteNotAccepted</code> and <code>GatewayRouteReferencesUnresolved</code> identify explicit attachment
+failures. Inspect the Route parent status for controller detail, then test the public hostname from outside the cluster.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#choose-the-route-mode>Choose the route mode</a></li><li><a href=#configure-passthrough>Configure passthrough</a></li><li><a href=#configure-termination-and-backend-trust>Configure termination and backend trust</a></li><li><a href=#allow-the-data-plane-to-reach-openbao>Allow the data plane to reach OpenBao</a></li><li><a href=#check-compatibility-and-readiness>Check compatibility and readiness</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content-versions/0.5.x/docs/configure/gateway.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/0.5.x/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>
