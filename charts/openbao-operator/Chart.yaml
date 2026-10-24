@@ -4,8 +4,8 @@ description: >-
   OpenBao Operator installs the OpenBao Kubernetes operator and its required
   cluster-scoped resources.
 type: application
-version: 0.5.1
-appVersion: 0.5.1
+version: 0.6.0
+appVersion: 0.6.0
 icon: >-
   https://raw.githubusercontent.com/kubebao/openbao-operator/main/website/static/img/brand/kubebao-github-avatar.png
 home: https://github.com/kubebao/openbao-operator
@@ -26,7 +26,7 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
-  artifacthub.io/prerelease: "false"
+  artifacthub.io/prerelease: 'false'
   artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/changes: |
     - kind: added
@@ -63,7 +63,6 @@ annotations:
       description: "kube: reuse apply responses for ownership verification"
     - kind: changed
       description: "raft: avoid redundant Autopilot configuration writes"
-  # Last published release; prepare-release-chart.sh replaces this metadata for each new release.
   artifacthub.io/images: |
     - name: openbao-operator
       image: ghcr.io/dc-tec/openbao-operator:0.5.1

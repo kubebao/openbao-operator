@@ -2,6 +2,94 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.6.0](https://github.com/kubebao/openbao-operator/compare/0.5.1...0.6.0) (2026-10-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** require Target self-init for new clusters ([#903](https://github.com/kubebao/openbao-operator/issues/903))
+
+### Features
+
+* **auth:** isolate controller JWTs by target ([#768](https://github.com/kubebao/openbao-operator/issues/768)) ([b3bd17a](https://github.com/kubebao/openbao-operator/commit/b3bd17a8f18e5f70ceafe3cf941586a47062922a))
+* **auth:** require Target self-init for new clusters ([#903](https://github.com/kubebao/openbao-operator/issues/903)) ([6179a4a](https://github.com/kubebao/openbao-operator/commit/6179a4a2eb9b33bf72e3a84e892f2af5316a2e21))
+* **backup:** run bounded retention with the writer workload identity ([#826](https://github.com/kubebao/openbao-operator/issues/826)) ([cf3a5e5](https://github.com/kubebao/openbao-operator/commit/cf3a5e52ef7fbffa5173a1908049f5dbfe700820))
+* **backup:** schedule disposable restore tests ([#783](https://github.com/kubebao/openbao-operator/issues/783)) ([80b4097](https://github.com/kubebao/openbao-operator/commit/80b409728b9c84db52b0c52efc0c61a6e173a265))
+* **certs:** use native TLS certificate reload on OpenBao 2.7 ([#767](https://github.com/kubebao/openbao-operator/issues/767)) ([867c613](https://github.com/kubebao/openbao-operator/commit/867c613203f7ffa80f70f97843c0b312d95ff74e))
+* **networking:** support IPv6 and dual-stack clusters ([#841](https://github.com/kubebao/openbao-operator/issues/841)) ([9eccb17](https://github.com/kubebao/openbao-operator/commit/9eccb1750fec1c3bd53dd4dc2a3e6158054b7ea8))
+* **network:** manage Cilium API-server egress ([#843](https://github.com/kubebao/openbao-operator/issues/843)) ([be168af](https://github.com/kubebao/openbao-operator/commit/be168afd13a0830f2b8f5d966593538c231a630b))
+* **policies:** reconcile administrator-approved OpenBao policies ([#765](https://github.com/kubebao/openbao-operator/issues/765)) ([4822e59](https://github.com/kubebao/openbao-operator/commit/4822e595eed80af436eebb314aaa9f01c09da223))
+* **restore:** guard submission and manage administrator recovery ([#780](https://github.com/kubebao/openbao-operator/issues/780)) ([51aa2d5](https://github.com/kubebao/openbao-operator/commit/51aa2d521da34fa1311b7d78e3b0766a10e35b11))
+* **restore:** provision retained and disposable recovery targets ([#782](https://github.com/kubebao/openbao-operator/issues/782)) ([d15c0dd](https://github.com/kubebao/openbao-operator/commit/d15c0dd21851a76bf39ff111a052eee850aa1b40))
+* **self-init:** add Secret inputs for raw bootstrap requests ([#833](https://github.com/kubebao/openbao-operator/issues/833)) ([12a679e](https://github.com/kubebao/openbao-operator/commit/12a679ed05ab601ae1371372aaa02c00c2082baa))
+* **storage:** add nested S3 target options ([#822](https://github.com/kubebao/openbao-operator/issues/822)) ([d6004d4](https://github.com/kubebao/openbao-operator/commit/d6004d4a5e22b81b0bd8f8cbf7a0aece5b9e8f14))
+* **tls:** configure hybrid post-quantum key exchange ([#776](https://github.com/kubebao/openbao-operator/issues/776)) ([b99f7df](https://github.com/kubebao/openbao-operator/commit/b99f7df00d9b5ebdd2f2afae74c1989a15d9a96a))
+* **unseal:** project the Azure Key Vault workload identity token ([#887](https://github.com/kubebao/openbao-operator/issues/887)) ([9dd6052](https://github.com/kubebao/openbao-operator/commit/9dd6052ceaa03962b6bb8fbc709e8f9dc5d52993))
+* **unseal:** select the Azure Key Vault authentication method ([#794](https://github.com/kubebao/openbao-operator/issues/794)) ([4e92d85](https://github.com/kubebao/openbao-operator/commit/4e92d85bf5dfc9592f50a0450c01520eb953da23))
+
+
+### Bug Fixes
+
+* **admission:** accept CSI leak-protection finalizers on managed PVCs ([#804](https://github.com/kubebao/openbao-operator/issues/804)) ([e87117f](https://github.com/kubebao/openbao-operator/commit/e87117fcc5ea2b98849b155989b9a9ce0bfcade1))
+* **admission:** accept the AKS control plane for PVC binding updates ([#791](https://github.com/kubebao/openbao-operator/issues/791)) ([39fd65a](https://github.com/kubebao/openbao-operator/commit/39fd65a008477dbfc6356d04d7da0561c0a837d4))
+* **admission:** allow restore foreground finalizer cleanup ([#907](https://github.com/kubebao/openbao-operator/issues/907)) ([0d0aedb](https://github.com/kubebao/openbao-operator/commit/0d0aedb7d611e34f1ab447c3582a98f947e2cf72))
+* **admission:** allow scoped helper Pod annotation sync ([#890](https://github.com/kubebao/openbao-operator/issues/890)) ([c9ee3f7](https://github.com/kubebao/openbao-operator/commit/c9ee3f78401067e19074164ff9beb9ebb41c9451))
+* **admission:** require delegation for read-replica cloud identities ([#856](https://github.com/kubebao/openbao-operator/issues/856)) ([ec30d8e](https://github.com/kubebao/openbao-operator/commit/ec30d8ecaf2a6b39525bdb0848c3f1f6f1349259))
+* **admission:** resolve policy type-check warnings ([#896](https://github.com/kubebao/openbao-operator/issues/896)) ([b7dbc31](https://github.com/kubebao/openbao-operator/commit/b7dbc31f293fe6b3f268aac988b5bd44160417e7))
+* **admission:** support scoped PVC binding synchronization ([#874](https://github.com/kubebao/openbao-operator/issues/874)) ([7aac948](https://github.com/kubebao/openbao-operator/commit/7aac948bc8f3d5183817a61b4b6178ec340a20cd))
+* **backup:** persist the initial scheduled backup deadline ([#808](https://github.com/kubebao/openbao-operator/issues/808)) ([a5e8506](https://github.com/kubebao/openbao-operator/commit/a5e8506892efa87d1a86bc9ceb3a718910acf230))
+* **backup:** refresh persisted deadlines after schedule changes ([#908](https://github.com/kubebao/openbao-operator/issues/908)) ([0d65169](https://github.com/kubebao/openbao-operator/commit/0d65169ded89a089a44302f2e75d6bc3e6ee0572))
+* **certs:** reject malformed CA key PEM without panicking ([#845](https://github.com/kubebao/openbao-operator/issues/845)) ([b8ad55a](https://github.com/kubebao/openbao-operator/commit/b8ad55a6262f6e704f71e131bbced3de56c6e347))
+* **ci:** accept fork E2E plans during matrix generation ([#889](https://github.com/kubebao/openbao-operator/issues/889)) ([d8747af](https://github.com/kubebao/openbao-operator/commit/d8747afc72c42e2155a90f08390a002265408ecc))
+* **ci:** decouple edge chart versions from releases ([#842](https://github.com/kubebao/openbao-operator/issues/842)) ([6036235](https://github.com/kubebao/openbao-operator/commit/60362358e069e68c436cb7ece4594c5a764167ca))
+* **ci:** discover historical attestations from published bundles ([#798](https://github.com/kubebao/openbao-operator/issues/798)) ([441b645](https://github.com/kubebao/openbao-operator/commit/441b6450e393a84f3880d17107dcbc774690d039))
+* **ci:** isolate Cilium Kind networking with VXLAN ([#899](https://github.com/kubebao/openbao-operator/issues/899)) ([4dd006f](https://github.com/kubebao/openbao-operator/commit/4dd006f5cc02cb06c257ccc2ef3d5b8ecd3eef8e))
+* **ci:** look up upstream artifacts by name ([#801](https://github.com/kubebao/openbao-operator/issues/801)) ([7407ec6](https://github.com/kubebao/openbao-operator/commit/7407ec69ff45af5b122ded855971ee6c4486a313))
+* **ci:** repair KubeBao release qualification and retries ([#813](https://github.com/kubebao/openbao-operator/issues/813)) ([206f3c3](https://github.com/kubebao/openbao-operator/commit/206f3c35a7c7e1cf1bd2d04457dcd0edc26893dc))
+* **ci:** separate restore lanes and pin integration tooling ([#784](https://github.com/kubebao/openbao-operator/issues/784)) ([8087502](https://github.com/kubebao/openbao-operator/commit/80875025186c1ce00aa7a165763becc9733e3dc1))
+* **ci:** update vulnerable release tooling dependencies ([90f906e](https://github.com/kubebao/openbao-operator/commit/90f906eccda3877f8e38e65218bda80a1e6bd49b))
+* **client:** release shared state for deleted cluster lifetimes ([#847](https://github.com/kubebao/openbao-operator/issues/847)) ([f30593b](https://github.com/kubebao/openbao-operator/commit/f30593bad0fb4b0487189b4be40eaa6ba46e58dc))
+* **cluster:** resume interrupted peer removal safely ([#864](https://github.com/kubebao/openbao-operator/issues/864)) ([c96bad7](https://github.com/kubebao/openbao-operator/commit/c96bad7894331b25e378dd05a6d38c8824b19e2a))
+* **config:** enforce OpenBao configuration version contracts ([#828](https://github.com/kubebao/openbao-operator/issues/828)) ([5ae35e7](https://github.com/kubebao/openbao-operator/commit/5ae35e78f7246a361a49cdd086241bc0bfe231f6))
+* **config:** support authorized PROXY protocol sources ([#807](https://github.com/kubebao/openbao-operator/issues/807)) ([3abf96f](https://github.com/kubebao/openbao-operator/commit/3abf96fd6c74a978182614c1f1416d40b5705589))
+* **deps:** patch release-please Handlebars vulnerabilities ([#787](https://github.com/kubebao/openbao-operator/issues/787)) ([0c6cc72](https://github.com/kubebao/openbao-operator/commit/0c6cc726cd51aedc3e7fa11acf8fe14ea4c164ea))
+* **deps:** update Go and x/net security patches ([#792](https://github.com/kubebao/openbao-operator/issues/792)) ([2cea4fd](https://github.com/kubebao/openbao-operator/commit/2cea4fdadbd12c29d0c6b3169db975780235655f))
+* **devenv:** support Go 1.27 export data in Staticcheck ([#799](https://github.com/kubebao/openbao-operator/issues/799)) ([9a0dcf1](https://github.com/kubebao/openbao-operator/commit/9a0dcf1f3125619ebc3931472980be714832a425))
+* **dev:** make contributor runtime checks portable ([#905](https://github.com/kubebao/openbao-operator/issues/905)) ([35c0aaf](https://github.com/kubebao/openbao-operator/commit/35c0aafea3302efdc0408b92fcf086e93f687b2d))
+* **docs:** compare published site content by checksum ([#884](https://github.com/kubebao/openbao-operator/issues/884)) ([d0f09fe](https://github.com/kubebao/openbao-operator/commit/d0f09fe844d1d9bc4019e1c91273227a056db945))
+* **e2e:** allow restore executors to reach Cilium API servers ([#867](https://github.com/kubebao/openbao-operator/issues/867)) ([8af6bce](https://github.com/kubebao/openbao-operator/commit/8af6bce9b1cef72ea1eff1cc2a3ec00368cf0895))
+* **ownership:** bind resource mutations to observed identity ([#844](https://github.com/kubebao/openbao-operator/issues/844)) ([76a809d](https://github.com/kubebao/openbao-operator/commit/76a809d48c85d7afea96630911936f50059b413d))
+* **perf:** exclude helper endpoints and follow restore recovery ([6335ca9](https://github.com/kubebao/openbao-operator/commit/6335ca9d6c71a17ac98cb23629512b6bd32d4e5b))
+* **provisioner:** allow restore templates without unseal credential Secrets ([#819](https://github.com/kubebao/openbao-operator/issues/819)) ([a58d3c7](https://github.com/kubebao/openbao-operator/commit/a58d3c76d8c4d0e23090b499f091c449cc62ddbf))
+* **provisioner:** preserve tenant RBAC through namespace teardown ([#891](https://github.com/kubebao/openbao-operator/issues/891)) ([49498ee](https://github.com/kubebao/openbao-operator/commit/49498ee6e8c73265fd280d918cdec56f13f4d219))
+* **restore:** bound snapshot staging and disable executor retries ([#779](https://github.com/kubebao/openbao-operator/issues/779)) ([cc3c634](https://github.com/kubebao/openbao-operator/commit/cc3c634ad21bc8a73fddee5b54f941ddf465e46c))
+* **restore:** expose KMS plugin settings in target templates ([#817](https://github.com/kubebao/openbao-operator/issues/817)) ([47dfc37](https://github.com/kubebao/openbao-operator/commit/47dfc37dac0c99f63bbc40cddf3378f6635f4aec))
+* **restore:** separate disposable reader identity from backups ([#811](https://github.com/kubebao/openbao-operator/issues/811)) ([34f5676](https://github.com/kubebao/openbao-operator/commit/34f56763bec3354d9dbdd84b0591171bba907333))
+* **security:** bind legacy image signatures to requested digests ([#855](https://github.com/kubebao/openbao-operator/issues/855)) ([f605509](https://github.com/kubebao/openbao-operator/commit/f6055097c26cd597a0709cb2590735705f044471))
+* **security:** correct Scorecard dependency and policy findings ([#877](https://github.com/kubebao/openbao-operator/issues/877)) ([ea8bf80](https://github.com/kubebao/openbao-operator/commit/ea8bf802a51b96945a74d0c8c56ab91da22c0c44))
+* **security:** enforce key strength and TLS transport policy ([#854](https://github.com/kubebao/openbao-operator/issues/854)) ([1eacea5](https://github.com/kubebao/openbao-operator/commit/1eacea5ccc0df19ded92fdd0bcf1347b94686864))
+* **security:** harden verification dependencies and CI controls ([#851](https://github.com/kubebao/openbao-operator/issues/851)) ([9b92ff8](https://github.com/kubebao/openbao-operator/commit/9b92ff8092c8bdf3d80376bda334c1ef9094c418))
+* **security:** reject compromised CA keys with Go 1.27.3 ([#878](https://github.com/kubebao/openbao-operator/issues/878)) ([0f846f1](https://github.com/kubebao/openbao-operator/commit/0f846f1468f24e7e978865ccdd75a39f1ecfebae))
+* **security:** resolve Kubernetes registry credentials by scope ([#860](https://github.com/kubebao/openbao-operator/issues/860)) ([ea910e3](https://github.com/kubebao/openbao-operator/commit/ea910e3c9009cb730f236093c2c2598e46699132))
+* **security:** verify admission policies against release contracts ([#902](https://github.com/kubebao/openbao-operator/issues/902)) ([55369e4](https://github.com/kubebao/openbao-operator/commit/55369e488fd7c09375f8e6ea9d19f926652f0618))
+* **security:** verify tenant onboarding binding identity ([#901](https://github.com/kubebao/openbao-operator/issues/901)) ([0b36613](https://github.com/kubebao/openbao-operator/commit/0b366137939f0c247521c85ff26c498166d451cc))
+* **storage:** block IPv6 cloud metadata endpoints ([#840](https://github.com/kubebao/openbao-operator/issues/840)) ([fb6505c](https://github.com/kubebao/openbao-operator/commit/fb6505c58bd21abbf6705769318d3209f2ab61c3))
+* **storage:** retain custom CA trust in backup and restore executors ([#824](https://github.com/kubebao/openbao-operator/issues/824)) ([a28e1ce](https://github.com/kubebao/openbao-operator/commit/a28e1ce833d2fcf7ae40ed5cf90e6bdd381a7a1f))
+* **storage:** use complete Azure Blob endpoint URLs ([#820](https://github.com/kubebao/openbao-operator/issues/820)) ([aee7cb2](https://github.com/kubebao/openbao-operator/commit/aee7cb2b444577e725adc4260bb30e26a31e4f41))
+* **storage:** use credential Secret regions for S3 signing ([#825](https://github.com/kubebao/openbao-operator/issues/825)) ([1459f37](https://github.com/kubebao/openbao-operator/commit/1459f37f2f43d535120aacd83d3151672e7d02b1))
+* **tls:** validate external server certificate chains ([#861](https://github.com/kubebao/openbao-operator/issues/861)) ([b85ccfd](https://github.com/kubebao/openbao-operator/commit/b85ccfdcb2a609a812c8bf8b07b2d9fb79e62770))
+* **upgrade:** prove workload identity before blue-green cleanup ([#865](https://github.com/kubebao/openbao-operator/issues/865)) ([3d33a0c](https://github.com/kubebao/openbao-operator/commit/3d33a0c29ae24271b9735be4c15294ecf937759c))
+* **upgrade:** retry against the current rendered image target ([#859](https://github.com/kubebao/openbao-operator/issues/859)) ([fd2c191](https://github.com/kubebao/openbao-operator/commit/fd2c191511e692dcfb46ebe53f489a829a83717f))
+* **upgrade:** scope rolling executor jobs to durable attempts ([#862](https://github.com/kubebao/openbao-operator/issues/862)) ([506ccaf](https://github.com/kubebao/openbao-operator/commit/506ccaf5066e9d443390ef7274d8eb24df70ba2f))
+* **vcluster:** unblock Pod annotation sync and complete safe teardown ([#888](https://github.com/kubebao/openbao-operator/issues/888)) ([e881cfc](https://github.com/kubebao/openbao-operator/commit/e881cfc8e7d6dde04e7ecfd2591157204f2d905d))
+* **workload:** complete terminal Pod deletion ([#875](https://github.com/kubebao/openbao-operator/issues/875)) ([04683db](https://github.com/kubebao/openbao-operator/commit/04683dbfcf30b6324c9480565b009893444c9a43))
+* **wrapper:** wait for graceful child termination before killing ([#858](https://github.com/kubebao/openbao-operator/issues/858)) ([5f4ec60](https://github.com/kubebao/openbao-operator/commit/5f4ec605ad69d8e2e66ad1e167faa2972fd95266))
+
+
+### Performance Improvements
+
+* **metrics:** scope restore state updates to target clusters ([#848](https://github.com/kubebao/openbao-operator/issues/848)) ([270c9bc](https://github.com/kubebao/openbao-operator/commit/270c9bca1a1bec28cf4771e92032c2e430f88d33))
+
 ## [0.5.2](https://github.com/kubebao/openbao-operator/compare/0.5.1...0.5.2) (2026-10-13)
 
 
