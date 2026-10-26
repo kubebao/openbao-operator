@@ -137,9 +137,10 @@ Before merge, verify that the release PR updates these surfaces consistently:
 The release PR gate requires the `release:ready` label and approval from the configured release manager (`dc-tec` in
 the current workflow). Do not bypass that gate to repair automation.
 
-After merge, the `Release Tag` workflow resolves the exact merged release PR, verifies its release files, creates a
-GPG-signed annotated SemVer tag, and creates or refreshes the matching draft GitHub Release. The tag GitHub App is the only
-automation identity that should have SemVer tag-ruleset bypass.
+After merge, changes to `.release-please-manifest.json` trigger the `Release Tag` workflow. The workflow resolves the exact
+merged release PR, verifies its release files, creates a GPG-signed annotated SemVer tag, and creates or refreshes the
+matching draft GitHub Release. Chart metadata and changelog edits alone do not trigger release tagging. The tag GitHub App
+is the only automation identity that should have SemVer tag-ruleset bypass.
 
 Use the manual `branch-head` tag target to retry an unpublished release after an approved release-branch fix.
 The branch head must descend from the release PR merge and carry the same release version.
