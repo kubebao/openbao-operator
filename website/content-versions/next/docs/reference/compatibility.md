@@ -27,10 +27,10 @@ The operator requires Kubernetes 1.33 or newer. The rows below describe the curr
 
 | Version | Validation | Production note |
 | --- | --- | --- |
-| 2.7.2 | Config parser, CI container checks, and focused lifecycle qualification target | Validate the exact production combination in staging |
+| 2.7.2 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and fresh-target restore qualification | Validate the exact production combination in staging |
 | 2.7.1 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and restore qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification; rolling-upgrade source for local 2.7.1 qualification | Use the latest qualified security patch |
-| 2.6.5 | Default CI, nightly, and release target | Validate the exact production combination in staging |
+| 2.6.5 | Default CI, nightly, and release target; focused local lifecycle, rolling-upgrade, backup, and recovery qualification | Validate the exact production combination in staging |
 | 2.6.4 | Previous default target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Use the latest qualified security patch |
 | 2.6.3 | OpenBao Operator 0.5.1 validation target; rolling-upgrade source for local 2.6.4 qualification | Use the latest qualified security patch |
 | 2.6.2 | OpenBao Operator 0.5.0 release target | Use the latest qualified security patch |
@@ -49,6 +49,34 @@ OpenBao 2.6.0 changed its internal request-forwarding gRPC service name.
 but the operator still blocks pre-2.6 to 2.6-or-newer `BlueGreen` transitions until an exact version pair is qualified.
 The forwarding fix does not establish datastore downgrade compatibility.
 {{< /callout >}}
+
+## OpenBao 2.6.5 and 2.7.2 upgrade considerations
+
+[OpenBao 2.6.5](https://github.com/openbao/openbao/releases/tag/v2.6.5) and
+[OpenBao 2.7.2](https://github.com/openbao/openbao/releases/tag/v2.7.2) include upstream security fixes.
+Review SSH roles that use identity templates before upgrading. Template substitutions reject wildcard characters
+(`*`) by default. Enable `allow_wildcards_in_identity_templates` only when all substituted identity data is trusted.
+
+OpenBao 2.7.2 also fixes health responses during leader promotion, cluster-wide external plugin reloads, and
+OpenBao namespace deletion after a pre-2.7 upgrade.
+
+## OpenBao 2.6.5 and 2.7.2 qualification
+
+Kind qualification uses Kubernetes 1.36.1 on Linux ARM64 in a single-node cluster with the CSI hostpath storage
+fixture. Both versions pass fresh initialization.
+Rolling upgrades pass from 2.6.4 to 2.6.5 and from 2.7.1 to 2.7.2 with three voters, one read replica, and retained data.
+Separate container and Envtest checks pass policy reconciliation and controller JWT isolation on both versions.
+The 2.7.2 hybrid PQ TLS container check also covers Raft membership, snapshot restore, and follower restart.
+
+On 2.6.5, S3 backup and existing-target recovery pass with RustFS. Recovery checks administrator acknowledgement,
+managed voter and read-replica replacement, and KV access. The existing-target restore keeps an unconfirmed
+application outcome after recovery.
+
+On 2.7.2, fresh-target restore tests pass with static and Transit seals. They cover scheduled disposable restores,
+reader account reuse, cleanup, and retained-target handoff. Each fresh target has one voter.
+
+The SoftHSM fixture builds on 2.6.5. PKCS#11 and KMIP lifecycle qualification remains listed under 2.6.4.
+These local checks cover the stated Kubernetes version, architecture, storage fixture, and upgrade pairs.
 
 ## OpenBao 2.6.3 qualification
 
