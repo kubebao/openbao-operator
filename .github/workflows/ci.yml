@@ -631,15 +631,15 @@ jobs:
       - name: Run unit tests
         run: make test
 
-      - name: Verify policy authorization and repair against OpenBao 2.6.4
+      - name: Verify policy authorization and repair against OpenBao 2.6.5
         run: make test-policy-reconciliation-openbao
 
-      - name: Verify policy authorization and repair against OpenBao 2.7.1
+      - name: Verify policy authorization and repair against OpenBao 2.7.2
         env:
-          POLICY_TEST_OPENBAO_IMAGE: openbao/openbao:2.7.1
+          POLICY_TEST_OPENBAO_IMAGE: openbao/openbao:2.7.2
         run: make test-policy-reconciliation-openbao
 
-      - name: Verify hybrid PQ TLS key exchange against OpenBao 2.7.1
+      - name: Verify hybrid PQ TLS key exchange against OpenBao 2.7.2
         run: make test-tls-key-exchange-openbao
 
   test-integration:
@@ -664,12 +664,12 @@ jobs:
       - name: Run unit, integration, and cluster-independent E2E support tests with coverage gate
         run: make test-ci
 
-      - name: Verify controller JWT isolation against OpenBao 2.6.4
+      - name: Verify controller JWT isolation against OpenBao 2.6.5
         run: make test-controller-jwt-openbao
 
-      - name: Verify controller JWT isolation against OpenBao 2.7.1
+      - name: Verify controller JWT isolation against OpenBao 2.7.2
         env:
-          OPENBAO_JWT_TEST_IMAGE: openbao/openbao:2.7.1
+          OPENBAO_JWT_TEST_IMAGE: openbao/openbao:2.7.2
         run: make test-controller-jwt-openbao
 
   fuzz:

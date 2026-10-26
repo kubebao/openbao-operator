@@ -995,9 +995,9 @@ func TestReleaseGateTwoStepUpgradeSequences(t *testing.T) {
 		if row.Coverage != "upgrade-sequence-latest" {
 			continue
 		}
-		wantSequence := "2.5.5,2.6.4,2.7.1"
+		wantSequence := "2.5.5,2.6.4,2.7.2"
 		if row.ID == "upgrade-bluegreen-core" {
-			wantSequence = "2.6.4,2.7.0,2.7.1"
+			wantSequence = "2.6.4,2.7.0,2.7.2"
 		}
 		if row.UpgradeSequence != wantSequence || row.Kubernetes != m.Versions.Kubernetes.Primary {
 			t.Fatalf("unexpected upgrade sequence row: %+v", row)
@@ -1031,7 +1031,7 @@ func TestReleaseGateTwoStepUpgradeSequences(t *testing.T) {
 		for j := range m.Nightly.Profiles[i].Rows {
 			row := &m.Nightly.Profiles[i].Rows[j]
 			if row.UpgradeSequence != "" {
-				row.UpgradeSequence = "2.6.4,2.6.4,2.7.1"
+				row.UpgradeSequence = "2.6.4,2.6.4,2.7.2"
 				break
 			}
 		}

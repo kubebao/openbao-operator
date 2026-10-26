@@ -35,7 +35,7 @@ To provision the target yourself, use a [restore request for an existing cluster
 - The required unseal, storage, and TLS credentials are available in that namespace.
 - The original unseal key material decrypts the source snapshot. `force: true` bypasses OpenBao's seal-consistency check; it does not
   make an incompatible key usable.
-- The profile is one OpenBao **2.7.0** or **2.7.1** voter, matching the snapshot source version, with `OperatorManaged` or `External` TLS. `unseal` uses the same provider
+- The profile is one OpenBao **2.7.0**, **2.7.1**, or **2.7.2** voter, matching the snapshot source version, with `OperatorManaged` or `External` TLS. `unseal` uses the same provider
   configuration as `OpenBaoCluster`. Supply required KMS plugins, credentials, workload identity, and network access,
   and rehearse your provider before relying on it.
 - You know the source cluster's native ID, version, and ideally digest and size. The operator records them for each
@@ -133,11 +133,11 @@ spec:
         name: recovery-storage
     key: clusters/production/snapshot.snap
     expectedClusterID: REPLACE_WITH_SOURCE_NATIVE_CLUSTER_ID
-    expectedVersion: "2.7.1"
+    expectedVersion: "2.7.2"
     # Recommended: expectedDigest: sha256:<64 lowercase hexadecimal characters>
     # Optional: expectedSize: <snapshot bytes>
   clusterTemplate:
-    version: "2.7.1"
+    version: "2.7.2"
     storage:
       size: 10Gi
     tls:

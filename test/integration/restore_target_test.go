@@ -122,6 +122,15 @@ func TestCRD_FreshRestoreOptions(t *testing.T) {
 		valid bool
 	}{
 		{name: "retained", valid: true},
+		{name: "version-271", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.1", "2.7.1"
+		}},
+		{name: "version-272", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.2", "2.7.2"
+		}},
+		{name: "unqualified-patch", edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.3", "2.7.3"
+		}},
 		{name: "disposable", valid: true, edit: func(s *api.OpenBaoRestoreSpec) { s.TargetLifecycle = api.RestoreTargetLifecycleDisposable }},
 		{name: "legacy", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
 			s.ClusterTemplate, s.TargetLifecycle, s.Force = nil, "", false

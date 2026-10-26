@@ -105,7 +105,7 @@ func TestRestoreTestReservesOneRequestAcrossRestarts(t *testing.T) {
 		Target: api.BackupTarget{Endpoint: "https://storage.example", Bucket: "snapshots"},
 		RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: destination,
 			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
-			ClusterTemplate: api.RestoreClusterTemplate{Version: "2.7.0",
+			ClusterTemplate: api.RestoreClusterTemplate{Version: "2.7.2",
 				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}}, Storage: api.StorageConfig{Size: "1Gi"},
 				TLS:    api.TLSConfig{Enabled: true, Mode: api.TLSModeOperatorManaged, RotationPeriod: "720h"},
 				Unseal: api.UnsealConfig{Type: "transit", Transit: &api.TransitSealConfig{Address: "https://seal.example", KeyName: "recovery", MountPath: "transit"}, CredentialsSecretRef: &corev1.LocalObjectReference{Name: "transit"}}},
@@ -133,7 +133,7 @@ func TestRestoreTestReservesOneRequestAcrossRestarts(t *testing.T) {
 		status.Initialized = true
 		stamp := metav1.Now()
 		status.Backup = &api.BackupStatus{SuccessfulBackups: 1, LastBackupName: "snapshot", LastBackupTime: &stamp,
-			LatestSnapshot: &api.BackupSnapshotSummary{ClusterID: "native-source", Version: "2.7.0", Size: 123, Digest: "sha256:" + strings.Repeat("a", 64)}}
+			LatestSnapshot: &api.BackupSnapshotSummary{ClusterID: "native-source", Version: "2.7.2", Size: 123, Digest: "sha256:" + strings.Repeat("a", 64)}}
 	})
 	_, err = manager().Reconcile(ctx, logr.Discard(), cluster)
 	require.NoError(t, err)
