@@ -1862,7 +1862,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1] <br /> |
+| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1 2.7.2] <br /> |
 | `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |

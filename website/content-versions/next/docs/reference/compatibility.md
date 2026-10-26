@@ -27,9 +27,11 @@ The operator requires Kubernetes 1.33 or newer. The rows below describe the curr
 
 | Version | Validation | Production note |
 | --- | --- | --- |
+| 2.7.2 | Config parser, CI container checks, and focused lifecycle qualification target | Validate the exact production combination in staging |
 | 2.7.1 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and restore qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification; rolling-upgrade source for local 2.7.1 qualification | Use the latest qualified security patch |
-| 2.6.4 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Unreleased `main` baseline; validate the exact environment in staging |
+| 2.6.5 | Default CI, nightly, and release target | Validate the exact production combination in staging |
+| 2.6.4 | Previous default target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Use the latest qualified security patch |
 | 2.6.3 | OpenBao Operator 0.5.1 validation target; rolling-upgrade source for local 2.6.4 qualification | Use the latest qualified security patch |
 | 2.6.2 | OpenBao Operator 0.5.0 release target | Use the latest qualified security patch |
 | Other 2.6.x | Not individually release-gated | Validate the exact patch in staging |
@@ -37,7 +39,7 @@ The operator requires Kubernetes 1.33 or newer. The rows below describe the curr
 | 2.4.x | Outside the default config gate | Upgrade before a new production rollout |
 | 2.3.x | Not validated | Out of support scope |
 
-The configuration compatibility gate checks OpenBao 2.6.4 as a migration target and 2.7.1 as the current release.
+The configuration compatibility gate checks OpenBao 2.6.5 as a migration target and 2.7.2 as the current release.
 These labels describe operator validation. The [upstream support policy](https://openbao.org/community/policies/support/)
 provides best-effort support centered on the latest release and does not promise a two-minor maintenance window.
 

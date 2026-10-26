@@ -11,7 +11,7 @@ import (
 	"github.com/kubebao/openbao-operator/test/e2e/upgradeversions"
 )
 
-const defaultOpenBaoVersion = "2.6.4"
+const defaultOpenBaoVersion = "2.6.5"
 
 // defaultUpgradeFromVersion is the version to start with for upgrade tests.
 // This should be set to a stable, known-good version.
@@ -20,12 +20,12 @@ const defaultUpgradeFromVersion = "2.5.5"
 // defaultUpgradeToVersion is the target version for upgrade tests.
 // This should be set to a newer version than defaultUpgradeFromVersion.
 // Update this when new OpenBao versions are released.
-const defaultUpgradeToVersion = "2.6.4"
+const defaultUpgradeToVersion = "2.6.5"
 
 // OpenBao 2.6.0-2.6.2 cannot exchange Raft Autopilot health with pre-2.6
 // peers because the request-forwarding gRPC service name changed. Version
 // 2.6.3 fixes forwarding, but a pre-2.6 blue/green transition is not qualified.
-// Keep blue/green coverage on the qualified pair and rolling coverage on 2.6.4.
+// Keep blue/green coverage on the qualified pair and rolling coverage on 2.6.5.
 const (
 	defaultBlueGreenUpgradeFromVersion = "2.4.4"
 	defaultBlueGreenUpgradeToVersion   = "2.5.5"

@@ -54,16 +54,16 @@ Generated matrices list `expected_case_ids` for every lane. CI validates those I
 requires every planned scenario to pass exactly once. A dry run can check selection but cannot prove execution.
 
 The consecutive rolling and idle strategy-switch scenarios require two upgrades. Set
-`E2E_UPGRADE_SEQUENCE=2.6.4,2.7.0,2.7.1` to select their initial, intermediate, and final
+`E2E_UPGRADE_SEQUENCE=2.6.4,2.7.0,2.7.2` to select their initial, intermediate, and final
 OpenBao versions. The sequence must contain exactly three increasing semantic versions
 without build metadata. The tests use these versions as container image tags.
 The first strategy-switch step uses BlueGreen. The operator currently blocks this step
 from pre-2.6 OpenBao to 2.6 or newer, including 2.6 prereleases. See the
 [BlueGreen compatibility restriction]({{< relref "/docs/reference/compatibility" >}}).
 It is independent of the single-hop `E2E_UPGRADE_FROM_VERSION`, `E2E_UPGRADE_TO_VERSION`,
-and blue-green overrides. The default sequence remains `2.4.4,2.5.5,2.6.4`.
-The release gate retains the default runs and adds both scenarios with the sequence ending at 2.7.1.
-The rolling row uses `2.5.5,2.6.4,2.7.1`. The strategy-switch row uses `2.6.4,2.7.0,2.7.1`
+and blue-green overrides. The default sequence remains `2.4.4,2.5.5,2.6.5`.
+The release gate retains the default runs and adds both scenarios with the sequence ending at 2.7.2.
+The rolling row uses `2.5.5,2.6.4,2.7.2`. The strategy-switch row uses `2.6.4,2.7.0,2.7.2`
 because the operator blocks a pre-2.6 to 2.6-or-newer blue-green step.
 Ginkgo reports record the selected sequence, and Kind preloads its images.
 
@@ -117,7 +117,7 @@ and [masquerading](https://docs.cilium.io/en/stable/network/concepts/masqueradin
 
 Run `make verify-openbao-config-compat` with Docker available. The version matrix and fixture expectations live in
 `hack/ci/openbao-config-compat/manifest.json`. Each selected release uses its own upstream parser module and SDK.
-The default matrix uses 2.6.4 for migration compatibility and 2.7.1 as the current release. OpenBao 2.4 and 2.5 are
+The default matrix uses 2.6.5 for migration compatibility and 2.7.2 as the current release. OpenBao 2.4 and 2.5 are
 outside this default gate.
 The check calls both `ParseConfig` and `Validate`, verifies parsed block counts and selected effective values, and
 rejects paths absent from the upstream parser or Raft backend inventory.
@@ -133,7 +133,7 @@ configuration fails the check.
 make verify-openbao-config-compat
 make report-openbao-config-schema-drift
 # Check one release while retaining the complete fixture contract.
-bash hack/ci/openbao-config-compat.sh 2.7.1
+bash hack/ci/openbao-config-compat.sh 2.7.2
 ```
 
 Each run writes a new directory under `dist/test/openbao-config-compat/` and prints its path.
@@ -174,8 +174,8 @@ Run `make test-policy-reconciliation-openbao` with Docker available. The test st
 on loopback and exercises the production policy client and reconciliation manager. It checks exact-content authorization,
 rejected extra parameters and legacy paths, deleted-policy repair, unchanged-policy writes, switching upgrade strategies
 under one approval, independent backup readiness, and retry cooldown after revocation.
-The Unit Tests CI job runs this check against OpenBao 2.6.4 and 2.7.1.
-The local command defaults to 2.6.4. Set `POLICY_TEST_OPENBAO_IMAGE` to test another OpenBao image.
+The Unit Tests CI job runs this check against OpenBao 2.6.5 and 2.7.2.
+The local command defaults to 2.6.5. Set `POLICY_TEST_OPENBAO_IMAGE` to test another OpenBao image.
 
 Run `make build-policy-approvals` to generate both release approval files in `dist/`. The generator uses the same policy
 definitions as bootstrap and runtime reconciliation. For a specific manifest, run
@@ -187,7 +187,7 @@ building these tools.
 Run `make test-controller-jwt-openbao` with Docker available. The test starts an EnvTest API server and two disposable
 OpenBao servers on loopback. It verifies Pod-bound token issuance, the controller's ServiceAccount permission boundary,
 mode migration, and rejected cross-target and shared JWT replay with both inline and standard authentication.
-The Envtest Integration CI job runs this check against OpenBao 2.6.4 and 2.7.1. The local command defaults to 2.6.4;
+The Envtest Integration CI job runs this check against OpenBao 2.6.5 and 2.7.2. The local command defaults to 2.6.5;
 set `OPENBAO_JWT_TEST_IMAGE` to select another image. The test removes its containers when it finishes.
 
 The `controller-jwt` E2E scenario runs the deployed controller against self-initialized OpenBao Pods. It verifies the

@@ -41,7 +41,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="!has(self.initContainer) || self.initContainer.enabled",message="restore targets require the configuration init container"
 type RestoreClusterTemplate struct {
 	// Version must match the administrator-observed snapshot source version.
-	// +kubebuilder:validation:Enum="2.7.0";"2.7.1"
+	// +kubebuilder:validation:Enum="2.7.0";"2.7.1";"2.7.2"
 	Version string `json:"version"`
 
 	// Image defaults to the version-derived image.

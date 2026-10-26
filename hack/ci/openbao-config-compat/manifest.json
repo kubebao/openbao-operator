@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "versions": [
-    "2.6.4",
-    "2.7.1"
+    "2.6.5",
+    "2.7.2"
   ],
   "fixtures": {
     "render_hcl_acme_ca_root.hcl": {
@@ -300,7 +300,7 @@
     }
   ],
   "version_roles": {
-    "2.6.4": "migration-compatibility",
-    "2.7.1": "current-release"
+    "2.6.5": "migration-compatibility",
+    "2.7.2": "current-release"
   }
 }

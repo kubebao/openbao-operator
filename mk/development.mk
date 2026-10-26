@@ -513,12 +513,12 @@ PERF_OPERATOR_IMAGE ?= example.com/openbao-operator:0.0.1
 PERF_CONFIG_INIT_IMAGE ?= openbao-init:dev
 PERF_BACKUP_EXECUTOR_IMAGE ?= openbao-backup:dev
 PERF_UPGRADE_EXECUTOR_IMAGE ?= openbao-upgrade:dev
-PERF_OPENBAO_VERSION ?= 2.6.4
-PERF_OPENBAO_IMAGE ?= openbao/openbao:2.6.4
+PERF_OPENBAO_VERSION ?= 2.6.5
+PERF_OPENBAO_IMAGE ?= openbao/openbao:2.6.5
 PERF_UPGRADE_FROM_VERSION ?= 2.6.1
 PERF_UPGRADE_FROM_IMAGE ?= openbao/openbao:2.6.1
-PERF_UPGRADE_TO_VERSION ?= 2.6.4
-PERF_UPGRADE_TO_IMAGE ?= openbao/openbao:2.6.4
+PERF_UPGRADE_TO_VERSION ?= 2.6.5
+PERF_UPGRADE_TO_IMAGE ?= openbao/openbao:2.6.5
 PERF_API_SERVER_CIDR ?= 10.96.0.0/12
 PERF_STORAGE_CLASS ?=
 PERF_TENANT_CHURN_COUNT ?= 10
@@ -1058,11 +1058,11 @@ test-policy-reconciliation-openbao: ## Test policy authorization and repair agai
 	@GOFLAGS="$(GOFLAGS_VENDOR)" go test -tags=e2e ./test/e2e/policyreconciliation -count=1 -v
 
 .PHONY: test-tls-key-exchange-openbao
-test-tls-key-exchange-openbao: ## Test hybrid PQ TLS with operator-issued certificates against OpenBao 2.7.1 (requires Docker).
+test-tls-key-exchange-openbao: ## Test hybrid PQ TLS with operator-issued certificates against OpenBao 2.7.2 (requires Docker).
 	@GOFLAGS="$(GOFLAGS_VENDOR)" go test -tags=e2e ./test/e2e/tlskeyexchange -count=1 -v
 
 .PHONY: test-controller-jwt-openbao
-OPENBAO_JWT_TEST_IMAGE ?= openbao/openbao:2.6.4
+OPENBAO_JWT_TEST_IMAGE ?= openbao/openbao:2.6.5
 test-controller-jwt-openbao: setup-envtest ## Test target JWT issuance and cross-target replay against disposable OpenBao containers.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 		OPENBAO_JWT_TEST_IMAGE="$(OPENBAO_JWT_TEST_IMAGE)" GOFLAGS="$(GOFLAGS_VENDOR)" \

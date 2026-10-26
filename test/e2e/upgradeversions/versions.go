@@ -9,7 +9,7 @@ import (
 )
 
 // DefaultSequence preserves the historical two-step regression coverage.
-const DefaultSequence = "2.4.4,2.5.5,2.6.4"
+const DefaultSequence = "2.4.4,2.5.5,2.6.5"
 
 // Parse requires exactly three increasing semantic versions without build metadata.
 func Parse(sequence string) ([3]string, error) {

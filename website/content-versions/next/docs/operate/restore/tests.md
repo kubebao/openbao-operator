@@ -85,7 +85,7 @@ restoreTest:
   # roleArn: arn:aws:iam::123456789012:role/snapshot-reader
   cleanupAfterSeconds: 300
   clusterTemplate:
-    version: "2.7.1"
+    version: "2.7.2"
     storage:
       size: 10Gi
     tls:

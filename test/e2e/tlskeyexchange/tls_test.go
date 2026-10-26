@@ -150,7 +150,7 @@ func prepareCluster(t *testing.T) (*api.OpenBaoCluster, string, []byte) {
 		ObjectMeta: metav1.ObjectMeta{Name: "pq-tls", Namespace: "default", UID: types.UID(uuid.NewString())},
 		Spec: api.OpenBaoClusterSpec{
 			ControllerJWTMode: api.ControllerJWTModeShared,
-			Version:           "2.7.1", Replicas: 3, Profile: api.ProfileDevelopment,
+			Version:           "2.7.2", Replicas: 3, Profile: api.ProfileDevelopment,
 			TLS: api.TLSConfig{Enabled: true, RotationPeriod: "720h"},
 			Configuration: &api.OpenBaoConfiguration{Listener: &api.ListenerConfig{
 				TLSMinVersion: api.TLSVersion13, TLSMaxVersion: api.TLSVersion13,
@@ -219,7 +219,7 @@ func startNode(t *testing.T, cluster *api.OpenBaoCluster, files, network string,
 	dataPath := t.TempDir()
 	image := os.Getenv("PQ_TLS_TEST_OPENBAO_IMAGE")
 	if image == "" {
-		image = "openbao/openbao:2.7.1"
+		image = "openbao/openbao:2.7.2"
 	}
 	// Run as the fixture owner and bypass the image entrypoint's user change so
 	// the server can read the mounted private files without changing permissions.

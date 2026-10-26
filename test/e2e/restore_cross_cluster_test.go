@@ -58,7 +58,7 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 		var storageService *corev1.Service
 		var stopped bool
 		password := uuid.NewString()
-		const image = "openbao/openbao:2.7.1"
+		const image = "openbao/openbao:2.7.2"
 
 		BeforeAll(func() {
 			path := os.Getenv("E2E_CROSS_CLUSTER_SOURCE_KUBECONFIG")
@@ -111,7 +111,7 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 			Expect(framework.EnsureRestrictedNamespace(ctx, destinationClient, infrastructureNamespace)).To(Succeed())
 			Expect(ensureRustFS(ctx, destinationClient, destinationConfig)).To(Succeed())
 			Expect(helpers.EnsureInfraBao(ctx, destinationConfig, destinationClient, helpers.InfraBaoConfig{
-				Namespace: infrastructureNamespace, Name: "transit", Image: "openbao/openbao:2.6.4",
+				Namespace: infrastructureNamespace, Name: "transit", Image: "openbao/openbao:2.6.5",
 			})).To(Succeed())
 			sealAddress := "https://transit." + infrastructureNamespace + ".svc:8200"
 			result, err := helpers.ConfigureInfraBaoTransit(ctx, destinationConfig, destinationClient,
@@ -153,7 +153,7 @@ var _ = Describe("Restore across independent Kubernetes clusters", Ordered, Seri
 				ObjectMeta: metav1.ObjectMeta{Name: "source", Namespace: sourceFW.Namespace},
 				Spec: api.OpenBaoClusterSpec{
 					Profile:           api.ProfileDevelopment,
-					Version:           "2.7.1",
+					Version:           "2.7.2",
 					Image:             image,
 					Replicas:          1,
 					ControllerJWTMode: api.ControllerJWTModeTarget,

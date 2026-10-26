@@ -3,7 +3,7 @@
 The `restore-cross-cluster` suite backs up a source OpenBao cluster, stops its
 single Kind node, and restores into an independent recovery Kubernetes cluster.
 It tests Disposable cleanup and Retain recovery with administrator repair of
-restored JWT trust. The suite uses OpenBao 2.7.1 and a shared Transit unseal key.
+restored JWT trust. The suite uses OpenBao 2.7.2 and a shared Transit unseal key.
 
 Run this suite only against disposable test environments. It stops the source
 node, installs the operator in the recovery cluster, and removes that operator
