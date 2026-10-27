@@ -1301,6 +1301,7 @@ spec:
                             enum:
                             - 2.7.0
                             - 2.7.1
+                            - 2.7.2
                             type: string
                         required:
                         - storage
@@ -8737,6 +8738,7 @@ spec:
                     enum:
                     - 2.7.0
                     - 2.7.1
+                    - 2.7.2
                     type: string
                 required:
                 - storage
@@ -10434,10 +10436,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261024-0d65169ded89
+          value: nightly-20261027-e761cfa72cc5
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:b5fbb90f27687d1fd9cb46ce05fcad7872286484695da13660bb5cf525f0d38b
+        image: ghcr.io/kubebao/openbao-operator@sha256:ec22ed2f4eb2d220959fcbb64a7ee6f1260fa165a5486d711444a0c86cec70e8
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10558,8 +10560,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261024-0d65169ded89
-        image: ghcr.io/kubebao/openbao-operator@sha256:b5fbb90f27687d1fd9cb46ce05fcad7872286484695da13660bb5cf525f0d38b
+          value: nightly-20261027-e761cfa72cc5
+        image: ghcr.io/kubebao/openbao-operator@sha256:ec22ed2f4eb2d220959fcbb64a7ee6f1260fa165a5486d711444a0c86cec70e8
         livenessProbe:
           httpGet:
             path: /healthz
