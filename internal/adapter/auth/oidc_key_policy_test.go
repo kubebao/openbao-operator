@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"math/big"
 	"strconv"
 	"testing"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestJWKMinimumKeySize(t *testing.T) {
-	for _, bits := range []int{1024, 2048} {
+	for _, bits := range []int{1024, 2048, 4096} {
 		t.Run(strconv.Itoa(bits), func(t *testing.T) {
 			key, err := rsa.GenerateKey(rand.Reader, bits)
 			require.NoError(t, err)
@@ -34,4 +35,20 @@ func TestJWKMinimumKeySize(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestJWKConversionPreservesLargeRSAPublicKey(t *testing.T) {
+	// Kubernetes JWKS conversion does not use go-jose's 4096-bit JWK limit.
+	// Only public-key conversion is under test; no private key is needed.
+	key := &rsa.PublicKey{N: new(big.Int).SetBit(big.NewInt(1), 8191, 1), E: 65537}
+	raw := jwkKey{Kty: "RSA", N: base64.RawURLEncoding.EncodeToString(key.N.Bytes()),
+		E: base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.E)).Bytes())}
+	encoded, err := pemPublicKeyFromJWK(raw)
+	require.NoError(t, err)
+	block, rest := pem.Decode([]byte(encoded))
+	require.NotNil(t, block)
+	require.Empty(t, rest)
+	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+	require.NoError(t, err)
+	require.Equal(t, key, parsed)
 }
