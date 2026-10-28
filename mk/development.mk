@@ -139,6 +139,7 @@ verify-release-automation: ## Test release request validation and Artifact Hub m
 	@bash hack/ci/test-remove-unpublished-release.sh
 	@$(MAKE) verify-release-pilot
 	@$(MAKE) verify-release-evidence
+	@$(MAKE) verify-release-identity
 
 .PHONY: verify-release-pilot
 verify-release-pilot: ## Test the artifact-only release pilot without GitHub or Docker.
@@ -147,6 +148,10 @@ verify-release-pilot: ## Test the artifact-only release pilot without GitHub or 
 .PHONY: verify-release-evidence
 verify-release-evidence: ## Test the offline advisory release evidence contract.
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_release_evidence.py'
+
+.PHONY: verify-release-identity
+verify-release-identity: ## Test the metadata-only identity pilot without GitHub or signing.
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_release_identity.py'
 
 .PHONY: verify-spdx-normalizer
 verify-spdx-normalizer: ## Validate deterministic SPDX normalization against the SPDX 2.2 and 2.3 schemas.
