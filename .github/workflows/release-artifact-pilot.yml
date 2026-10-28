@@ -1,0 +1,251 @@
+name: Release Artifact Pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "Full premerge candidate commit SHA with the same tree as the squash commit."
+        required: true
+        type: string
+      merged_sha:
+        description: "Full squash commit SHA already reachable from main."
+        required: true
+        type: string
+
+# This workflow cannot create tags/releases, push packages, sign or attest.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-artifact-pilot
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Freeze Pilot Inputs
+    if: github.repository == 'kubebao/openbao-operator' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      candidate: ${{ steps.plan.outputs.candidate }}
+      merged: ${{ steps.plan.outputs.merged }}
+      epoch: ${{ steps.plan.outputs.epoch }}
+      helm_version: ${{ steps.plan.outputs.helmVersion }}
+      buildkit_image: ${{ steps.plan.outputs.buildkitImage }}
+      buildx_version: ${{ steps.plan.outputs.buildxVersion }}
+      syft_version: ${{ steps.plan.outputs.syftVersion }}
+      syft_sha256: ${{ steps.plan.outputs.syftLinuxAMD64SHA256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate commit inputs before fetching
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MERGED_SHA: ${{ inputs.merged_sha }}
+        run: python3 hack/ci/release-pilot.py validate-refs --candidate "${CANDIDATE_SHA}" --merged "${MERGED_SHA}"
+      - name: Fetch immutable sources
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MERGED_SHA: ${{ inputs.merged_sha }}
+        run: git fetch --no-tags origin "${CANDIDATE_SHA}" "${MERGED_SHA}"
+      - name: Freeze source identities and tool inputs
+        id: plan
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          MERGED_SHA: ${{ inputs.merged_sha }}
+        run: >-
+          python3 hack/ci/release-pilot.py prepare
+          --candidate "${CANDIDATE_SHA}" --merged "${MERGED_SHA}"
+          --output dist/release-pilot/plan.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/release-pilot/plan.json
+          if-no-files-found: error
+          retention-days: 7
+
+  images:
+    name: Pilot ${{ matrix.source }} ${{ matrix.image }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        source: [candidate, merged]
+        image: [operator, init, backup, upgrade]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs[matrix.source] }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - name: Verify source checkout
+        env:
+          PILOT_SOURCE: ${{ matrix.source }}
+        run: python3 hack/ci/release-pilot.py source --plan dist/plan/plan.json --source "${PILOT_SOURCE}" --source-dir source-under-test
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: ${{ needs.prepare.outputs.buildx_version }}
+          driver: docker-container
+          driver-opts: image=${{ needs.prepare.outputs.buildkit_image }}
+      - name: Select Dockerfile
+        id: dockerfile
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          file=Dockerfile
+          if [[ "${IMAGE}" != operator ]]; then file="Dockerfile.${IMAGE}"; fi
+          mkdir -p dist/images
+          echo "path=source-under-test/${file}" >> "${GITHUB_OUTPUT}"
+      - name: Build local OCI archive
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: source-under-test
+          file: ${{ steps.dockerfile.outputs.path }}
+          build-args: SOURCE_DATE_EPOCH=${{ needs.prepare.outputs.epoch }}
+          platforms: linux/amd64,linux/arm64
+          no-cache: true
+          push: false
+          provenance: false
+          sbom: false
+          outputs: type=oci,dest=dist/images/${{ matrix.image }}.tar
+        env:
+          DOCKER_BUILD_SUMMARY: "false"
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
+      - name: Verify image bytes and record their identity
+        env:
+          PILOT_SOURCE: ${{ matrix.source }}
+          IMAGE: ${{ matrix.image }}
+        run: >-
+          python3 hack/ci/release-pilot.py image --plan dist/plan/plan.json --source "${PILOT_SOURCE}"
+          --image "${IMAGE}" --archive "dist/images/${IMAGE}.tar" --output "dist/images/${IMAGE}.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.source }}-image-${{ matrix.image }}
+          path: dist/images/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  files:
+    name: Pilot ${{ matrix.source }} Release Files
+    needs: [prepare, images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [candidate, merged]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs[matrix.source] }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.source }}-image-*
+          path: dist/images
+          merge-multiple: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: source-under-test/go.mod
+          cache: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: ${{ needs.prepare.outputs.helm_version }}
+      - name: Install checksum-pinned Syft
+        env:
+          SYFT_VERSION: ${{ needs.prepare.outputs.syft_version }}
+          SYFT_SHA256: ${{ needs.prepare.outputs.syft_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/pilot-syft"
+          curl --fail --silent --show-error --location \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+            -o "${RUNNER_TEMP}/pilot-syft/syft.tar.gz"
+          echo "${SYFT_SHA256}  ${RUNNER_TEMP}/pilot-syft/syft.tar.gz" | sha256sum --check
+          tar -xzf "${RUNNER_TEMP}/pilot-syft/syft.tar.gz" -C "${RUNNER_TEMP}/pilot-syft" syft
+      - name: Package and record release files
+        env:
+          PILOT_PLAN: ${{ github.workspace }}/dist/plan/plan.json
+          PILOT_SOURCE: ${{ matrix.source }}
+          SOURCE_DIR: ${{ github.workspace }}/source-under-test
+          IMAGE_DIR: ${{ github.workspace }}/dist/images
+          OUTPUT_DIR: ${{ github.workspace }}/dist/files
+          SYFT_BIN: ${{ runner.temp }}/pilot-syft/syft
+        run: bash hack/ci/package-release-pilot.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.source }}-files
+          path: dist/files/
+          if-no-files-found: error
+          retention-days: 7
+
+  compare:
+    name: Compare Pilot Artifacts
+    needs: [prepare, files]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-candidate-image-*
+          path: dist/candidate/images
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-merged-image-*
+          path: dist/merged/images
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-candidate-files
+          path: dist/candidate/files
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-merged-files
+          path: dist/merged/files
+      - name: Compare bytes and exercise rejection controls
+        run: >-
+          python3 hack/ci/release-pilot.py compare --plan dist/plan/plan.json
+          --candidate-images dist/candidate/images --merged-images dist/merged/images
+          --candidate-files dist/candidate/files --merged-files dist/merged/files --output dist/comparison
+      - name: Retain comparison and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-pilot-${{ github.run_id }}-${{ github.run_attempt }}-comparison
+          path: dist/comparison/
+          if-no-files-found: warn
+          retention-days: 7

@@ -10,6 +10,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const checkoutAction = "actions/checkout"
+
 type maintenanceStep struct {
 	Uses string            `yaml:"uses"`
 	Run  string            `yaml:"run"`
@@ -70,7 +72,7 @@ func TestMaintenancePreparationHasNoWriteToken(t *testing.T) {
 			uploaded := false
 			for _, step := range prepare.Steps {
 				action, _, _ := strings.Cut(step.Uses, "@")
-				if action == "actions/checkout" && step.With["persist-credentials"] != routingFalse {
+				if action == checkoutAction && step.With["persist-credentials"] != routingFalse {
 					t.Fatal("preparation checkout persists credentials")
 				}
 				if action == "actions/upload-artifact" && step.With["name"] == test.artifact {
@@ -93,7 +95,7 @@ func TestMaintenancePreparationHasNoWriteToken(t *testing.T) {
 						t.Fatal("mutation job must consume artifacts from its own workflow run")
 					}
 					downloaded = step.With["name"] == test.artifact && step.With["path"] != ""
-				case "", "actions/checkout", "actions/upload-artifact", "peter-evans/create-pull-request":
+				case "", checkoutAction, "actions/upload-artifact", "peter-evans/create-pull-request":
 				default:
 					t.Fatalf("mutation job runs preparation action %q with a write token", action)
 				}
