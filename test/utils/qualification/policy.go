@@ -130,7 +130,9 @@ func PrepareCluster(ctx context.Context, c client.Client, cluster *openbaov1alph
 	}
 	if ctx == nil || c == nil || cluster == nil || cluster.Namespace == "" ||
 		cluster.Spec.Profile != openbaov1alpha1.ProfileHardened || cluster.Spec.InitContainer == nil ||
-		cluster.Spec.InitContainer.Image != selected.Images["init"] || cluster.Spec.OperatorImageVerification != nil {
+		cluster.Spec.InitContainer.Image != selected.Images["init"] ||
+		(cluster.Spec.Upgrade != nil && cluster.Spec.Upgrade.Image != selected.Images["upgrade"]) ||
+		cluster.Spec.OperatorImageVerification != nil {
 		return fmt.Errorf("qualification overlay requires the selected Hardened helper and an unset helper policy")
 	}
 	secret := &corev1.Secret{

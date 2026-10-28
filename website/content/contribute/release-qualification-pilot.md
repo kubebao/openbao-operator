@@ -35,6 +35,8 @@ The opt-in path requires all three variables. The policy file must match its SHA
 
 The helper policy uses the existing `operatorImageVerification` API. It requires the GitHub Actions issuer and the exact experimental workflow subject, with `failurePolicy: Block` and transparency-log verification enabled. It does not change the operator's default trust policy for official helper repositories. Configured experimental trust does not prove that default policy.
 
+The init image must match the selected init digest. When the fixture declares an upgrade configuration, its image must also match the selected upgrade digest. The hook rejects a mismatch before creating a credential or changing the cluster. An init-only fixture keeps its upgrade configuration unset.
+
 The auth file must contain a Docker configuration for `ghcr.io` only. The future workflow must supply a package-read credential, keep its file outside uploaded artifacts, and restrict file permissions. The fixture validator checks the credential format; it cannot determine the credential's permissions. Tests create a namespace-local image pull Secret and reference it from both the workload and helper verification configuration. They do not put credential bytes in a fixture patch or a last-applied annotation.
 
 The operator upgrade harness keeps the official baseline helper until candidate takeover. It then creates the experimental pull Secret and reapplies the Hardened fixture with the selected candidate helper and verification policy. Verification-only harness output proves input validation, not an upgrade execution.

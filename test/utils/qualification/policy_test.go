@@ -34,6 +34,7 @@ func selectPolicy(t *testing.T, mutate func(*policy)) (*openbaov1alpha1.OpenBaoC
 		Spec: openbaov1alpha1.OpenBaoClusterSpec{
 			Profile: openbaov1alpha1.ProfileHardened, ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 			InitContainer:    &openbaov1alpha1.InitContainerConfig{Enabled: true, Image: selected.Images["init"]},
+			Upgrade:          &openbaov1alpha1.UpgradeConfig{Image: selected.Images["upgrade"]},
 			SelfInit:         &openbaov1alpha1.SelfInitConfig{Enabled: true},
 			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "existing-registry"}},
 		},
@@ -127,6 +128,52 @@ func TestPolicyRejectsWrongIdentityImagesAndMissingBindings(t *testing.T) {
 				t.Fatal("unapproved experimental policy was accepted")
 			}
 		})
+	}
+}
+
+func TestUpgradeHelperMustMatchTheSelectedDigestBeforeAnyMutation(t *testing.T) {
+	for name, image := range map[string]string{
+		"different-digest": "ghcr.io/kubebao/openbao-upgrade-qualification@sha256:" + strings.Repeat("d", 64),
+		"official":         "ghcr.io/kubebao/openbao-upgrade@sha256:" + strings.Repeat("c", 64),
+		"tag":              "ghcr.io/kubebao/openbao-upgrade-qualification:edge",
+		"empty":            "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			cluster, _ := selectPolicy(t, nil)
+			cluster.Spec.Upgrade.Image = image
+			before := cluster.DeepCopy()
+			scheme := runtime.NewScheme()
+			if err := corev1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme).Build()
+			if err := PrepareCluster(context.Background(), c, cluster); err == nil {
+				t.Fatal("unselected upgrade helper was accepted")
+			}
+			var credentials corev1.SecretList
+			if err := c.List(context.Background(), &credentials); err != nil {
+				t.Fatal(err)
+			}
+			if len(credentials.Items) != 0 || !reflect.DeepEqual(before, cluster) {
+				t.Fatal("rejected helper changed the credential store or cluster")
+			}
+		})
+	}
+}
+
+func TestInitOnlyOverlayDoesNotCreateAnUpgradeConfig(t *testing.T) {
+	cluster, _ := selectPolicy(t, nil)
+	cluster.Spec.Upgrade = nil
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	if err := PrepareCluster(context.Background(), c, cluster); err != nil {
+		t.Fatal(err)
+	}
+	if cluster.Spec.Upgrade != nil {
+		t.Fatal("init-only overlay created an upgrade configuration")
 	}
 }
 
