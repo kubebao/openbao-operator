@@ -111,6 +111,9 @@ report with `consistent: false` when the selected output path is available. Exis
 
 ## Establish production trust separately
 
+The [identity pilot](../release-identity-pilot/) tests cross-run authentication with a separate signed metadata
+probe. It does not authenticate this validator's declarations or grant publication authority.
+
 Before a production consumer can use this contract, it must authenticate the selected producer workflow and
 signer version, repository, source context, run, job, attempt and artifact IDs against signed evidence and platform
 metadata. It must inspect the actual qualification results and image contents.
