@@ -186,5 +186,7 @@ secondary:
         url: contribute/release/
       - title: Release artifact pilot
         url: contribute/release-artifact-pilot/
+      - title: Advisory release evidence
+        url: contribute/release-evidence-contract/
       - title: Incident response
         url: contribute/incident-response/
