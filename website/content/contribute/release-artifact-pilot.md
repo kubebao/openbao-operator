@@ -47,6 +47,9 @@ A successful report claims **artifact equivalence only**. It does not prove that
 
 GitHub signing identities, protected approvals, promotion and tag creation still require a separate hosted validation stage. The current pilot cannot exercise those actions because it has no publication capability.
 
+The [advisory evidence validator](../release-evidence-contract/) checks proposed evidence declarations locally.
+It does not authenticate producers or authorize publication.
+
 ## Run local checks
 
 ```sh
