@@ -155,7 +155,7 @@ assert_resource_absent() {
   fi
 }
 
-render_hardened_fixture() {
+render_hardened_fixture_image() {
   awk \
     -v default_image="${DEFAULT_HARDENED_INIT_IMAGE}" \
     -v selected_image="${HARDENED_INIT_IMAGE}" '
@@ -164,6 +164,31 @@ render_hardened_fixture() {
       }
       { print }
     ' "${FIXTURE_DIR}/hardened-cluster.yaml"
+}
+
+qualification_policy_selected() {
+  [[ -n "${E2E_QUALIFICATION_POLICY_FILE:-}${E2E_QUALIFICATION_POLICY_SHA256:-}${E2E_QUALIFICATION_AUTH_FILE:-}" ]]
+}
+
+render_hardened_fixture() {
+  if qualification_policy_selected; then
+    local patch
+    patch="$(python3 "${ROOT_DIR}/hack/ci/qualification-helper-policy.py" patch --init-image "${HARDENED_INIT_IMAGE}")"
+    render_hardened_fixture_image | "${KUBECTL_BIN}" patch --local -f - --type merge --patch "${patch}" -o yaml
+  else
+    render_hardened_fixture_image
+  fi
+}
+
+create_qualification_pull_secret() {
+  if qualification_policy_selected; then
+    python3 "${ROOT_DIR}/hack/ci/qualification-helper-policy.py" validate --init-image "${HARDENED_INIT_IMAGE}"
+    # Create only after candidate takeover. Never overwrite an existing credential
+    # or put credential bytes in a last-applied-configuration annotation.
+    "${KUBECTL_BIN}" create secret generic release-qualification-registry \
+      -n "${TENANT_NAMESPACE}" --type=kubernetes.io/dockerconfigjson \
+      --from-file=".dockerconfigjson=${E2E_QUALIFICATION_AUTH_FILE}" >/dev/null
+  fi
 }
 
 discover_api_server_endpoint_ips() {
@@ -337,7 +362,9 @@ verify_harness() {
     echo "operator upgrade target must be a semver-compatible image tag: ${TARGET_VERSION}" >&2
     exit 1
   fi
-  if ! [[ "${HARDENED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
+  if qualification_policy_selected; then
+    python3 "${ROOT_DIR}/hack/ci/qualification-helper-policy.py" validate --init-image "${HARDENED_INIT_IMAGE}"
+  elif ! [[ "${HARDENED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
     echo "hardened upgrade helper must be an immutable official openbao-init digest: ${HARDENED_INIT_IMAGE}" >&2
     exit 1
   fi
@@ -728,6 +755,7 @@ wait_for_statefulset_init_image operator-upgrade-transit "${LOCAL_INIT_IMAGE}"
   --timeout=10m >/dev/null
 
 echo "Reapplying the Hardened contract through candidate admission..." >&2
+create_qualification_pull_secret
 render_hardened_fixture | \
   inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null

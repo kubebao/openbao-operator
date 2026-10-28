@@ -140,6 +140,7 @@ verify-release-automation: ## Test release request validation and Artifact Hub m
 	@$(MAKE) verify-release-pilot
 	@$(MAKE) verify-release-evidence
 	@$(MAKE) verify-release-identity
+	@$(MAKE) verify-release-qualification
 
 .PHONY: verify-release-pilot
 verify-release-pilot: ## Test the artifact-only release pilot without GitHub or Docker.
@@ -152,6 +153,11 @@ verify-release-evidence: ## Test the offline advisory release evidence contract.
 .PHONY: verify-release-identity
 verify-release-identity: ## Test the metadata-only identity pilot without GitHub or signing.
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_release_identity.py'
+
+.PHONY: verify-release-qualification
+verify-release-qualification: ## Test candidate planning and helper policy without builds or publication.
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_release_qualification.py'
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_helper_policy.py'
 
 .PHONY: verify-spdx-normalizer
 verify-spdx-normalizer: ## Validate deterministic SPDX normalization against the SPDX 2.2 and 2.3 schemas.
@@ -364,6 +370,7 @@ verify-operator-upgrade-e2e: ## Verify the previous-stable Development and Harde
 	@bash -n hack/ci/operator-upgrade-e2e.sh
 	@OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true bash hack/ci/operator-upgrade-e2e.sh
 	@bash hack/ci/test-operator-upgrade-e2e.sh
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_helper_policy.py'
 
 .PHONY: test-e2e-operator-upgrade
 test-e2e-operator-upgrade: ## Upgrade previous-stable Development and Hardened resources to the local candidate in Kind.
