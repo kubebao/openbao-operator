@@ -63,7 +63,7 @@ The candidate and final commits must differ and have the declared tree. The fina
 `baseSHA` as its parent and be reachable from the local `origin/main` reference. The base must be an ancestor of
 the candidate. The epoch must equal the candidate committer timestamp. The source chart and Release Please
 manifest must declare the selected version. Fetch the required Git objects before running the validator. It
-disables replacement objects and lazy fetching.
+disables replacement objects and lazy fetching, and removes inherited Git repository-location overrides.
 
 Chart root keys must use the project's plain, unquoted key syntax. Nested values must be indented. Duplicate,
 quoted, tagged or complex root keys, root flow mappings, root merge keys and document markers are rejected.

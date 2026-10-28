@@ -19,6 +19,13 @@ ROLES = {"qualification", "finalBuild", "comparison"}
 IMAGES = {"operator", "init", "backup", "upgrade"}
 ROOT_FIELDS = {"repository", "sources", "release", "inputsSHA256", "testPlanSHA256", "images", "files"}
 PRODUCER_FIELDS = {"repository", "workflow", "sourceSHA", "signerSHA", "runID", "jobID", "attempt"}
+# Repository-local variables must not redirect checks away from --repo.
+GIT_REPOSITORY_ENV = {
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE", "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE", "GIT_REPLACE_REF_BASE", "GIT_PREFIX", "GIT_SHALLOW_FILE", "GIT_COMMON_DIR",
+    "GIT_NAMESPACE", "GIT_QUARANTINE_PATH",
+}
 
 
 def require(condition, message):
@@ -71,8 +78,10 @@ def load_json(path):
 
 
 def git(repo, *args):
+    base_env = {key: value for key, value in os.environ.items()
+                if key not in GIT_REPOSITORY_ENV and not key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))}
     result = subprocess.run(["git", "-C", str(repo), *args], text=True, capture_output=True,
-                            env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1",
+                            env={**base_env, "GIT_NO_REPLACE_OBJECTS": "1", "GIT_NO_LAZY_FETCH": "1",
                                  "GIT_TERMINAL_PROMPT": "0"})
     require(result.returncode == 0, "Git identity or ancestry check failed")
     return result.stdout.strip()

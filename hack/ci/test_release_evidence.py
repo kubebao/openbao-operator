@@ -85,9 +85,16 @@ class EvidenceContract(unittest.TestCase):
                                    for role, record in records.items()}}
         self.now = datetime.datetime(2030, 1, 1, tzinfo=datetime.timezone.utc)
 
+    @staticmethod
+    def fixture_environment(overrides=None):
+        # Fixture mutations must not inherit repository locations, hooks or signing configuration.
+        base = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        return {**base, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_TERMINAL_PROMPT": "0", **(overrides or {})}
+
     def git(self, *args, env=None):
         return subprocess.check_output(["git", "-C", str(self.repo), *args], text=True,
-                                       stderr=subprocess.DEVNULL, env={**os.environ, **(env or {})}).strip()
+                                       stderr=subprocess.DEVNULL, env=self.fixture_environment(env)).strip()
 
     def commit(self, message, epoch):
         self.git("add", ".")
@@ -144,6 +151,42 @@ class EvidenceContract(unittest.TestCase):
         sources = self.manifest["identity"]["sources"]
         self.git("replace", sources["candidateSHA"], sources["baseSHA"])
         self.assertTrue(self.validate()["consistent"])
+
+    def sentinel_repository(self):
+        sentinel = self.root / "sentinel"
+        sentinel.mkdir()
+        subprocess.run(["git", "-C", str(sentinel), "init", "-b", "sentinel"], check=True,
+                       capture_output=True, env=self.fixture_environment())
+        (sentinel / "canary").write_text("caller repository must remain unchanged\n")
+        return sentinel
+
+    def contamination(self, sentinel):
+        return {"GIT_DIR": str(sentinel / ".git"), "GIT_WORK_TREE": str(sentinel),
+                "GIT_COMMON_DIR": str(sentinel / ".git"), "GIT_INDEX_FILE": str(sentinel / ".git/index"),
+                "GIT_OBJECT_DIRECTORY": str(sentinel / ".git/objects"),
+                "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(sentinel / ".git/objects"),
+                "GIT_NAMESPACE": "sentinel", "GIT_PREFIX": "sentinel/",
+                "GIT_CONFIG": str(sentinel / ".git/config"), "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "core.worktree", "GIT_CONFIG_VALUE_0": str(sentinel)}
+
+    def test_inherited_git_locations_do_not_redirect_validation(self):
+        sentinel = self.sentinel_repository()
+        with patch.dict(os.environ, self.contamination(sentinel)):
+            actual = evidence.git(self.repo, "rev-parse", "--absolute-git-dir")
+            self.assertEqual(Path(actual).resolve(), (self.repo / ".git").resolve())
+            self.assertTrue(self.validate()["consistent"])
+
+    def test_fixture_setup_preserves_a_caller_repository(self):
+        sentinel = self.sentinel_repository()
+        snapshot = lambda: {str(path.relative_to(sentinel)): hashlib.sha256(path.read_bytes()).hexdigest()
+                            for path in sentinel.rglob("*") if path.is_file()}
+        before = snapshot()
+        nested = EvidenceContract("test_valid_declarations_remain_unauthenticated_and_non_authorizing")
+        self.addCleanup(nested.doCleanups)
+        with patch.dict(os.environ, self.contamination(sentinel)):
+            nested.setUp()
+            self.assertTrue(nested.validate()["consistent"])
+        self.assertEqual(snapshot(), before)
 
     def test_ambiguous_source_version_syntax_is_rejected(self):
         original_git = evidence.git
