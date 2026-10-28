@@ -26,7 +26,7 @@ import (
 func TestImageVerificationMinimumKeySize(t *testing.T) {
 	trusted, err := parseTrustedRootWithPolicy(embeddedTrustedRootJSON)
 	require.NoError(t, err)
-	for _, bits := range []int{1024, 2048} {
+	for _, bits := range []int{1024, 2048, 4096} {
 		t.Run(strconv.Itoa(bits), func(t *testing.T) {
 			key, err := rsa.GenerateKey(rand.Reader, bits)
 			require.NoError(t, err)
@@ -49,6 +49,22 @@ func TestImageVerificationMinimumKeySize(t *testing.T) {
 			require.NoError(t, opts.SigVerifier.VerifySignature(bytes.NewReader(signature), bytes.NewReader(message)))
 		})
 	}
+}
+
+func TestImageVerificationLoadsLargeRSAPublicKey(t *testing.T) {
+	// The go-jose JWK limit must not restrict PEM image verification keys.
+	// Only public-key loading is under test; no private key is needed.
+	key := &rsa.PublicKey{N: new(big.Int).SetBit(big.NewInt(1), 8191, 1), E: 65537}
+	der, err := x509.MarshalPKIXPublicKey(key)
+	require.NoError(t, err)
+	config := imageverify.VerifyConfig{PublicKey: string(pem.EncodeToMemory(&pem.Block{
+		Type: "PUBLIC KEY", Bytes: der,
+	})), IgnoreTlog: true}
+	opts, err := (&ImageVerifier{}).buildCheckOpts(config, nil, false, nil)
+	require.NoError(t, err)
+	parsed, err := opts.SigVerifier.PublicKey()
+	require.NoError(t, err)
+	require.Equal(t, key, parsed)
 }
 
 func TestTrustedRootChecksActualKeySize(t *testing.T) {
