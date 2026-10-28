@@ -52,10 +52,10 @@ class HelperPolicyTest(unittest.TestCase):
         with patch.dict(os.environ, self.env, clear=True):
             selected = MODULE.load(self.image)
         rendered = MODULE.patch(selected)
-        self.assertEqual(rendered, {"spec": {"imagePullSecrets": [{"name": MODULE.SECRET}],
+        self.assertEqual(rendered, {"spec": {"imagePullSecrets": [{"name": MODULE.PULL_REFERENCE_NAME}],
             "operatorImageVerification": {"enabled": True, "issuer": MODULE.ISSUER,
                 "subject": MODULE.SUBJECT, "failurePolicy": "Block", "ignoreTlog": False,
-                "imagePullSecrets": [{"name": MODULE.SECRET}]}}})
+                "imagePullSecrets": [{"name": MODULE.PULL_REFERENCE_NAME}]}}})
         self.assertNotIn("private-fixture", json.dumps(rendered))
 
     def test_exact_opt_in_required_by_upgrade_harness(self):
@@ -66,6 +66,20 @@ class HelperPolicyTest(unittest.TestCase):
                 env = {key: value for key, value in self.env.items()
                        if key != missing and not (missing == "all" and key in KEYS)}
                 self.assertNotEqual(self.run_harness(env).returncode, 0)
+
+    def test_patch_stdout_does_not_depend_on_credential_contents(self):
+        outputs = []
+        for credential in (b"reader:private-fixture", b"other:separate-fixture"):
+            encoded = base64.b64encode(credential).decode()
+            self.auth.write_text(json.dumps({"auths": {"ghcr.io": {"auth": encoded}}}))
+            result = subprocess.run(["python3", str(ROOT / "hack/ci/qualification-helper-policy.py"),
+                                     "patch", "--init-image", self.image], env=self.env,
+                                    capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn(credential.decode(), result.stdout + result.stderr)
+            self.assertNotIn(encoded, result.stdout + result.stderr)
+            outputs.append(result.stdout)
+        self.assertEqual(outputs[0], outputs[1])
 
     def test_rejects_policy_and_helper_substitution(self):
         changes = (("issuer", "https://untrusted.invalid"), ("subject", MODULE.SUBJECT + "-other"),

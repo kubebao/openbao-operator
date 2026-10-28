@@ -14,7 +14,7 @@ import sys
 ISSUER = "https://token.actions.githubusercontent.com"
 SUBJECT = ("https://github.com/kubebao/openbao-operator/.github/workflows/"
            "release-qualification-pilot.yml@refs/heads/main")
-SECRET = "release-qualification-registry"
+PULL_REFERENCE_NAME = "release-qualification-registry"
 
 
 def require(condition):
@@ -66,11 +66,12 @@ def load(image):
 
 
 def patch(selected):
-    pull_secrets = [{"name": SECRET}]
+    # These are public object references, never registry credential contents.
+    pull_references = [{"name": PULL_REFERENCE_NAME}]
     return {"spec": {"operatorImageVerification": {
         "enabled": True, "issuer": selected["issuer"], "subject": selected["subject"],
-        "failurePolicy": "Block", "ignoreTlog": False, "imagePullSecrets": pull_secrets},
-        "imagePullSecrets": pull_secrets}}
+        "failurePolicy": "Block", "ignoreTlog": False, "imagePullSecrets": pull_references},
+        "imagePullSecrets": pull_references}}
 
 
 def main():
