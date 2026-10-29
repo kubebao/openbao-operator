@@ -29,6 +29,7 @@ func TestQualificationBuildAuthoritySeparation(t *testing.T) {
 	}
 	var workflow struct {
 		On          map[string]yaml.Node `yaml:"on"`
+		Env         map[string]string    `yaml:"env"`
 		Permissions map[string]string    `yaml:"permissions"`
 		Jobs        map[string]struct {
 			If          string            `yaml:"if"`
@@ -43,6 +44,9 @@ func TestQualificationBuildAuthoritySeparation(t *testing.T) {
 		t.Fatal(err)
 	}
 	read := map[string]string{"contents": "read"}
+	if workflow.Env["GOWORK"] != "off" || workflow.Env["GOENV"] != "off" {
+		t.Fatal("qualification must disable candidate workspace and local Go environment configuration")
+	}
 	if len(workflow.On) != 1 || workflow.On["workflow_dispatch"].Kind == 0 ||
 		!reflect.DeepEqual(workflow.Permissions, read) || len(workflow.Jobs) != 12 {
 		t.Fatal("build pilot must remain a separate dispatch-only twelve-stage experiment")

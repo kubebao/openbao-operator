@@ -193,7 +193,8 @@ def execute(plan, output, key):
 def checks(plan, output, stage):
     A.source(plan, SOURCE)
     output.mkdir(parents=True, exist_ok=False)
-    env = {**os.environ, "GOFLAGS": "-mod=vendor", "CRD_COMPAT_TARGET": plan["version"]}
+    env = {**os.environ, "GOFLAGS": "-mod=vendor", "GOWORK": "off", "GOENV": "off",
+           "CRD_COMPAT_TARGET": plan["version"]}
     commands = {
         "api": [["go", "test", "-count=1", "./hack/tools/api_inventory", "./hack/tools/crd_compatibility",
                  "./test/manifests/apicontract"], ["make", "verify-generated"], ["make", "verify-api-contract"]],

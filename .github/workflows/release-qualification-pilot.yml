@@ -32,6 +32,10 @@ on:
 permissions:
   contents: read
 
+env:
+  GOWORK: "off"
+  GOENV: "off"
+
 concurrency:
   group: release-qualification-pilot
   cancel-in-progress: false

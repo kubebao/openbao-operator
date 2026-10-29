@@ -32,6 +32,20 @@ class QualificationRuntimeTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 M.verify_binaries(plan, root)
 
+    def test_checks_disable_candidate_and_inherited_go_configuration(self):
+        plan = {"version": "0.6.0", "sources": {"candidateSHA": "a" * 40},
+                "context": {"runID": 42, "attempt": 1}}
+        for stage in ("api", "source-security"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as folder, \
+                    patch.dict(os.environ, {"GOWORK": "/candidate/go.work", "GOENV": "/candidate/go.env"}), \
+                    patch.object(M.A, "source"), patch.object(M, "run") as run:
+                M.checks(plan, Path(folder) / "result", stage)
+                self.assertGreater(len(run.call_args_list), 0)
+                for command in run.call_args_list:
+                    self.assertEqual(command.kwargs["env"]["GOWORK"], "off")
+                    self.assertEqual(command.kwargs["env"]["GOENV"], "off")
+                    self.assertEqual(command.kwargs["env"]["GOFLAGS"], "-mod=vendor")
+
     def test_all_upgrade_fixture_image_scalars_are_frozen(self):
         import re
         for fixture in (M.ROOT / "test/fixtures/operator-upgrade").glob("*.yaml"):
