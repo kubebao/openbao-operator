@@ -33,7 +33,7 @@ class QualificationPlanning(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("fixture\n")
         (self.repo / "charts/openbao-operator/Chart.yaml").write_text("name: operator\nversion: 0.6.0\nappVersion: 0.6.0\n")
-        (self.repo / ".release-please-manifest.json").write_text('{"": "0.6.0"}\n')
+        (self.repo / ".release-please-manifest.json").write_text('{".": "0.6.0"}\n')
         (self.repo / "hack/dev/tool-versions.env").write_bytes(
             (qualification.ROOT / "hack/dev/tool-versions.env").read_bytes())
         for name in ("test/e2e/e2e_versions.go", "test/e2e/upgradeversions/versions.go",
@@ -138,6 +138,56 @@ class QualificationPlanning(unittest.TestCase):
         changed = copy.deepcopy(plan)
         changed["context"]["attempt"] += 1
         self.assertNotEqual(qualification.fingerprint(plan), qualification.fingerprint(changed))
+
+    def freeze_command(self):
+        source = self.root / "source.json"
+        source.write_text(json.dumps(self.source))
+        notes = self.root / "notes.txt"
+        notes.write_bytes(self.notes)
+        args = argparse.Namespace(controller=self.controller, repo=self.repo, source=source,
+                                  version="0.6.0", notes=notes, notes_sha=qualification.digest(self.notes),
+                                  output=self.root / "plan.json")
+        with patch.object(qualification, "context", return_value=self.context), \
+                patch.object(qualification, "pr_metadata", return_value=self.pr), \
+                patch.object(qualification, "release_matrix", return_value=self.matrix), \
+                patch.object(qualification, "external_inputs", return_value=({}, {"version": "0.5.3"})), \
+                patch.dict(os.environ, {"GITHUB_OUTPUT": ""}):
+            qualification.freeze_command(args)
+        return qualification.read_json(args.output)
+
+    def test_freeze_command_accepts_repository_root_manifest_version(self):
+        plan = self.freeze_command()
+        self.assertEqual(plan["version"], "0.6.0")
+        self.assertEqual(plan["sources"]["candidateSHA"], self.candidate)
+        self.assertEqual(plan["sources"]["sourceFileSHA256"][".release-please-manifest.json"],
+                         qualification.digest(b'{".": "0.6.0"}\n'))
+
+    def test_freeze_command_rejects_missing_or_wrong_root_manifest_version(self):
+        original = qualification.git
+        for manifest in ({"": "0.6.0"}, {".": "0.5.3", "": "0.6.0"}, {}):
+            def read(repo, *args):
+                if args == ("show", f"{self.candidate}:.release-please-manifest.json"):
+                    return json.dumps(manifest).encode()
+                return original(repo, *args)
+
+            with self.subTest(manifest=manifest), patch.object(qualification, "git", side_effect=read), \
+                    patch.object(qualification, "inspect", return_value=self.source), \
+                    self.assertRaisesRegex(ValueError, "candidate release manifest version differs"):
+                self.freeze_command()
+
+    def test_freeze_command_rejects_duplicate_root_manifest_versions(self):
+        original = qualification.git
+        for manifest in (b'{".":"0.5.3",".":"0.6.0"}', b'{".":"0.6.0",".":"0.5.3"}',
+                         b'{".":"0.6.0",".":"0.6.0"}'):
+            def read(repo, *args):
+                if args == ("show", f"{self.candidate}:.release-please-manifest.json"):
+                    return manifest
+                return original(repo, *args)
+
+            with self.subTest(manifest=manifest), patch.object(qualification, "git", side_effect=read), \
+                    patch.object(qualification, "inspect", return_value=self.source), \
+                    self.assertRaisesRegex(ValueError, "duplicate JSON key"):
+                self.freeze_command()
 
     def test_notes_bytes_are_not_normalized(self):
         for changed in [self.notes.rstrip(), self.notes.replace(b"\n\n\n", b"\n\n"), self.notes.replace(b"\n", b"\r\n")]:
