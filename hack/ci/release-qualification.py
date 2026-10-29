@@ -244,7 +244,7 @@ def freeze_command(args):
     spec.loader.exec_module(contract)
     contract.validate_chart(chart, args.version)
     release_manifest = json.loads(git(args.repo, "show", f"{source['candidateSHA']}:.release-please-manifest.json"))
-    require(release_manifest.get("") == args.version, "candidate release manifest version differs")
+    require(release_manifest.get(".") == args.version, "candidate release manifest version differs")
     inputs = controller_inputs()
     # Compile and execute only controller tools. Candidate files are planner data;
     # candidate Makefiles, scripts and Go source never run in this boundary.
