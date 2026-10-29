@@ -2,6 +2,15 @@
 title: Candidate qualification pilot
 description: Full-profile candidate qualification with isolated packages and authenticated evidence.
 weight: 52
+verifiedBy:
+  - .github/workflows/release-qualification-pilot.yml
+  - hack/ci/release-qualification.py
+  - hack/ci/qualification-artifacts.py
+  - hack/ci/qualification-origin.py
+  - hack/ci/qualification-runtime.py
+  - hack/ci/qualification-audit.py
+  - hack/ci/qualification-helper-policy.py
+  - test/utils/qualification/policy.go
 ---
 
 The candidate qualification pilot builds and tests a proposed release before its PR merges. It retains an authenticated qualification record. It does not create an operator release or tag, promote production packages, or approve publication. The existing release workflows remain unchanged.
@@ -49,6 +58,8 @@ The workflow runs these stages:
 8. On a separate read-only runner, authenticate that record's artifact and signing bundle. Verify its exact workflow, C, run, attempt, and subject. Require rejection controls for changed bytes, source, signer, and workflow.
 
 Artifacts have run-and-attempt-specific names and 30-day retention. The qualification record has a two-MiB limit; it binds larger raw observations by SHA-256 and authenticated artifact origin. The verifier rejects reused job records whose timestamps precede the selected attempt. A failed-job-only rerun cannot qualify by reusing successful work from an older attempt; dispatch a fresh complete run instead.
+
+The 30-day retention applies only to GitHub Actions artifacts. Experimental GHCR image indexes, signatures, and attestations do not expire automatically. Before repeated use, define a registry retention and cleanup procedure that preserves active qualification evidence.
 
 The signed `qualification.json` records the plan, C/H/M identities, image subjects, payload hashes, coverage, actual node versions, available runtime and scanner observations, upgrade custody assertions, artifact origins, and material limits. It sets `runtimeQualificationVerified: true` only after the audit succeeds. It always sets `publicationAuthorized: false`.
 
