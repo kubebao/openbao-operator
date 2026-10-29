@@ -51,9 +51,9 @@ var _ = Describe("Upgrade Strategies: Blue/Green Drift", Label("upgrade", "blueg
 
 		initialVersion = blueGreenUpgradeFromVersion()
 		targetVersion = blueGreenUpgradeToVersion()
-		initialImage = fmt.Sprintf("openbao/openbao:%s", initialVersion)
-		targetImage = fmt.Sprintf("openbao/openbao:%s", targetVersion)
-		driftImage = fmt.Sprintf("ghcr.io/openbao/openbao:%s", targetVersion)
+		initialImage = openBaoVersionImage(initialVersion)
+		targetImage = openBaoVersionImage(targetVersion)
+		driftImage = qualifiedExternalImage("ghcr.io/openbao/openbao:" + targetVersion)
 
 		if initialVersion == targetVersion {
 			Skip(fmt.Sprintf("Blue/green drift test skipped: versions identical (%s)", initialVersion))

@@ -1,0 +1,749 @@
+name: Release Candidate Qualification Pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      controller_sha:
+        description: Reviewed full controller SHA on canonical main.
+        required: true
+        type: string
+      candidate_pr:
+        description: Open same-repository candidate PR based on the controller.
+        required: true
+        type: string
+      candidate_head:
+        description: Expected full PR head SHA.
+        required: true
+        type: string
+      version:
+        description: Exact stable version already declared in the candidate chart and manifest.
+        required: true
+        type: string
+      release_body:
+        description: Complete intended assembled release body, preserved as UTF-8 bytes.
+        required: true
+        type: string
+      release_body_sha256:
+        description: SHA256 of the exact supplied UTF-8 release body.
+        required: true
+        type: string
+
+# This isolated experiment qualifies candidates. It cannot publish an operator release.
+permissions:
+  contents: read
+
+env:
+  GOWORK: "off"
+  GOENV: "off"
+
+concurrency:
+  group: release-qualification-pilot
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan Candidate
+    if: >-
+      github.repository == 'kubebao/openbao-operator' && github.ref == 'refs/heads/main' &&
+      github.sha == github.workflow_sha && github.workflow_sha == inputs.controller_sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      candidate: ${{ steps.inspect.outputs.candidate }}
+      plan_sha256: ${{ steps.freeze.outputs.plan_sha256 }}
+      matrix: ${{ steps.freeze.outputs.matrix }}
+      epoch: ${{ steps.freeze.outputs.epoch }}
+      version: ${{ steps.freeze.outputs.version }}
+      helm_version: ${{ steps.freeze.outputs.helm_version }}
+      buildkit_image: ${{ steps.freeze.outputs.buildkit_image }}
+      buildx_version: ${{ steps.freeze.outputs.buildx_version }}
+      syft_version: ${{ steps.freeze.outputs.syft_version }}
+      syft_sha256: ${{ steps.freeze.outputs.syft_sha256 }}
+      cosign_version: ${{ steps.freeze.outputs.cosign_version }}
+      image_map_sha256: ${{ steps.freeze.outputs.image_map_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Read immutable candidate objects without executing candidate code
+        id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER: ${{ inputs.controller_sha }}
+          PR: ${{ inputs.candidate_pr }}
+          HEAD: ${{ inputs.candidate_head }}
+        run: >-
+          python3 hack/ci/release-qualification.py inspect-source --controller "${CONTROLLER}"
+          --pr "${PR}" --head "${HEAD}" --output dist/source
+      - name: Install the pinned registry metadata reader
+        run: bash hack/ci/install-qualification-oras.sh
+      - name: Freeze exact notes, inputs and complete release plan
+        id: freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER: ${{ inputs.controller_sha }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_BODY: ${{ inputs.release_body }}
+          RELEASE_BODY_SHA256: ${{ inputs.release_body_sha256 }}
+        run: bash hack/ci/freeze-qualification-plan.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan/
+          if-no-files-found: error
+          retention-days: 30
+
+  images:
+    name: Build (${{ matrix.build }} / ${{ matrix.image }})
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        build: [primary, rebuild]
+        image: [operator, init, backup, upgrade]
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - name: Verify candidate checkout
+        run: python3 hack/ci/qualification-artifacts.py --plan dist/plan/plan.json source --directory source-under-test
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: ${{ needs.plan.outputs.buildx_version }}
+          driver: docker-container
+          driver-opts: image=${{ needs.plan.outputs.buildkit_image }}
+      - name: Select image build
+        id: dockerfile
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          file=Dockerfile
+          if [[ "${IMAGE}" != operator ]]; then file="Dockerfile.${IMAGE}"; fi
+          mkdir -p dist/images
+          echo "path=source-under-test/${file}" >> "${GITHUB_OUTPUT}"
+      - name: Build local dual-platform archive without signing or publication
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: source-under-test
+          file: ${{ steps.dockerfile.outputs.path }}
+          build-args: SOURCE_DATE_EPOCH=${{ needs.plan.outputs.epoch }}
+          platforms: linux/amd64,linux/arm64
+          no-cache: true
+          push: false
+          provenance: false
+          sbom: false
+          outputs: type=oci,dest=dist/images/${{ matrix.image }}.tar
+        env:
+          DOCKER_BUILD_SUMMARY: "false"
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
+      - name: Record actual archive bytes and recheck source
+        env:
+          BUILD: ${{ matrix.build }}
+          IMAGE: ${{ matrix.image }}
+        run: |
+          python3 hack/ci/qualification-artifacts.py --plan dist/plan/plan.json record-image \
+            --build "${BUILD}" --role "${IMAGE}" --archive "dist/images/${IMAGE}.tar" --output "dist/images/${IMAGE}.json"
+          python3 hack/ci/qualification-artifacts.py --plan dist/plan/plan.json source --directory source-under-test
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.build }}-image-${{ matrix.image }}
+          path: dist/images/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  files:
+    name: Package (${{ matrix.build }})
+    needs: [plan, images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [primary, rebuild]
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.build }}-image-*
+          path: dist/images
+          merge-multiple: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: source-under-test/go.mod
+          cache: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: ${{ needs.plan.outputs.helm_version }}
+      - name: Install checksum-pinned Syft
+        env:
+          SYFT_VERSION: ${{ needs.plan.outputs.syft_version }}
+          SYFT_SHA256: ${{ needs.plan.outputs.syft_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/qualification-syft"
+          curl --fail --silent --show-error --location \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+            --output "${RUNNER_TEMP}/qualification-syft/syft.tar.gz"
+          printf '%s  %s\n' "${SYFT_SHA256}" "${RUNNER_TEMP}/qualification-syft/syft.tar.gz" | sha256sum --check --status
+          tar -xzf "${RUNNER_TEMP}/qualification-syft/syft.tar.gz" -C "${RUNNER_TEMP}/qualification-syft" syft
+      - name: Package canonical payloads with production repository coordinates
+        env:
+          QUALIFICATION_PLAN: ${{ github.workspace }}/dist/plan/plan.json
+          QUALIFICATION_BUILD: ${{ matrix.build }}
+          SOURCE_DIR: ${{ github.workspace }}/source-under-test
+          IMAGE_DIR: ${{ github.workspace }}/dist/images
+          OUTPUT_DIR: ${{ github.workspace }}/dist/files
+          SYFT_BIN: ${{ runner.temp }}/qualification-syft/syft
+        run: bash hack/ci/package-release-qualification.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.build }}-files
+          path: dist/files/
+          if-no-files-found: error
+          retention-days: 30
+
+  import:
+    name: Import Experimental Helpers
+    needs: [plan, images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+      id-token: write
+    outputs:
+      images: ${{ steps.import.outputs.images }}
+      policy_sha256: ${{ steps.import.outputs.policy_sha256 }}
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - name: Install pinned import and signing tools
+        run: bash hack/ci/install-qualification-oras.sh
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ needs.plan.outputs.cosign_version }}
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Authenticate producing attempts, compare independent images and import exact bytes
+        id: import
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 hack/ci/qualification-artifacts.py --plan dist/plan/plan.json import-images --output dist/import
+      - name: Sign isolated image subjects and retain import attestations
+        env:
+          CONTROLLER: ${{ github.workflow_sha }}
+        run: bash hack/ci/sign-qualification-images.sh
+      - name: Retain authenticated runtime policy
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-import
+          path: dist/import-public/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Retain public import and signing evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-import-signing-evidence
+          path: |
+            dist/import/images.json
+            dist/import/policy.json
+            dist/import/import.json
+            dist/import/*/origin.json
+            dist/import/*/predicate.json
+            dist/import/*/*.bundle.json
+            dist/import/*/*-verification.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  compile:
+    name: Compile Candidate Suite
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Compile selected suite without registry or signing authority
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/binaries compile
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-binaries
+          path: dist/binaries/
+          if-no-files-found: error
+          retention-days: 30
+
+  api:
+    name: API Contract Gate
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Execute candidate gates with the reviewed controller configuration
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/api api
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-api
+          path: dist/api/
+          if-no-files-found: error
+          retention-days: 30
+
+  source-security:
+    name: Source Security Gate
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Execute candidate gates with the reviewed controller configuration
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/source-security source-security
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-source-security
+          path: dist/source-security/
+          if-no-files-found: error
+          retention-days: 30
+
+  security-images:
+    name: Image Security (${{ matrix.role }})
+    needs: [plan, import]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [operator, init, backup, upgrade]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: ./.github/actions/setup-trivy
+      - name: Scan the exact imported index with the configured release policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLE: ${{ matrix.role }}
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/scan scan --role "${ROLE}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-scan-${{ matrix.role }}
+          path: |
+            dist/scan/result.json
+            dist/scan/trivy.json
+            dist/scan/scanner.json
+          if-no-files-found: error
+          retention-days: 30
+
+  e2e:
+    name: Runtime (${{ matrix.qualification_row_key }})
+    needs: [plan, import, compile]
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: ./.github/actions/setup-helm
+      - uses: ./.github/actions/setup-kubernetes-tools
+        with:
+          install-dir: bin/
+      - name: Authenticate suite and helpers and configure the selected row
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROW: ${{ matrix.qualification_row_key }}
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/runtime configure --row "${ROW}"
+      - name: Prepare the isolated runtime cluster
+        id: prepare
+        uses: ./.github/actions/prepare-e2e-lane
+        with:
+          candidate-image-transport: artifact
+          kind-node-image: ${{ env.KIND_NODE_IMAGE }}
+          kind-cluster: kind
+          network-profile: ${{ env.E2E_NETWORK_PROFILE }}
+          manager-image: qualification.local/openbao-operator:${{ github.run_id }}-${{ github.run_attempt }}
+          config-init-image: qualification.local/openbao-init:${{ github.run_id }}-${{ github.run_attempt }}
+          backup-executor-image: qualification.local/openbao-backup:${{ github.run_id }}-${{ github.run_attempt }}
+          upgrade-executor-image: qualification.local/openbao-upgrade:${{ github.run_id }}-${{ github.run_attempt }}
+          hardened-upgrade-executor-image: ${{ env.E2E_HARDENED_UPGRADE_EXECUTOR_IMAGE }}
+          load-backup-executor-image: ${{ env.E2E_LOAD_BACKUP_EXECUTOR_IMAGE }}
+          load-upgrade-executor-image: ${{ env.E2E_LOAD_UPGRADE_EXECUTOR_IMAGE }}
+          preload-storage-emulators: ${{ env.E2E_PRELOAD_STORAGE_EMULATORS }}
+          preload-rustfs-image: ${{ env.E2E_PRELOAD_RUSTFS_IMAGE }}
+          preload-fake-gcs-image: ${{ env.E2E_PRELOAD_FAKE_GCS_IMAGE }}
+          preload-azurite-image: ${{ env.E2E_PRELOAD_AZURITE_IMAGE }}
+          rustfs-image: ${{ env.E2E_RUSTFS_IMAGE }}
+          fake-gcs-image: ${{ env.E2E_FAKE_GCS_IMAGE }}
+          azurite-image: ${{ env.E2E_AZURITE_IMAGE }}
+          report-dir: ${{ github.workspace }}/dist/runtime
+          artifact-name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-row-${{ matrix.qualification_row_key }}
+      - name: Execute the actual candidate suite once
+        env:
+          ROW: ${{ matrix.qualification_row_key }}
+          E2E_RUSTFS_IMAGE: ${{ steps.prepare.outputs.rustfs-image }}
+          E2E_FAKE_GCS_IMAGE: ${{ steps.prepare.outputs.fake-gcs-image }}
+          E2E_AZURITE_IMAGE: ${{ steps.prepare.outputs.azurite-image }}
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/runtime execute --row "${ROW}"
+      - name: Delete the task-owned cluster
+        if: always() && steps.prepare.outcome != 'skipped'
+        run: |
+          if [[ -n "${E2E_NETWORK_PROFILE}" ]]; then
+            bash hack/ci/delete-network-kind.sh
+          else
+            kind delete cluster --name kind
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-row-${{ matrix.qualification_row_key }}
+          path: |
+            dist/runtime/runtime-inputs.json
+            dist/runtime/nodes.json
+            dist/runtime/ginkgo.json
+            dist/runtime/junit.xml
+            dist/runtime/runtime.log
+            dist/runtime/expected-cases.json
+            dist/runtime/observations.json
+          if-no-files-found: error
+          retention-days: 30
+
+  upgrade:
+    name: Operator Upgrade
+    needs: [plan, import]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.candidate }}
+          path: source-under-test
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: ./.github/actions/setup-helm
+        id: helm3
+        with:
+          version-key: HELM3_COMPAT_VERSION
+      - uses: ./.github/actions/setup-helm
+        id: helm4
+      - uses: ./.github/actions/setup-kubernetes-tools
+        with:
+          install-dir: bin/
+      - name: Execute the actual previous-stable to candidate upgrade
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HELM: ${{ steps.helm4.outputs.helm-path }}
+          HELM_INSTALL: ${{ steps.helm3.outputs.helm-path }}
+        run: python3 hack/ci/qualification-runtime.py --plan dist/plan/plan.json --output dist/upgrade upgrade
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-upgrade
+          path: |
+            dist/upgrade/result.json
+            dist/upgrade/runtime.log
+            dist/upgrade/upgrade.json
+            dist/upgrade/nodes.json
+            dist/upgrade/images.json
+          if-no-files-found: error
+          retention-days: 30
+
+  qualify:
+    name: Qualify Candidate
+    needs: [plan, images, files, import, compile, api, source-security, security-images, e2e, upgrade]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+      id-token: write
+      attestations: write
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ needs.plan.outputs.cosign_version }}
+      - name: Authenticate all origins and audit raw evidence without executing candidate code
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 hack/ci/qualification-audit.py --plan dist/plan/plan.json --output dist/audit audit
+      - name: Attest the audited qualification record
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/audit/qualification.json
+          push-to-registry: false
+          create-storage-record: false
+      - name: Retain the signed record
+        env:
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: bash hack/ci/retain-qualification-record.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-qualification
+          path: dist/qualified/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-audit
+          path: |
+            dist/audit/**/origin.json
+            dist/audit/**/audited-summary.json
+            dist/audit/*-signature.json
+            dist/audit/*-attestation.json
+          if-no-files-found: error
+          retention-days: 30
+
+  consume:
+    name: Authenticate Qualification
+    needs: [plan, qualify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    env:
+      QUALIFICATION_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+      PYTHONDONTWRITEBYTECODE: "1"
+      GOFLAGS: -mod=vendor
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-plan
+          path: dist/plan
+      - name: Install pinned attestation verifier
+        run: bash hack/ci/install-identity-pilot-gh.sh
+      - name: Verify the signed qualification and cryptographic rejection controls
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 hack/ci/qualification-audit.py --plan dist/plan/plan.json --output dist/consumer consume
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}-consumer
+          path: dist/consumer/
+          if-no-files-found: error
+          retention-days: 30

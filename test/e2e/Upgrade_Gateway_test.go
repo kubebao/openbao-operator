@@ -228,7 +228,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 						ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 						Profile:           openbaov1alpha1.ProfileDevelopment,
 						Version:           initialVersion,
-						Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
+						Image:             openBaoVersionImage(initialVersion),
 						Replicas:          3,
 						Upgrade: &openbaov1alpha1.UpgradeConfig{
 							Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
@@ -312,7 +312,7 @@ var _ = Describe("Upgrade Strategies: Gateway API", Label("upgrade", "upgrades",
 					g.Expect(admin.Get(ctx, types.NamespacedName{Name: upgradeCluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
 					original := updated.DeepCopy()
 					updated.Spec.Version = targetVersion
-					updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
+					updated.Spec.Image = openBaoVersionImage(targetVersion)
 					g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 				}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubebao/openbao-operator/test/utils/qualification"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -423,7 +425,7 @@ func createRustFSBuckets(
 
 	// Create a pod with AWS CLI to create buckets
 	// Use amazon/aws-cli image which is commonly available
-	awsCliImage := "amazon/aws-cli:latest"
+	awsCliImage := qualification.MustExternalImage("amazon/aws-cli:latest")
 
 	// Build the command to create all buckets
 	bucketCommands := make([]string, 0, len(cfg.Buckets))

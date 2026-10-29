@@ -1913,7 +1913,7 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 					Containers: []corev1.Container{
 						{
 							Name:  "pause",
-							Image: "registry.k8s.io/pause:3.9",
+							Image: qualifiedExternalImage("registry.k8s.io/pause:3.9"),
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: func() *bool {
 									v := false

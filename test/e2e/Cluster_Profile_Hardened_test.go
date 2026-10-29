@@ -735,8 +735,8 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 		), func() {
 			initialVersion := envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)
 			targetVersion := envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)
-			initialImage := fmt.Sprintf("openbao/openbao:%s", initialVersion)
-			targetImage := fmt.Sprintf("openbao/openbao:%s", targetVersion)
+			initialImage := openBaoVersionImage(initialVersion)
+			targetImage := openBaoVersionImage(targetVersion)
 			upgradeImage := hardenedSignedUpgradeExecutorImage()
 
 			if initialVersion == targetVersion {
@@ -974,8 +974,8 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 		), func() {
 			initialVersion := blueGreenUpgradeFromVersion()
 			targetVersion := blueGreenUpgradeToVersion()
-			initialImage := fmt.Sprintf("openbao/openbao:%s", initialVersion)
-			targetImage := fmt.Sprintf("openbao/openbao:%s", targetVersion)
+			initialImage := openBaoVersionImage(initialVersion)
+			targetImage := openBaoVersionImage(targetVersion)
 			upgradeImage := hardenedSignedUpgradeExecutorImage()
 
 			if initialVersion == targetVersion {

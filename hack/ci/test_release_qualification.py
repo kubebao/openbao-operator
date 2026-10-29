@@ -34,6 +34,19 @@ class QualificationPlanning(unittest.TestCase):
             path.write_text("fixture\n")
         (self.repo / "charts/openbao-operator/Chart.yaml").write_text("name: operator\nversion: 0.6.0\nappVersion: 0.6.0\n")
         (self.repo / ".release-please-manifest.json").write_text('{"": "0.6.0"}\n')
+        (self.repo / "hack/dev/tool-versions.env").write_bytes(
+            (qualification.ROOT / "hack/dev/tool-versions.env").read_bytes())
+        for name in ("test/e2e/e2e_versions.go", "test/e2e/upgradeversions/versions.go",
+                     "test/fixtures/operator-upgrade/versions.env", "test/fixtures/operator-upgrade/cluster.yaml",
+                     "test/fixtures/operator-upgrade/transit-cluster.yaml", "test/fixtures/operator-upgrade/hardened-cluster.yaml"):
+            path = self.repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes((qualification.ROOT / name).read_bytes())
+        for name in qualification.FROZEN_TEST_PATHS:
+            path = self.repo / name
+            if not path.exists():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("fixture\n")
         self.controller = self.commit("controller")
         self.git("switch", "-c", "candidate")
         (self.repo / "Dockerfile").write_text("candidate fixture\n")
@@ -54,8 +67,7 @@ class QualificationPlanning(unittest.TestCase):
                                    {"id": "core", "k8s": "1.35.1", "coverage": "compatibility", "profile": "release-gate",
                                     "label_filter": "core", "expected_case_ids": ["case-1", "case-2"]}]}
         self.notes = "# Release 0.6.0\n\nFrozen café body.\n\n\n## Changelog\n\n- Fixture.\n".encode()
-        self.inputs = {**qualification.read_json(qualification.ROOT / "hack/ci/release-qualification-inputs.json"),
-                       "build": qualification.read_json(qualification.ROOT / "hack/ci/release-pilot-inputs.json")}
+        self.inputs = qualification.controller_inputs()
 
     def git(self, *args):
         # Temporary Git mutations must never inherit hook/wrapper repository locations or global configuration.
@@ -100,6 +112,19 @@ class QualificationPlanning(unittest.TestCase):
     def test_git_reads_ignore_inherited_repository_location(self):
         with patch.dict(os.environ, {"GIT_DIR": str(self.root / "absent"), "GIT_WORK_TREE": str(self.root)}):
             self.assertEqual(qualification.inspect(self.repo, self.controller, self.head, self.pr), self.source)
+
+    def test_first_pilot_rejects_candidate_changes_to_the_reviewed_test_inputs(self):
+        self.git("checkout", "candidate")
+        (self.repo / "test/e2e/suites.yaml").write_text("changed profile\n")
+        changed_head = self.commit("changed test profile")
+        self.git("checkout", "-b", "changed-preview", self.controller)
+        self.git("merge", "--no-ff", "-m", "changed preview", changed_head)
+        preview = self.git("rev-parse", "HEAD")
+        self.git("checkout", "--detach", self.controller)
+        pr = copy.deepcopy(self.pr)
+        pr["head"]["sha"], pr["merge_commit_sha"] = changed_head, preview
+        with self.assertRaises(ValueError):
+            qualification.inspect(self.repo, self.controller, changed_head, pr)
 
     def test_notes_epoch_matrix_inputs_and_context_are_bound(self):
         plan = self.freeze()
@@ -177,6 +202,52 @@ class QualificationPlanning(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             qualification.write_json(output, {})
         self.assertEqual(output.read_bytes(), old)
+
+    def test_candidate_cannot_change_controller_cli_pins(self):
+        source = copy.deepcopy(self.source)
+        source["sourceFileSHA256"]["hack/dev/tool-versions.env"] = "d" * 64
+        with self.assertRaises(ValueError):
+            self.freeze(source=source)
+
+    def test_external_inputs_freeze_versions_nodes_baseline_and_existing_digests(self):
+        matrix = copy.deepcopy(self.matrix)
+        matrix["include"][0].update({"kind_node_image": "kindest/node:v1.36.1",
+                                     "openbao_image": "ghcr.io/openbao/openbao:2.6.5",
+                                     "upgrade_sequence": "2.5.5,2.6.4,2.7.2"})
+        original = subprocess.run
+        references = []
+
+        def resolve(args, **kwargs):
+            if args[0] != "oras":
+                return original(args, **kwargs)
+            self.assertEqual(args[:2], ["oras", "resolve"])
+            references.append(args[2])
+            value = args[2].split("@", 1)[1] if "@" in args[2] else "sha256:" + "a" * 64
+            return subprocess.CompletedProcess(args, 0, (value + "\n").encode(), b"")
+
+        with patch.object(qualification.subprocess, "run", side_effect=resolve):
+            images, baseline = qualification.external_inputs(self.repo, self.controller, matrix)
+        self.assertIn("kindest/node:v1.36.1", images)
+        self.assertIn("openbao/openbao:2.7.2", images)
+        self.assertIn("ghcr.io/openbao/openbao:2.6.2", images)
+        self.assertEqual(baseline["version"], "0.5.3")
+        self.assertEqual(baseline["chartDigest"], "sha256:" + "a" * 64)
+        self.assertEqual(images[baseline["initImage"]], baseline["initImage"])
+        self.assertEqual(len(references), len(set(references)))
+        self.assertIn("docker.io/kindest/node:v1.36.1", references)
+        self.assertIn("docker.io/openbao/openbao:2.7.2", references)
+        self.assertFalse(any(reference.startswith(("kindest/", "openbao/")) for reference in references))
+
+    def test_changed_pinned_external_digest_is_rejected(self):
+        original = subprocess.run
+
+        def resolve(args, **kwargs):
+            if args[0] != "oras":
+                return original(args, **kwargs)
+            return subprocess.CompletedProcess(args, 0, ("sha256:" + "a" * 64).encode(), b"")
+
+        with patch.object(qualification.subprocess, "run", side_effect=resolve), self.assertRaises(ValueError):
+            qualification.external_inputs(self.repo, self.controller, self.matrix)
 
     def test_duplicate_json_is_rejected(self):
         output = self.root / "duplicate.json"

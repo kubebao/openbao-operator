@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-FIXTURE_DIR="${ROOT_DIR}/test/fixtures/operator-upgrade"
+FIXTURE_DIR="${OPERATOR_UPGRADE_E2E_FIXTURE_DIR:-${ROOT_DIR}/test/fixtures/operator-upgrade}"
 MIGRATION_FIXTURE_DIR="${ROOT_DIR}/test/fixtures/api-migration"
 # The API stability inventory retains its original contract baseline. Runtime
 # upgrade qualification follows the previous stable operator release instead.
@@ -539,10 +539,21 @@ echo "Installing cert-manager..." >&2
   --for=condition=Available \
   --timeout=5m >/dev/null
 
+if [[ -n "${OPERATOR_UPGRADE_E2E_REPORT_DIR:-}" ]]; then
+  mkdir -p "${OPERATOR_UPGRADE_E2E_REPORT_DIR}"
+  "${KUBECTL_BIN}" get nodes -o json > "${OPERATOR_UPGRADE_E2E_REPORT_DIR}/nodes.json"
+fi
+
 echo "Installing released operator ${FROM_VERSION}..." >&2
 echo "Install client: $("${HELM_INSTALL_BIN}" version --short)" >&2
-"${HELM_INSTALL_BIN}" install openbao-operator "${BASELINE_CHART}" \
-  --version "${FROM_VERSION}" \
+baseline_args=("${BASELINE_CHART}" --version "${FROM_VERSION}")
+if qualification_policy_selected; then
+  [[ "${OPERATOR_UPGRADE_E2E_BASELINE_CHART_DIGEST:-}" =~ ^sha256:[0-9a-f]{64}$ ]]
+  [[ "${OPERATOR_UPGRADE_E2E_BASELINE_MANAGER_IMAGE:-}" =~ ^ghcr\.io/kubebao/openbao-operator:${FROM_VERSION}@sha256:[0-9a-f]{64}$ ]]
+  baseline_args=("${BASELINE_CHART}@${OPERATOR_UPGRADE_E2E_BASELINE_CHART_DIGEST}"
+    --set-string "image.digest=${OPERATOR_UPGRADE_E2E_BASELINE_MANAGER_IMAGE##*@}")
+fi
+"${HELM_INSTALL_BIN}" install openbao-operator "${baseline_args[@]}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --create-namespace \
   --wait \
@@ -886,3 +897,19 @@ echo "Exercising the upgraded provisioner with a new tenant..." >&2
   --timeout=5m >/dev/null
 
 echo "Operator upgrade E2E succeeded: ${FROM_VERSION} -> ${TARGET_VERSION}" >&2
+
+if [[ -n "${OPERATOR_UPGRADE_E2E_REPORT_DIR:-}" ]]; then
+  "${KUBECTL_BIN}" get pods -A -o json | jq '[.items[] | {namespace:.metadata.namespace,name:.metadata.name,
+    images:[.spec.initContainers[]?.image,.spec.containers[]?.image],
+    imageIDs:[.status.initContainerStatuses[]?.imageID,.status.containerStatuses[]?.imageID]}]' \
+    > "${OPERATOR_UPGRADE_E2E_REPORT_DIR}/images.json"
+  jq -n --arg from "${FROM_VERSION}" --arg target "${TARGET_VERSION}" \
+    --arg hardenedUID "${hardened_cluster_uid}" --arg developmentUID "${cluster_uid}" \
+    --arg pvcUID "${pvc_uid}" --arg rootUID "${legacy_root_uid}" --arg unsealUID "${legacy_unseal_uid}" \
+    --argjson hardenedPVCUIDs "${hardened_pvc_uids}" \
+    '{fromVersion:$from,targetVersion:$target,controllerJWTMigration:"passed",
+      legacyStaticRestoreGuardrail:"passed",retainCustody:"passed",finalSuccess:true,
+      hardenedUID:$hardenedUID,developmentUID:$developmentUID,pvcUID:$pvcUID,
+      rootSecretUID:$rootUID,unsealSecretUID:$unsealUID,hardenedPVCUIDs:$hardenedPVCUIDs}' \
+    > "${OPERATOR_UPGRADE_E2E_REPORT_DIR}/upgrade.json"
+fi

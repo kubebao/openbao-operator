@@ -170,7 +170,7 @@ def verify_command(subject, bundle, controller, trusted_root, **overrides):
             *[part for key, value in policy.items() for part in ("--" + key, value)]]
 
 
-def verified_identity(verified, controller, run, attempt, subject):
+def verified_identity(verified, controller, run, attempt, subject, subject_name="probe.json"):
     require(type(verified) is list and len(verified) == 1, "expected exactly one verified attestation")
     result = verified[0]["verificationResult"]
     # Pinned sigstore-go certificate.Summary embeds and flattens Extensions.
@@ -187,7 +187,7 @@ def verified_identity(verified, controller, run, attempt, subject):
     require(all(extensions.get(key) == value for key, value in expected.items()), "certificate context differs")
     statement = result["statement"]
     require(statement["predicateType"] == "https://slsa.dev/provenance/v1"
-            and statement["subject"] == [{"name": "probe.json", "digest": {"sha256": subject}}],
+            and statement["subject"] == [{"name": subject_name, "digest": {"sha256": subject}}],
             "signed subject differs")
     require(result["verifiedTimestamps"], "no verified signing timestamp")
 
