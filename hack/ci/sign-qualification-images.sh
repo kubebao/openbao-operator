@@ -6,9 +6,12 @@ subject=https://github.com/kubebao/openbao-operator/.github/workflows/release-qu
 for image in operator init backup upgrade; do
   ref="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' dist/import/images.json "${image}")"
   [[ "${ref}" =~ ^ghcr\.io/kubebao/openbao-${image}-qualification@sha256:[0-9a-f]{64}$ ]]
-  cosign sign --yes --bundle "dist/import/${image}/signature.bundle.json" "${ref}"
+  # In the pinned signing-config mode, --bundle writes locally instead of uploading.
+  cosign sign --yes "${ref}"
   cosign attest --yes --type https://kubebao.org/attestations/candidate-image-import/v1 \
-    --predicate "dist/import/${image}/predicate.json" --bundle "dist/import/${image}/attestation.bundle.json" "${ref}"
+    --predicate "dist/import/${image}/predicate.json" "${ref}"
+  cosign download signature "${ref}" > "dist/import/${image}/registry-bundles.jsonl"
+  [[ -s "dist/import/${image}/registry-bundles.jsonl" ]]
   cosign verify --certificate-identity "${subject}" --certificate-oidc-issuer https://token.actions.githubusercontent.com \
     --certificate-github-workflow-sha "${CONTROLLER}" "${ref}" > "dist/import/${image}/signature-verification.json"
   cosign verify-attestation --type https://kubebao.org/attestations/candidate-image-import/v1 \

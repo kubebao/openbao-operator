@@ -79,6 +79,26 @@ def files(plan, output, origins):
     return records["primary"]
 
 
+def attestation_envelopes(data):
+    """Parse the bounded JSON-object stream emitted by pinned Cosign verification."""
+    require(type(data) is bytes and 0 < len(data) <= 2 * 1024 * 1024,
+            "Cosign attestation output is empty or exceeds two MiB")
+    text = data.decode("utf-8")
+    decoder = json.JSONDecoder(object_pairs_hook=P.unique)
+    envelopes, offset = [], 0
+    while offset < len(text):
+        if text[offset] in " \t\r\n":
+            offset += 1
+            continue
+        envelope, offset = decoder.raw_decode(text, offset)
+        require(type(envelope) is dict and type(envelope.get("payload")) is str,
+                "Cosign attestation output must contain envelope objects")
+        require(len(envelopes) < 1024, "too many verified attestation envelopes")
+        envelopes.append(envelope)
+    require(envelopes, "Cosign attestation output has no envelopes")
+    return envelopes
+
+
 def image_provenance(plan, images, record, output):
     subject = "https://github.com/" + P.REPOSITORY + "/" + P.WORKFLOW + "@refs/heads/main"
     proofs = {}
@@ -95,8 +115,17 @@ def image_provenance(plan, images, record, output):
             require(data.returncode == 0 and len(data.stdout) <= 2 * 1024 * 1024,
                     "isolated image signature or provenance verification failed")
             (output / f"{role}-{kind}.json").write_bytes(data.stdout)
-            if kind == "attestation":
-                envelopes = json.loads(data.stdout, object_pairs_hook=P.unique)
+            if kind == "signature":
+                signatures = json.loads(data.stdout, object_pairs_hook=P.unique)
+                require(type(signatures) is list and any(
+                    type(signature.get("critical")) is dict
+                    and signature["critical"].get("type") == "https://sigstore.dev/cosign/sign/v1"
+                    and type(signature["critical"].get("image")) is dict
+                    and signature["critical"]["image"].get("docker-manifest-digest") == image.split("@")[1]
+                    for signature in signatures if type(signature) is dict),
+                    "verified generic image signature is missing or names a different digest")
+            else:
+                envelopes = attestation_envelopes(data.stdout)
                 matches = []
                 for envelope in envelopes:
                     statement = json.loads(base64.b64decode(envelope["payload"], validate=True), object_pairs_hook=P.unique)
