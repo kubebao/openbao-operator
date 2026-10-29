@@ -243,7 +243,8 @@ def freeze_command(args):
     contract = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(contract)
     contract.validate_chart(chart, args.version)
-    release_manifest = json.loads(git(args.repo, "show", f"{source['candidateSHA']}:.release-please-manifest.json"))
+    release_manifest = json.loads(git(args.repo, "show", f"{source['candidateSHA']}:.release-please-manifest.json"),
+                                  object_pairs_hook=unique)
     require(release_manifest.get(".") == args.version, "candidate release manifest version differs")
     inputs = controller_inputs()
     # Compile and execute only controller tools. Candidate files are planner data;

@@ -175,6 +175,20 @@ class QualificationPlanning(unittest.TestCase):
                     self.assertRaisesRegex(ValueError, "candidate release manifest version differs"):
                 self.freeze_command()
 
+    def test_freeze_command_rejects_duplicate_root_manifest_versions(self):
+        original = qualification.git
+        for manifest in (b'{".":"0.5.3",".":"0.6.0"}', b'{".":"0.6.0",".":"0.5.3"}',
+                         b'{".":"0.6.0",".":"0.6.0"}'):
+            def read(repo, *args):
+                if args == ("show", f"{self.candidate}:.release-please-manifest.json"):
+                    return manifest
+                return original(repo, *args)
+
+            with self.subTest(manifest=manifest), patch.object(qualification, "git", side_effect=read), \
+                    patch.object(qualification, "inspect", return_value=self.source), \
+                    self.assertRaisesRegex(ValueError, "duplicate JSON key"):
+                self.freeze_command()
+
     def test_notes_bytes_are_not_normalized(self):
         for changed in [self.notes.rstrip(), self.notes.replace(b"\n\n\n", b"\n\n"), self.notes.replace(b"\n", b"\r\n")]:
             with self.assertRaises(ValueError):
