@@ -307,7 +307,7 @@ jobs:
             dist/import/import.json
             dist/import/*/origin.json
             dist/import/*/predicate.json
-            dist/import/*/*.bundle.json
+            dist/import/*/registry-bundles.jsonl
             dist/import/*/*-verification.json
           if-no-files-found: warn
           retention-days: 30
