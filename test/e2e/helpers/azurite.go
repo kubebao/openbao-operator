@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kubebao/openbao-operator/test/utils/qualification"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -248,7 +250,7 @@ func CreateAzuriteContainer(
 			Containers: []corev1.Container{
 				{
 					Name:  "azure-cli",
-					Image: "mcr.microsoft.com/azure-cli:latest",
+					Image: qualification.MustExternalImage("mcr.microsoft.com/azure-cli:latest"),
 					Env: []corev1.EnvVar{
 						{
 							Name:  "HOME",

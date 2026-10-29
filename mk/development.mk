@@ -158,6 +158,10 @@ verify-release-identity: ## Test the metadata-only identity pilot without GitHub
 verify-release-qualification: ## Test candidate planning and helper policy without builds or publication.
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_release_qualification.py'
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_helper_policy.py'
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_origin.py'
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_artifacts.py'
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_runtime.py'
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_qualification_audit.py'
 
 .PHONY: verify-spdx-normalizer
 verify-spdx-normalizer: ## Validate deterministic SPDX normalization against the SPDX 2.2 and 2.3 schemas.

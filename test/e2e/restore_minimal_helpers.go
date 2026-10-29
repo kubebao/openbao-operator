@@ -148,7 +148,7 @@ type minimalRestoreFixture struct {
 }
 
 func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
-	const image = "openbao/openbao:2.7.2"
+	image := openBaoVersionImage("2.7.2")
 	f := &minimalRestoreFixture{}
 	ginkgo.DeferCleanup(func() {
 		if skipCleanup {
@@ -196,7 +196,7 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 		Name:      "transit",
 		// The infrastructure helper uses file storage, which 2.7 removes.
 		// Source and restore targets still use the 2.7 image below.
-		Image: "openbao/openbao:2.6.5",
+		Image: openBaoVersionImage("2.6.5"),
 	}
 	gomega.Expect(helpers.EnsureInfraBao(ctx, f.config, f.client, infra)).To(gomega.Succeed())
 	address := fmt.Sprintf("https://transit.%s.svc:8200", f.sourceFW.Namespace)
