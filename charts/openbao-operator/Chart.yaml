@@ -26,132 +26,26 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
-  artifacthub.io/prerelease: 'false'
-  artifacthub.io/containsSecurityUpdates: 'true'
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/changes: |
-    - kind: changed
-      description: "auth: require Target self-init for new clusters"
-    - kind: added
-      description: "auth: isolate controller JWTs by target"
-    - kind: added
-      description: "backup: run bounded retention with the writer workload identity"
-    - kind: added
-      description: "backup: schedule disposable restore tests"
-    - kind: added
-      description: "certs: use native TLS certificate reload on OpenBao 2.7"
-    - kind: added
-      description: "networking: support IPv6 and dual-stack clusters"
-    - kind: added
-      description: "network: manage Cilium API-server egress"
-    - kind: added
-      description: "policies: reconcile administrator-approved OpenBao policies"
-    - kind: added
-      description: "restore: guard submission and manage administrator recovery"
-    - kind: added
-      description: "restore: provision retained and disposable recovery targets"
-    - kind: added
-      description: "self-init: add Secret inputs for raw bootstrap requests"
-    - kind: added
-      description: "storage: add nested S3 target options"
-    - kind: added
-      description: "tls: configure hybrid post-quantum key exchange"
-    - kind: added
-      description: "unseal: project the Azure Key Vault workload identity token"
-    - kind: added
-      description: "unseal: select the Azure Key Vault authentication method"
     - kind: fixed
-      description: "admission: allow restore foreground finalizer cleanup"
+      description: "ci: publish and verify qualification registry bundles"
     - kind: fixed
-      description: "admission: allow scoped helper Pod annotation sync"
+      description: "ci: tag releases only after manifest changes"
     - kind: fixed
-      description: "admission: require delegation for read-replica cloud identities"
+      description: "ci: validate root release manifest in qualification"
     - kind: fixed
-      description: "admission: resolve policy type-check warnings"
-    - kind: fixed
-      description: "admission: support scoped PVC binding synchronization"
-    - kind: fixed
-      description: "backup: refresh persisted deadlines after schedule changes"
-    - kind: fixed
-      description: "certs: reject malformed CA key PEM without panicking"
-    - kind: fixed
-      description: "ci: accept fork E2E plans during matrix generation"
-    - kind: fixed
-      description: "ci: decouple edge chart versions from releases"
-    - kind: fixed
-      description: "ci: isolate Cilium Kind networking with VXLAN"
-    - kind: fixed
-      description: "ci: separate restore lanes and pin integration tooling"
-    - kind: fixed
-      description: "client: release shared state for deleted cluster lifetimes"
-    - kind: fixed
-      description: "cluster: resume interrupted peer removal safely"
-    - kind: fixed
-      description: "config: enforce OpenBao configuration version contracts"
-    - kind: fixed
-      description: "dev: make contributor runtime checks portable"
-    - kind: fixed
-      description: "docs: compare published site content by checksum"
-    - kind: fixed
-      description: "e2e: allow restore executors to reach Cilium API servers"
-    - kind: fixed
-      description: "ownership: bind resource mutations to observed identity"
-    - kind: fixed
-      description: "perf: follow restore recovery and measure availability in performance scenarios"
-    - kind: fixed
-      description: "provisioner: allow restore templates without unseal credential Secrets"
-    - kind: fixed
-      description: "provisioner: preserve tenant RBAC through namespace teardown"
-    - kind: fixed
-      description: "restore: expose KMS plugin settings in target templates"
-    - kind: fixed
-      description: "restore: separate disposable reader identity from backups"
-    - kind: security
-      description: "security: bind legacy image signatures to requested digests"
-    - kind: security
-      description: "security: correct Scorecard dependency and policy findings"
-    - kind: security
-      description: "security: enforce key strength and TLS transport policy"
-    - kind: security
-      description: "security: harden verification dependencies and CI controls"
-    - kind: security
-      description: "security: resolve Kubernetes registry credentials by scope"
-    - kind: security
-      description: "security: verify admission policies against release contracts"
-    - kind: security
-      description: "security: verify tenant onboarding binding identity"
-    - kind: fixed
-      description: "storage: block IPv6 cloud metadata endpoints"
-    - kind: fixed
-      description: "storage: retain custom CA trust in backup and restore executors"
-    - kind: fixed
-      description: "storage: use complete Azure Blob endpoint URLs"
-    - kind: fixed
-      description: "storage: use credential Secret regions for S3 signing"
-    - kind: fixed
-      description: "tls: validate external server certificate chains"
-    - kind: fixed
-      description: "upgrade: prove workload identity before blue-green cleanup"
-    - kind: fixed
-      description: "upgrade: retry against the current rendered image target"
-    - kind: fixed
-      description: "upgrade: scope rolling executor jobs to durable attempts"
-    - kind: fixed
-      description: "vcluster: unblock Pod annotation sync and complete safe teardown"
-    - kind: fixed
-      description: "workload: complete terminal Pod deletion"
-    - kind: fixed
-      description: "wrapper: wait for graceful child termination before killing"
-    - kind: changed
-      description: "metrics: scope restore state updates to target clusters"
+      description: "deps: patch go-jose RSA JWK denial of service"
   artifacthub.io/images: |
     - name: openbao-operator
-      image: ghcr.io/kubebao/openbao-operator:0.6.0
+      image: ghcr.io/kubebao/openbao-operator:0.6.1
     - name: openbao-init
-      image: ghcr.io/kubebao/openbao-init:0.6.0
+      image: ghcr.io/kubebao/openbao-init:0.6.1
     - name: openbao-backup
-      image: ghcr.io/kubebao/openbao-backup:0.6.0
+      image: ghcr.io/kubebao/openbao-backup:0.6.1
     - name: openbao-upgrade
-      image: ghcr.io/kubebao/openbao-upgrade:0.6.0
+      image: ghcr.io/kubebao/openbao-upgrade:0.6.1
   artifacthub.io/crds: |
     - kind: OpenBaoCluster
       version: v1alpha1
