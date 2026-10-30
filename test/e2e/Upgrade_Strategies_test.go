@@ -429,8 +429,8 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 			initialVersion = envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)
 			targetVersion = envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)
-			initialImage = openBaoVersionImage(initialVersion)
-			targetImage = openBaoVersionImage(targetVersion)
+			initialImage = fmt.Sprintf("openbao/openbao:%s", initialVersion)
+			targetImage = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 
 			if initialVersion == targetVersion {
 				Skip(fmt.Sprintf("Upgrade test skipped: versions identical (%s)", initialVersion))
@@ -869,8 +869,8 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 			initialVersion = envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)
 			targetVersion = envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)
-			initialImage = openBaoVersionImage(initialVersion)
-			targetImage = openBaoVersionImage(targetVersion)
+			initialImage = fmt.Sprintf("openbao/openbao:%s", initialVersion)
+			targetImage = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 
 			if initialVersion == targetVersion {
 				Skip(fmt.Sprintf("Rolling snapshot recovery test skipped: versions identical (%s)", initialVersion))
@@ -1193,8 +1193,8 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 			initialVersion = envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)
 			targetVersion = envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)
-			initialImage = openBaoVersionImage(initialVersion)
-			targetImage = openBaoVersionImage(targetVersion)
+			initialImage = fmt.Sprintf("openbao/openbao:%s", initialVersion)
+			targetImage = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 			brokenTarget = "openbao/openbao:retry-image-does-not-exist"
 
 			if initialVersion == targetVersion {
@@ -1464,7 +1464,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
-					Image:             openBaoVersionImage(initialVersion),
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
 					Replicas:          3,
 					Service: &openbaov1alpha1.ServiceConfig{
 						Type: corev1.ServiceTypeClusterIP,
@@ -1775,7 +1775,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				g.Expect(admin.Get(ctx, types.NamespacedName{Name: upgradeCluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
 				original := updated.DeepCopy()
 				updated.Spec.Version = targetVersion
-				updated.Spec.Image = openBaoVersionImage(targetVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -1987,7 +1987,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
-					Image:             openBaoVersionImage(initialVersion),
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
 					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
@@ -1997,7 +1997,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 							Verification: &openbaov1alpha1.VerificationConfig{
 								MinSyncDuration: "10s",
 								PrePromotionHook: &openbaov1alpha1.ValidationHookConfig{
-									Image:   openBaoVersionImage(initialVersion),
+									Image:   fmt.Sprintf("openbao/openbao:%s", initialVersion),
 									Command: []string{"/bin/sh", "-ec"},
 									Args:    []string{"echo pre-promotion-hook"},
 								},
@@ -2066,7 +2066,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				g.Expect(admin.Get(ctx, types.NamespacedName{Name: gatedCluster.Name, Namespace: tenantNamespace}, updated)).To(Succeed())
 				original := updated.DeepCopy()
 				updated.Spec.Version = targetVersion
-				updated.Spec.Image = openBaoVersionImage(targetVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -2160,7 +2160,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				updated.Spec.Upgrade.Requests.Rollback = rollbackToken
 				updated.Spec.Replicas = 7
 				updated.Spec.Version = initialVersion
-				updated.Spec.Image = openBaoVersionImage(initialVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", initialVersion)
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -2207,7 +2207,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				original := updated.DeepCopy()
 				updated.Spec.Replicas = 3
 				updated.Spec.Version = targetVersion
-				updated.Spec.Image = openBaoVersionImage(targetVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -2337,8 +2337,8 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 			initialVersion = blueGreenUpgradeFromVersion()
 			targetVersion = blueGreenUpgradeToVersion()
-			initialImage = openBaoVersionImage(initialVersion)
-			targetImage = openBaoVersionImage(targetVersion)
+			initialImage = fmt.Sprintf("openbao/openbao:%s", initialVersion)
+			targetImage = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 			if initialVersion == targetVersion {
 				Skip("Blue/green validation hook failure test skipped")
 			}
@@ -2564,7 +2564,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
-					Image:             openBaoVersionImage(initialVersion),
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
 					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
@@ -2636,7 +2636,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 				original := updated.DeepCopy()
 				updated.Spec.Version = targetVersion
-				updated.Spec.Image = openBaoVersionImage(targetVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -2751,7 +2751,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
-					Image:             openBaoVersionImage(initialVersion),
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
 					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy:    openbaov1alpha1.UpdateStrategyBlueGreen,
@@ -2821,7 +2821,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 				original := updated.DeepCopy()
 				updated.Spec.Version = targetVersion
-				updated.Spec.Image = openBaoVersionImage(targetVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -2999,7 +2999,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 					ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 					Profile:           openbaov1alpha1.ProfileDevelopment,
 					Version:           initialVersion,
-					Image:             openBaoVersionImage(initialVersion),
+					Image:             fmt.Sprintf("openbao/openbao:%s", initialVersion),
 					Replicas:          3,
 					Upgrade: &openbaov1alpha1.UpgradeConfig{
 						Strategy: openbaov1alpha1.UpdateStrategyBlueGreen,
@@ -3082,7 +3082,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 				original := updated.DeepCopy()
 				updated.Spec.Version = targetVersion
-				updated.Spec.Image = openBaoVersionImage(targetVersion)
+				updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())

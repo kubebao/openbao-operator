@@ -9,6 +9,8 @@ CHART_PREPARER="${ROOT_DIR}/hack/ci/prepare-release-chart.sh"
 SPDX_NORMALIZER="${ROOT_DIR}/hack/ci/normalize-spdx-json.sh"
 POST_RELEASE_VERIFIER="${ROOT_DIR}/hack/ci/verify-post-release.sh"
 RELEASE_WORKFLOW="${ROOT_DIR}/.github/workflows/release.yml"
+RELEASE_CANDIDATE_WORKFLOW="${ROOT_DIR}/.github/workflows/release-candidate.yml"
+RELEASE_PAYLOAD_ACTION="${ROOT_DIR}/.github/actions/package-release-payloads/action.yml"
 RELEASE_PLEASE_WORKFLOW="${ROOT_DIR}/.github/workflows/release-please.yml"
 RELEASE_PLEASE_PACKAGE="${ROOT_DIR}/hack/ci/release-please/package.json"
 RELEASE_PLEASE_LOCK="${ROOT_DIR}/hack/ci/release-please/package-lock.json"
@@ -146,18 +148,36 @@ release_please_lock_integrity="$(jq -er '.packages["node_modules/release-please"
   fail "release-please lockfile integrity does not match 17.11.2"
 }
 
-assert_contains "${RELEASE_WORKFLOW}" "Setup Helm 3 compatibility client"
-assert_contains "${RELEASE_WORKFLOW}" 'HELM: ${{ steps.helm4.outputs.helm-path }}'
-assert_contains "${RELEASE_WORKFLOW}" 'HELM_INSTALL: ${{ steps.helm3.outputs.helm-path }}'
+assert_contains "${RELEASE_CANDIDATE_WORKFLOW}" "Setup Helm 3 compatibility client"
+assert_contains "${RELEASE_CANDIDATE_WORKFLOW}" 'HELM: ${{ steps.helm4.outputs.helm-path }}'
+assert_contains "${RELEASE_CANDIDATE_WORKFLOW}" 'HELM_INSTALL: ${{ steps.helm3.outputs.helm-path }}'
+assert_contains "${RELEASE_CANDIDATE_WORKFLOW}" "OPERATOR_UPGRADE_E2E_TARGET_RELEASE: \${{ needs.prepare.outputs.version }}"
+assert_contains "${RELEASE_CANDIDATE_WORKFLOW}" "name: Qualified Release Candidate"
 assert_contains "${RELEASE_WORKFLOW}" "  cleanup-release-state:"
 assert_contains "${RELEASE_WORKFLOW}" "    name: Clear Release Pending State"
 assert_contains "${RELEASE_WORKFLOW}" "    needs: [prepare, promote]"
 assert_contains "${RELEASE_WORKFLOW}" "      pull-requests: write"
 assert_contains "${RELEASE_WORKFLOW}" "bash hack/ci/clear-release-please-pending-label.sh"
 assert_contains "${RELEASE_WORKFLOW}" "    needs: [prepare, promote, cleanup-release-state]"
-preserve_change_metadata_count="$(grep -Fc 'PRESERVE_CHANGE_METADATA=true' "${RELEASE_WORKFLOW}")"
-[[ "${preserve_change_metadata_count}" == "2" ]] || {
-  fail "release packaging must preserve reviewed chart change metadata in both builds"
+
+# Releases publish what the release PR qualified instead of testing after the tag.
+assert_contains "${RELEASE_WORKFLOW}" "bash hack/ci/resolve-release-candidate.sh"
+assert_contains "${RELEASE_WORKFLOW}" 'source-ref: refs/pull/${{ needs.prepare.outputs.pr_number }}/merge'
+assert_contains "${RELEASE_WORKFLOW}" "--name release-candidate --dir dist/candidate"
+assert_contains "${RELEASE_WORKFLOW}" "REBUILD_DIR: dist/candidate/payloads"
+assert_contains "${RELEASE_WORKFLOW}" "name: release-reproducibility-report"
+assert_not_contains "${RELEASE_WORKFLOW}" "make test-e2e-operator-upgrade"
+assert_not_contains "${RELEASE_WORKFLOW}" "e2e-release-matrix"
+
+assert_contains "${RELEASE_PAYLOAD_ACTION}" "PRESERVE_CHANGE_METADATA=true"
+payload_packaging_count() {
+  grep -Fc "uses: ./.github/actions/package-release-payloads" "$1"
+}
+[[ "$(payload_packaging_count "${RELEASE_CANDIDATE_WORKFLOW}")" == "2" ]] || {
+  fail "release candidates must package the primary and rebuild payloads with the shared action"
+}
+[[ "$(payload_packaging_count "${RELEASE_WORKFLOW}")" == "1" ]] || {
+  fail "releases must package payloads with the shared action"
 }
 
 release_security_images_job="${tmp_dir}/release-security-images.yml"
@@ -165,7 +185,7 @@ awk '
   /^  security-images:/ { capture = 1 }
   /^  e2e-matrix:/ { capture = 0 }
   capture
-' "${RELEASE_WORKFLOW}" > "${release_security_images_job}"
+' "${RELEASE_CANDIDATE_WORKFLOW}" > "${release_security_images_job}"
 assert_ordered \
   "${release_security_images_job}" \
   "- name: Checkout" \
@@ -173,10 +193,13 @@ assert_ordered \
 
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "pull_request_review:"
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "      - dismissed"
-assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'head_sha="$(gh api'
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'head_sha="$(jq -er'
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'review_state="$(jq -r'
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'review_commit="$(jq -r'
 assert_not_contains "${RELEASE_PR_GATE_WORKFLOW}" "    paths:"
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'ref: refs/heads/${{ github.event.repository.default_branch }}'
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "bash hack/ci/check-release-pr-files.sh"
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "bash hack/ci/find-release-candidate-run.sh"
 
 assert_contains "${POST_RELEASE_VERIFIER}" 'if [[ "${VERSION}" == *-* ]]; then'
 assert_contains "${POST_RELEASE_VERIFIER}" 'if [[ "${is_prerelease}" != "${expected_prerelease}" ]]; then'
@@ -194,6 +217,7 @@ assert_contains "${ROOT_DIR}/.github/workflows/post-release-verification.yml" "E
 assert_contains "${ROOT_DIR}/.github/workflows/post-release-verification.yml" "Setup Helm"
 
 python3 "${ROOT_DIR}/hack/ci/test-post-release.py"
+PYTHONDONTWRITEBYTECODE=1 python3 "${ROOT_DIR}/hack/ci/test-release-authorization.py"
 
 spdx_fixture="${tmp_dir}/normalizer.spdx.json"
 cat > "${spdx_fixture}" <<'EOF'

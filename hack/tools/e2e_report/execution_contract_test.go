@@ -21,7 +21,7 @@ type executionStep struct {
 
 func TestExecutionBundleIsSharedAndBlocking(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
-	for _, name := range []string{"ci", "nightly", "release"} {
+	for _, name := range []string{"ci", "nightly", "release-candidate"} {
 		t.Run(name, func(t *testing.T) {
 			var workflow struct {
 				Jobs map[string]struct {

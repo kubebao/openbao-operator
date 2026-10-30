@@ -15,6 +15,7 @@ on:
       - dismissed
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
 
@@ -28,7 +29,39 @@ jobs:
     runs-on: ubuntu-24.04
     if: ${{ !github.event.repository.fork }}
     steps:
+      - name: Detect release PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Any PR that changes the release manifest triggers a release tag after merge.
+          # This avoids relying on PR author identity (release-please may run under a PAT/GitHub App).
+          # Renames count with both paths.
+          files_path="${RUNNER_TEMP}/release-pr-files.txt"
+          gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" --paginate \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "${files_path}"
+          if ! grep -qx ".release-please-manifest.json" "${files_path}"; then
+            echo "Not a release PR (.release-please-manifest.json unchanged); skipping gate."
+            echo "release=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "release=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout trusted gate scripts
+        if: steps.detect.outputs.release == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Both event types execute gate scripts from the trusted default branch.
+          ref: refs/heads/${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: hack/ci
+
       - name: Evaluate release PR gate
+        if: steps.detect.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -38,13 +71,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Detect whether this PR is a release-please PR by checking the files it modifies.
-          # This avoids relying on PR author identity (release-please may run under a PAT/GitHub App).
-          files="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename')"
-          if ! (echo "${files}" | grep -qx "CHANGELOG.md" && echo "${files}" | grep -qx ".release-please-manifest.json"); then
-            echo "Not a release PR (missing CHANGELOG.md and/or .release-please-manifest.json); skipping gate."
-            exit 0
-          fi
+          # The release PR must not change the workflows, scripts, or tests that qualify it.
+          bash hack/ci/check-release-pr-files.sh < "${RUNNER_TEMP}/release-pr-files.txt"
 
           labels="$(gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" --paginate --jq '.[].name')"
           if ! echo "${labels}" | grep -qx "${REQUIRED_LABEL}"; then
@@ -54,8 +82,9 @@ jobs:
           fi
 
           # Require the designated release manager's latest review to approve the
-          # current head commit. A later review or push invalidates an older approval.
-          head_sha="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')"
+          # current head commit. Environment approval does not replace PR review.
+          pr_json="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")"
+          head_sha="$(jq -er '.head.sha' <<<"${pr_json}")"
           reviews="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --paginate --jq '.[]')"
           latest_review="$(
             jq -sc \
@@ -72,5 +101,12 @@ jobs:
             echo "Expected APPROVED review for ${head_sha}; got state='${review_state}' commit='${review_commit}'." >&2
             exit 1
           fi
+
+          # Require the full release profile to have passed for this exact head.
+          if ! run_id="$(HEAD_SHA="${head_sha}" bash hack/ci/find-release-candidate-run.sh)"; then
+            echo "Reapply '${REQUIRED_LABEL}' after the Release Candidate workflow passes to re-evaluate this gate." >&2
+            exit 1
+          fi
+          echo "Qualified by Release Candidate run ${run_id}."
 
           echo "Release PR gate satisfied."

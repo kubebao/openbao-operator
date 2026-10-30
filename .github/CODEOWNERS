@@ -4,12 +4,21 @@
 /release-please-config.json @dc-tec
 
 # CI/CD and release controls
+/.github/CODEOWNERS @dc-tec
 /.github/workflows/** @dc-tec
+/.github/actions/** @dc-tec
+/.github/scripts/** @dc-tec
 /Makefile @dc-tec
+/mk/** @dc-tec
+/hack/ci/** @dc-tec
+/hack/docs/** @dc-tec
+/hack/tools/** @dc-tec
+
+# Release qualification tests and fixtures
+/test/** @dc-tec
 
 # Build inputs
 /Dockerfile* @dc-tec
-/hack/ci/Dockerfile.fast.* @dc-tec
 /charts/** @dc-tec
 
 # Release + supply-chain/security documentation

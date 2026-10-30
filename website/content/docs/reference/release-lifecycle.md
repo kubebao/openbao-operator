@@ -58,7 +58,7 @@ patch narrow and avoid unrelated refactoring.
 A stable release requires:
 
 - clean pull-request CI on the release branch or release pull request;
-- current end-to-end release evidence;
+- a passed release-profile qualification of the release pull request, including the end-to-end release gate;
 - reviewed documentation, compatibility data, and generated artifacts;
 - reviewed nightly and performance signals;
 - no known upgrade, backup, or restore regression; and

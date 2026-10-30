@@ -1,0 +1,141 @@
+name: Package release payloads
+description: >-
+  Generate the installer, CRDs, policy approval files, Helm chart, normalized SBOMs, and checksums for one set of
+  digest-pinned release images. Callers set up repository tools, Helm, and registry access first.
+
+inputs:
+  output-dir:
+    description: Directory that receives the release payload files.
+    required: true
+  version:
+    description: Operator version embedded in generated manifests.
+    required: true
+  chart-version:
+    description: Helm chart version.
+    required: true
+  source-date-epoch:
+    description: Unix timestamp used for deterministic chart file times and SBOM normalization.
+    required: true
+  manager-image:
+    description: Manager image reference pinned by digest.
+    required: true
+  config-init-image:
+    description: Config init image reference pinned by digest.
+    required: true
+  backup-executor-image:
+    description: Backup executor image reference pinned by digest.
+    required: true
+  upgrade-executor-image:
+    description: Upgrade executor image reference pinned by digest.
+    required: true
+  registry-username:
+    description: Registry user for SBOM image pulls.
+    required: true
+  registry-password:
+    description: Registry token for SBOM image pulls.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Generate manifests
+      uses: ./.github/actions/generate-channel-manifests
+      with:
+        image: ${{ inputs.manager-image }}
+        operator-version: ${{ inputs.version }}
+        output-dir: ${{ inputs.output-dir }}
+
+    - name: Generate policy approval assets
+      shell: bash
+      env:
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: go run ./hack/tools/operator_policy_approval --output-dir "${OUTPUT_DIR}"
+
+    - name: Package Helm chart
+      shell: bash
+      env:
+        CHART_VERSION: ${{ inputs.chart-version }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        OWNER: ${{ github.repository_owner }}
+        SOURCE_DATE_EPOCH: ${{ inputs.source-date-epoch }}
+      run: |
+        set -euo pipefail
+        work_dir="$(mktemp -d)"
+        cp -a charts/openbao-operator "${work_dir}/openbao-operator"
+        CHART_DIR="${work_dir}/openbao-operator" CHART_VERSION="${CHART_VERSION}" OWNER="${OWNER}" PRESERVE_CHANGE_METADATA=true bash hack/ci/prepare-release-chart.sh
+        find "${work_dir}/openbao-operator" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
+        helm lint "${work_dir}/openbao-operator"
+        helm package "${work_dir}/openbao-operator" -d "${OUTPUT_DIR}"
+        test -f "${OUTPUT_DIR}/openbao-operator-${CHART_VERSION}.tgz"
+
+    - name: Generate SBOM - manager
+      uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      with:
+        image: ${{ inputs.manager-image }}
+        format: spdx-json
+        output-file: ${{ inputs.output-dir }}/sbom-openbao-operator.spdx.json
+        upload-artifact: "false"
+        upload-release-assets: "false"
+        registry-username: ${{ inputs.registry-username }}
+        registry-password: ${{ inputs.registry-password }}
+
+    - name: Generate SBOM - config-init
+      uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      with:
+        image: ${{ inputs.config-init-image }}
+        format: spdx-json
+        output-file: ${{ inputs.output-dir }}/sbom-openbao-init.spdx.json
+        upload-artifact: "false"
+        upload-release-assets: "false"
+        registry-username: ${{ inputs.registry-username }}
+        registry-password: ${{ inputs.registry-password }}
+
+    - name: Generate SBOM - backup
+      uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      with:
+        image: ${{ inputs.backup-executor-image }}
+        format: spdx-json
+        output-file: ${{ inputs.output-dir }}/sbom-openbao-backup.spdx.json
+        upload-artifact: "false"
+        upload-release-assets: "false"
+        registry-username: ${{ inputs.registry-username }}
+        registry-password: ${{ inputs.registry-password }}
+
+    - name: Generate SBOM - upgrade
+      uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      with:
+        image: ${{ inputs.upgrade-executor-image }}
+        format: spdx-json
+        output-file: ${{ inputs.output-dir }}/sbom-openbao-upgrade.spdx.json
+        upload-artifact: "false"
+        upload-release-assets: "false"
+        registry-username: ${{ inputs.registry-username }}
+        registry-password: ${{ inputs.registry-password }}
+
+    - name: Normalize SBOM JSON (deterministic)
+      shell: bash
+      env:
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        SOURCE_DATE_EPOCH: ${{ inputs.source-date-epoch }}
+      run: |
+        set -euo pipefail
+        bash hack/ci/normalize-spdx-json.sh \
+          "${OUTPUT_DIR}/sbom-openbao-operator.spdx.json" \
+          "${OUTPUT_DIR}/sbom-openbao-init.spdx.json" \
+          "${OUTPUT_DIR}/sbom-openbao-backup.spdx.json" \
+          "${OUTPUT_DIR}/sbom-openbao-upgrade.spdx.json"
+
+    - name: Generate deterministic checksums
+      shell: bash
+      env:
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        set -euo pipefail
+        sbom_names=()
+        while IFS= read -r sbom_path; do
+          sbom_names+=("$(basename "${sbom_path}")")
+        done < <(find "${OUTPUT_DIR}" -maxdepth 1 -type f -name 'sbom-*.spdx.json' | LC_ALL=C sort)
+        (
+          cd "${OUTPUT_DIR}"
+          sha256sum install.yaml crds.yaml operator-policy-approval.hcl operator-policy-approval-with-backup.hcl "${sbom_names[@]}" > checksums.txt
+        )

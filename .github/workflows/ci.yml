@@ -193,7 +193,7 @@ jobs:
             echo "go_quality=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(api/|config/crd/|hack/tools/(api_inventory|crd_compatibility)/|test/manifests/apicontract/|go\.(mod|sum)$|vendor/|Makefile$|mk/|\.github/(workflows/(ci|release)\.yml|actions/setup-repo-tools/))'; then
+          if changed_matches '^(api/|config/crd/|hack/tools/(api_inventory|crd_compatibility)/|test/manifests/apicontract/|go\.(mod|sum)$|vendor/|Makefile$|mk/|\.github/(workflows/(ci|release|release-candidate)\.yml|actions/setup-repo-tools/))'; then
             echo "api_contract=true" >> "${GITHUB_OUTPUT}"
           else
             echo "api_contract=false" >> "${GITHUB_OUTPUT}"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-FIXTURE_DIR="${OPERATOR_UPGRADE_E2E_FIXTURE_DIR:-${ROOT_DIR}/test/fixtures/operator-upgrade}"
+FIXTURE_DIR="${ROOT_DIR}/test/fixtures/operator-upgrade"
 MIGRATION_FIXTURE_DIR="${ROOT_DIR}/test/fixtures/api-migration"
 # The API stability inventory retains its original contract baseline. Runtime
 # upgrade qualification follows the previous stable operator release instead.
@@ -155,40 +155,25 @@ assert_resource_absent() {
   fi
 }
 
-render_hardened_fixture_image() {
+render_hardened_fixture() {
   awk \
     -v default_image="${DEFAULT_HARDENED_INIT_IMAGE}" \
-    -v selected_image="${HARDENED_INIT_IMAGE}" '
+    -v selected_image="${HARDENED_INIT_IMAGE}" \
+    -v candidate_pr="${E2E_CANDIDATE_PR:-}" '
+      $0 == "spec:" && candidate_pr != "" {
+        print
+        print "  operatorImageVerification:"
+        print "    enabled: true"
+        print "    failurePolicy: Block"
+        print "    issuer: https://token.actions.githubusercontent.com"
+        print "    subject: https://github.com/kubebao/openbao-operator/.github/workflows/reusable-build.yml@refs/pull/" candidate_pr "/merge"
+        next
+      }
       $0 == "    image: \"" default_image "\"" {
         $0 = "    image: \"" selected_image "\""
       }
       { print }
     ' "${FIXTURE_DIR}/hardened-cluster.yaml"
-}
-
-qualification_policy_selected() {
-  [[ -n "${E2E_QUALIFICATION_POLICY_FILE:-}${E2E_QUALIFICATION_POLICY_SHA256:-}${E2E_QUALIFICATION_AUTH_FILE:-}" ]]
-}
-
-render_hardened_fixture() {
-  if qualification_policy_selected; then
-    local patch
-    patch="$(python3 "${ROOT_DIR}/hack/ci/qualification-helper-policy.py" patch --init-image "${HARDENED_INIT_IMAGE}")"
-    render_hardened_fixture_image | "${KUBECTL_BIN}" patch --local -f - --type merge --patch "${patch}" -o yaml
-  else
-    render_hardened_fixture_image
-  fi
-}
-
-create_qualification_pull_secret() {
-  if qualification_policy_selected; then
-    python3 "${ROOT_DIR}/hack/ci/qualification-helper-policy.py" validate --init-image "${HARDENED_INIT_IMAGE}"
-    # Create only after candidate takeover. Never overwrite an existing credential
-    # or put credential bytes in a last-applied-configuration annotation.
-    "${KUBECTL_BIN}" create secret generic release-qualification-registry \
-      -n "${TENANT_NAMESPACE}" --type=kubernetes.io/dockerconfigjson \
-      --from-file=".dockerconfigjson=${E2E_QUALIFICATION_AUTH_FILE}" >/dev/null
-  fi
 }
 
 discover_api_server_endpoint_ips() {
@@ -330,6 +315,10 @@ create_external_tls_secrets() {
 }
 
 verify_harness() {
+  if [[ -n "${E2E_CANDIDATE_PR:-}" && ! "${E2E_CANDIDATE_PR}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "candidate helper trust requires a positive PR number" >&2
+    exit 1
+  fi
   local required_files=(
     "${FIXTURE_DIR}/versions.env"
     "${ROOT_DIR}/hack/ci/operator-upgrade-jwt-migration.py"
@@ -362,9 +351,7 @@ verify_harness() {
     echo "operator upgrade target must be a semver-compatible image tag: ${TARGET_VERSION}" >&2
     exit 1
   fi
-  if qualification_policy_selected; then
-    python3 "${ROOT_DIR}/hack/ci/qualification-helper-policy.py" validate --init-image "${HARDENED_INIT_IMAGE}"
-  elif ! [[ "${HARDENED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
+  if ! [[ "${HARDENED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
     echo "hardened upgrade helper must be an immutable official openbao-init digest: ${HARDENED_INIT_IMAGE}" >&2
     exit 1
   fi
@@ -539,21 +526,10 @@ echo "Installing cert-manager..." >&2
   --for=condition=Available \
   --timeout=5m >/dev/null
 
-if [[ -n "${OPERATOR_UPGRADE_E2E_REPORT_DIR:-}" ]]; then
-  mkdir -p "${OPERATOR_UPGRADE_E2E_REPORT_DIR}"
-  "${KUBECTL_BIN}" get nodes -o json > "${OPERATOR_UPGRADE_E2E_REPORT_DIR}/nodes.json"
-fi
-
 echo "Installing released operator ${FROM_VERSION}..." >&2
 echo "Install client: $("${HELM_INSTALL_BIN}" version --short)" >&2
-baseline_args=("${BASELINE_CHART}" --version "${FROM_VERSION}")
-if qualification_policy_selected; then
-  [[ "${OPERATOR_UPGRADE_E2E_BASELINE_CHART_DIGEST:-}" =~ ^sha256:[0-9a-f]{64}$ ]]
-  [[ "${OPERATOR_UPGRADE_E2E_BASELINE_MANAGER_IMAGE:-}" =~ ^ghcr\.io/kubebao/openbao-operator:${FROM_VERSION}@sha256:[0-9a-f]{64}$ ]]
-  baseline_args=("${BASELINE_CHART}@${OPERATOR_UPGRADE_E2E_BASELINE_CHART_DIGEST}"
-    --set-string "image.digest=${OPERATOR_UPGRADE_E2E_BASELINE_MANAGER_IMAGE##*@}")
-fi
-"${HELM_INSTALL_BIN}" install openbao-operator "${baseline_args[@]}" \
+"${HELM_INSTALL_BIN}" install openbao-operator "${BASELINE_CHART}" \
+  --version "${FROM_VERSION}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --create-namespace \
   --wait \
@@ -766,7 +742,6 @@ wait_for_statefulset_init_image operator-upgrade-transit "${LOCAL_INIT_IMAGE}"
   --timeout=10m >/dev/null
 
 echo "Reapplying the Hardened contract through candidate admission..." >&2
-create_qualification_pull_secret
 render_hardened_fixture | \
   inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
@@ -897,19 +872,3 @@ echo "Exercising the upgraded provisioner with a new tenant..." >&2
   --timeout=5m >/dev/null
 
 echo "Operator upgrade E2E succeeded: ${FROM_VERSION} -> ${TARGET_VERSION}" >&2
-
-if [[ -n "${OPERATOR_UPGRADE_E2E_REPORT_DIR:-}" ]]; then
-  "${KUBECTL_BIN}" get pods -A -o json | jq '[.items[] | {namespace:.metadata.namespace,name:.metadata.name,
-    images:[.spec.initContainers[]?.image,.spec.containers[]?.image],
-    imageIDs:[.status.initContainerStatuses[]?.imageID,.status.containerStatuses[]?.imageID]}]' \
-    > "${OPERATOR_UPGRADE_E2E_REPORT_DIR}/images.json"
-  jq -n --arg from "${FROM_VERSION}" --arg target "${TARGET_VERSION}" \
-    --arg hardenedUID "${hardened_cluster_uid}" --arg developmentUID "${cluster_uid}" \
-    --arg pvcUID "${pvc_uid}" --arg rootUID "${legacy_root_uid}" --arg unsealUID "${legacy_unseal_uid}" \
-    --argjson hardenedPVCUIDs "${hardened_pvc_uids}" \
-    '{fromVersion:$from,targetVersion:$target,controllerJWTMigration:"passed",
-      legacyStaticRestoreGuardrail:"passed",retainCustody:"passed",finalSuccess:true,
-      hardenedUID:$hardenedUID,developmentUID:$developmentUID,pvcUID:$pvcUID,
-      rootSecretUID:$rootUID,unsealSecretUID:$unsealUID,hardenedPVCUIDs:$hardenedPVCUIDs}' \
-    > "${OPERATOR_UPGRADE_E2E_REPORT_DIR}/upgrade.json"
-fi

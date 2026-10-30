@@ -188,7 +188,7 @@ func runBackupFirstUpgradeCase(
 		g.Expect(admin.Get(ctx, clusterKey, updated)).To(Succeed())
 		original := updated.DeepCopy()
 		updated.Spec.Version = testCase.targetVersion
-		updated.Spec.Image = openBaoVersionImage(testCase.targetVersion)
+		updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", testCase.targetVersion)
 		updated.Spec.Backup.Image = backupExecutorImage
 		g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 	}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
@@ -282,7 +282,7 @@ func newBackupFirstUpgradeCluster(
 			ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 			Profile:           openbaov1alpha1.ProfileDevelopment,
 			Version:           testCase.initialVersion,
-			Image:             openBaoVersionImage(testCase.initialVersion),
+			Image:             fmt.Sprintf("openbao/openbao:%s", testCase.initialVersion),
 			Replicas:          1,
 			InitContainer: &openbaov1alpha1.InitContainerConfig{
 				Enabled: true,
@@ -432,8 +432,8 @@ var _ = Describe("Upgrade Strategies: Operation Lock Contention", Label("upgrade
 
 		initialVersion = envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)
 		targetVersion = envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)
-		initialImage = openBaoVersionImage(initialVersion)
-		targetImage = openBaoVersionImage(targetVersion)
+		initialImage = fmt.Sprintf("openbao/openbao:%s", initialVersion)
+		targetImage = fmt.Sprintf("openbao/openbao:%s", targetVersion)
 
 		if initialVersion == targetVersion {
 			Skip(fmt.Sprintf("Operation lock contention test skipped: versions identical (%s)", initialVersion))

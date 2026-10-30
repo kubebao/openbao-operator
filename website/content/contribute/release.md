@@ -7,10 +7,17 @@ verifiedBy:
   - .github/workflows/prepare-release-as-pr.yml
   - .github/workflows/release-please.yml
   - .github/workflows/release-pr-gate.yml
+  - .github/workflows/release-candidate.yml
+  - .github/actions/package-release-payloads/action.yml
   - .github/workflows/release-tag.yml
   - .github/workflows/release.yml
   - .github/workflows/post-release-verification.yml
   - hack/ci/validate-release-as-request.sh
+  - hack/ci/check-release-pr-files.sh
+  - hack/ci/check-release-approval.sh
+  - hack/ci/release-registry.sh
+  - hack/ci/find-release-candidate-run.sh
+  - hack/ci/resolve-release-candidate.sh
   - hack/ci/create-release-tag-and-draft.sh
   - hack/ci/prepare-release-chart.sh
   - hack/ci/publish-edge-chart.sh
@@ -23,8 +30,9 @@ verifiedBy:
   - artifacthub-repo.yml
 ---
 
-The release path creates a signed tag and draft GitHub Release from an approved release-please PR. The tag starts a
-build-once workflow that verifies the candidate before it promotes images by digest and publishes the release.
+The release path qualifies the release-please PR with the full release profile before merge, then creates a signed
+tag and draft GitHub Release. The tag starts a workflow that rebuilds the tagged commit, requires the qualified image
+digests and payload bytes, and promotes images by digest to publish the release.
 
 ## Choose the source branch
 
@@ -72,14 +80,14 @@ devenv shell -- make verify-workflows
 {{< /command >}}
 
 Also confirm that compatibility guidance, generated API surfaces, and release notes match the candidate. Review current
-main, Nightly, release-gate E2E, previous-stable operator-upgrade, security, provenance, and performance evidence before
-authorizing publication.
+main, Nightly, and performance evidence, and the release PR's qualification results, before authorizing publication.
 
 Set the previous stable version, target release, and pinned baseline init image in
 `test/fixtures/operator-upgrade/versions.env`. Keep the Hardened fixture's init image consistent with that pin.
 Add an upgrade section for the target release. Add or update API migration fixtures only when a manifest migration
 needs coverage, and wire each new fixture into a test. Preserve approved historical migration pairs: the runtime
-upgrade baseline, the fixture pair, and the schema compatibility baseline are independent.
+upgrade baseline, the fixture pair, and the schema compatibility baseline are independent. Merge these fixture
+changes in a normal PR before the release PR; the release PR cannot change tests or fixtures.
 
 `CRD_COMPAT_TARGET` labels the compatibility report; it does not select a version-named migration fixture. Advancing
 the release target alone does not require an unused target fixture. Keep the existing 0.5.0-to-0.5.1 operator-upgrade
@@ -134,8 +142,70 @@ Before merge, verify that the release PR updates these surfaces consistently:
 - `release-notes/X.Y.Z.md` when the release needs a human summary or upgrade guidance;
 - `website/content/releases/X.Y.Z.md` and the release index for stable releases.
 
-The release PR gate requires the `release:ready` label and approval from the configured release manager (`dc-tec` in
-the current workflow). Do not bypass that gate to repair automation.
+A release PR may change only release metadata and documentation content: the manifest, `CHANGELOG.md`,
+`charts/openbao-operator/Chart.yaml`, `release-notes/`, `website/content/`, `website/content-versions/`,
+`website/data/`, `website/hugo.toml`, and `website/README.md`. Merge code, CI, test, fixture, and docs tooling changes
+in a separate PR first. The workflows, scripts, and tests that qualify the release PR then match the reviewed base
+branch.
+
+### Qualify the release PR
+
+Add the `release:candidate` label when the release content is complete and the base branch is frozen. After the
+API checks pass, approve `Approve Candidate Publication` in the `release-candidate` environment. This approval
+authorizes publishing executable candidate images under technical tags in the normal GHCR repositories. It does
+not authorize stable version tags or a published GitHub Release. The workflow checks the actual environment review
+history before either image build can write to GHCR.
+
+The `Release Candidate` workflow runs the full release profile against the PR's merge commit:
+
+1. API contract and generated-file checks, govulncheck, and Semgrep;
+2. two independent image builds that use the PR head's commit time as `SOURCE_DATE_EPOCH`;
+3. Trivy image scans, the release-gate E2E matrix, and the previous-stable operator upgrade;
+4. image provenance verification and byte reproducibility of the images and release payloads.
+
+The `Qualified Release Candidate` job runs only after every qualification job passes. The run retains the qualified
+payloads and image digests as the `release-candidate` artifact for 30 days.
+
+Each push to the labeled PR, including a release-please update after the base branch moves, starts a new
+qualification and cancels the previous one. Rerun failed jobs to retry a flaky lane; the rerun qualifies the same head.
+The workflow rejects a head that is not up to date with its base branch, because the release rebuild must reproduce
+the qualified tree.
+
+The release PR gate requires the `release:ready` label, the release PR path rule, and a passed
+`Qualified Release Candidate` job for the current head with an environment approval from `dc-tec`. Every release PR
+also requires a current-head review from `dc-tec`; environment approval does not replace PR review. The gate uses
+scripts from the base commit. If qualification finishes after the gate runs, reapply `release:ready` to re-evaluate it.
+
+Candidate helpers are keyless-signed by the reusable build workflow. Only the Hardened E2E fixtures opt into the
+exact `reusable-build.yml@refs/pull/N/merge` subject and GitHub OIDC issuer. They keep verification enabled with
+`failurePolicy: Block` and transparency-log verification. Production defaults and the upgrade fixture's published
+baseline policy remain unchanged.
+
+### Configure release approvals
+
+Before using these workflows, configure both `release-candidate` and `release-publish` environments:
+
+- Set `dc-tec` as the required reviewer on both environments.
+- Disable administrator bypass. The scripts require an actual approval in the run's review history.
+- For `release-candidate`, disable **Prevent self-review** and select the branch rule `refs/pull/*/merge`.
+  The maintainer triggers candidate qualification by adding the label and must be able to approve that run.
+- For `release-publish`, keep **Prevent self-review** enabled and retain the existing SemVer tag rules.
+  The release-tag App triggers this workflow, so the maintainer can approve it without self-review.
+
+In these workflows, a missing or unprotected environment fails the approval-history check before registry-write
+jobs start. Each new PR head needs its own approved qualification run. Failed jobs can reuse authorization for the
+same immutable run. This check assumes reviewed workflow definitions and enforced required checks; it does not
+restrict the package permissions of other workflows.
+
+Keep release PRs App-authored. The maintainer can review the release-please App's PR and approve the release-tag
+App's publication run without another maintainer. CODEOWNERS review requirements do not prevent this path. Keep
+required CI, the release gate, signatures, and tag protections enforced. Any maintainer review exception for ordinary
+self-authored code PRs must remain separate from these checks and does not replace release PR approval.
+
+These repository settings must be configured separately; committing workflow YAML does not configure reviewers or
+ruleset exceptions. See [environment protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
+and [rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets).
+GitHub documents `refs/pull/*/merge` in [deployment branch rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
 
 After merge, changes to `.release-please-manifest.json` trigger the `Release Tag` workflow. The workflow resolves the exact
 merged release PR, verifies its release files, creates a GPG-signed annotated SemVer tag, and creates or refreshes the
@@ -143,7 +213,9 @@ matching draft GitHub Release. Chart metadata and changelog edits alone do not t
 is the only automation identity that should have SemVer tag-ruleset bypass.
 
 Use the manual `branch-head` tag target to retry an unpublished release after an approved release-branch fix.
-The branch head must descend from the release PR merge and carry the same release version.
+The branch head must descend from the release PR merge and carry the same release version. Label the fix PR
+`release:candidate` and wait for its qualification before merging it; the `Release` workflow requires the tagged
+commit to be the squash merge of a qualified PR.
 
 To remove a failed unpublished candidate, dispatch `Release Tag` with `operation=remove-unpublished`.
 Provide its `expected_tag_object_sha`, `expected_commit_sha`, and completed `failed_run_id`.
@@ -155,16 +227,31 @@ Corrections to a published release require a new version.
 
 ## Let the tag workflow publish
 
-The tag triggers the `Release` workflow. It:
+The tag triggers the `Release` workflow. It does not repeat the release tests. It:
 
 1. checks that the chart version, app version, tag, and draft release agree;
-2. builds the four images and performs an independent rebuild;
-3. runs vulnerability, Semgrep, image, release E2E, operator-upgrade, provenance, and byte-reproducibility gates;
-4. waits at the `release-publish` environment before public promotion;
-5. promotes the verified image manifests by digest, without rebuilding;
-6. signs images and the OCI Helm chart with the tag-scoped workflow identity;
-7. signs and attests checksums, generates SBOMs and `provenance-index.json`, uploads assets, and publishes the draft
+2. resolves the PR merged as the tagged commit, requires the same tree as that PR's head, and finds the head's
+   `Qualified Release Candidate` run;
+3. waits for `Approve Release Publication` in `release-publish` and verifies the approval history before any tagged
+   rebuild writes to GHCR; this authorizes publication only if the remaining checks pass;
+4. rebuilds the four images from the tag with the qualified `SOURCE_DATE_EPOCH`, attests them, and verifies that the
+   rebuilt digests carry the qualified PR's build attestations;
+5. packages the release payloads and requires the qualified image digests and payload bytes;
+6. promotes the verified image manifests by digest, without rebuilding;
+7. signs images and the OCI Helm chart with the tag-scoped workflow identity;
+8. signs and attests checksums, generates SBOMs and `provenance-index.json`, uploads assets, and publishes the draft
    GitHub Release.
+
+Publication approval precedes the tagged rebuild and its verification results. Any wait timer on `release-publish`
+also delays that rebuild. The automated comparisons must pass before the publishing job promotes version tags,
+pushes the chart, or publishes the GitHub Release.
+
+Inspect failures before rerunning jobs. Byte or provenance mismatches stop publication even after approval. For
+transient infrastructure failures, rerun the failed jobs. Promotion accepts existing version tags and chart packages
+only when they match the verified digests and bytes. Registry authentication, transport, server, and malformed-response
+errors stop publication. Only an authenticated HTTP 404 with `MANIFEST_UNKNOWN` permits creating a missing tag or
+chart. The publishing job replaces draft assets so a rerun after a partial upload publishes one consistent signature
+set. For an already published GitHub Release, the upload step only confirms the published checksums.
 
 The stable public distribution surface is:
 

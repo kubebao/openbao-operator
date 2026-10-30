@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -45,9 +46,7 @@ func init() {
 
 	openBaoImage = strings.TrimSpace(os.Getenv("E2E_OPENBAO_IMAGE"))
 	if openBaoImage == "" {
-		openBaoImage = openBaoVersionImage(openBaoVersion)
-	} else {
-		openBaoImage = qualifiedExternalImage(openBaoImage)
+		openBaoImage = fmt.Sprintf("openbao/openbao:%s", openBaoVersion)
 	}
 
 	apiServerCIDR = strings.TrimSpace(os.Getenv("E2E_API_SERVER_CIDR"))

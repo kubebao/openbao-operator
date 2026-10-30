@@ -24,7 +24,7 @@ func TestWorkflowScenarioValidationBlocksIncompleteEvidence(t *testing.T) {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build reporter: %v\n%s", err, output)
 	}
-	for _, name := range []string{"ci", "nightly", "release"} {
+	for _, name := range []string{"ci", "nightly", "release-candidate"} {
 		t.Run(name, func(t *testing.T) {
 			data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", name+".yml"))
 			if err != nil {
