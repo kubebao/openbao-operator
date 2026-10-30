@@ -217,7 +217,7 @@ assert_contains "${ROOT_DIR}/.github/workflows/post-release-verification.yml" "E
 assert_contains "${ROOT_DIR}/.github/workflows/post-release-verification.yml" "Setup Helm"
 
 python3 "${ROOT_DIR}/hack/ci/test-post-release.py"
-PYTHONDONTWRITEBYTECODE=1 python3 "${ROOT_DIR}/hack/ci/test_release_authorization.py"
+PYTHONDONTWRITEBYTECODE=1 python3 "${ROOT_DIR}/hack/ci/test-release-authorization.py"
 
 spdx_fixture="${tmp_dir}/normalizer.spdx.json"
 cat > "${spdx_fixture}" <<'EOF'

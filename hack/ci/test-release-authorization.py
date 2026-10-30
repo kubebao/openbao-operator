@@ -24,7 +24,7 @@ def step(workflow, name):
 
 
 class ReleaseAuthorization(unittest.TestCase):
-    def test_solo_and_reviewed_release_paths(self):
+    def test_release_pr_requires_review_and_qualification(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             binary = root / "gh"
@@ -36,29 +36,29 @@ endpoint = next(arg for arg in sys.argv[1:] if arg.startswith('repos/'))
 if endpoint.endswith('/labels'):
     print('release:ready')
 elif endpoint.endswith('/pulls/7'):
-    print(json.dumps({'head': {'sha': sha}, 'user': {'login': 'dc-tec' if case.startswith('solo') else 'release-bot'}}))
+    print(json.dumps({'head': {'sha': sha}, 'user': {'login': 'dc-tec' if case == 'self_authored' else 'release-bot'}}))
 elif endpoint.endswith('/reviews'):
-    if case != 'missing_review':
+    if case not in ('missing_review', 'self_authored'):
         print(json.dumps({'user': {'login': 'dc-tec'}, 'state': 'APPROVED',
                           'commit_id': 'b' * 40 if case == 'stale_review' else sha, 'id': 1}))
 elif '/runs?' in endpoint:
     print(json.dumps({'workflow_runs': [{'id': 101, 'path': '.github/workflows/release-candidate.yml',
-        'head_sha': 'b' * 40 if case == 'solo_changed_head' else sha, 'event': 'pull_request',
+        'head_sha': 'b' * 40 if case == 'changed_head' else sha, 'event': 'pull_request',
         'conclusion': 'success', 'head_repository': {'full_name': os.environ['REPO']}}]}))
 elif '/jobs?' in endpoint:
     print(json.dumps({'jobs': [{'name': 'Qualified Release Candidate',
-        'conclusion': 'skipped' if case == 'solo_skipped' else 'success'}]}))
+        'conclusion': 'skipped' if case == 'skipped' else 'success'}]}))
 elif endpoint.endswith('/approvals'):
-    print(json.dumps([] if case == 'solo_no_approval' else [{'state': 'approved',
+    print(json.dumps([] if case == 'no_approval' else [{'state': 'approved',
         'user': {'login': 'dc-tec', 'type': 'User'}, 'environments': [{'name': 'release-candidate'}]}]))
 else:
     raise SystemExit('unexpected endpoint: ' + endpoint)
 ''')
             binary.chmod(0o755)
             (root / "release-pr-files.txt").write_text(".release-please-manifest.json\nCHANGELOG.md\n")
-            for case, success in [("solo", True), ("reviewed", True), ("missing_review", False),
-                                  ("stale_review", False), ("solo_no_approval", False),
-                                  ("solo_changed_head", False), ("solo_skipped", False)]:
+            for case, success in [("reviewed", True), ("missing_review", False), ("self_authored", False),
+                                  ("stale_review", False), ("no_approval", False),
+                                  ("changed_head", False), ("skipped", False)]:
                 with self.subTest(case=case):
                     env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ["PATH"],
                                REPO="kubebao/openbao-operator", PR_NUMBER="7", HEAD_SHA=SHA,
@@ -69,9 +69,9 @@ else:
                     self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
                     if success:
                         self.assertIn("Qualified by Release Candidate run 101", result.stdout)
-                    elif case in ("missing_review", "stale_review"):
+                    elif case in ("missing_review", "stale_review", "self_authored"):
                         self.assertIn("Missing current-head approval", result.stderr)
-                    elif case == "solo_no_approval":
+                    elif case == "no_approval":
                         self.assertIn("requires an approval from dc-tec", result.stderr)
                     else:
                         self.assertIn("no successful 'Qualified Release Candidate' job", result.stderr)

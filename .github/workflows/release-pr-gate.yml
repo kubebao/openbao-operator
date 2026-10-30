@@ -81,28 +81,24 @@ jobs:
           fi
 
           # Require the designated release manager's latest review to approve the
-          # current head commit. The manager cannot review their own PR; that
-          # path requires their environment approval and the same qualification.
+          # current head commit. Environment approval does not replace PR review.
           pr_json="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")"
           head_sha="$(jq -er '.head.sha' <<<"${pr_json}")"
-          author="$(jq -er '.user.login' <<<"${pr_json}")"
-          if [[ "${author}" != "${REQUIRED_APPROVER}" ]]; then
-            reviews="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --paginate --jq '.[]')"
-            latest_review="$(
-              jq -sc \
-                --arg required_approver "${REQUIRED_APPROVER}" \
-                '[.[] | select(.user.login == $required_approver)]
-                 | sort_by(.submitted_at // "", .id // 0)
-                 | last // {}' \
-                <<<"${reviews}"
-            )"
-            review_state="$(jq -r '.state // ""' <<<"${latest_review}")"
-            review_commit="$(jq -r '.commit_id // ""' <<<"${latest_review}")"
-            if [[ "${review_state}" != "APPROVED" || "${review_commit}" != "${head_sha}" ]]; then
-              echo "Missing current-head approval from '${REQUIRED_APPROVER}' on release PR." >&2
-              echo "Expected APPROVED review for ${head_sha}; got state='${review_state}' commit='${review_commit}'." >&2
-              exit 1
-            fi
+          reviews="$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --paginate --jq '.[]')"
+          latest_review="$(
+            jq -sc \
+              --arg required_approver "${REQUIRED_APPROVER}" \
+              '[.[] | select(.user.login == $required_approver)]
+               | sort_by(.submitted_at // "", .id // 0)
+               | last // {}' \
+              <<<"${reviews}"
+          )"
+          review_state="$(jq -r '.state // ""' <<<"${latest_review}")"
+          review_commit="$(jq -r '.commit_id // ""' <<<"${latest_review}")"
+          if [[ "${review_state}" != "APPROVED" || "${review_commit}" != "${head_sha}" ]]; then
+            echo "Missing current-head approval from '${REQUIRED_APPROVER}' on release PR." >&2
+            echo "Expected APPROVED review for ${head_sha}; got state='${review_state}' commit='${review_commit}'." >&2
+            exit 1
           fi
 
           # Require the full release profile to have passed for this exact head.

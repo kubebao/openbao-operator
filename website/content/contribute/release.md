@@ -172,36 +172,40 @@ The workflow rejects a head that is not up to date with its base branch, because
 the qualified tree.
 
 The release PR gate requires the `release:ready` label, the release PR path rule, and a passed
-`Qualified Release Candidate` job for the current head with an environment approval from `dc-tec`. Other authors'
-release PRs also require a current-head review from `dc-tec`. A release PR authored by `dc-tec` uses the environment
-approval instead of an impossible self-review. Both paths keep the same qualification checks. The gate uses scripts
-from the base commit. If qualification finishes after the gate runs, reapply `release:ready` to re-evaluate it.
+`Qualified Release Candidate` job for the current head with an environment approval from `dc-tec`. Every release PR
+also requires a current-head review from `dc-tec`; environment approval does not replace PR review. The gate uses
+scripts from the base commit. If qualification finishes after the gate runs, reapply `release:ready` to re-evaluate it.
 
 Candidate helpers are keyless-signed by the reusable build workflow. Only the Hardened E2E fixtures opt into the
 exact `reusable-build.yml@refs/pull/N/merge` subject and GitHub OIDC issuer. They keep verification enabled with
 `failurePolicy: Block` and transparency-log verification. Production defaults and the upgrade fixture's published
 baseline policy remain unchanged.
 
-### Configure approvals for a solo maintainer
+### Configure release approvals
 
 Before using these workflows, configure both `release-candidate` and `release-publish` environments:
 
-- Set `dc-tec` as the required reviewer and leave **Prevent self-review** disabled.
+- Set `dc-tec` as the required reviewer on both environments.
 - Disable administrator bypass. The scripts require an actual approval in the run's review history.
-- Allow the intended PR refs for `release-candidate` and SemVer tag refs for `release-publish`.
+- For `release-candidate`, disable **Prevent self-review** and select the branch rule `refs/pull/*/merge`.
+  The maintainer triggers candidate qualification by adding the label and must be able to approve that run.
+- For `release-publish`, keep **Prevent self-review** enabled and retain the existing SemVer tag rules.
+  The release-tag App triggers this workflow, so the maintainer can approve it without self-review.
 
-A missing environment or missing reviewer configuration does not grant publication: the approval-history check
-fails before registry writes. Each new PR head needs its own approved qualification run. Failed jobs can reuse the
-authorization for the same immutable run.
+In these workflows, a missing or unprotected environment fails the approval-history check before registry-write
+jobs start. Each new PR head needs its own approved qualification run. Failed jobs can reuse authorization for the
+same immutable run. This check assumes reviewed workflow definitions and enforced required checks; it does not
+restrict the package permissions of other workflows.
 
-Keep CODEOWNERS review requirements in a separate ruleset with a pull-request-only review exception for `dc-tec`.
-This lets the maintainer merge their own PRs. Keep required CI, the release gate, signatures, and tag protections in
-rulesets without that exception. The exception does not replace a passing release gate or authorize direct pushes.
-An App-authored release-please PR can still receive a normal review from `dc-tec`.
+Keep release PRs App-authored. The maintainer can review the release-please App's PR and approve the release-tag
+App's publication run without another maintainer. CODEOWNERS review requirements do not prevent this path. Keep
+required CI, the release gate, signatures, and tag protections enforced. Any maintainer review exception for ordinary
+self-authored code PRs must remain separate from these checks and does not replace release PR approval.
 
 These repository settings must be configured separately; committing workflow YAML does not configure reviewers or
 ruleset exceptions. See [environment protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
 and [rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets).
+GitHub documents `refs/pull/*/merge` in [deployment branch rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
 
 After merge, changes to `.release-please-manifest.json` trigger the `Release Tag` workflow. The workflow resolves the exact
 merged release PR, verifies its release files, creates a GPG-signed annotated SemVer tag, and creates or refreshes the
@@ -238,13 +242,16 @@ The tag triggers the `Release` workflow. It does not repeat the release tests. I
 8. signs and attests checksums, generates SBOMs and `provenance-index.json`, uploads assets, and publishes the draft
    GitHub Release.
 
+Publication approval precedes the tagged rebuild and its verification results. Any wait timer on `release-publish`
+also delays that rebuild. The automated comparisons must pass before the publishing job promotes version tags,
+pushes the chart, or publishes the GitHub Release.
+
 Inspect failures before rerunning jobs. Byte or provenance mismatches stop publication even after approval. For
 transient infrastructure failures, rerun the failed jobs. Promotion accepts existing version tags and chart packages
 only when they match the verified digests and bytes. Registry authentication, transport, server, and malformed-response
-errors stop publication. Only an
-authenticated HTTP 404 with `MANIFEST_UNKNOWN` permits creating a missing tag or chart. It replaces draft assets
-so a rerun after a partial upload publishes one consistent signature set. After
-publication, a rerun only confirms the published checksums.
+errors stop publication. Only an authenticated HTTP 404 with `MANIFEST_UNKNOWN` permits creating a missing tag or
+chart. The publishing job replaces draft assets so a rerun after a partial upload publishes one consistent signature
+set. For an already published GitHub Release, the upload step only confirms the published checksums.
 
 The stable public distribution surface is:
 
