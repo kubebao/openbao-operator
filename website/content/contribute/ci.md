@@ -41,8 +41,9 @@ API errors, failed processing, and timeouts fail the job. The `CodeQL Required` 
 skipped analysis. Add it to required status checks during the [advanced setup migration](#activate-advanced-codeql-scanning).
 
 The active [review-approvals ruleset](https://github.com/kubebao/openbao-operator/rules/25297885) requires CODEOWNER
-approval for [workflow changes](https://github.com/kubebao/openbao-operator/blob/main/.github/CODEOWNERS).
-Keep this review control enabled because pull requests can modify their workflow code. The project lead's review
+approval for [workflow, CI tooling, and test changes](https://github.com/kubebao/openbao-operator/blob/main/.github/CODEOWNERS).
+Keep this review control enabled because pull requests can modify the workflows, scripts, and tests that produce
+their own check results. The project lead's review
 exception applies only through pull requests; required CI checks have no bypass actors.
 
 OpenSSF Scorecard runs on pushes to `main` and weekly. It publishes repository security findings to the
