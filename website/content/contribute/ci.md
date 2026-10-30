@@ -12,6 +12,7 @@ verifiedBy:
   - .github/workflows/codeql.yml
   - .github/workflows/nightly.yml
   - .github/workflows/release.yml
+  - .github/workflows/release-candidate.yml
   - .github/workflows/scorecard.yml
   - hack/tools/ci_checks/main.go
   - hack/tools/ci_report/main.go

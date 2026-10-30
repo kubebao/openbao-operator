@@ -15,6 +15,7 @@ verifiedBy:
   - hack/ci/validate-release-as-request.sh
   - hack/ci/check-release-pr-files.sh
   - hack/ci/find-release-candidate-run.sh
+  - hack/ci/resolve-release-candidate.sh
   - hack/ci/create-release-tag-and-draft.sh
   - hack/ci/prepare-release-chart.sh
   - hack/ci/publish-edge-chart.sh
@@ -27,8 +28,9 @@ verifiedBy:
   - artifacthub-repo.yml
 ---
 
-The release path creates a signed tag and draft GitHub Release from an approved release-please PR. The tag starts a
-build-once workflow that verifies the candidate before it promotes images by digest and publishes the release.
+The release path qualifies the release-please PR with the full release profile before merge, then creates a signed
+tag and draft GitHub Release. The tag starts a workflow that rebuilds the tagged commit, requires the qualified image
+digests and payload bytes, and promotes images by digest to publish the release.
 
 ## Choose the source branch
 
@@ -174,7 +176,9 @@ matching draft GitHub Release. Chart metadata and changelog edits alone do not t
 is the only automation identity that should have SemVer tag-ruleset bypass.
 
 Use the manual `branch-head` tag target to retry an unpublished release after an approved release-branch fix.
-The branch head must descend from the release PR merge and carry the same release version.
+The branch head must descend from the release PR merge and carry the same release version. Label the fix PR
+`release:candidate` and wait for its qualification before merging it; the `Release` workflow requires the tagged
+commit to be the squash merge of a qualified PR.
 
 To remove a failed unpublished candidate, dispatch `Release Tag` with `operation=remove-unpublished`.
 Provide its `expected_tag_object_sha`, `expected_commit_sha`, and completed `failed_run_id`.
@@ -186,16 +190,24 @@ Corrections to a published release require a new version.
 
 ## Let the tag workflow publish
 
-The tag triggers the `Release` workflow. It:
+The tag triggers the `Release` workflow. It does not repeat the release tests. It:
 
 1. checks that the chart version, app version, tag, and draft release agree;
-2. builds the four images and performs an independent rebuild;
-3. runs vulnerability, Semgrep, image, release E2E, operator-upgrade, provenance, and byte-reproducibility gates;
-4. waits at the `release-publish` environment before public promotion;
-5. promotes the verified image manifests by digest, without rebuilding;
-6. signs images and the OCI Helm chart with the tag-scoped workflow identity;
-7. signs and attests checksums, generates SBOMs and `provenance-index.json`, uploads assets, and publishes the draft
+2. resolves the PR merged as the tagged commit, requires the same tree as that PR's head, and finds the head's
+   `Qualified Release Candidate` run;
+3. rebuilds the four images from the tag with the qualified `SOURCE_DATE_EPOCH`, attests them, and verifies that the
+   rebuilt digests carry the qualified PR's build attestations;
+4. packages the release payloads and requires the qualified image digests and payload bytes;
+5. waits at the `release-publish` environment before public promotion;
+6. promotes the verified image manifests by digest, without rebuilding;
+7. signs images and the OCI Helm chart with the tag-scoped workflow identity;
+8. signs and attests checksums, generates SBOMs and `provenance-index.json`, uploads assets, and publishes the draft
    GitHub Release.
+
+A failure after the tag points to build, signing, or publication infrastructure, not the release content. Rerun the
+failed jobs. Promotion accepts existing version tags and chart packages only when they match the verified digests and
+bytes. It replaces draft assets so a rerun after a partial upload publishes one consistent signature set. After
+publication, a rerun only confirms the published checksums.
 
 The stable public distribution surface is:
 
