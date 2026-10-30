@@ -78,7 +78,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 				ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget,
 				Profile:           openbaov1alpha1.ProfileDevelopment,
 				Version:           versions[0],
-				Image:             openBaoVersionImage(versions[0]),
+				Image:             fmt.Sprintf("openbao/openbao:%s", versions[0]),
 				Replicas:          3,
 				InitContainer: &openbaov1alpha1.InitContainerConfig{
 					Enabled: true,
@@ -189,7 +189,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			g.Expect(admin.Get(blueGreenCtx, key, updated)).To(Succeed())
 			original := updated.DeepCopy()
 			updated.Spec.Version = versions[1]
-			updated.Spec.Image = openBaoVersionImage(versions[1])
+			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", versions[1])
 			g.Expect(admin.Patch(blueGreenCtx, updated, client.MergeFrom(original))).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -250,7 +250,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			g.Expect(admin.Get(ctx, key, updated)).To(Succeed())
 			original := updated.DeepCopy()
 			updated.Spec.Version = versions[2]
-			updated.Spec.Image = openBaoVersionImage(versions[2])
+			updated.Spec.Image = fmt.Sprintf("openbao/openbao:%s", versions[2])
 			g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 

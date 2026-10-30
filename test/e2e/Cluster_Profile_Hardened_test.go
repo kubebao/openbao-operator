@@ -33,7 +33,6 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
 	e2ehelpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
-	"github.com/kubebao/openbao-operator/test/utils/qualification"
 )
 
 var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfInit)", Label(
@@ -449,7 +448,6 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 			},
 		}
 
-		Expect(qualification.PrepareCluster(ctx, c, cluster)).To(Succeed())
 		Expect(c.Create(ctx, cluster)).To(Succeed())
 		_, _ = fmt.Fprintf(GinkgoWriter, "Created OpenBaoCluster %q\n", clusterName)
 
@@ -735,8 +733,8 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 		), func() {
 			initialVersion := envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)
 			targetVersion := envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)
-			initialImage := openBaoVersionImage(initialVersion)
-			targetImage := openBaoVersionImage(targetVersion)
+			initialImage := fmt.Sprintf("openbao/openbao:%s", initialVersion)
+			targetImage := fmt.Sprintf("openbao/openbao:%s", targetVersion)
 			upgradeImage := hardenedSignedUpgradeExecutorImage()
 
 			if initialVersion == targetVersion {
@@ -844,7 +842,6 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
 			}
-			Expect(qualification.PrepareCluster(ctx, c, upgradeCluster)).To(Succeed())
 			Expect(c.Create(ctx, upgradeCluster)).To(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -974,8 +971,8 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 		), func() {
 			initialVersion := blueGreenUpgradeFromVersion()
 			targetVersion := blueGreenUpgradeToVersion()
-			initialImage := openBaoVersionImage(initialVersion)
-			targetImage := openBaoVersionImage(targetVersion)
+			initialImage := fmt.Sprintf("openbao/openbao:%s", initialVersion)
+			targetImage := fmt.Sprintf("openbao/openbao:%s", targetVersion)
 			upgradeImage := hardenedSignedUpgradeExecutorImage()
 
 			if initialVersion == targetVersion {
@@ -1089,7 +1086,6 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 					DeletionPolicy: openbaov1alpha1.DeletionPolicyDeleteAll,
 				},
 			}
-			Expect(qualification.PrepareCluster(ctx, c, upgradeCluster)).To(Succeed())
 			Expect(c.Create(ctx, upgradeCluster)).To(Succeed())
 
 			Eventually(func(g Gomega) {

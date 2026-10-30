@@ -34,7 +34,6 @@ import (
 	platformconstants "github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/test/e2e/framework"
 	e2ehelpers "github.com/kubebao/openbao-operator/test/e2e/helpers"
-	"github.com/kubebao/openbao-operator/test/utils/qualification"
 )
 
 const acmeCacheStorageClassEnv = "E2E_ACME_CACHE_STORAGE_CLASS"
@@ -379,7 +378,6 @@ var _ = Describe("ACME TLS (OpenBao native ACME client)", Label("tls", "security
 			},
 		}
 		desiredReplicas := cluster.Spec.Replicas
-		Expect(qualification.PrepareCluster(ctx, c, cluster)).To(Succeed())
 		Expect(c.Create(ctx, cluster)).To(Succeed())
 		_, _ = fmt.Fprintf(GinkgoWriter, "Created OpenBaoCluster %q with ACME TLS\n", clusterName)
 		DeferCleanup(func() { _ = c.Delete(ctx, cluster) })

@@ -4,13 +4,9 @@
 import json
 import os
 from pathlib import Path
-import re
 
 
 def configure():
-    suite_source = os.environ.get("SELECTED_SUITE_SOURCE_SHA", "")
-    if suite_source and re.fullmatch(r"[0-9a-f]{40}", suite_source) is None:
-        raise ValueError("selected suite source must be a full lowercase Git SHA")
     transport = os.environ.get("E2E_IMAGE_TRANSPORT", "registry")
     if transport not in ("registry", "artifact"):
         raise ValueError("unknown candidate image transport")
@@ -30,9 +26,7 @@ def configure():
         lane_name += f" ({row['profile']} / {row['coverage']})"
     values = {
         "E2E_BINARY_DIR": str(Path(os.environ["RUNNER_TEMP"]) / "e2e-binaries"),
-        # A trusted controller may execute a separately selected candidate suite.
-        # Its GitHub event/source identity remains GITHUB_SHA.
-        "E2E_SOURCE_SHA": suite_source or os.environ["GITHUB_SHA"],
+        "E2E_SOURCE_SHA": os.environ["GITHUB_SHA"],
         "E2E_ARTIFACT_NAME": os.environ["ARTIFACT_NAME"],
         "E2E_LANE_NAME": lane_name,
         "EXPECTED_CASE_IDS": json.dumps(expected),

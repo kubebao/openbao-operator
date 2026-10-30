@@ -184,13 +184,5 @@ secondary:
         url: contribute/supply-chain/
       - title: Release management
         url: contribute/release/
-      - title: Release artifact pilot
-        url: contribute/release-artifact-pilot/
-      - title: Advisory release evidence
-        url: contribute/release-evidence-contract/
-      - title: Release identity pilot
-        url: contribute/release-identity-pilot/
-      - title: Candidate qualification groundwork
-        url: contribute/release-qualification-pilot/
       - title: Incident response
         url: contribute/incident-response/

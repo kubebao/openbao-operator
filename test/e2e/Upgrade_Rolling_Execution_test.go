@@ -35,7 +35,7 @@ var _ = Describe("Rolling execution identity", Label("upgrade", "upgrades", "rol
 			Spec: api.OpenBaoClusterSpec{
 				ControllerJWTMode: api.ControllerJWTModeTarget,
 				Profile:           api.ProfileDevelopment, Version: versions[0],
-				Image: openBaoVersionImage(versions[0]), Replicas: 3,
+				Image: fmt.Sprintf("openbao/openbao:%s", versions[0]), Replicas: 3,
 				InitContainer: &api.InitContainerConfig{Enabled: true, Image: configInitImage},
 				SelfInit: &api.SelfInitConfig{
 					Enabled: true, OIDC: &api.SelfInitOIDCConfig{Enabled: true},
@@ -72,7 +72,7 @@ var _ = Describe("Rolling execution identity", Label("upgrade", "upgrades", "rol
 				g.Expect(f.Client.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)).To(Succeed())
 				original := cluster.DeepCopy()
 				cluster.Spec.Version = target
-				cluster.Spec.Image = openBaoVersionImage(target)
+				cluster.Spec.Image = fmt.Sprintf("openbao/openbao:%s", target)
 				g.Expect(f.Client.Patch(ctx, cluster, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 			execution := ""

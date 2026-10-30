@@ -134,22 +134,6 @@ class LaneConfiguration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(values["E2E_UPGRADE_SEQUENCE"], "")
 
-    def test_selected_suite_source_preserves_controller_source_context(self):
-        source = "a" * 40
-        result, values = self.configure(self.rows[0], SELECTED_SUITE_SOURCE_SHA=source)
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(values["E2E_SOURCE_SHA"], source)
-        self.assertNotIn("GITHUB_SHA", values)
-        result, values = self.configure(self.rows[0])
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(values["E2E_SOURCE_SHA"], "source")
-
-    def test_selected_suite_source_rejects_refs_and_environment_injection(self):
-        for value in ("main", "A" * 40, "a" * 39, "a" * 40 + "\nGITHUB_SHA=other"):
-            with self.subTest(value=value):
-                result, _ = self.configure(self.rows[0], SELECTED_SUITE_SOURCE_SHA=value)
-                self.assertNotEqual(result.returncode, 0)
-
     def test_every_lane_retains_its_execution_settings(self):
         for row in self.rows:
             with self.subTest(lane=row["id"]):

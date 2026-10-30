@@ -196,7 +196,7 @@ var _ = Describe("Cluster Networking", Label("networking", "critical"), func() {
 					RestartPolicy: corev1.RestartPolicyNever, AutomountServiceAccountToken: ptr.To(false),
 					SecurityContext: networkTestPodSecurity(),
 					Containers: []corev1.Container{{
-						Name: "curl", Image: qualifiedExternalImage("curlimages/curl:8.16.0"), Command: []string{"/bin/sh", "-ec", script},
+						Name: "curl", Image: "curlimages/curl:8.16.0", Command: []string{"/bin/sh", "-ec", script},
 						SecurityContext: networkTestContainerSecurity(),
 						VolumeMounts: []corev1.VolumeMount{
 							{Name: "bao-ca", MountPath: "/bao-ca", ReadOnly: true},
