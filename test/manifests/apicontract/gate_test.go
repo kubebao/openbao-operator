@@ -79,7 +79,7 @@ func TestWorkflowAPIContractCommands(t *testing.T) {
 					t.Fatalf("refresh fixture inventory: %v\n%s", err, output)
 				}
 			}
-			for _, workflow := range []string{"ci.yml", "release.yml"} {
+			for _, workflow := range []string{"ci.yml", "release-candidate.yml"} {
 				gate := readWorkflow(t, workflow).Jobs["api-contract"]
 				step := findStep(t, gate, "Verify API contract")
 				output, err := runCommand(t, dir, []string{"CRD_COMPAT_MODE=report"}, "bash", "-ec", step.Run)

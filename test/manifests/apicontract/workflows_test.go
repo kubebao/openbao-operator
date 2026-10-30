@@ -48,8 +48,8 @@ func TestAPIContractPreservesOperatorUpgradeHarness(t *testing.T) {
 
 func TestAPIContractWorkflowDependencies(t *testing.T) {
 	ci := readWorkflow(t, "ci.yml")
-	release := readWorkflow(t, "release.yml")
-	for _, w := range []workflow{ci, release} {
+	candidate := readWorkflow(t, "release-candidate.yml")
+	for _, w := range []workflow{ci, candidate} {
 		gate, ok := w.Jobs["api-contract"]
 		if !ok || gate.ContinueOnError || findStep(t, gate, "Verify API contract").ContinueOnError {
 			t.Fatal("API contract must be a blocking job and step")
@@ -58,11 +58,11 @@ func TestAPIContractWorkflowDependencies(t *testing.T) {
 	for _, job := range []string{"ci-required", "build-edge-candidate"} {
 		assertNeeds(t, ci.Jobs[job], "api-contract")
 	}
-	for _, job := range []string{"build", "rebuild", "promote"} {
-		assertNeeds(t, release.Jobs[job], "api-contract")
+	for _, job := range []string{"authorize", "build", "rebuild", "qualified"} {
+		assertNeeds(t, candidate.Jobs[job], "api-contract")
 	}
-	if release.Jobs["api-contract"].If != "" {
-		t.Fatal("release API contract gate must run unconditionally")
+	if candidate.Jobs["api-contract"].If != "" {
+		t.Fatal("candidate API contract gate must run unconditionally after preparation")
 	}
 	want := "fromJSON(needs.changes.outputs.expected_checks)['api-contract']"
 	if ci.Jobs["api-contract"].If != want {
@@ -98,6 +98,7 @@ func TestAPIContractChangeRouting(t *testing.T) {
 		"vendor/modules.txt",
 		".github/workflows/ci.yml",
 		".github/workflows/release.yml",
+		".github/workflows/release-candidate.yml",
 		".github/actions/setup-repo-tools/action.yml",
 		"website/content/contribute/setup.md",
 	}

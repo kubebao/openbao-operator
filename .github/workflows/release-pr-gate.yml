@@ -55,7 +55,8 @@ jobs:
         if: steps.detect.outputs.release == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          # Both event types execute gate scripts from the trusted default branch.
+          ref: refs/heads/${{ github.event.repository.default_branch }}
           persist-credentials: false
           sparse-checkout: hack/ci
 
