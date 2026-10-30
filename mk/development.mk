@@ -136,6 +136,7 @@ verify-go-toolchain-sync: ## Verify go.mod and Dockerfile builders use the same 
 .PHONY: verify-release-automation
 verify-release-automation: ## Test release request validation and Artifact Hub metadata generation.
 	@bash hack/ci/test-release-automation.sh
+	@bash hack/ci/test-release-candidate.sh
 	@bash hack/ci/test-remove-unpublished-release.sh
 
 .PHONY: verify-spdx-normalizer

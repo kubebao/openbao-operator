@@ -1,0 +1,563 @@
+name: Release Candidate
+
+# Qualify a release PR before merge with the full release profile. The Release
+# workflow later rebuilds the tagged commit and requires the same image digests
+# and payload bytes as a qualified run of the merged PR head.
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-[0-9]*.[0-9]*'
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+
+permissions:
+  contents: read
+
+# Only runs selected by the release:candidate label share the per-PR group, so
+# unrelated label events cannot cancel an in-progress qualification.
+concurrency:
+  group: >-
+    release-candidate-${{ github.event.pull_request.number }}-${{
+    (contains(github.event.pull_request.labels.*.name, 'release:candidate') &&
+    (github.event.action != 'labeled' || github.event.label.name == 'release:candidate'))
+    && 'qualify' || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Prepare
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'release:candidate') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'release:candidate')
+    runs-on: &runner ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.vars.outputs.version }}
+      chart_version: ${{ steps.vars.outputs.chart_version }}
+      build_tag: ${{ steps.vars.outputs.build_tag }}
+      repro_build_tag: ${{ steps.vars.outputs.repro_build_tag }}
+      source_date_epoch: ${{ steps.vars.outputs.source_date_epoch }}
+      manager_image: ${{ steps.vars.outputs.manager_image }}
+      config_init_image: ${{ steps.vars.outputs.config_init_image }}
+      backup_executor_image: ${{ steps.vars.outputs.backup_executor_image }}
+      upgrade_executor_image: ${{ steps.vars.outputs.upgrade_executor_image }}
+    steps:
+      - name: Require a same-repository candidate
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "${HEAD_REPO}" != "${REPO}" ]]; then
+            echo "release candidates must come from a ${REPO} branch, got ${HEAD_REPO}" >&2
+            exit 1
+          fi
+
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compute candidate variables
+        id: vars
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # The squash merge of an up-to-date PR has the PR head tree. Qualify
+          # only that tree so the Release rebuild can reproduce it exactly.
+          merge_tree="$(git rev-parse "${GITHUB_SHA}^{tree}")"
+          head_tree="$(git rev-parse "${HEAD_SHA}^{tree}")"
+          if [[ "${merge_tree}" != "${head_tree}" ]]; then
+            echo "PR head ${HEAD_SHA} is not up to date with its base branch; update the branch to qualify it." >&2
+            exit 1
+          fi
+
+          version="$(jq -er '."."' .release-please-manifest.json)"
+          chart_file="charts/openbao-operator/Chart.yaml"
+          chart_version="$(sed -nE 's/^version:[[:space:]]*"?([^"#[:space:]]+)"?[[:space:]]*(#.*)?$/\1/p' "${chart_file}" | head -n1)"
+          chart_app_version="$(sed -nE 's/^appVersion:[[:space:]]*"?([^"#[:space:]]+)"?[[:space:]]*(#.*)?$/\1/p' "${chart_file}" | head -n1)"
+          if [[ "${chart_version}" != "${version}" || "${chart_app_version}" != "${version}" ]]; then
+            echo "release version mismatch between .release-please-manifest.json and ${chart_file}" >&2
+            echo "  manifest:   ${version}" >&2
+            echo "  chart:      ${chart_version}" >&2
+            echo "  appVersion: ${chart_app_version}" >&2
+            exit 1
+          fi
+
+          # The Release workflow derives the same epoch from the merged PR head.
+          source_date_epoch="$(git show -s --format=%ct "${HEAD_SHA}")"
+
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          {
+            echo "version=${version}"
+            echo "chart_version=${chart_version}"
+            echo "build_tag=build-${GITHUB_SHA}"
+            echo "repro_build_tag=repro-${GITHUB_SHA}"
+            echo "source_date_epoch=${source_date_epoch}"
+            echo "manager_image=ghcr.io/${owner}/openbao-operator"
+            echo "config_init_image=ghcr.io/${owner}/openbao-init"
+            echo "backup_executor_image=ghcr.io/${owner}/openbao-backup"
+            echo "upgrade_executor_image=ghcr.io/${owner}/openbao-upgrade"
+          } >> "${GITHUB_OUTPUT}"
+
+  api-contract:
+    name: API Contract Gate
+    runs-on: *runner
+    needs: prepare
+    env:
+      GOFLAGS: -mod=vendor
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+
+      - name: Test API contract enforcement
+        run: go test -count=1 ./hack/tools/api_inventory ./hack/tools/crd_compatibility ./test/manifests/apicontract
+
+      - name: Verify generated files
+        run: make verify-generated
+
+      - name: Verify API contract
+        env:
+          CRD_COMPAT_TARGET: ${{ needs.prepare.outputs.version }}
+        run: make verify-api-contract
+
+  build:
+    name: Build Images
+    needs: [prepare, api-contract]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      build_tag: ${{ needs.prepare.outputs.build_tag }}
+      ref: ${{ github.sha }}
+      source_date_epoch: ${{ needs.prepare.outputs.source_date_epoch }}
+      cache-scope: ${{ needs.prepare.outputs.build_tag }}
+
+  rebuild:
+    name: Independent Rebuild Images
+    needs: [prepare, api-contract]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      build_tag: ${{ needs.prepare.outputs.repro_build_tag }}
+      ref: ${{ github.sha }}
+      source_date_epoch: ${{ needs.prepare.outputs.source_date_epoch }}
+      cache-scope: ${{ needs.prepare.outputs.repro_build_tag }}
+
+  security-govulncheck:
+    name: Security Gate (vulncheck + Semgrep)
+    runs-on: *runner
+    needs: prepare
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+
+      - name: Run vulncheck
+        env:
+          GOFLAGS: -mod=vendor
+        run: make vulncheck
+
+      - name: Run Semgrep
+        run: make semgrep-ci
+
+  security-images:
+    name: Security Gate (Trivy image ${{ matrix.image_name }})
+    runs-on: *runner
+    needs: [prepare, build]
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_name: manager
+            image_ref: ${{ needs.prepare.outputs.manager_image }}:${{ needs.prepare.outputs.build_tag }}
+          - image_name: config-init
+            image_ref: ${{ needs.prepare.outputs.config_init_image }}:${{ needs.prepare.outputs.build_tag }}
+          - image_name: backup-executor
+            image_ref: ${{ needs.prepare.outputs.backup_executor_image }}:${{ needs.prepare.outputs.build_tag }}
+          - image_name: upgrade-executor
+            image_ref: ${{ needs.prepare.outputs.upgrade_executor_image }}:${{ needs.prepare.outputs.build_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Login to GHCR (pull)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Trivy (safe pinned release)
+        uses: ./.github/actions/setup-trivy
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: ${{ matrix.image_ref }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  e2e-matrix:
+    name: Generate Release E2E Matrix
+    runs-on: *runner
+    needs: prepare
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+
+      - name: Verify E2E scenario catalog and ownership
+        run: make verify-e2e-manifest
+
+      - name: Generate release-gate E2E matrix
+        id: matrix
+        env:
+          GOFLAGS: -mod=vendor
+        run: |
+          set -euo pipefail
+          matrix="$(make --silent e2e-release-matrix)"
+          mkdir -p artifacts/e2e-plan
+          printf '%s\n' "${matrix}" > artifacts/e2e-plan/matrix.json
+          printf 'matrix=%s\n' "${matrix}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "## Release E2E Matrix"
+            echo
+            echo '```json'
+            echo "${matrix}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload E2E execution plan
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-plan
+          path: artifacts/e2e-plan/
+          overwrite: true
+          retention-days: 7
+
+      - name: Compile E2E executables once
+        env:
+          GOFLAGS: -mod=vendor
+          E2E_BINARY_DIR: ${{ runner.temp }}/e2e-binaries
+          E2E_SOURCE_SHA: ${{ github.sha }}
+        run: make build-e2e-binaries
+
+      - name: Upload E2E binaries
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-binaries
+          path: ${{ runner.temp }}/e2e-binaries/
+          overwrite: true
+          retention-days: 7
+          if-no-files-found: error
+
+  e2e:
+    name: E2E Gate (${{ matrix.name }} / kind ${{ matrix.k8s }})
+    runs-on: *runner
+    needs: [prepare, build, e2e-matrix]
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.e2e-matrix.outputs.matrix) }}
+    env:
+      MANAGER_REF: ${{ needs.prepare.outputs.manager_image }}:${{ needs.prepare.outputs.build_tag }}
+      CONFIG_INIT_REF: ${{ needs.prepare.outputs.config_init_image }}:${{ needs.prepare.outputs.build_tag }}
+      BACKUP_EXECUTOR_REF: ${{ needs.prepare.outputs.backup_executor_image }}:${{ needs.prepare.outputs.build_tag }}
+      UPGRADE_EXECUTOR_REF: ${{ needs.prepare.outputs.upgrade_executor_image }}:${{ needs.prepare.outputs.build_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Run planned E2E lane
+        uses: ./.github/actions/run-e2e-lane
+        with:
+          lane: ${{ toJSON(matrix) }}
+          manager-image: ${{ env.MANAGER_REF }}
+          config-init-image: ${{ env.CONFIG_INIT_REF }}
+          backup-executor-image: ${{ env.BACKUP_EXECUTOR_REF }}
+          upgrade-executor-image: ${{ env.UPGRADE_EXECUTOR_REF }}
+          hardened-init-image: ${{ env.CONFIG_INIT_REF }}
+          hardened-upgrade-executor-image: ${{ env.UPGRADE_EXECUTOR_REF }}
+          operator-version: ${{ needs.prepare.outputs.build_tag }}
+          report-dir: artifacts/e2e-reports/release-gate/kind-${{ matrix.k8s }}/${{ matrix.id }}-${{ matrix.coverage }}
+          artifact-name: e2e-artifacts-release-gate-kind-${{ matrix.k8s }}-${{ matrix.id }}-${{ matrix.coverage }}-${{ github.run_attempt }}
+          registry-token: ${{ secrets.GITHUB_TOKEN }}
+
+  operator-upgrade-e2e:
+    name: Operator Upgrade E2E
+    runs-on: *runner
+    needs: [prepare, build]
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 45
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+        with:
+          cache-tools: false
+
+      - name: Setup Helm 3 compatibility client
+        id: helm3
+        uses: ./.github/actions/setup-helm
+        with:
+          version-key: HELM3_COMPAT_VERSION
+
+      - name: Setup Helm 4
+        id: helm4
+        uses: ./.github/actions/setup-helm
+
+      - name: Setup Kubernetes CLI tools
+        uses: ./.github/actions/setup-kubernetes-tools
+        with:
+          install-dir: bin/
+
+      - name: Login to GHCR (pull)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upgrade previous stable operator to release candidate
+        env:
+          HELM: ${{ steps.helm4.outputs.helm-path }}
+          HELM_INSTALL: ${{ steps.helm3.outputs.helm-path }}
+          OPERATOR_UPGRADE_E2E_TARGET_VERSION: ${{ needs.prepare.outputs.version }}
+          OPERATOR_UPGRADE_E2E_TARGET_RELEASE: ${{ needs.prepare.outputs.version }}
+          OPERATOR_UPGRADE_E2E_MANAGER_SOURCE: >-
+            ${{ needs.prepare.outputs.manager_image }}:${{ needs.prepare.outputs.build_tag }}
+          OPERATOR_UPGRADE_E2E_INIT_SOURCE: >-
+            ${{ needs.prepare.outputs.config_init_image }}:${{ needs.prepare.outputs.build_tag }}
+          OPERATOR_UPGRADE_E2E_HARDENED_INIT_IMAGE: >-
+            ${{ needs.prepare.outputs.config_init_image }}@${{ needs.build.outputs.config_init_digest }}
+        run: make test-e2e-operator-upgrade
+
+  verify-provenance:
+    name: Verify Image Provenance
+    runs-on: *runner
+    needs: [prepare, build]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Verify image attestations
+        uses: ./.github/actions/verify-image-attestations
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          repo: ${{ github.repository }}
+          version: ${{ needs.prepare.outputs.version }}
+          source-ref: ${{ github.ref }}
+          image-refs: |
+            ${{ needs.prepare.outputs.manager_image }}@${{ needs.build.outputs.manager_digest }}
+            ${{ needs.prepare.outputs.config_init_image }}@${{ needs.build.outputs.config_init_digest }}
+            ${{ needs.prepare.outputs.backup_executor_image }}@${{ needs.build.outputs.backup_executor_digest }}
+            ${{ needs.prepare.outputs.upgrade_executor_image }}@${{ needs.build.outputs.upgrade_executor_digest }}
+
+  verify-byte-reproducibility:
+    name: Verify Byte Reproducibility
+    runs-on: *runner
+    needs: [prepare, build, rebuild]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+
+      - name: Setup Helm
+        uses: ./.github/actions/setup-helm
+
+      - name: Login to GHCR (pull)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package primary payloads
+        uses: ./.github/actions/package-release-payloads
+        with:
+          output-dir: dist/primary
+          version: ${{ needs.prepare.outputs.version }}
+          chart-version: ${{ needs.prepare.outputs.chart_version }}
+          source-date-epoch: ${{ needs.prepare.outputs.source_date_epoch }}
+          manager-image: ${{ needs.prepare.outputs.manager_image }}@${{ needs.build.outputs.manager_digest }}
+          config-init-image: ${{ needs.prepare.outputs.config_init_image }}@${{ needs.build.outputs.config_init_digest }}
+          backup-executor-image: ${{ needs.prepare.outputs.backup_executor_image }}@${{ needs.build.outputs.backup_executor_digest }}
+          upgrade-executor-image: ${{ needs.prepare.outputs.upgrade_executor_image }}@${{ needs.build.outputs.upgrade_executor_digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package rebuild payloads
+        uses: ./.github/actions/package-release-payloads
+        with:
+          output-dir: dist/rebuild
+          version: ${{ needs.prepare.outputs.version }}
+          chart-version: ${{ needs.prepare.outputs.chart_version }}
+          source-date-epoch: ${{ needs.prepare.outputs.source_date_epoch }}
+          manager-image: ${{ needs.prepare.outputs.manager_image }}@${{ needs.rebuild.outputs.manager_digest }}
+          config-init-image: ${{ needs.prepare.outputs.config_init_image }}@${{ needs.rebuild.outputs.config_init_digest }}
+          backup-executor-image: ${{ needs.prepare.outputs.backup_executor_image }}@${{ needs.rebuild.outputs.backup_executor_digest }}
+          upgrade-executor-image: ${{ needs.prepare.outputs.upgrade_executor_image }}@${{ needs.rebuild.outputs.upgrade_executor_digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify byte reproducibility
+        env:
+          PRIMARY_DIR: dist/primary
+          REBUILD_DIR: dist/rebuild
+          MANAGER_DIGEST: ${{ needs.build.outputs.manager_digest }}
+          MANAGER_REBUILD_DIGEST: ${{ needs.rebuild.outputs.manager_digest }}
+          CONFIG_INIT_DIGEST: ${{ needs.build.outputs.config_init_digest }}
+          CONFIG_INIT_REBUILD_DIGEST: ${{ needs.rebuild.outputs.config_init_digest }}
+          BACKUP_EXECUTOR_DIGEST: ${{ needs.build.outputs.backup_executor_digest }}
+          BACKUP_EXECUTOR_REBUILD_DIGEST: ${{ needs.rebuild.outputs.backup_executor_digest }}
+          UPGRADE_EXECUTOR_DIGEST: ${{ needs.build.outputs.upgrade_executor_digest }}
+          UPGRADE_EXECUTOR_REBUILD_DIGEST: ${{ needs.rebuild.outputs.upgrade_executor_digest }}
+          REPRO_REQUIRED_FILES: >-
+            install.yaml
+            crds.yaml
+            operator-policy-approval.hcl
+            operator-policy-approval-with-backup.hcl
+            checksums.txt
+            openbao-operator-${{ needs.prepare.outputs.chart_version }}.tgz
+            sbom-openbao-operator.spdx.json
+            sbom-openbao-init.spdx.json
+            sbom-openbao-backup.spdx.json
+            sbom-openbao-upgrade.spdx.json
+        run: bash hack/ci/verify-byte-reproducibility.sh
+
+      - name: Record qualified candidate payloads
+        env:
+          CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
+          MANAGER_DIGEST: ${{ needs.build.outputs.manager_digest }}
+          CONFIG_INIT_DIGEST: ${{ needs.build.outputs.config_init_digest }}
+          BACKUP_EXECUTOR_DIGEST: ${{ needs.build.outputs.backup_executor_digest }}
+          UPGRADE_EXECUTOR_DIGEST: ${{ needs.build.outputs.upgrade_executor_digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/candidate/payloads
+          for file in install.yaml crds.yaml operator-policy-approval.hcl operator-policy-approval-with-backup.hcl \
+            checksums.txt "openbao-operator-${CHART_VERSION}.tgz" sbom-openbao-operator.spdx.json \
+            sbom-openbao-init.spdx.json sbom-openbao-backup.spdx.json sbom-openbao-upgrade.spdx.json; do
+            cp "dist/primary/${file}" "dist/candidate/payloads/${file}"
+          done
+          {
+            echo "MANAGER_DIGEST=${MANAGER_DIGEST}"
+            echo "CONFIG_INIT_DIGEST=${CONFIG_INIT_DIGEST}"
+            echo "BACKUP_EXECUTOR_DIGEST=${BACKUP_EXECUTOR_DIGEST}"
+            echo "UPGRADE_EXECUTOR_DIGEST=${UPGRADE_EXECUTOR_DIGEST}"
+          } > dist/candidate/image-digests.env
+          {
+            echo "## Release Candidate Payloads"
+            echo
+            echo '```text'
+            cat dist/candidate/image-digests.env
+            cat dist/candidate/payloads/checksums.txt
+            sha256sum "dist/candidate/payloads/openbao-operator-${CHART_VERSION}.tgz"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload qualified candidate payloads
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate
+          path: dist/candidate/
+          if-no-files-found: error
+          retention-days: 30
+
+  qualified:
+    name: Qualified Release Candidate
+    runs-on: *runner
+    needs:
+      - prepare
+      - api-contract
+      - build
+      - rebuild
+      - security-govulncheck
+      - security-images
+      - e2e
+      - operator-upgrade-e2e
+      - verify-provenance
+      - verify-byte-reproducibility
+    permissions: {}
+    steps:
+      - name: Record qualified head
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Qualified Release Candidate"
+            echo
+            echo "Version \`${VERSION}\` qualified at PR head \`${HEAD_SHA}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"

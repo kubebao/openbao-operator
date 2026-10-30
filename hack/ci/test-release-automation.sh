@@ -177,6 +177,9 @@ assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'head_sha="$(gh api'
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'review_state="$(jq -r'
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'review_commit="$(jq -r'
 assert_not_contains "${RELEASE_PR_GATE_WORKFLOW}" "    paths:"
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'ref: ${{ github.event.pull_request.base.sha }}'
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "bash hack/ci/check-release-pr-files.sh"
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "bash hack/ci/find-release-candidate-run.sh"
 
 assert_contains "${POST_RELEASE_VERIFIER}" 'if [[ "${VERSION}" == *-* ]]; then'
 assert_contains "${POST_RELEASE_VERIFIER}" 'if [[ "${is_prerelease}" != "${expected_prerelease}" ]]; then'

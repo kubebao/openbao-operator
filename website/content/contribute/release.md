@@ -7,10 +7,14 @@ verifiedBy:
   - .github/workflows/prepare-release-as-pr.yml
   - .github/workflows/release-please.yml
   - .github/workflows/release-pr-gate.yml
+  - .github/workflows/release-candidate.yml
+  - .github/actions/package-release-payloads/action.yml
   - .github/workflows/release-tag.yml
   - .github/workflows/release.yml
   - .github/workflows/post-release-verification.yml
   - hack/ci/validate-release-as-request.sh
+  - hack/ci/check-release-pr-files.sh
+  - hack/ci/find-release-candidate-run.sh
   - hack/ci/create-release-tag-and-draft.sh
   - hack/ci/prepare-release-chart.sh
   - hack/ci/publish-edge-chart.sh
@@ -72,14 +76,14 @@ devenv shell -- make verify-workflows
 {{< /command >}}
 
 Also confirm that compatibility guidance, generated API surfaces, and release notes match the candidate. Review current
-main, Nightly, release-gate E2E, previous-stable operator-upgrade, security, provenance, and performance evidence before
-authorizing publication.
+main, Nightly, and performance evidence, and the release PR's qualification results, before authorizing publication.
 
 Set the previous stable version, target release, and pinned baseline init image in
 `test/fixtures/operator-upgrade/versions.env`. Keep the Hardened fixture's init image consistent with that pin.
 Add an upgrade section for the target release. Add or update API migration fixtures only when a manifest migration
 needs coverage, and wire each new fixture into a test. Preserve approved historical migration pairs: the runtime
-upgrade baseline, the fixture pair, and the schema compatibility baseline are independent.
+upgrade baseline, the fixture pair, and the schema compatibility baseline are independent. Merge these fixture
+changes in a normal PR before the release PR; the release PR cannot change tests or fixtures.
 
 `CRD_COMPAT_TARGET` labels the compatibility report; it does not select a version-named migration fixture. Advancing
 the release target alone does not require an unused target fixture. Keep the existing 0.5.0-to-0.5.1 operator-upgrade
@@ -134,8 +138,35 @@ Before merge, verify that the release PR updates these surfaces consistently:
 - `release-notes/X.Y.Z.md` when the release needs a human summary or upgrade guidance;
 - `website/content/releases/X.Y.Z.md` and the release index for stable releases.
 
-The release PR gate requires the `release:ready` label and approval from the configured release manager (`dc-tec` in
-the current workflow). Do not bypass that gate to repair automation.
+A release PR may change only release metadata and documentation content: the manifest, `CHANGELOG.md`,
+`charts/openbao-operator/Chart.yaml`, `release-notes/`, `website/content/`, `website/content-versions/`,
+`website/data/`, `website/hugo.toml`, and `website/README.md`. Merge code, CI, test, fixture, and docs tooling changes
+in a separate PR first. The workflows, scripts, and tests that qualify the release PR then match the reviewed base
+branch.
+
+### Qualify the release PR
+
+Add the `release:candidate` label when the release content is complete and the base branch is frozen. The
+`Release Candidate` workflow runs the full release profile against the PR's merge commit:
+
+1. API contract and generated-file checks, govulncheck, and Semgrep;
+2. two independent image builds that use the PR head's commit time as `SOURCE_DATE_EPOCH`;
+3. Trivy image scans, the release-gate E2E matrix, and the previous-stable operator upgrade;
+4. image provenance verification and byte reproducibility of the images and release payloads.
+
+The `Qualified Release Candidate` job runs only after every qualification job passes. The run retains the qualified
+payloads and image digests as the `release-candidate` artifact for 30 days.
+
+Each push to the labeled PR, including a release-please update after the base branch moves, starts a new
+qualification and cancels the previous one. Rerun failed jobs to retry a flaky lane; the rerun qualifies the same head.
+The workflow rejects a head that is not up to date with its base branch, because the release rebuild must reproduce
+the qualified tree.
+
+The release PR gate requires the `release:ready` label, approval of the current head from the configured release
+manager (`dc-tec` in the current workflow), the release PR path rule, and a passed `Qualified Release Candidate` job
+for the current head. It runs the path rule and qualification check with scripts from the base commit. If you approve
+before qualification finishes, reapply `release:ready` afterwards to re-evaluate the gate. Do not bypass that gate to
+repair automation.
 
 After merge, changes to `.release-please-manifest.json` trigger the `Release Tag` workflow. The workflow resolves the exact
 merged release PR, verifies its release files, creates a GPG-signed annotated SemVer tag, and creates or refreshes the
