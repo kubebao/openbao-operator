@@ -135,9 +135,33 @@ jobs:
           CRD_COMPAT_TARGET: ${{ needs.prepare.outputs.version }}
         run: make verify-api-contract
 
+  authorize:
+    name: Approve Candidate Publication
+    needs: [prepare, api-contract]
+    runs-on: *runner
+    environment: release-candidate
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout trusted approval script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: hack/ci
+
+      - name: Require release manager approval
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ENVIRONMENT_NAME: release-candidate
+        run: bash hack/ci/check-release-approval.sh
+
   build:
     name: Build Images
-    needs: [prepare, api-contract]
+    needs: [prepare, api-contract, authorize]
     permissions:
       contents: read
       packages: write
@@ -149,10 +173,11 @@ jobs:
       ref: ${{ github.sha }}
       source_date_epoch: ${{ needs.prepare.outputs.source_date_epoch }}
       cache-scope: ${{ needs.prepare.outputs.build_tag }}
+      sign_images: true
 
   rebuild:
     name: Independent Rebuild Images
-    needs: [prepare, api-contract]
+    needs: [prepare, api-contract, authorize]
     permissions:
       contents: read
       packages: write
@@ -308,6 +333,7 @@ jobs:
       max-parallel: 6
       matrix: ${{ fromJSON(needs.e2e-matrix.outputs.matrix) }}
     env:
+      E2E_CANDIDATE_PR: ${{ github.event.pull_request.number }}
       MANAGER_REF: ${{ needs.prepare.outputs.manager_image }}:${{ needs.prepare.outputs.build_tag }}
       CONFIG_INIT_REF: ${{ needs.prepare.outputs.config_init_image }}:${{ needs.prepare.outputs.build_tag }}
       BACKUP_EXECUTOR_REF: ${{ needs.prepare.outputs.backup_executor_image }}:${{ needs.prepare.outputs.build_tag }}
@@ -326,8 +352,8 @@ jobs:
           config-init-image: ${{ env.CONFIG_INIT_REF }}
           backup-executor-image: ${{ env.BACKUP_EXECUTOR_REF }}
           upgrade-executor-image: ${{ env.UPGRADE_EXECUTOR_REF }}
-          hardened-init-image: ${{ env.CONFIG_INIT_REF }}
-          hardened-upgrade-executor-image: ${{ env.UPGRADE_EXECUTOR_REF }}
+          hardened-init-image: ${{ needs.prepare.outputs.config_init_image }}@${{ needs.build.outputs.config_init_digest }}
+          hardened-upgrade-executor-image: ${{ needs.prepare.outputs.upgrade_executor_image }}@${{ needs.build.outputs.upgrade_executor_digest }}
           operator-version: ${{ needs.prepare.outputs.build_tag }}
           report-dir: artifacts/e2e-reports/release-gate/kind-${{ matrix.k8s }}/${{ matrix.id }}-${{ matrix.coverage }}
           artifact-name: e2e-artifacts-release-gate-kind-${{ matrix.k8s }}-${{ matrix.id }}-${{ matrix.coverage }}-${{ github.run_attempt }}
@@ -376,6 +402,7 @@ jobs:
 
       - name: Upgrade previous stable operator to release candidate
         env:
+          E2E_CANDIDATE_PR: ${{ github.event.pull_request.number }}
           HELM: ${{ steps.helm4.outputs.helm-path }}
           HELM_INSTALL: ${{ steps.helm3.outputs.helm-path }}
           OPERATOR_UPGRADE_E2E_TARGET_VERSION: ${{ needs.prepare.outputs.version }}
@@ -539,6 +566,7 @@ jobs:
     runs-on: *runner
     needs:
       - prepare
+      - authorize
       - api-contract
       - build
       - rebuild

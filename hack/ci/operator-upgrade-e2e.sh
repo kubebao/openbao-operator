@@ -158,7 +158,17 @@ assert_resource_absent() {
 render_hardened_fixture() {
   awk \
     -v default_image="${DEFAULT_HARDENED_INIT_IMAGE}" \
-    -v selected_image="${HARDENED_INIT_IMAGE}" '
+    -v selected_image="${HARDENED_INIT_IMAGE}" \
+    -v candidate_pr="${E2E_CANDIDATE_PR:-}" '
+      $0 == "spec:" && candidate_pr != "" {
+        print
+        print "  operatorImageVerification:"
+        print "    enabled: true"
+        print "    failurePolicy: Block"
+        print "    issuer: https://token.actions.githubusercontent.com"
+        print "    subject: https://github.com/kubebao/openbao-operator/.github/workflows/reusable-build.yml@refs/pull/" candidate_pr "/merge"
+        next
+      }
       $0 == "    image: \"" default_image "\"" {
         $0 = "    image: \"" selected_image "\""
       }
@@ -305,6 +315,10 @@ create_external_tls_secrets() {
 }
 
 verify_harness() {
+  if [[ -n "${E2E_CANDIDATE_PR:-}" && ! "${E2E_CANDIDATE_PR}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "candidate helper trust requires a positive PR number" >&2
+    exit 1
+  fi
   local required_files=(
     "${FIXTURE_DIR}/versions.env"
     "${ROOT_DIR}/hack/ci/operator-upgrade-jwt-migration.py"

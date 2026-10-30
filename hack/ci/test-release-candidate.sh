@@ -89,8 +89,27 @@ if "/actions/workflows/release-candidate.yml/runs?" in endpoint:
         "wrong_event": [run(101, event="workflow_dispatch")],
         "not_success": [run(101, conclusion="failure")],
         "paginated": [run(104)],
+        "no_approval": [run(101)],
+        "wrong_approver": [run(101)],
+        "wrong_environment": [run(101)],
+        "bot_approval": [run(101)],
+        "approval_api_error": [run(101)],
     }[case]
     print(json.dumps({"workflow_runs": runs}))
+elif endpoint.endswith("/approvals"):
+    if case == "approval_api_error":
+        raise SystemExit(1)
+    approvals = [{"state": "approved", "user": {"login": "dc-tec", "type": "User"},
+                  "environments": [{"name": "release-candidate"}]}]
+    if case == "no_approval":
+        approvals = []
+    if case == "wrong_approver":
+        approvals[0]["user"]["login"] = "someone-else"
+    if case == "bot_approval":
+        approvals[0]["user"]["type"] = "Bot"
+    if case == "wrong_environment":
+        approvals[0]["environments"][0]["name"] = "release-publish"
+    print(json.dumps(approvals))
 elif endpoint.startswith(f"repos/{repo}/actions/runs/") and "/jobs?filter=latest" in endpoint:
     assert "--paginate" in sys.argv
     run_id = int(endpoint.split("/")[5])
@@ -138,7 +157,8 @@ TEST_CASE=qualified expect_run 101
 TEST_CASE=newest_unqualified expect_run 101
 TEST_CASE=paginated expect_run 104
 
-for TEST_CASE in skipped_only failed_job none wrong_path fork wrong_sha wrong_event not_success; do
+for TEST_CASE in skipped_only failed_job none wrong_path fork wrong_sha wrong_event not_success \
+  no_approval wrong_approver wrong_environment bot_approval approval_api_error; do
   export TEST_CASE
   if bash "${RUN_FINDER}" >/dev/null 2>&1; then
     fail "unqualified candidate accepted: ${TEST_CASE}"

@@ -37,6 +37,8 @@ for run_id in ${run_ids}; do
         '[.[].jobs[] | select(.name == $name and .conclusion == "success")] | length'
   )"
   if (( qualified > 0 )); then
+    RUN_ID="${run_id}" ENVIRONMENT_NAME=release-candidate \
+      bash "$(dirname "${BASH_SOURCE[0]}")/check-release-approval.sh" >&2
     printf '%s\n' "${run_id}"
     exit 0
   fi

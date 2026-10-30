@@ -112,9 +112,33 @@ jobs:
           echo "Merge the release-please PR and allow the tag workflow to create the tag and draft release." >&2
           exit 1
 
+  authorize:
+    name: Approve Release Publication
+    needs: prepare
+    runs-on: *runner
+    environment: release-publish
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout approval script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: hack/ci
+
+      - name: Require release manager approval
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ENVIRONMENT_NAME: release-publish
+        run: bash hack/ci/check-release-approval.sh
+
   build:
     name: Build Images
-    needs: prepare
+    needs: [prepare, authorize]
     permissions:
       contents: read
       packages: write
@@ -385,12 +409,11 @@ jobs:
     runs-on: *runner
     needs:
       - prepare
+      - authorize
       - build
       - verify-provenance
       - verify-candidate
       - package
-    environment:
-      name: release-publish
     permissions:
       contents: write
       packages: write
@@ -423,6 +446,7 @@ jobs:
 
       - name: Promote tags (no rebuild)
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.prepare.outputs.version }}
           MANAGER_IMAGE: ${{ needs.prepare.outputs.manager_image }}
           CONFIG_INIT_IMAGE: ${{ needs.prepare.outputs.config_init_image }}
@@ -434,20 +458,29 @@ jobs:
           UPGRADE_EXECUTOR_DIGEST: ${{ needs.build.outputs.upgrade_executor_digest }}
         run: |
           set -euo pipefail
+          # shellcheck source=../../hack/ci/release-registry.sh
+          source hack/ci/release-registry.sh
+          manifest_dir="$(mktemp -d)"
+          trap 'rm -rf "${manifest_dir}"' EXIT
 
           # A rerun may find tags from an earlier attempt. Accept only the same digest.
           promote() {
             local image="$1"
             local digest="$2"
             local existing
-            existing="$(docker buildx imagetools inspect "${image}:${VERSION}" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)"
-            if [[ -n "${existing}" ]]; then
+            if read_ghcr_manifest "${image}:${VERSION}" "${manifest_dir}/image.json"; then
+              existing="sha256:$(sha256sum "${manifest_dir}/image.json" | awk '{print $1}')"
               if [[ "${existing}" != "${digest}" ]]; then
                 echo "${image}:${VERSION} already points to ${existing}, expected ${digest}" >&2
                 return 1
               fi
               echo "${image}:${VERSION} already points to ${digest}"
               return 0
+            else
+              local status=$?
+              if (( status != 3 )); then
+                return "${status}"
+              fi
             fi
             docker buildx imagetools create -t "${image}:${VERSION}" "${image}@${digest}"
           }
@@ -484,11 +517,16 @@ jobs:
 
       - name: Push Helm chart (OCI)
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHART_VERSION: ${{ needs.prepare.outputs.chart_version }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          helm registry login ghcr.io -u "${GITHUB_ACTOR}" -p "${{ secrets.GITHUB_TOKEN }}"
+          # shellcheck source=../../hack/ci/release-registry.sh
+          source hack/ci/release-registry.sh
+          manifest_dir="$(mktemp -d)"
+          trap 'rm -rf "${manifest_dir}"' EXIT
+          helm registry login ghcr.io -u "${GITHUB_ACTOR}" -p "${GH_TOKEN}"
           chart_package="dist/openbao-operator-${CHART_VERSION}.tgz"
           if [[ ! -f "${chart_package}" ]]; then
             echo "expected chart package ${chart_package} was not found" >&2
@@ -497,8 +535,8 @@ jobs:
 
           # A rerun may find the chart from an earlier attempt. Accept only the same package.
           chart_ref="ghcr.io/${OWNER}/charts/openbao-operator:${CHART_VERSION}"
-          if manifest="$(docker buildx imagetools inspect --raw "${chart_ref}" 2>/dev/null)"; then
-            published="$(jq -r '[.layers[]? | select(.mediaType == "application/vnd.cncf.helm.chart.content.v1.tar+gzip") | .digest][0] // ""' <<<"${manifest}")"
+          if read_ghcr_manifest "${chart_ref}" "${manifest_dir}/chart.json"; then
+            published="$(jq -r '[.layers[]? | select(.mediaType == "application/vnd.cncf.helm.chart.content.v1.tar+gzip") | .digest][0] // ""' "${manifest_dir}/chart.json")"
             expected="sha256:$(sha256sum "${chart_package}" | awk '{print $1}')"
             if [[ "${published}" != "${expected}" ]]; then
               echo "${chart_ref} already contains ${published:-unknown chart content}, expected ${expected}" >&2
@@ -506,6 +544,11 @@ jobs:
             fi
             echo "${chart_ref} already contains this chart package"
             exit 0
+          else
+            status=$?
+            if (( status != 3 )); then
+              exit "${status}"
+            fi
           fi
           helm push "${chart_package}" "oci://ghcr.io/${OWNER}/charts"
 

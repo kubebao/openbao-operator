@@ -193,7 +193,7 @@ assert_ordered \
 
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "pull_request_review:"
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" "      - dismissed"
-assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'head_sha="$(gh api'
+assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'head_sha="$(jq -er'
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'review_state="$(jq -r'
 assert_contains "${RELEASE_PR_GATE_WORKFLOW}" 'review_commit="$(jq -r'
 assert_not_contains "${RELEASE_PR_GATE_WORKFLOW}" "    paths:"
@@ -217,6 +217,7 @@ assert_contains "${ROOT_DIR}/.github/workflows/post-release-verification.yml" "E
 assert_contains "${ROOT_DIR}/.github/workflows/post-release-verification.yml" "Setup Helm"
 
 python3 "${ROOT_DIR}/hack/ci/test-post-release.py"
+PYTHONDONTWRITEBYTECODE=1 python3 "${ROOT_DIR}/hack/ci/test_release_authorization.py"
 
 spdx_fixture="${tmp_dir}/normalizer.spdx.json"
 cat > "${spdx_fixture}" <<'EOF'

@@ -378,6 +378,7 @@ var _ = Describe("ACME TLS (OpenBao native ACME client)", Label("tls", "security
 			},
 		}
 		desiredReplicas := cluster.Spec.Replicas
+		Expect(e2ehelpers.ApplyCandidateHelperTrust(cluster, os.Getenv("E2E_CANDIDATE_PR"))).To(Succeed())
 		Expect(c.Create(ctx, cluster)).To(Succeed())
 		_, _ = fmt.Fprintf(GinkgoWriter, "Created OpenBaoCluster %q with ACME TLS\n", clusterName)
 		DeferCleanup(func() { _ = c.Delete(ctx, cluster) })
