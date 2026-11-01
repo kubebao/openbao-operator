@@ -1,10 +1,10 @@
 {
   "channel": "nightly",
   "checksums": {
-    "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:58befe45c4bcb5a7983df7c7cb56b5655ca018e95f4a667a792580c3c4ae55d1",
-    "digest": "sha256:58befe45c4bcb5a7983df7c7cb56b5655ca018e95f4a667a792580c3c4ae55d1",
+    "attestation_api": "https://api.github.com/repos/kubebao/openbao-operator/attestations/sha256:151348482a91ac71f7592bf8c5dcf4f8b9a194336926a93017fabb8862aeaf21",
+    "digest": "sha256:151348482a91ac71f7592bf8c5dcf4f8b9a194336926a93017fabb8862aeaf21",
     "path": "../dist/checksums.txt",
-    "signature_bundle_digest": "sha256:3886ce0a5738aad9eab57a427d6a14ba190a3f247b43b682e001a351add21daa",
+    "signature_bundle_digest": "sha256:b4265f99bbb1531a87c4c4a872fbe8c495c9bff7566f8cea4cba31c41af4c9a6",
     "signature_bundle_path": "../dist/checksums.txt.bundle"
   },
   "commit": "0db2f6699421a99cf8ecb4739a043ca33dab5dca",
@@ -59,7 +59,7 @@
       "path": "../dist/crds.yaml"
     },
     "install_yaml": {
-      "digest": "sha256:b87df1266b885a83cfda5ffb6973af5647ce94f3b279376bce426c882b3eadb0",
+      "digest": "sha256:942b22ffe6bc3b332c5cf594a8f304e081819e0836a3952c24c52fd8acbe00de",
       "path": "../dist/install.yaml"
     }
   },
@@ -67,9 +67,9 @@
   "repository": "kubebao/openbao-operator",
   "run": {
     "attempt": "1",
-    "id": "41187502108"
+    "id": "41297298746"
   },
   "schema_version": "v1alpha1",
   "source_ref": "refs/heads/main",
-  "version": "nightly-20261031-0db2f6699421"
+  "version": "nightly-20261101-0db2f6699421"
 }
