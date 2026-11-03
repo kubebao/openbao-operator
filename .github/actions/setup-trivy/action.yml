@@ -14,9 +14,41 @@ runs:
         echo "value=${TRIVY_VERSION}" >> "${GITHUB_OUTPUT}"
 
     - name: Install Trivy
-      uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
-      with:
-        version: ${{ steps.version.outputs.value }}
+      shell: bash
+      env:
+        TRIVY_VERSION: ${{ steps.version.outputs.value }}
+      run: |
+        set -euo pipefail
+        # Update these release asset digests with TRIVY_VERSION in tool-versions.env.
+        case "${TRIVY_VERSION}:$(uname -s):$(uname -m)" in
+          v0.73.0:Linux:x86_64)
+            target="Linux-64bit"
+            expected_sha256="2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
+            ;;
+          v0.73.0:Linux:aarch64 | v0.73.0:Linux:arm64)
+            target="Linux-ARM64"
+            expected_sha256="13833d97e8a1a5367471c372a173180157f593bece570e20d5d925fef552f5dd"
+            ;;
+          *)
+            echo "Unsupported Trivy version or runner: ${TRIVY_VERSION} $(uname -s) $(uname -m)" >&2
+            exit 1
+            ;;
+        esac
+
+        tmp_dir="$(mktemp -d)"
+        trap 'rm -rf "${tmp_dir}"' EXIT
+        archive="trivy_${TRIVY_VERSION#v}_${target}.tar.gz"
+        curl --fail --silent --show-error --location --retry 3 \
+          --connect-timeout 30 --max-time 180 \
+          "https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/${archive}" \
+          --output "${tmp_dir}/${archive}"
+        printf '%s  %s\n' "${expected_sha256}" "${tmp_dir}/${archive}" | sha256sum --check --strict -
+
+        install_dir="${RUNNER_TEMP}/trivy-bin"
+        mkdir -p "${install_dir}"
+        tar -xzf "${tmp_dir}/${archive}" -C "${install_dir}" trivy
+        chmod 0755 "${install_dir}/trivy"
+        echo "${install_dir}" >> "${GITHUB_PATH}"
 
     - name: Verify Trivy version
       shell: bash
