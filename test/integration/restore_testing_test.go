@@ -103,7 +103,7 @@ func TestSourceDeletionDuringRejectedRestoreTestReleasesReservation(t *testing.T
 			require.NoError(t, c.Delete(ctx, live))
 			require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(cluster), live))
 			require.Greater(t, live.Generation, cluster.Generation, "API-server deletion changes the source generation")
-			return apierrors.NewForbidden(schema.GroupResource{Group: "openbao.org", Resource: "openbaorestores"}, obj.GetName(), fmt.Errorf("destination rejected creation"))
+			return apierrors.NewForbidden(schema.GroupResource{Group: "kubebao.org", Resource: "openbaorestores"}, obj.GetName(), fmt.Errorf("destination rejected creation"))
 		},
 	})
 	manager := backup.NewManager(wrapped, k8sScheme, portopenbao.ClientConfig{}, nil, "").WithReader(wrapped).
@@ -133,7 +133,7 @@ func TestRestoreTestReservesOneRequestAcrossRestarts(t *testing.T) {
 		require.NoError(t, newPrivilegedImpersonatedClient(t, provisionerUsername).Create(ctx, provisioner.GenerateTenantRole(ns)))
 		require.NoError(t, newPrivilegedImpersonatedClient(t, provisionerUsername).Create(ctx, provisioner.GenerateTenantRoleBinding(ns,
 			provisioner.OperatorServiceAccount{Namespace: "openbao-operator-system", Name: "openbao-operator-controller"})))
-		waitForResourceAuthorization(t, controllerUsername, ns, "openbao.org", "openbaorestores", "", "create")
+		waitForResourceAuthorization(t, controllerUsername, ns, "kubebao.org", "openbaorestores", "", "create")
 	}
 	manager := func() *backup.Manager {
 		return backup.NewManager(controller, k8sScheme, portopenbao.ClientConfig{}, nil, "").WithReader(controller).

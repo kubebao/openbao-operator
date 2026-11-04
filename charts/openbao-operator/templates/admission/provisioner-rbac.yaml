@@ -85,7 +85,7 @@ spec:
           dyn(object).rules.all(rule,
             (
               rule.apiGroups.size() == 1 &&
-              rule.apiGroups[0] == 'openbao.org' &&
+              rule.apiGroups[0] == 'kubebao.org' &&
               rule.resources != null &&
               (
                 (rule.resources.size() == 3 && rule.resources.all(r, r in ['openbaoclusters', 'openbaoclusters/status', 'openbaoclusters/finalizers'])) ||
@@ -96,7 +96,7 @@ spec:
             ) ||
             (
               rule.apiGroups.size() == 1 &&
-              rule.apiGroups[0] == 'openbao.org' &&
+              rule.apiGroups[0] == 'kubebao.org' &&
               rule.resources != null &&
               rule.resources.size() == 1 &&
               rule.resources[0] == 'openbaoclusters' &&

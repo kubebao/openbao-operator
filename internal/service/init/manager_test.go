@@ -597,7 +597,7 @@ func TestStoreRootTokenCreatesOrUpdatesSecret(t *testing.T) {
 
 			cluster := &openbaov1alpha1.OpenBaoCluster{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "openbao.org/v1alpha1",
+					APIVersion: "kubebao.org/v1alpha1",
 					Kind:       "OpenBaoCluster",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -679,7 +679,7 @@ func TestStoreRootTokenRejectsImmutableOwnedSecretWithDifferentToken(t *testing.
 	manager := newTestManager(t, &rest.Config{}, clientset, openbao.NewClientManager(portopenbao.ClientConfig{}))
 	cluster := &openbaov1alpha1.OpenBaoCluster{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "openbao.org/v1alpha1",
+			APIVersion: "kubebao.org/v1alpha1",
 			Kind:       "OpenBaoCluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "default", UID: clusterUID},

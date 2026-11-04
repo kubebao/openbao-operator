@@ -13,7 +13,7 @@ rules:
   # (spec/status/finalizers) remain namespace-scoped via tenant Roles
   # created by the Provisioner.
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaorestores
     verbs:

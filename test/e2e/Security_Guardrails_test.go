@@ -792,12 +792,12 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
-						APIGroups: []string{"openbao.org"},
+						APIGroups: []string{"kubebao.org"},
 						Resources: []string{"openbaoclusters", "openbaorestores"},
 						Verbs:     []string{"create"},
 					},
 					{
-						APIGroups: []string{"openbao.org"},
+						APIGroups: []string{"kubebao.org"},
 						Resources: []string{"openbaoclusters"},
 						ResourceNames: []string{
 							"valid-structured-config",
@@ -1139,7 +1139,7 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
-						APIGroups:     []string{"openbao.org"},
+						APIGroups:     []string{"kubebao.org"},
 						Resources:     []string{"openbaoclusters"},
 						ResourceNames: []string{"valid-structured-config"},
 						Verbs:         []string{"get", "restore"},
@@ -1464,13 +1464,13 @@ var _ = Describe("Security Guardrails", Label("security", "critical"), Ordered, 
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
-						APIGroups:     []string{"openbao.org"},
+						APIGroups:     []string{"kubebao.org"},
 						Resources:     []string{"openbaoclusters"},
 						ResourceNames: []string{victim.Name},
 						Verbs:         []string{"get", "maintenance"},
 					},
 					{
-						APIGroups:     []string{"openbao.org"},
+						APIGroups:     []string{"kubebao.org"},
 						Resources:     []string{"openbaoclusters/status"},
 						ResourceNames: []string{victim.Name},
 						Verbs:         []string{"get"},

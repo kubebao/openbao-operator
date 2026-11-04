@@ -39,7 +39,7 @@ metadata:
     app.kubernetes.io/component: controller
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -76,7 +76,7 @@ metadata:
     app.kubernetes.io/component: controller
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaorestores
     verbs:

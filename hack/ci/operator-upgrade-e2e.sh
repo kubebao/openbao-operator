@@ -784,9 +784,9 @@ make build-crds >/dev/null
 "${KUBECTL_BIN}" apply -f "${ROOT_DIR}/dist/crds.yaml" >/dev/null
 "${KUBECTL_BIN}" wait \
   --for=condition=Established \
-  crd/openbaoclusters.openbao.org \
-  crd/openbaotenants.openbao.org \
-  crd/openbaorestores.openbao.org \
+  crd/openbaoclusters.kubebao.org \
+  crd/openbaotenants.kubebao.org \
+  crd/openbaorestores.kubebao.org \
   --timeout=2m >/dev/null
 
 cp -R "${ROOT_DIR}/charts/openbao-operator" "${CANDIDATE_CHART}"

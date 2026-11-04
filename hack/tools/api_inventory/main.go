@@ -71,13 +71,22 @@ type options struct {
 }
 
 type inventory struct {
-	SchemaVersion  int                 `yaml:"schemaVersion"`
-	Release        string              `yaml:"release"`
-	Baseline       string              `yaml:"baseline"`
-	DecisionStatus string              `yaml:"decisionStatus"`
-	Snapshot       string              `yaml:"snapshot"`
-	Notes          []string            `yaml:"notes,omitempty"`
-	Resources      []resourceInventory `yaml:"resources"`
+	SchemaVersion  int      `yaml:"schemaVersion"`
+	Release        string   `yaml:"release"`
+	Baseline       string   `yaml:"baseline"`
+	DecisionStatus string   `yaml:"decisionStatus"`
+	Snapshot       string   `yaml:"snapshot"`
+	Notes          []string `yaml:"notes,omitempty"`
+	// GroupTransitions is enforced by hack/tools/crd_compatibility.
+	GroupTransitions []groupTransition   `yaml:"groupTransitions,omitempty"`
+	Resources        []resourceInventory `yaml:"resources"`
+}
+
+type groupTransition struct {
+	From      string `yaml:"from"`
+	To        string `yaml:"to"`
+	Release   string `yaml:"release"`
+	Migration string `yaml:"migration"`
 }
 
 type resourceInventory struct {

@@ -370,9 +370,9 @@ func waitForCRDsEstablished(timeout time.Duration) error {
 
 	deadline := time.Now().Add(timeout)
 	for _, crd := range []string{
-		"openbaoclusters.openbao.org",
-		"openbaotenants.openbao.org",
-		"openbaorestores.openbao.org",
+		"openbaoclusters.kubebao.org",
+		"openbaotenants.kubebao.org",
+		"openbaorestores.kubebao.org",
 	} {
 		if err := waitForCRDEstablished(crd, deadline); err != nil {
 			return err

@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-controller-statefulset-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:627820bc18fd51560abba40676513db8ee408314c480a5bc381de5bb86bf9d46
+    openbao.org/admission-policy-fingerprint: sha256:02f9f8c7614b9be65de3855f8f3cb555eacd5fa80192f6a1153045b8b8fd2a26
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -31,7 +31,7 @@ spec:
       expression: >-
         object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
         oldObject.metadata.ownerReferences.exists(o,
-          o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
+          o.apiVersion == 'kubebao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
         oldObject.spec.template.spec.volumes.exists(v,
           v.name == 'self-init-inputs' && has(v.projected) &&
           v.projected.sources.all(s, has(s.secret) && has(s.secret.optional) && s.secret.optional)) &&
@@ -49,7 +49,7 @@ spec:
         object.spec.template.spec.automountServiceAccountToken == false &&
         object.spec.template.spec.serviceAccountName == oldObject.spec.template.spec.serviceAccountName &&
         object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
-        oldObject.metadata.ownerReferences.exists(o, o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
+        oldObject.metadata.ownerReferences.exists(o, o.apiVersion == 'kubebao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
         oldObject.spec.template.spec.volumes.all(v, v.name != 'kube-api-access') &&
         variables.api_volumes.size() == 1 &&
         variables.api_volumes.all(v,

@@ -18,7 +18,7 @@ func TestKubernetesRequestLabels(t *testing.T) {
 		{"apply", "PATCH", "/api/v1/namespaces/private/configmaps/name", "application/apply-patch+yaml", "apply", "configmaps", "none"},
 		{"apply CBOR", "PATCH", "/api/v1/namespaces/private/configmaps/name", "application/apply-patch+cbor", "apply", "configmaps", "none"},
 		{"repair", "PATCH", "/api/v1/namespaces/private/configmaps/name", "application/merge-patch+json", "patch", "configmaps", "none"},
-		{"status", "PATCH", "/apis/openbao.org/v1alpha1/namespaces/private/openbaoclusters/name/status", "", "patch", "openbaoclusters", "status"},
+		{"status", "PATCH", "/apis/kubebao.org/v1alpha1/namespaces/private/openbaoclusters/name/status", "", "patch", "openbaoclusters", "status"},
 		{"list", "GET", "/apis/apps/v1/namespaces/private/statefulsets", "", "list", "statefulsets", "none"},
 		{"watch", "GET", "/api/v1/secrets?watch=true", "", "watch", "secrets", "none"},
 		{"endpoint slices", "GET", "/apis/discovery.k8s.io/v1/namespaces/private/endpointslices", "", "list", "endpointslices", "none"},

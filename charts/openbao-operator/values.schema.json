@@ -602,7 +602,7 @@
         },
         "maintenanceBreakGlassGroups": {
           "type": "array",
-          "description": "Deprecated and no longer used. Maintenance authorization now comes from Kubernetes RBAC via the custom `maintenance` verb on `openbaoclusters.openbao.org`.",
+          "description": "Deprecated and no longer used. Maintenance authorization now comes from Kubernetes RBAC via the custom `maintenance` verb on `openbaoclusters.kubebao.org`.",
           "items": {
             "type": "string",
             "minLength": 1

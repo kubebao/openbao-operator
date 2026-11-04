@@ -19,7 +19,7 @@ rules:
 {{ end }}
 
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaotenants
       - openbaotenants/status
@@ -32,7 +32,7 @@ rules:
       - patch
 
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
       - openbaorestores

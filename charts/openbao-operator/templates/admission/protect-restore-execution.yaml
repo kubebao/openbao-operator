@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8
+    openbao.org/admission-policy-fingerprint: sha256:dbbf5f39f314d30e80b3e0d2a3729e4c24c6104dcec7f86b80139fe3a3001894
   name: {{ include "openbao-operator.fullname" . }}-openbao-protect-restore-execution
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -11,11 +11,11 @@ spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["UPDATE", "DELETE"]
         resources: ["openbaorestores", "openbaorestores/status", "openbaoclusters"]
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["CREATE"]
         resources: ["openbaoclusters", "openbaorestores"]
@@ -82,7 +82,7 @@ spec:
          has(dyn(oldObject.status).backup.restoreTest) && has(dyn(oldObject.status).backup.restoreTest.active) &&
          (!has(dyn(oldObject.status).backup.restoreTest.active.uid) || dyn(oldObject.status).backup.restoreTest.active.uid == '') &&
          variables.new_test_acknowledgement == dyn(oldObject.status).backup.restoreTest.active.name + '/Release' &&
-         authorizer.group('openbao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
+         authorizer.group('kubebao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
       message: "Restore test release requires the active unbound run name followed by /Release and restore permission on the source cluster. Inspect the destination and stop the old controller first."
     # Approval is checked only for new requests and new targets. Revocation must
     # not block status updates, administrator handoff, or resource cleanup.

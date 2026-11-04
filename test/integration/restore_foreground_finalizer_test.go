@@ -33,7 +33,7 @@ func TestRestoreForegroundFinalization(t *testing.T) {
 	updater := newImpersonatedClient(t, username)
 	access := &authorizationv1.SubjectAccessReview{Spec: authorizationv1.SubjectAccessReviewSpec{
 		User: username, ResourceAttributes: &authorizationv1.ResourceAttributes{
-			Group: "openbao.org", Resource: "openbaoclusters", Namespace: namespace, Name: "missing-target", Verb: "restore",
+			Group: "kubebao.org", Resource: "openbaoclusters", Namespace: namespace, Name: "missing-target", Verb: "restore",
 		},
 	}}
 	require.NoError(t, k8sClient.Create(ctx, access))

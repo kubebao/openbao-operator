@@ -5,9 +5,9 @@ metadata:
   annotations:
     helm.sh/resource-policy: keep
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: openbaoclusters.openbao.org
+  name: openbaoclusters.kubebao.org
 spec:
-  group: openbao.org
+  group: kubebao.org
   names:
     kind: OpenBaoCluster
     listKind: OpenBaoClusterList

@@ -1,7 +1,7 @@
 # This rule is not used by the project openbao-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants full permissions ('*') over openbao.org/v1alpha1 OpenBaoCluster resources.
+# Grants full permissions ('*') over kubebao.org/v1alpha1 OpenBaoCluster resources.
 # This role is intended for users authorized to modify roles and bindings within the cluster,
 # enabling them to delegate specific permissions to other users or groups as needed.
 #
@@ -17,13 +17,13 @@ metadata:
   name: openbaocluster-admin-role
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
       - "*"
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     verbs:

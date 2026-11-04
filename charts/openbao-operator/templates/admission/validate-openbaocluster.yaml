@@ -6,12 +6,12 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:c1251c37fc34b9d3b5bc8d4250fe608770e227ff416a75ba21ddbd68fef9c469
+    openbao.org/admission-policy-fingerprint: sha256:ba73e1b3ed609e259d9c45daceea559d17454aeb836a9a7e39681ffed8d56406
 spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["CREATE", "UPDATE"]
         resources: ["openbaoclusters"]
@@ -274,16 +274,16 @@ spec:
         oldObject != null && has(oldObject.status) && has(oldObject.status.upgrade) && (oldObject.status.upgrade.currentPartition < oldObject.spec.replicas || (has(oldObject.status.upgrade.completedPods) && size(oldObject.status.upgrade.completedPods) > 0))
     - name: custom_executables_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecustomexecutables").allowed() || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usehelperimages").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecustomexecutables").allowed() || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usehelperimages").allowed()
     - name: image_trust_roots_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("useimagetrustroots").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("useimagetrustroots").allowed()
     - name: cloud_identities_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecloudidentities").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecloudidentities").allowed()
     - name: network_publication_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("publishnetworking").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("publishnetworking").allowed()
     - name: has_network_publication_controls
       expression: |-
         (
@@ -454,7 +454,7 @@ spec:
       message: "spec.unseal.credentialsSecretRef cannot be added, changed, or removed on a static-unseal cluster; a different key source would leave OpenBao sealed."
 
     - expression: |-
-        !variables.restore_test_authorization_required || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
+        !variables.restore_test_authorization_required || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
       message: "Restore target workload identities require destination cloud identity delegation."
     - expression: |-
         !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) || !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name) || object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name.trim() == '' || authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name).check("use").allowed()
@@ -463,13 +463,13 @@ spec:
         !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) || !object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")
       message: "Restore target unseal credentials must not reference operator-managed system Secrets; prepare a separate destination Secret."
     - expression: |-
-        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaorestores").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
+        !variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaorestores").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
       message: "Restore testing requires create authority for destination openbaorestores."
     - expression: |-
-        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
+        !variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
       message: "Restore testing requires create authority for destination openbaoclusters."
     - expression: |-
-        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("restore").allowed()
+        !variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("restore").allowed()
       message: "Restore testing requires restore authority for destination openbaoclusters."
     - expression: |-
         !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) ||
@@ -482,13 +482,13 @@ spec:
         !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.imagePullSecrets) || object.spec.backup.restoreTest.clusterTemplate.imagePullSecrets.all(ref, authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(ref.name).check("get").allowed())
       message: "Restore testing requires access to destination image pull Secrets."
     - expression: |-
-        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecustomexecutables").allowed() || ((!has(object.spec.backup.image) || object.spec.backup.image == '') &&
+        !variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecustomexecutables").allowed() || ((!has(object.spec.backup.image) || object.spec.backup.image == '') &&
           (!has(object.spec.backup.restoreTest.clusterTemplate.image) || object.spec.backup.restoreTest.clusterTemplate.image == '') &&
           (!has(object.spec.backup.restoreTest.clusterTemplate.initContainer) || !has(object.spec.backup.restoreTest.clusterTemplate.initContainer.image) || object.spec.backup.restoreTest.clusterTemplate.initContainer.image == '') &&
           (!has(object.spec.backup.restoreTest.clusterTemplate.plugins) || object.spec.backup.restoreTest.clusterTemplate.plugins.all(p, (!has(p.image) || p.image == '') && (!has(p.command) || p.command == ''))))
       message: "Custom restore test images require destination executable delegation."
     - expression: |-
-        !variables.restore_test_authorization_required || ((!has(object.spec.backup.restoreTest.roleArn) || object.spec.backup.restoreTest.roleArn == '') && !has(object.spec.backup.restoreTest.workloadIdentity)) || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
+        !variables.restore_test_authorization_required || ((!has(object.spec.backup.restoreTest.roleArn) || object.spec.backup.restoreTest.roleArn == '') && !has(object.spec.backup.restoreTest.workloadIdentity)) || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
       message: "Restore test workload identities require destination cloud identity delegation."
 
     - expression: |-

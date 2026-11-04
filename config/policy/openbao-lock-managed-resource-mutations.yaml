@@ -3,7 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   name: openbao-lock-managed-resource-mutations
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:56374a99adcf4041536eb619c7bddb62f23afa847f5f417a34c7860fa0ab14e2
+    openbao.org/admission-policy-fingerprint: sha256:66b5891df015eb6070db2b1a160f753d96f946f3f52bd23195cbc9a89eb8100e
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -214,7 +214,7 @@ spec:
         ("openbao.org/owner-uid" in object.metadata.annotations) &&
         has(object.metadata.ownerReferences) &&
         object.metadata.ownerReferences.exists(ref,
-          ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+          ref.apiVersion == "kubebao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
           ref.name == object.metadata.labels["openbao.org/cluster"] &&
           ref.uid == object.metadata.annotations["openbao.org/owner-uid"] &&
           has(ref.controller) && ref.controller)
@@ -231,7 +231,7 @@ spec:
         ("openbao.org/owner-uid" in oldObject.metadata.annotations) &&
         has(oldObject.metadata.ownerReferences) &&
         oldObject.metadata.ownerReferences.exists(ref,
-          ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+          ref.apiVersion == "kubebao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
           ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
           ref.uid == oldObject.metadata.annotations["openbao.org/owner-uid"] &&
           has(ref.controller) && ref.controller)
@@ -256,7 +256,7 @@ spec:
         object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-metrics" &&
         has(object.metadata.ownerReferences) &&
         object.metadata.ownerReferences.exists(ref,
-          ref.apiVersion == "openbao.org/v1alpha1" &&
+          ref.apiVersion == "kubebao.org/v1alpha1" &&
           ref.kind == "OpenBaoCluster" &&
           ref.name == object.metadata.labels["openbao.org/cluster"] &&
           has(ref.controller) &&
@@ -279,7 +279,7 @@ spec:
         oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-metrics" &&
         has(oldObject.metadata.ownerReferences) &&
         oldObject.metadata.ownerReferences.exists(ref,
-          ref.apiVersion == "openbao.org/v1alpha1" &&
+          ref.apiVersion == "kubebao.org/v1alpha1" &&
           ref.kind == "OpenBaoCluster" &&
           ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
           has(ref.controller) &&
@@ -597,7 +597,7 @@ spec:
         variables.maintenance_enabled &&
         request.namespace != "" &&
         variables.maintenance_cluster_name != "" &&
-        authorizer.group("openbao.org").
+        authorizer.group("kubebao.org").
           resource("openbaoclusters").
           namespace(request.namespace).
           name(variables.maintenance_cluster_name).

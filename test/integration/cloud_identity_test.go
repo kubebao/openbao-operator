@@ -18,7 +18,7 @@ func TestVAP_OpenBaoCluster_CloudIdentityPodTemplates(t *testing.T) {
 	username := "pod-cloud-identity-editor"
 	tenantClient := newImpersonatedClient(t, username)
 	grantTenantOpenBaoWriteAccess(t, namespace, username)
-	grantNamespacedResourceVerbs(t, namespace, username, "cloud-delegation", "openbao.org", "openbaoclusters",
+	grantNamespacedResourceVerbs(t, namespace, username, "cloud-delegation", "kubebao.org", "openbaoclusters",
 		[]string{"delegated-create", "delegated-update"}, "usecloudidentities")
 
 	baseline := map[string]*openbaov1alpha1.OpenBaoCluster{}

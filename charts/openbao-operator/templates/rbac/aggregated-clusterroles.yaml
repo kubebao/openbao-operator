@@ -7,13 +7,13 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-admin
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
       - "*"
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     verbs:
@@ -28,7 +28,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-editor
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -40,7 +40,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     verbs:
@@ -55,7 +55,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-cloud-identity
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -71,7 +71,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-helper-image
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -88,7 +88,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-image-trust-roots
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -104,7 +104,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-network-publication
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -120,7 +120,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-restore
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -136,7 +136,7 @@ metadata:
   name: {{ include "openbao-operator.fullname" . }}-openbaocluster-viewer
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -144,7 +144,7 @@ rules:
       - list
       - watch
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     verbs:
@@ -160,7 +160,7 @@ metadata:
     rbac.authorization.k8s.io/aggregate-to-edit: "true"
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaotenants
     verbs:
@@ -172,7 +172,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaotenants/status
     verbs:

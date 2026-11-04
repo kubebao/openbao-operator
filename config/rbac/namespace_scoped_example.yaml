@@ -76,7 +76,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -85,7 +85,7 @@ rules:
       - get
       - maintenance
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     resourceNames:
@@ -126,7 +126,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -168,7 +168,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -209,7 +209,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -250,7 +250,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -291,7 +291,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:

@@ -43,7 +43,7 @@ func TestRestoreTestReleaseAdmissionAndDeletion(t *testing.T) {
 			return nil
 		}, adminops.ForceOwnership))
 		username := "release-" + name
-		grantNamespacedResourceVerbs(t, namespace, username, name+"-edit", "openbao.org", "openbaoclusters", []string{name}, "get", "patch", "usecustomexecutables")
+		grantNamespacedResourceVerbs(t, namespace, username, name+"-edit", "kubebao.org", "openbaoclusters", []string{name}, "get", "patch", "usecustomexecutables")
 		user := newImpersonatedClient(t, username)
 		before := cluster.DeepCopy()
 		cluster.Annotations = map[string]string{constants.AnnotationRestoreTestAcknowledge: "uncertain/Release"}
@@ -51,7 +51,7 @@ func TestRestoreTestReleaseAdmissionAndDeletion(t *testing.T) {
 			err := user.Patch(ctx, cluster, client.MergeFrom(before), client.DryRunAll)
 			require.ErrorContains(c, err, "restore permission")
 		}, 10*time.Second, 100*time.Millisecond)
-		grantNamespacedResourceVerbs(t, namespace, username, name+"-restore", "openbao.org", "openbaoclusters", []string{name}, "restore")
+		grantNamespacedResourceVerbs(t, namespace, username, name+"-restore", "kubebao.org", "openbaoclusters", []string{name}, "restore")
 		cluster.Annotations[constants.AnnotationRestoreTestAcknowledge] = "stale/Release"
 		requireAdmissionDenied(t, user.Patch(ctx, cluster, client.MergeFrom(before)))
 		cluster.Annotations[constants.AnnotationRestoreTestAcknowledge] = "uncertain/Release"

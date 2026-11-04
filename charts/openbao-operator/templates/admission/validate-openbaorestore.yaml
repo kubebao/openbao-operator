@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:9293c5d0e32b8d15b89894ca22fc4c129ce6dc5c8f2da0306f90b2158a3ce542
+    openbao.org/admission-policy-fingerprint: sha256:1876ec21675dde544f822abcf51083baa6997830f71884ada990a88577191259
   name: {{ include "openbao-operator.fullname" . }}-openbao-validate-openbaorestore
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -11,7 +11,7 @@ spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["CREATE", "UPDATE"]
         resources: ["openbaorestores"]
@@ -67,13 +67,13 @@ spec:
         variables.restore_endpoint_hostname_normalized.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?\\.svc(\\.cluster\\.local)?$")
     - name: custom_executables_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecustomexecutables").allowed() || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usehelperimages").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecustomexecutables").allowed() || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usehelperimages").allowed()
     - name: cloud_identities_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
     - name: restore_authorized
       expression: |-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("restore").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("restore").allowed()
     - name: effective_restore_s3_role_arn
       expression: |-
         has(object.spec.source.target.s3) && has(object.spec.source.target.s3.roleArn)
@@ -107,7 +107,7 @@ spec:
       message: "Restore executors require use authority for their existing ServiceAccount."
 
     - expression: |-
-        variables.delegated_authority || !has(object.spec.clusterTemplate) || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
+        variables.delegated_authority || !has(object.spec.clusterTemplate) || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
       message: "Restore target workload identities require destination cloud identity delegation."
     - expression: |-
         variables.delegated_authority || !has(object.spec.clusterTemplate) || !has(object.spec.clusterTemplate.serviceAccount) || !has(object.spec.clusterTemplate.serviceAccount.name) || object.spec.clusterTemplate.serviceAccount.name.trim() == '' || authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.clusterTemplate.serviceAccount.name).check("use").allowed()
@@ -119,7 +119,7 @@ spec:
     - expression: |-
         variables.delegated_authority || (
           !has(object.spec.clusterTemplate) ||
-          authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).check("create").allowed()
+          authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).check("create").allowed()
         )
       message: "Fresh restore targets require permission to create OpenBaoClusters."
     - expression: |-

@@ -1103,8 +1103,8 @@ func collectKubernetesArtifacts(
 		{"services.json", append([]string{"get", "services"}, scopeArgs...)},
 		{"endpointslices.json", append([]string{"get", "endpointslices.discovery.k8s.io"}, scopeArgs...)},
 		{"persistentvolumeclaims.json", append([]string{"get", "persistentvolumeclaims"}, scopeArgs...)},
-		{"openbaoclusters.json", append([]string{"get", "openbaoclusters.openbao.org"}, scopeArgs...)},
-		{"openbaorestores.json", append([]string{"get", "openbaorestores.openbao.org"}, scopeArgs...)},
+		{"openbaoclusters.json", append([]string{"get", "openbaoclusters.kubebao.org"}, scopeArgs...)},
+		{"openbaorestores.json", append([]string{"get", "openbaorestores.kubebao.org"}, scopeArgs...)},
 	}
 	for _, target := range jsonTargets {
 		args := append([]string{}, target.args...)
@@ -1117,7 +1117,7 @@ func collectKubernetesArtifacts(
 	if err := writeKubectlArtifact(
 		"openbaotenants.json",
 		"get",
-		"openbaotenants.openbao.org",
+		"openbaotenants.kubebao.org",
 		"--namespace",
 		opts.OperatorNS,
 		"-o",
@@ -1130,10 +1130,10 @@ func collectKubernetesArtifacts(
 		name string
 		args []string
 	}{
-		{"openbaoclusters-describe.txt", append([]string{"describe", "openbaoclusters.openbao.org"}, scopeArgs...)},
+		{"openbaoclusters-describe.txt", append([]string{"describe", "openbaoclusters.kubebao.org"}, scopeArgs...)},
 		{
 			"openbaotenants-describe.txt",
-			[]string{"describe", "openbaotenants.openbao.org", "--namespace", opts.OperatorNS},
+			[]string{"describe", "openbaotenants.kubebao.org", "--namespace", opts.OperatorNS},
 		},
 	}
 	for _, target := range describeTargets {

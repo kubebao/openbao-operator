@@ -6,7 +6,7 @@ spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["CREATE", "UPDATE"]
         resources: ["openbaotenants"]

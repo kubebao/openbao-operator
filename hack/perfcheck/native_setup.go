@@ -244,9 +244,9 @@ func ensureOperatorNamespace(ctx context.Context, opts options, cluster string) 
 
 func waitForCRDsEstablished(ctx context.Context, opts options, cluster string) error {
 	for _, crd := range []string{
-		"openbaoclusters.openbao.org",
-		"openbaotenants.openbao.org",
-		"openbaorestores.openbao.org",
+		"openbaoclusters.kubebao.org",
+		"openbaotenants.kubebao.org",
+		"openbaorestores.kubebao.org",
 	} {
 		if _, err := nativeKubectl(
 			ctx,

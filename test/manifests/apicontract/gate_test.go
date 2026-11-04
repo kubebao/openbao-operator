@@ -103,6 +103,53 @@ func TestWorkflowAPIContractCommands(t *testing.T) {
 	}
 }
 
+// The API-group move passes only under the reviewed declaration in the API
+// contract. Without it, or with a declaration the CRDs do not satisfy, the
+// checker rejects the released source CRDs as removed.
+func TestAPIGroupMoveRequiresDeclaredTransition(t *testing.T) {
+	declaration := "  - from: openbao.org\n    to: kubebao.org\n"
+	tests := []struct {
+		name        string
+		replacement string
+		want        string
+	}{
+		{name: "no declaration", replacement: "", want: `"classification": "field-removed"`},
+		{
+			name:        "declaration names another destination group",
+			replacement: "  - from: openbao.org\n    to: example.org\n",
+			want:        "current CRDs have no openbaoclusters.example.org",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := copyContractFixture(t)
+			path := filepath.Join(dir, "api/stability/v1alpha1.yaml")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			contract := string(data)
+			if !strings.Contains(contract, declaration) {
+				t.Fatalf("API contract does not declare the openbao.org move:\n%s", contract)
+			}
+			if tt.replacement == "" {
+				start := strings.Index(contract, "groupTransitions:")
+				end := strings.Index(contract, "resources:")
+				contract = contract[:start] + contract[end:]
+			} else {
+				contract = strings.Replace(contract, declaration, tt.replacement, 1)
+			}
+			if err := os.WriteFile(path, []byte(contract), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			output, err := runCommand(t, dir, nil, "go", "run", "./hack/tools/crd_compatibility", "--format", "json")
+			if err == nil || !strings.Contains(output, tt.want) {
+				t.Fatalf("error=%v, want rejection containing %q\n%s", err, tt.want, output)
+			}
+		})
+	}
+}
+
 func copyContractFixture(t *testing.T) string {
 	t.Helper()
 	root := repositoryRoot(t)
@@ -122,7 +169,7 @@ func copyContractFixture(t *testing.T) string {
 
 func mutateClusterSchema(t *testing.T, dir string, mutate func(*apiextensionsv1.JSONSchemaProps)) {
 	t.Helper()
-	path := filepath.Join(dir, "config/crd/bases/openbao.org_openbaoclusters.yaml")
+	path := filepath.Join(dir, "config/crd/bases/kubebao.org_openbaoclusters.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

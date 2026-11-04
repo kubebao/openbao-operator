@@ -323,7 +323,7 @@ admissionPolicies:
       - azure-
   # -- Deprecated: no longer used.
   # -- Maintenance authorization is now delegated through Kubernetes RBAC using
-  # -- the custom `maintenance` verb on `openbaoclusters.openbao.org`.
+  # -- the custom `maintenance` verb on `openbaoclusters.kubebao.org`.
   maintenanceBreakGlassGroups:
     - system:masters
 

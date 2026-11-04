@@ -41,7 +41,7 @@ func TestSamplesPassCurrentCRDAndAdmissionContracts(t *testing.T) {
 		}
 
 		objects := parseYAMLToUnstructured(t, yamlBytes, func(obj *unstructured.Unstructured) bool {
-			if obj.GroupVersionKind().Group != "openbao.org" {
+			if obj.GroupVersionKind().Group != "kubebao.org" {
 				return false
 			}
 			switch obj.GetKind() {

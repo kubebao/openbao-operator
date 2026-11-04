@@ -69,8 +69,8 @@ func TestRestoreClaimAdmissionAndConcurrency(t *testing.T) {
 	helper, err := client.NewWithWatch(helperConfig, client.Options{Scheme: k8sScheme})
 	require.NoError(t, err)
 	role := &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: "claim", Namespace: namespace}, Rules: []rbacv1.PolicyRule{
-		{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaorestores"}, Verbs: []string{"get"}},
-		{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaorestores/status"}, Verbs: []string{"patch"}},
+		{APIGroups: []string{"kubebao.org"}, Resources: []string{"openbaorestores"}, Verbs: []string{"get"}},
+		{APIGroups: []string{"kubebao.org"}, Resources: []string{"openbaorestores/status"}, Verbs: []string{"patch"}},
 	}}
 	require.NoError(t, k8sClient.Create(ctx, role))
 	require.NoError(t, k8sClient.Create(ctx, &rbacv1.RoleBinding{

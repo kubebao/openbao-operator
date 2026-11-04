@@ -8,9 +8,17 @@ notes:
   - Any new non-core OpenBaoCluster field requires an explicit path-level inventory decision.
   - Condition types are automation-facing; reason sets may expand and message text is best-effort.
   - Main has no TypedObjectReference module hooks; any future hook requires an explicit inventory decision.
+groupTransitions:
+  # Reviewed API-group move. The CRD compatibility gate maps each baseline CRD in
+  # `from` to the current CRD with the same plural in `to`, requires the same kind
+  # and served versions, and then compares every field as usual.
+  - from: openbao.org
+    to: kubebao.org
+    release: 0.7.0
+    migration: cmd/api-migration
 resources:
   - kind: OpenBaoCluster
-    crd: config/crd/bases/openbao.org_openbaoclusters.yaml
+    crd: config/crd/bases/kubebao.org_openbaoclusters.yaml
     version: v1alpha1
     defaults:
       spec:
@@ -460,7 +468,7 @@ resources:
         owner: workload-status
 
   - kind: OpenBaoRestore
-    crd: config/crd/bases/openbao.org_openbaorestores.yaml
+    crd: config/crd/bases/kubebao.org_openbaorestores.yaml
     version: v1alpha1
     defaults:
       spec:
@@ -612,7 +620,7 @@ resources:
         owner: restore-status
 
   - kind: OpenBaoTenant
-    crd: config/crd/bases/openbao.org_openbaotenants.yaml
+    crd: config/crd/bases/kubebao.org_openbaotenants.yaml
     version: v1alpha1
     defaults:
       spec:

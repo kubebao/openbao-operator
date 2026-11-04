@@ -290,7 +290,7 @@ func TestKustomizeDefault_LockManagedPolicyRequiresOpenBaoLabels(t *testing.T) {
 			maintenanceClusterNameExpression,
 		)
 	}
-	if !strings.Contains(maintenanceAuthorizedExpression, `authorizer.group("openbao.org")`) {
+	if !strings.Contains(maintenanceAuthorizedExpression, `authorizer.group("kubebao.org")`) {
 		t.Fatalf("maintenance_authorized expression does not use the CEL authorizer: %q", maintenanceAuthorizedExpression)
 	}
 	if !strings.Contains(maintenanceAuthorizedExpression, `check("maintenance")`) {
@@ -850,7 +850,7 @@ func TestKustomizeDefault_OpenBaoClusterCRDDoesNotMakeUpgradeStrategyImmutable(t
 	objs := parseYAMLToUnstructured(t, yamlBytes, func(u *unstructured.Unstructured) bool {
 		return u.GetAPIVersion() == "apiextensions.k8s.io/v1" &&
 			u.GetKind() == "CustomResourceDefinition" &&
-			u.GetName() == "openbaoclusters.openbao.org"
+			u.GetName() == "openbaoclusters.kubebao.org"
 	})
 
 	if len(objs) != 1 {
@@ -1181,7 +1181,7 @@ func TestKustomizeSingleTenantOverlay_BakesInNamespaceScopeAndRemovesProvisioner
 	assertClusterRoleHasResourceRule(
 		t,
 		singleTenantRole,
-		"openbao.org",
+		"kubebao.org",
 		"openbaoclusters",
 		[]string{"publishnetworking", "restore", "usecloudidentities", "usecustomexecutables", "useimagetrustroots"},
 	)

@@ -45,7 +45,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -81,7 +81,7 @@ func TestSyncAggregatedRBAC_IncludesDangerousControlDelegationRoles(t *testing.T
 		builder.WriteString("  name: " + name + "\n")
 		builder.WriteString("rules:\n")
 		builder.WriteString("  - apiGroups:\n")
-		builder.WriteString("      - openbao.org\n")
+		builder.WriteString("      - kubebao.org\n")
 		builder.WriteString("    resources:\n")
 		builder.WriteString("      - openbaoclusters\n")
 		builder.WriteString("    verbs:\n")

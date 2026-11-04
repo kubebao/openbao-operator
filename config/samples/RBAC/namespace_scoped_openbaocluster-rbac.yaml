@@ -99,7 +99,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -141,7 +141,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:
@@ -182,7 +182,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     resourceNames:

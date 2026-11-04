@@ -8,10 +8,10 @@ Do not edit it manually. Hugo splits the resource sections into the versioned AP
 <!-- BEGIN RESOURCE openbaocluster -->
 
 ## Packages
-- [openbao.org/v1alpha1](#openbaoorgv1alpha1)
+- [kubebao.org/v1alpha1](#kubebaoorgv1alpha1)
 
 
-## openbao.org/v1alpha1
+## kubebao.org/v1alpha1
 
 Package v1alpha1 contains API Schema definitions for the openbao v1alpha1 API group.
 
@@ -1294,7 +1294,7 @@ OpenBaoCluster is the Schema for the openbaoclusters API.
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `openbao.org/v1alpha1` | | |
+| `apiVersion` _string_ | `kubebao.org/v1alpha1` | | |
 | `kind` _string_ | `OpenBaoCluster` | | |
 | `spec` _[OpenBaoClusterSpec](#openbaoclusterspec)_ | Spec defines the desired state of OpenBaoCluster. |  |  |
 | `status` _[OpenBaoClusterStatus](#openbaoclusterstatus)_ | Status defines the observed state of OpenBaoCluster. |  | Optional: \{\} <br /> |
@@ -2850,10 +2850,10 @@ _Appears in:_
 <!-- BEGIN RESOURCE openbaorestore -->
 
 ## Packages
-- [openbao.org/v1alpha1](#openbaoorgv1alpha1)
+- [kubebao.org/v1alpha1](#kubebaoorgv1alpha1)
 
 
-## openbao.org/v1alpha1
+## kubebao.org/v1alpha1
 
 Package v1alpha1 contains API Schema definitions for the openbao v1alpha1 API group.
 
@@ -3170,7 +3170,7 @@ This resource is immutable after creation - it acts as a "job request".
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `openbao.org/v1alpha1` | | |
+| `apiVersion` _string_ | `kubebao.org/v1alpha1` | | |
 | `kind` _string_ | `OpenBaoRestore` | | |
 | `spec` _[OpenBaoRestoreSpec](#openbaorestorespec)_ |  |  |  |
 | `status` _[OpenBaoRestoreStatus](#openbaorestorestatus)_ |  |  |  |
@@ -3871,10 +3871,10 @@ _Appears in:_
 <!-- BEGIN RESOURCE openbaotenant -->
 
 ## Packages
-- [openbao.org/v1alpha1](#openbaoorgv1alpha1)
+- [kubebao.org/v1alpha1](#kubebaoorgv1alpha1)
 
 
-## openbao.org/v1alpha1
+## kubebao.org/v1alpha1
 
 Package v1alpha1 contains API Schema definitions for the openbao v1alpha1 API group.
 
@@ -3899,7 +3899,7 @@ for the Provisioner to have list/watch permissions on namespaces.
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `openbao.org/v1alpha1` | | |
+| `apiVersion` _string_ | `kubebao.org/v1alpha1` | | |
 | `kind` _string_ | `OpenBaoTenant` | | |
 | `spec` _[OpenBaoTenantSpec](#openbaotenantspec)_ |  |  |  |
 | `status` _[OpenBaoTenantStatus](#openbaotenantstatus)_ |  |  |  |

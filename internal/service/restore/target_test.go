@@ -232,7 +232,7 @@ func TestFreshTargetValidationFailureIsTerminal(t *testing.T) {
 				require.NoError(t, c.Status().Update(t.Context(), request))
 			}
 			wrapped := interceptor.NewClient(c, interceptor.Funcs{Create: func(context.Context, client.WithWatch, client.Object, ...client.CreateOption) error {
-				return apierrors.NewForbidden(schema.GroupResource{Group: "openbao.org", Resource: "openbaoclusters"}, "fresh", errors.New("fixture rejection"))
+				return apierrors.NewForbidden(schema.GroupResource{Group: "kubebao.org", Resource: "openbaoclusters"}, "fresh", errors.New("fixture rejection"))
 			}})
 			_, _, err := NewManager(wrapped, c.Scheme(), nil, nil, "").prepareTarget(t.Context(), logr.Discard(), request)
 			require.NoError(t, err)

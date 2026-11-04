@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	apiVersion = "openbao.org/v1alpha1"
+	apiVersion = "kubebao.org/v1alpha1"
 	kind       = "OpenBaoCluster"
 )
 

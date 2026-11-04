@@ -30,7 +30,7 @@ func TestTLSRotationPeriodDiagnosticFixCompatibility(t *testing.T) {
 			t.Parallel()
 
 			old := schemaNode{
-				CRD:     "openbaoclusters.openbao.org",
+				CRD:     "openbaoclusters.kubebao.org",
 				Kind:    "OpenBaoCluster",
 				Version: "v1alpha1",
 				Path:    "spec",

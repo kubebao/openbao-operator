@@ -206,7 +206,7 @@ func TestOpenBaoClusterReconciler_DeletionWithRetainPolicy(t *testing.T) {
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "openbao.org/v1alpha1",
+					APIVersion: "kubebao.org/v1alpha1",
 					Kind:       "OpenBaoCluster",
 					Name:       cluster.Name,
 					UID:        cluster.UID,

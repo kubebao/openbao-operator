@@ -649,13 +649,13 @@ var _ = Describe("Hardened profile (External TLS + Transit auto-unseal + SelfIni
 					Verbs:     []string{"get", "list", "delete"},
 				},
 				{
-					APIGroups:     []string{"openbao.org"},
+					APIGroups:     []string{"kubebao.org"},
 					Resources:     []string{"openbaoclusters"},
 					ResourceNames: []string{clusterName},
 					Verbs:         []string{"get", "maintenance"},
 				},
 				{
-					APIGroups:     []string{"openbao.org"},
+					APIGroups:     []string{"kubebao.org"},
 					Resources:     []string{"openbaoclusters/status"},
 					ResourceNames: []string{clusterName},
 					Verbs:         []string{"get"},

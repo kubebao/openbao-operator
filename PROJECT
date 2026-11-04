@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.10.1
-domain: openbao.org
+domain: kubebao.org
 layout:
 - go.kubebuilder.io/v4
 projectName: openbao-operator
@@ -13,7 +13,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: openbao.org
+  domain: kubebao.org
   group: openbao
   kind: OpenBaoCluster
   path: github.com/kubebao/openbao-operator/api/v1alpha1
@@ -22,7 +22,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: openbao.org
+  domain: kubebao.org
   group: openbao
   kind: OpenBaoRestore
   path: github.com/kubebao/openbao-operator/api/v1alpha1
@@ -31,7 +31,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: openbao.org
+  domain: kubebao.org
   group: openbao
   kind: OpenBaoTenant
   path: github.com/kubebao/openbao-operator/api/v1alpha1
