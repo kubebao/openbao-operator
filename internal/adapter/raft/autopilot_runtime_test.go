@@ -721,6 +721,31 @@ func TestAutopilotConfiguration_ErrorClassification(t *testing.T) {
 	}
 }
 
+func TestAutopilotConfiguration_InvalidConfig(t *testing.T) {
+	t.Parallel()
+
+	for _, initial := range []bool{true, false} {
+		t.Run(fmt.Sprintf("initial=%t", initial), func(t *testing.T) {
+			failure := portopenbao.NewAPIError("autopilot config request failed", http.StatusBadRequest,
+				[]byte(`{"errors":["invalid Autopilot configuration"]}`))
+			client := &fakeScaleDownClient{configureErr: failure}
+			mgr, cluster := newMaintenanceTestManager(client)
+			var err error
+			if initial {
+				err = mgr.ConfigureAutopilot(t.Context(), logr.Discard(), cluster, "root-token")
+			} else {
+				err = mgr.ReconcileAutopilotConfig(t.Context(), logr.Discard(), cluster)
+			}
+			if !errors.Is(err, failure) || !portopenbao.IsStatus(err, http.StatusBadRequest) {
+				t.Fatalf("error = %v, want original HTTP 400 rejection", err)
+			}
+			if operatorerrors.IsTransient(err) || operatorerrors.IsPermanent(err) != !initial {
+				t.Fatalf("unexpected error classification: %v", err)
+			}
+		})
+	}
+}
+
 func newMaintenanceTestManager(client *fakeScaleDownClient) (*Manager, *openbaov1alpha1.OpenBaoCluster) {
 	cluster := &openbaov1alpha1.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "ns"},

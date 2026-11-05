@@ -242,11 +242,17 @@ After initialization, the operator reconciles these effective defaults:
 | `maxTrailingLogs` | `1000` |
 | `serverStabilizationTime` | `10s` |
 | Hardened `minQuorum` | `3` for three voters; all voters when replicas exceed three |
-| Development `minQuorum` | Replica count, with a minimum of one |
-| `cleanupDeadServers` | `true`, except it is automatically disabled for a derived quorum below three unless explicitly overridden |
+| Development `minQuorum` | Replica count, with a minimum of three when cleanup is enabled; otherwise one |
+| `cleanupDeadServers` | `true` when an `autopilot` object is present; without that object, disabled for Development clusters with fewer than three voters |
 
-The CRD requires an explicitly configured `minQuorum` to be at least three. Small Development clusters can still have
-a derived value below three; automatic cleanup is then disabled so OpenBao does not reject the configuration.
+The CRD requires a configured `minQuorum` to be at least three. When an `autopilot` object is present and
+`cleanupDeadServers` is omitted, Kubernetes defaults it to `true`. The operator then derives
+`minQuorum` as at least three, including for one- and two-voter clusters, so OpenBao accepts the configuration.
+Autopilot does not prune peers below that minimum. Set `cleanupDeadServers: false` to disable cleanup while tuning
+other fields on a small cluster.
+
+Autopilot configuration rejections with HTTP status 400 appear in the operator's error logs. They are permanent
+configuration errors; correct the rejected settings before retrying.
 
 For self-init clusters, day-2 Autopilot reconciliation requires operator JWT bootstrap. Without
 `selfInit.oidc.enabled`, legacy Shared clusters skip that authenticated reconciliation after initialization. Existing

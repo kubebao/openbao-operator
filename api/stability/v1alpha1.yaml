@@ -130,7 +130,7 @@ resources:
       - path: spec.configuration.plugin.downloadBehavior
         omission: OpenBao fails startup when a declarative plugin download fails
       - path: spec.configuration.raft.autopilot.minQuorum
-        omission: controller derives max(3, replicas/2 + 1)
+        omission: controller uses voter replicas, with a minimum of three for Hardened clusters or enabled cleanup, otherwise one
       - path: spec.deletionPolicy
         classification: beta-stable
         owner: lifecycle

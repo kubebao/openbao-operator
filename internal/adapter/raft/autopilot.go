@@ -389,10 +389,12 @@ func (m *Manager) configureAutopilotWithClient(ctx context.Context, logger logr.
 	}
 
 	if err := client.ConfigureRaftAutopilot(autopilotCtx, desiredConfig); err != nil {
+		configErr := fmt.Errorf("failed to configure Raft Autopilot: %w", err)
+		if portopenbao.IsStatus(err, http.StatusBadRequest) {
+			return operatorerrors.WrapPermanentConfig(configErr)
+		}
 		logger.V(1).Info("Raft Autopilot configuration not ready; will retry on next reconcile", "error", err)
-		return operatorerrors.WrapTransientConnection(
-			fmt.Errorf("failed to configure Raft Autopilot: %w", err),
-		)
+		return operatorerrors.WrapTransientConnection(configErr)
 	}
 
 	logger.V(1).Info("Raft Autopilot configuration reconciled successfully")

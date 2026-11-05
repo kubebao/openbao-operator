@@ -43,7 +43,15 @@ func TestBuildAutopilotConfig_EdgeCases(t *testing.T) {
 			configuration: &openbaov1alpha1.OpenBaoConfiguration{Raft: &openbaov1alpha1.RaftConfig{Autopilot: &openbaov1alpha1.RaftAutopilotConfig{MinQuorum: ptrToInt32(-1)}}},
 		},
 		{
-			name: "explicit cleanup true survives small quorum", replicas: 1, wantQuorum: 1, wantCleanup: true, wantLogs: 1000,
+			name: "explicit cleanup true derives minimum quorum for one voter", replicas: 1, wantQuorum: 3, wantCleanup: true, wantLogs: 1000,
+			configuration: &openbaov1alpha1.OpenBaoConfiguration{Raft: &openbaov1alpha1.RaftConfig{Autopilot: &openbaov1alpha1.RaftAutopilotConfig{CleanupDeadServers: ptrTo(true)}}},
+		},
+		{
+			name: "explicit cleanup true derives minimum quorum for two voters", replicas: 2, wantQuorum: 3, wantCleanup: true, wantLogs: 1000,
+			configuration: &openbaov1alpha1.OpenBaoConfiguration{Raft: &openbaov1alpha1.RaftConfig{Autopilot: &openbaov1alpha1.RaftAutopilotConfig{CleanupDeadServers: ptrTo(true)}}},
+		},
+		{
+			name: "explicit cleanup true retains larger quorum", replicas: 5, wantQuorum: 5, wantCleanup: true, wantLogs: 1000,
 			configuration: &openbaov1alpha1.OpenBaoConfiguration{Raft: &openbaov1alpha1.RaftConfig{Autopilot: &openbaov1alpha1.RaftAutopilotConfig{CleanupDeadServers: ptrTo(true)}}},
 		},
 		{
