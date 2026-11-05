@@ -65,6 +65,8 @@ primary:
         url: docs/operate/openbao-270/
       - title: Reconcile approved operator policies
         url: docs/operate/operator-policies/
+      - title: Migrate to the kubebao.org API group
+        url: docs/operate/api-group-migration/
       - title: Migrate controller JWT authentication
         url: docs/operate/controller-jwt-migration/
       - title: Choose controller JWT authentication
