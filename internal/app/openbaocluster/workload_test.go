@@ -1,15 +1,17 @@
 package openbaocluster
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
 	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 
 	"github.com/go-logr/logr"
-	"github.com/go-logr/logr/funcr"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
@@ -84,10 +86,8 @@ func TestAutopilotConfigReconciler_ReportsConfigurationRejections(t *testing.T) 
 		{name: "transient connection", err: operatorerrors.WrapTransientConnection(errors.New("connection refused"))},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			var messages []string
-			logger := funcr.New(func(_, message string) {
-				messages = append(messages, message)
-			}, funcr.Options{})
+			var output bytes.Buffer
+			logger := logr.FromSlogHandler(slog.NewJSONHandler(&output, nil))
 			reconciler := &autopilotConfigReconciler{
 				autopilotRuntime: autopilotRuntimeStub{
 					reconcileFunc: func(context.Context, logr.Logger, *openbaov1alpha1.OpenBaoCluster) error {
@@ -99,11 +99,15 @@ func TestAutopilotConfigReconciler_ReportsConfigurationRejections(t *testing.T) 
 			result, err := reconciler.Reconcile(t.Context(), logger, &openbaov1alpha1.OpenBaoCluster{})
 			require.NoError(t, err)
 			if tt.wantError {
-				require.Len(t, messages, 1, "configuration rejections must be visible without debug logging")
-				require.Contains(t, messages[0], "min_quorum must be at least 3")
+				var entry struct {
+					Level string `json:"level"`
+				}
+				require.NoError(t, json.Unmarshal(output.Bytes(), &entry))
+				require.Equal(t, "ERROR", entry.Level, "configuration rejections must use error logging")
+				require.Contains(t, output.String(), "min_quorum must be at least 3")
 				require.Zero(t, result.RequeueAfter)
 			} else {
-				require.Empty(t, messages)
+				require.Zero(t, output.Len())
 				require.Equal(t, 5*time.Second, result.RequeueAfter)
 			}
 		})
