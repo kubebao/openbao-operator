@@ -56,6 +56,9 @@ spec:
             - --metrics-bind-address=0
             {{- end }}
             - --platform={{ .Values.platform }}
+            {{- if .Values.controller.apiMigrationHold }}
+            - --api-migration-hold=true
+            {{- end }}
             {{- if not .Values.admissionPolicies.enabled }}
             - --admission-enforcement=warn
             {{- end }}

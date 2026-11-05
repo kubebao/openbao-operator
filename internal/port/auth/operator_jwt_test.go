@@ -3,7 +3,11 @@ package auth
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 )
 
 func TestOperatorJWTBootstrapEnabled(t *testing.T) {
@@ -147,4 +151,32 @@ func TestBootstrapAudienceMatchesInstallation(t *testing.T) {
 	if !BootstrapAudienceMatchesInstallation(cluster, "runtime-audience") {
 		t.Fatal("BootstrapAudienceMatchesInstallation() = false, want true for empty override")
 	}
+}
+
+func TestControllerJWTAudienceKeepsAnImportedClustersIdentity(t *testing.T) {
+	t.Parallel()
+
+	cluster := &openbaov1alpha1.OpenBaoCluster{
+		ObjectMeta: metav1.ObjectMeta{UID: "destination-uid"},
+		Spec:       openbaov1alpha1.OpenBaoClusterSpec{ControllerJWTMode: openbaov1alpha1.ControllerJWTModeTarget},
+	}
+	audience, err := ControllerJWTAudience(cluster, "")
+	require.NoError(t, err)
+	require.Equal(t, "urn:openbao:controller:destination-uid", audience)
+
+	cluster.Annotations = map[string]string{constants.AnnotationMigrationSourceUID: "source-uid"}
+	audience, err = ControllerJWTAudience(cluster, "")
+	require.NoError(t, err)
+	require.Equal(t, "urn:openbao:controller:source-uid", audience,
+		"an import continues the source Cluster's identity, so its controller role keeps trusting the same audience")
+
+	cluster.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeShared
+	audience, err = ControllerJWTAudience(cluster, "installation")
+	require.NoError(t, err)
+	require.Equal(t, "installation", audience, "Shared mode uses the installation audience")
+
+	cluster.Spec.ControllerJWTMode = openbaov1alpha1.ControllerJWTModeTarget
+	cluster.UID, cluster.Annotations = "", nil
+	_, err = ControllerJWTAudience(cluster, "")
+	require.Error(t, err)
 }

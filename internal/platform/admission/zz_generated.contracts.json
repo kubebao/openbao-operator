@@ -1301,7 +1301,7 @@
       },
       "validations": [
         {
-          "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (has(object.status) \u0026\u0026 has(dyn(object.status).restart) ? dyn(object.status).restart : null) == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)",
+          "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || variables.migration_status_import || (has(object.status) \u0026\u0026 has(dyn(object.status).restart) ? dyn(object.status).restart : null) == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)",
           "message": "Only the controller can record managed restore restarts; use the acknowledgement annotation."
         },
         {
@@ -1309,7 +1309,7 @@
           "message": "Restore test release requires the active unbound run name followed by /Release and restore permission on the source cluster. Inspect the destination and stop the old controller first."
         },
         {
-          "expression": "request.operation != 'CREATE' || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null \u0026\u0026 has(namespaceObject.metadata.labels) \u0026\u0026\n 'openbao.org/restore-target-approved' in namespaceObject.metadata.labels \u0026\u0026\n namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')",
+          "expression": "request.operation != 'CREATE' || variables.migration_import || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null \u0026\u0026 has(namespaceObject.metadata.labels) \u0026\u0026\n 'openbao.org/restore-target-approved' in namespaceObject.metadata.labels \u0026\u0026\n namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')",
           "message": "Fresh restore targets require openbao.org/restore-target-approved=true on the destination Namespace. Approval does not verify network isolation."
         },
         {
@@ -1345,7 +1345,7 @@
           "message": "A committed restore retains its finalizer until administrator acknowledgement."
         },
         {
-          "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (has(object.status) \u0026\u0026 has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')",
+          "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || variables.migration_status_import || (has(object.status) \u0026\u0026 has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')",
           "message": "Only the controller can record administrator disposition; use the acknowledgement annotation."
         },
         {
@@ -1418,6 +1418,14 @@
         {
           "name": "new_test_acknowledgement",
           "expression": "object != null \u0026\u0026 has(object.metadata.annotations) \u0026\u0026 'openbao.org/restore-test-acknowledge' in object.metadata.annotations ?\n  object.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''"
+        },
+        {
+          "name": "migration_import",
+          "expression": "variables.is_restore \u0026\u0026 (\n  (request.operation == 'CREATE' \u0026\u0026 has(object.metadata.annotations) \u0026\u0026\n    'migration.kubebao.org/source-uid' in object.metadata.annotations \u0026\u0026\n    object.metadata.annotations['migration.kubebao.org/source-uid'] != '') ||\n  (request.operation == 'UPDATE' \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026\n    'migration.kubebao.org/source-uid' in oldObject.metadata.annotations \u0026\u0026\n    oldObject.metadata.annotations['migration.kubebao.org/source-uid'] != '')) \u0026\u0026\nauthorizer.group('kubebao.org').resource('openbaorestores').namespace(request.namespace).name(object.metadata.name).check('migrate').allowed()"
+        },
+        {
+          "name": "migration_status_import",
+          "expression": "variables.migration_import \u0026\u0026 request.operation == 'UPDATE' \u0026\u0026 request.subResource == 'status' \u0026\u0026 (!has(oldObject.status) || size(dyn(oldObject.status)) == 0)"
         }
       ]
     },
@@ -1467,7 +1475,7 @@
         },
         "validations": [
           {
-            "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (has(object.status) \u0026\u0026 has(dyn(object.status).restart) ? dyn(object.status).restart : null) == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)",
+            "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || variables.migration_status_import || (has(object.status) \u0026\u0026 has(dyn(object.status).restart) ? dyn(object.status).restart : null) == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)",
             "message": "Only the controller can record managed restore restarts; use the acknowledgement annotation."
           },
           {
@@ -1475,7 +1483,7 @@
             "message": "Restore test release requires the active unbound run name followed by /Release and restore permission on the source cluster. Inspect the destination and stop the old controller first."
           },
           {
-            "expression": "request.operation != 'CREATE' || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null \u0026\u0026 has(namespaceObject.metadata.labels) \u0026\u0026\n\n 'openbao.org/restore-target-approved' in namespaceObject.metadata.labels \u0026\u0026\n namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')",
+            "expression": "request.operation != 'CREATE' || variables.migration_import || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null \u0026\u0026 has(namespaceObject.metadata.labels) \u0026\u0026\n\n 'openbao.org/restore-target-approved' in namespaceObject.metadata.labels \u0026\u0026\n namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')",
             "message": "Fresh restore targets require openbao.org/restore-target-approved=true on the destination Namespace. Approval does not verify network isolation."
           },
           {
@@ -1511,7 +1519,7 @@
             "message": "A committed restore retains its finalizer until administrator acknowledgement."
           },
           {
-            "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (has(object.status) \u0026\u0026 has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')",
+            "expression": "!variables.is_restore || variables.is_controller || request.operation == 'DELETE' || variables.migration_status_import || (has(object.status) \u0026\u0026 has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') == (oldObject != null \u0026\u0026 has(oldObject.status) \u0026\u0026 has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')",
             "message": "Only the controller can record administrator disposition; use the acknowledgement annotation."
           },
           {
@@ -1584,6 +1592,14 @@
           {
             "name": "new_test_acknowledgement",
             "expression": "object != null \u0026\u0026 has(object.metadata.annotations) \u0026\u0026 'openbao.org/restore-test-acknowledge' in object.metadata.annotations ?\n\n  object.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''"
+          },
+          {
+            "name": "migration_import",
+            "expression": "variables.is_restore \u0026\u0026 (\n\n  (request.operation == 'CREATE' \u0026\u0026 has(object.metadata.annotations) \u0026\u0026\n    'migration.kubebao.org/source-uid' in object.metadata.annotations \u0026\u0026\n    object.metadata.annotations['migration.kubebao.org/source-uid'] != '') ||\n  (request.operation == 'UPDATE' \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026\n    'migration.kubebao.org/source-uid' in oldObject.metadata.annotations \u0026\u0026\n    oldObject.metadata.annotations['migration.kubebao.org/source-uid'] != '')) \u0026\u0026\nauthorizer.group('kubebao.org').resource('openbaorestores').namespace(request.namespace).name(object.metadata.name).check('migrate').allowed()"
+          },
+          {
+            "name": "migration_status_import",
+            "expression": "variables.migration_import \u0026\u0026 request.operation == 'UPDATE' \u0026\u0026 request.subResource == 'status' \u0026\u0026 (!has(oldObject.status) || size(dyn(oldObject.status)) == 0)"
           }
         ]
       },
@@ -3006,6 +3022,10 @@
       },
       "validations": [
         {
+          "expression": "variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == \"CREATE\" \u0026\u0026 variables.migration_authorized)",
+          "message": "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
+        },
+        {
           "expression": "request.operation != 'UPDATE' || !variables.old_static_unseal || !variables.new_static_unseal || variables.old_unseal_secret == variables.new_unseal_secret",
           "message": "spec.unseal.credentialsSecretRef cannot be added, changed, or removed on a static-unseal cluster; a different key source would leave OpenBao sealed."
         },
@@ -3062,7 +3082,7 @@
           "message": "Restore testing requires use authority for the destination StorageClass."
         },
         {
-          "expression": "request.operation != \"CREATE\" || (has(object.spec.controllerJWTMode) \u0026\u0026 object.spec.controllerJWTMode == \"Target\")",
+          "expression": "request.operation != \"CREATE\" || (has(object.spec.controllerJWTMode) \u0026\u0026 object.spec.controllerJWTMode == \"Target\") || variables.is_authorized_migration_import",
           "message": "spec.controllerJWTMode is required to be Target when creating a cluster"
         },
         {
@@ -3777,6 +3797,22 @@
         {
           "name": "has_restore_target_cloud_identity_metadata",
           "expression": "has(object.spec.backup) \u0026\u0026 has(object.spec.backup.restoreTest) \u0026\u0026 ( (has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault) \u0026\u0026\n  has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||\n(has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) \u0026\u0026\n  has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) \u0026\u0026 size(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) \u003e 0) ||\n(has(object.spec.backup.restoreTest.clusterTemplate.podMetadata) \u0026\u0026 (\n  (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata.annotations) \u0026\u0026 object.spec.backup.restoreTest.clusterTemplate.podMetadata.annotations.exists(key,\n    key.startsWith(\"eks.amazonaws.com/\") || key.startsWith(\"iam.amazonaws.com/\") ||\n    key.startsWith(\"iam.gke.io/\") || key.startsWith(\"azure.workload.identity/\"))) ||\n  (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels) \u0026\u0026 object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels.exists(key,\n    key.startsWith(\"azure.workload.identity/\") || key == \"aadpodidbinding\")))))"
+        },
+        {
+          "name": "migration_source_uid",
+          "expression": "has(object.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in object.metadata.annotations ?\n  object.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
+        },
+        {
+          "name": "previous_migration_source_uid",
+          "expression": "oldObject != null \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in oldObject.metadata.annotations ?\n  oldObject.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
+        },
+        {
+          "name": "migration_authorized",
+          "expression": "authorizer.group(\"kubebao.org\").resource(\"openbaoclusters\").namespace(request.namespace).name(object.metadata.name).check(\"migrate\").allowed()"
+        },
+        {
+          "name": "is_authorized_migration_import",
+          "expression": "request.operation == \"CREATE\" \u0026\u0026 variables.migration_source_uid != \"\" \u0026\u0026 variables.migration_authorized"
         }
       ]
     },
@@ -3808,6 +3844,10 @@
           ]
         },
         "validations": [
+          {
+            "expression": "variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == \"CREATE\" \u0026\u0026 variables.migration_authorized)",
+            "message": "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
+          },
           {
             "expression": "request.operation != 'UPDATE' || !variables.old_static_unseal || !variables.new_static_unseal || variables.old_unseal_secret == variables.new_unseal_secret",
             "message": "spec.unseal.credentialsSecretRef cannot be added, changed, or removed on a static-unseal cluster; a different key source would leave OpenBao sealed."
@@ -3865,7 +3905,7 @@
             "message": "Restore testing requires use authority for the destination StorageClass."
           },
           {
-            "expression": "request.operation != \"CREATE\" || (has(object.spec.controllerJWTMode) \u0026\u0026 object.spec.controllerJWTMode == \"Target\")",
+            "expression": "request.operation != \"CREATE\" || (has(object.spec.controllerJWTMode) \u0026\u0026 object.spec.controllerJWTMode == \"Target\") || variables.is_authorized_migration_import",
             "message": "spec.controllerJWTMode is required to be Target when creating a cluster"
           },
           {
@@ -4580,6 +4620,22 @@
           {
             "name": "has_restore_target_cloud_identity_metadata",
             "expression": "has(object.spec.backup) \u0026\u0026 has(object.spec.backup.restoreTest) \u0026\u0026 ( (has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault) \u0026\u0026\n\n  has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||\n(has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) \u0026\u0026\n\n  has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) \u0026\u0026 size(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) \u003e 0) ||\n(has(object.spec.backup.restoreTest.clusterTemplate.podMetadata) \u0026\u0026 (\n\n  (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata.annotations) \u0026\u0026 object.spec.backup.restoreTest.clusterTemplate.podMetadata.annotations.exists(key,\n    key.startsWith(\"eks.amazonaws.com/\") || key.startsWith(\"iam.amazonaws.com/\") ||\n    key.startsWith(\"iam.gke.io/\") || key.startsWith(\"azure.workload.identity/\"))) ||\n  (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels) \u0026\u0026 object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels.exists(key,\n    key.startsWith(\"azure.workload.identity/\") || key == \"aadpodidbinding\")))))"
+          },
+          {
+            "name": "migration_source_uid",
+            "expression": "has(object.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in object.metadata.annotations ?\n\n  object.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
+          },
+          {
+            "name": "previous_migration_source_uid",
+            "expression": "oldObject != null \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in oldObject.metadata.annotations ?\n\n  oldObject.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
+          },
+          {
+            "name": "migration_authorized",
+            "expression": "authorizer.group(\"kubebao.org\").resource(\"openbaoclusters\").namespace(request.namespace).name(object.metadata.name).check(\"migrate\").allowed()"
+          },
+          {
+            "name": "is_authorized_migration_import",
+            "expression": "request.operation == \"CREATE\" \u0026\u0026 variables.migration_source_uid != \"\" \u0026\u0026 variables.migration_authorized"
           }
         ]
       },
@@ -4613,6 +4669,10 @@
         ]
       },
       "validations": [
+        {
+          "expression": "variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == \"CREATE\" \u0026\u0026\n  authorizer.group(\"kubebao.org\").resource(\"openbaorestores\").namespace(request.namespace).name(object.metadata.name).check(\"migrate\").allowed())",
+          "message": "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
+        },
         {
           "expression": "variables.delegated_authority || !has(object.spec.serviceAccountName) || authorizer.group(\"\").resource(\"serviceaccounts\").namespace(request.namespace).name(object.spec.serviceAccountName).check(\"use\").allowed()",
           "message": "Restore executors require use authority for their existing ServiceAccount."
@@ -4783,6 +4843,14 @@
         {
           "name": "has_restore_target_cloud_identity_metadata",
           "expression": "has(object.spec.clusterTemplate) \u0026\u0026 ( (has(object.spec.clusterTemplate.unseal.azureKeyVault) \u0026\u0026\n  has(object.spec.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||\n(has(object.spec.clusterTemplate.serviceAccount) \u0026\u0026\n  has(object.spec.clusterTemplate.serviceAccount.annotations) \u0026\u0026 size(object.spec.clusterTemplate.serviceAccount.annotations) \u003e 0) ||\n(has(object.spec.clusterTemplate.podMetadata) \u0026\u0026 (\n  (has(object.spec.clusterTemplate.podMetadata.annotations) \u0026\u0026 object.spec.clusterTemplate.podMetadata.annotations.exists(key,\n    key.startsWith(\"eks.amazonaws.com/\") || key.startsWith(\"iam.amazonaws.com/\") ||\n    key.startsWith(\"iam.gke.io/\") || key.startsWith(\"azure.workload.identity/\"))) ||\n  (has(object.spec.clusterTemplate.podMetadata.labels) \u0026\u0026 object.spec.clusterTemplate.podMetadata.labels.exists(key,\n    key.startsWith(\"azure.workload.identity/\") || key == \"aadpodidbinding\")))))"
+        },
+        {
+          "name": "migration_source_uid",
+          "expression": "has(object.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in object.metadata.annotations ?\n  object.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
+        },
+        {
+          "name": "previous_migration_source_uid",
+          "expression": "oldObject != null \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in oldObject.metadata.annotations ?\n  oldObject.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
         }
       ]
     },
@@ -4814,6 +4882,10 @@
           ]
         },
         "validations": [
+          {
+            "expression": "variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == \"CREATE\" \u0026\u0026\n\n  authorizer.group(\"kubebao.org\").resource(\"openbaorestores\").namespace(request.namespace).name(object.metadata.name).check(\"migrate\").allowed())",
+            "message": "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
+          },
           {
             "expression": "variables.delegated_authority || !has(object.spec.serviceAccountName) || authorizer.group(\"\").resource(\"serviceaccounts\").namespace(request.namespace).name(object.spec.serviceAccountName).check(\"use\").allowed()",
             "message": "Restore executors require use authority for their existing ServiceAccount."
@@ -4984,6 +5056,14 @@
           {
             "name": "has_restore_target_cloud_identity_metadata",
             "expression": "has(object.spec.clusterTemplate) \u0026\u0026 ( (has(object.spec.clusterTemplate.unseal.azureKeyVault) \u0026\u0026\n\n  has(object.spec.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||\n(has(object.spec.clusterTemplate.serviceAccount) \u0026\u0026\n\n  has(object.spec.clusterTemplate.serviceAccount.annotations) \u0026\u0026 size(object.spec.clusterTemplate.serviceAccount.annotations) \u003e 0) ||\n(has(object.spec.clusterTemplate.podMetadata) \u0026\u0026 (\n\n  (has(object.spec.clusterTemplate.podMetadata.annotations) \u0026\u0026 object.spec.clusterTemplate.podMetadata.annotations.exists(key,\n    key.startsWith(\"eks.amazonaws.com/\") || key.startsWith(\"iam.amazonaws.com/\") ||\n    key.startsWith(\"iam.gke.io/\") || key.startsWith(\"azure.workload.identity/\"))) ||\n  (has(object.spec.clusterTemplate.podMetadata.labels) \u0026\u0026 object.spec.clusterTemplate.podMetadata.labels.exists(key,\n    key.startsWith(\"azure.workload.identity/\") || key == \"aadpodidbinding\")))))"
+          },
+          {
+            "name": "migration_source_uid",
+            "expression": "has(object.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in object.metadata.annotations ?\n\n  object.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
+          },
+          {
+            "name": "previous_migration_source_uid",
+            "expression": "oldObject != null \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026 \"migration.kubebao.org/source-uid\" in oldObject.metadata.annotations ?\n\n  oldObject.metadata.annotations[\"migration.kubebao.org/source-uid\"] : \"\""
           }
         ]
       },

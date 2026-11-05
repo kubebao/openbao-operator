@@ -142,10 +142,15 @@
       "description": "Controller deployment configuration",
       "additionalProperties": false,
       "properties": {
+        "apiMigrationHold": {
+          "type": "boolean",
+          "description": "Hold administrative operations and restores during an API migration. Workload and status reconciliation remain active. Does not drain running operations.",
+          "default": false
+        },
         "replicas": {
           "type": "integer",
-          "description": "Number of controller replicas",
-          "minimum": 1,
+          "description": "Number of controller replicas. Set to 0 only to stop reconciliation during a controlled maintenance window",
+          "minimum": 0,
           "default": 1
         },
         "resources": {
@@ -196,8 +201,8 @@
       "properties": {
         "replicas": {
           "type": "integer",
-          "description": "Number of provisioner replicas",
-          "minimum": 1,
+          "description": "Number of provisioner replicas. Set to 0 only to stop reconciliation during a controlled maintenance window",
+          "minimum": 0,
           "default": 1
         },
         "resources": {

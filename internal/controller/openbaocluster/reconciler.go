@@ -18,6 +18,10 @@ type ControllerRuntime struct {
 	// When true, the controller uses Owns() watches for event-driven reconciliation
 	// and caching is enabled for the watched namespace.
 	SingleTenantMode bool
+	// APIMigrationHold suppresses administrative operations before application
+	// delegation. It requires an external admission freeze and a healthy, stable
+	// installation; workload reconciliation and deletion are not held.
+	APIMigrationHold bool
 }
 
 // OpenBaoClusterReconciler reconciles a OpenBaoCluster object.

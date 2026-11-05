@@ -37,6 +37,7 @@ type runConfig struct {
 	jwtAuthStrategy          string
 	admissionEnforcement     string
 	admissionStartupTimeout  time.Duration
+	apiMigrationHold         bool
 }
 
 func parseRunConfig(args []string, output io.Writer) (runConfig, error) {
@@ -78,6 +79,9 @@ func parseRunConfig(args []string, output io.Writer) (runConfig, error) {
 		"The duration the circuit breaker remains open before testing the connection.")
 
 	entrypoint.BindAdmissionFlags(fs, &cfg.admissionEnforcement, &cfg.admissionStartupTimeout)
+	fs.BoolVar(&cfg.apiMigrationHold, "api-migration-hold", false,
+		"Hold administrative operations and restores during an externally guarded API migration. "+
+			"Workload and status reconciliation remain active; this does not drain running operations.")
 
 	cfg.logOptions = zap.Options{Development: false}
 	cfg.logOptions.BindFlags(fs)

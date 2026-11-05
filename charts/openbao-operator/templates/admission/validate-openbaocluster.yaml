@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:ba73e1b3ed609e259d9c45daceea559d17454aeb836a9a7e39681ffed8d56406
+    openbao.org/admission-policy-fingerprint: sha256:fe9f23caf1c9bf9c8c75a6eafbe1162720bb7db549a1faf36677f95f5d524b4a
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -447,7 +447,27 @@ spec:
             key.startsWith("iam.gke.io/") || key.startsWith("azure.workload.identity/"))) ||
           (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels) && object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels.exists(key,
             key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
+    # API group migration: the import marker names the openbao.org Cluster a create
+    # continues, and a Target controller's audience keeps that identity. Only a
+    # principal granted the migrate verb on this Cluster may set it, at creation.
+    - name: migration_source_uid
+      expression: |-
+        has(object.metadata.annotations) && "migration.kubebao.org/source-uid" in object.metadata.annotations ?
+          object.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    - name: previous_migration_source_uid
+      expression: |-
+        oldObject != null && has(oldObject.metadata.annotations) && "migration.kubebao.org/source-uid" in oldObject.metadata.annotations ?
+          oldObject.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    - name: migration_authorized
+      expression: |-
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("migrate").allowed()
+    - name: is_authorized_migration_import
+      expression: |-
+        request.operation == "CREATE" && variables.migration_source_uid != "" && variables.migration_authorized
   validations:
+    - expression: |-
+        variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == "CREATE" && variables.migration_authorized)
+      message: "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
     # A static key source change remounts a different key and leaves Pods sealed.
     - expression: |-
         request.operation != 'UPDATE' || !variables.old_static_unseal || !variables.new_static_unseal || variables.old_unseal_secret == variables.new_unseal_secret
@@ -499,8 +519,10 @@ spec:
         !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName) || object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName.trim() == '' || authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()
       message: "Restore testing requires use authority for the destination StorageClass."
 
+    # An authorized migration import keeps the source's declared mode; a Shared
+    # Cluster can switch to Target later through the documented role preparation.
     - expression: |-
-        request.operation != "CREATE" || (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
+        request.operation != "CREATE" || (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target") || variables.is_authorized_migration_import
       message: "spec.controllerJWTMode is required to be Target when creating a cluster"
     - expression: |-
         !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" || (has(object.spec.selfInit) && object.spec.selfInit.enabled &&

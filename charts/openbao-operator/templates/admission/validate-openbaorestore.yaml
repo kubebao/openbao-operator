@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:1876ec21675dde544f822abcf51083baa6997830f71884ada990a88577191259
+    openbao.org/admission-policy-fingerprint: sha256:064ae955a11c165715ca193dd210fd6df0870cdda3754dddd9f1f7dfc9a1dc01
   name: {{ include "openbao-operator.fullname" . }}-openbao-validate-openbaorestore
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -100,7 +100,21 @@ spec:
             key.startsWith("iam.gke.io/") || key.startsWith("azure.workload.identity/"))) ||
           (has(object.spec.clusterTemplate.podMetadata.labels) && object.spec.clusterTemplate.podMetadata.labels.exists(key,
             key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
+    # API group migration: the import marker names the openbao.org record a create
+    # continues. Only a principal granted the migrate verb on this record may set it.
+    - name: migration_source_uid
+      expression: |-
+        has(object.metadata.annotations) && "migration.kubebao.org/source-uid" in object.metadata.annotations ?
+          object.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    - name: previous_migration_source_uid
+      expression: |-
+        oldObject != null && has(oldObject.metadata.annotations) && "migration.kubebao.org/source-uid" in oldObject.metadata.annotations ?
+          oldObject.metadata.annotations["migration.kubebao.org/source-uid"] : ""
   validations:
+    - expression: |-
+        variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == "CREATE" &&
+          authorizer.group("kubebao.org").resource("openbaorestores").namespace(request.namespace).name(object.metadata.name).check("migrate").allowed())
+      message: "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
 
     - expression: |-
         variables.delegated_authority || !has(object.spec.serviceAccountName) || authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccountName).check("use").allowed()

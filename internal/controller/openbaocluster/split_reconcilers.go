@@ -169,6 +169,12 @@ func (r *openBaoClusterAdminOpsReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, fmt.Errorf("failed to get OpenBaoCluster %s/%s: %w", req.Namespace, req.Name, err)
 	}
 
+	// The startup hold must precede every admin operation, including scheduling,
+	// operation reservation, retention, restore tests, and history/status writes.
+	if r.parent.APIMigrationHold {
+		return ctrl.Result{}, nil
+	}
+
 	if !cluster.DeletionTimestamp.IsZero() || cluster.Spec.Paused || cluster.Spec.Profile == "" {
 		if !cluster.DeletionTimestamp.IsZero() &&
 			!controllerutil.ContainsFinalizer(cluster, openbaov1alpha1.OpenBaoClusterFinalizer) {

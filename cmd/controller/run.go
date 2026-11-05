@@ -102,6 +102,10 @@ func Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("unable to configure manager probes: %w", err)
 	}
 
+	if cfg.apiMigrationHold {
+		setupLog.Info("API migration hold enabled", "administrativeOperations", "paused", "restores", "paused",
+			"workloadReconciliation", "active", "statusReconciliation", "active")
+	}
 	setupLog.Info("starting controller manager")
 	if err := mgr.Start(ctx); err != nil {
 		return fmt.Errorf("problem running manager: %w", err)

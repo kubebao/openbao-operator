@@ -26,5 +26,10 @@ const (
 // AnnotationRestoreOrigin binds restricted fresh-target workloads to a restore request.
 const AnnotationRestoreOrigin = "openbao.org/restore-origin"
 
+// AnnotationMigrationSourceUID names the openbao.org object an API group
+// migration import continues. Admission reserves it for principals granted the
+// migrate verb and makes it immutable once set.
+const AnnotationMigrationSourceUID = "migration.kubebao.org/source-uid"
+
 // AnnotationRestoreTestSource binds a scheduled restore to the source cluster UID.
 const AnnotationRestoreTestSource = "openbao.org/restore-test-source"

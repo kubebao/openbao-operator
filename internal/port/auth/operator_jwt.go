@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 )
 
 // ControllerTokenProvider supplies the credential selected for one target.
@@ -15,6 +18,9 @@ type ControllerTokenProvider interface {
 
 // ControllerJWTAudience resolves the controller audience without accepting a
 // tenant-selected target identifier. Recreating a CR produces a new audience.
+// A Cluster imported by an API group migration keeps the identity of the
+// Cluster it continues: its reserved, immutable migration marker names that
+// UID, so the OpenBao controller role keeps trusting the same audience.
 func ControllerJWTAudience(cluster *openbaov1alpha1.OpenBaoCluster, installationAudience string) (string, error) {
 	if cluster == nil {
 		return "", fmt.Errorf("cluster is required for controller JWT authentication")
@@ -23,10 +29,14 @@ func ControllerJWTAudience(cluster *openbaov1alpha1.OpenBaoCluster, installation
 	case "", openbaov1alpha1.ControllerJWTModeShared:
 		return OperatorJWTAudience(installationAudience), nil
 	case openbaov1alpha1.ControllerJWTModeTarget:
-		if cluster.UID == "" {
+		identity := cluster.UID
+		if source := strings.TrimSpace(cluster.Annotations[constants.AnnotationMigrationSourceUID]); source != "" {
+			identity = types.UID(source)
+		}
+		if identity == "" {
 			return "", fmt.Errorf("cluster UID is required for target-specific controller JWT authentication")
 		}
-		return "urn:openbao:controller:" + string(cluster.UID), nil
+		return "urn:openbao:controller:" + string(identity), nil
 	default:
 		return "", fmt.Errorf("unsupported controller JWT mode %q", cluster.Spec.ControllerJWTMode)
 	}
