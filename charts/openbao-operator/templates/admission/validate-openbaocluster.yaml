@@ -17,130 +17,109 @@ spec:
         resources: ["openbaoclusters"]
   matchConditions:
     - name: skip-garbage-collector-finalization
-      expression: >-
+      expression: |-
         !(request.operation == 'UPDATE' && oldObject != null &&
           has(oldObject.metadata.deletionTimestamp) && object.spec == oldObject.spec &&
           request.userInfo.username in ['system:kube-controller-manager', 'system:serviceaccount:kube-system:generic-garbage-collector'])
   variables:
     - name: has_listener_proxy_authorization
-      expression: >-
-        has(object.spec.configuration) && has(object.spec.configuration.listener) &&
-        has(object.spec.configuration.listener.proxyProtocolBehavior) &&
-        object.spec.configuration.listener.proxyProtocolBehavior in ['allow_authorized', 'deny_unauthorized']
+      expression: |-
+        has(object.spec.configuration) && has(object.spec.configuration.listener) && has(object.spec.configuration.listener.proxyProtocolBehavior) && object.spec.configuration.listener.proxyProtocolBehavior in ['allow_authorized', 'deny_unauthorized']
     - name: has_listener_tls_policy
-      expression: >-
-        has(object.spec.configuration) && has(object.spec.configuration.listener) &&
-        (has(object.spec.configuration.listener.tlsMinVersion) ||
+      expression: |-
+        has(object.spec.configuration) && has(object.spec.configuration.listener) && (has(object.spec.configuration.listener.tlsMinVersion) ||
          has(object.spec.configuration.listener.tlsMaxVersion) ||
          has(object.spec.configuration.listener.tlsKeyExchangePreferences))
     - name: has_listener_key_exchange
-      expression: >-
-        has(object.spec.configuration) && has(object.spec.configuration.listener) &&
-        has(object.spec.configuration.listener.tlsKeyExchangePreferences)
+      expression: |-
+        has(object.spec.configuration) && has(object.spec.configuration.listener) && has(object.spec.configuration.listener.tlsKeyExchangePreferences)
     - name: has_azure_key_vault_auth_method
-      expression: >-
-        has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
-        (has(object.spec.unseal.azureKeyVault.authMethod) ||
+      expression: |-
+        has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) && (has(object.spec.unseal.azureKeyVault.authMethod) ||
          has(object.spec.unseal.azureKeyVault.workloadIdentity))
     - name: has_self_init_request_controls
-      expression: >-
-        has(object.spec.selfInit) && object.spec.selfInit.enabled == true &&
-        has(object.spec.selfInit.requests) && object.spec.selfInit.requests.exists(r,
+      expression: |-
+        has(object.spec.selfInit) && object.spec.selfInit.enabled == true && has(object.spec.selfInit.requests) && object.spec.selfInit.requests.exists(r,
           (has(r.headers) && size(r.headers) > 0) || has(r.when))
     - name: self_init_input_requests
-      expression: >-
+      expression: |-
         has(object.spec.selfInit) && has(object.spec.selfInit.requests) ?
           object.spec.selfInit.requests.filter(r, has(r.dataFrom) && size(r.dataFrom) > 0) : []
     - name: old_self_init_input_requests
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.spec.selfInit) && has(oldObject.spec.selfInit.requests) ?
           oldObject.spec.selfInit.requests.filter(r, has(r.dataFrom) && size(r.dataFrom) > 0) : []
     # Select at most two distinct names without CEL list extensions, so this
     # remains compatible with Kubernetes 1.33. Each name is authorized once.
     - name: self_init_first_secret
-      expression: >-
+      expression: |-
         size(variables.self_init_input_requests) > 0 ?
           variables.self_init_input_requests[0].dataFrom.map(k,
             variables.self_init_input_requests[0].dataFrom[k].secretKeyRef.name)[0] : ''
     - name: self_init_other_secret_requests
-      expression: >-
+      expression: |-
         variables.self_init_input_requests.filter(r,
           r.dataFrom.exists(k, r.dataFrom[k].secretKeyRef.name != variables.self_init_first_secret))
     - name: self_init_second_secret
-      expression: >-
+      expression: |-
         size(variables.self_init_other_secret_requests) > 0 ?
           variables.self_init_other_secret_requests[0].dataFrom
             .filter(k, variables.self_init_other_secret_requests[0].dataFrom[k].secretKeyRef.name != variables.self_init_first_secret)
             .map(k, variables.self_init_other_secret_requests[0].dataFrom[k].secretKeyRef.name)[0] : ''
     - name: self_init_secret_names
-      expression: >-
+      expression: |-
         [variables.self_init_first_secret, variables.self_init_second_secret].filter(n, n != '')
     - name: has_backup
       expression: has(object.spec.backup)
     - name: backup_target_provider
-      expression: >-
+      expression: |-
         variables.has_backup && has(object.spec.backup.target.provider) && object.spec.backup.target.provider.trim() != "" ? object.spec.backup.target.provider.trim().lowerAscii() : "s3"
     - name: backup_target_uses_s3
       expression: variables.backup_target_provider == "s3"
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: controller_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.controllerServiceAccountName" . }}'
     - name: controller_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name
     - name: is_operator_controller
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.controller_principal
     - name: old_static_unseal
-      expression: >-
+      expression: |-
         oldObject != null && (!has(oldObject.spec.unseal) || !has(oldObject.spec.unseal.type) || oldObject.spec.unseal.type == 'static')
     - name: new_static_unseal
-      expression: >-
+      expression: |-
         !has(object.spec.unseal) || !has(object.spec.unseal.type) || object.spec.unseal.type == 'static'
     - name: old_unseal_secret
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.spec.unseal) && has(oldObject.spec.unseal.credentialsSecretRef) ?
           oldObject.spec.unseal.credentialsSecretRef.name : ''
     - name: new_unseal_secret
-      expression: >-
+      expression: |-
         has(object.spec.unseal) && has(object.spec.unseal.credentialsSecretRef) ? object.spec.unseal.credentialsSecretRef.name : ''
     - name: restore_test_authorization_required
-      expression: >-
-        !variables.is_operator_controller && has(object.spec.backup) && has(object.spec.backup.restoreTest) &&
-        (oldObject == null || !has(oldObject.spec.backup) || !has(oldObject.spec.backup.restoreTest) ||
+      expression: |-
+        !variables.is_operator_controller && has(object.spec.backup) && has(object.spec.backup.restoreTest) && (oldObject == null || !has(oldObject.spec.backup) || !has(oldObject.spec.backup.restoreTest) ||
          object.spec.backup.restoreTest != oldObject.spec.backup.restoreTest ||
          object.spec.backup.target != oldObject.spec.backup.target ||
          has(object.spec.backup.image) != has(oldObject.spec.backup.image) ||
          (has(object.spec.backup.image) && has(oldObject.spec.backup.image) && object.spec.backup.image != oldObject.spec.backup.image))
     - name: requested_upgrade_strategy
-      expression: >-
+      expression: |-
         has(object.spec.upgrade) && has(object.spec.upgrade.strategy) && object.spec.upgrade.strategy != "" ? object.spec.upgrade.strategy : "RollingUpdate"
     - name: previous_upgrade_strategy
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.spec.upgrade) && has(oldObject.spec.upgrade.strategy) && oldObject.spec.upgrade.strategy != "" ? oldObject.spec.upgrade.strategy : "RollingUpdate"
     - name: upgrade_strategy_changed
-      expression: >-
+      expression: |-
         oldObject != null && variables.requested_upgrade_strategy != variables.previous_upgrade_strategy
     - name: upgrade_strategy_status_idle
-      expression: >-
-        oldObject != null &&
-        has(oldObject.status) &&
-        has(oldObject.status.initialized) && oldObject.status.initialized == true &&
-        has(oldObject.status.phase) && oldObject.status.phase == "Running" &&
-        has(oldObject.status.currentVersion) && oldObject.status.currentVersion == oldObject.spec.version &&
-        has(oldObject.status.readyReplicas) && oldObject.status.readyReplicas == oldObject.spec.replicas &&
-        has(oldObject.status.acceptedUpgradeStrategy) && oldObject.status.acceptedUpgradeStrategy == variables.previous_upgrade_strategy &&
-        (!has(oldObject.status.upgrade)) &&
-        (!has(oldObject.status.operationLock) || oldObject.status.operationLock == null) &&
-        (!has(oldObject.status.breakGlass) || !has(oldObject.status.breakGlass.active) || oldObject.status.breakGlass.active == false) &&
-        (!has(oldObject.status.workload) || !has(oldObject.status.workload.lastError)) &&
-        has(oldObject.status.conditions) &&
-        oldObject.status.conditions.exists(c, c.type == "Available" && c.status == "True") &&
-        !oldObject.status.conditions.exists(c, c.type == "Degraded" && c.status == "True") &&
-        (!has(oldObject.status.blueGreen) ||
+      expression: |-
+        oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized == true && has(oldObject.status.phase) && oldObject.status.phase == "Running" && has(oldObject.status.currentVersion) && oldObject.status.currentVersion == oldObject.spec.version && has(oldObject.status.readyReplicas) && oldObject.status.readyReplicas == oldObject.spec.replicas && has(oldObject.status.acceptedUpgradeStrategy) && oldObject.status.acceptedUpgradeStrategy == variables.previous_upgrade_strategy && (!has(oldObject.status.upgrade)) && (!has(oldObject.status.operationLock) || oldObject.status.operationLock == null) && (!has(oldObject.status.breakGlass) || !has(oldObject.status.breakGlass.active) || oldObject.status.breakGlass.active == false) && (!has(oldObject.status.workload) || !has(oldObject.status.workload.lastError)) && has(oldObject.status.conditions) && oldObject.status.conditions.exists(c, c.type == "Available" && c.status == "True") && !oldObject.status.conditions.exists(c, c.type == "Degraded" && c.status == "True") && (!has(oldObject.status.blueGreen) ||
           ((!has(oldObject.status.blueGreen.phase) || oldObject.status.blueGreen.phase == "Idle") &&
            (!has(oldObject.status.blueGreen.greenRevision) || oldObject.status.blueGreen.greenRevision == "") &&
            (!has(oldObject.status.blueGreen.startTime)) &&
@@ -151,179 +130,169 @@ spec:
         (!has(oldObject.spec.readReplicas) || oldObject.spec.readReplicas.replicas == 0 ||
           (has(oldObject.status.readReplicas) && has(oldObject.status.readReplicas.readyReplicas) && oldObject.status.readReplicas.readyReplicas == oldObject.spec.readReplicas.replicas))
     - name: upgrade_requests_handled
-      expression: >-
-        oldObject == null || !has(object.spec.upgrade) || !has(object.spec.upgrade.requests) ||
-        (((!has(object.spec.upgrade.requests.retry) || object.spec.upgrade.requests.retry == "") ||
+      expression: |-
+        oldObject == null || !has(object.spec.upgrade) || !has(object.spec.upgrade.requests) || (((!has(object.spec.upgrade.requests.retry) || object.spec.upgrade.requests.retry == "") ||
           (has(oldObject.status.upgradeRequests) && has(oldObject.status.upgradeRequests.lastHandledRetry) && object.spec.upgrade.requests.retry == oldObject.status.upgradeRequests.lastHandledRetry)) &&
          ((!has(object.spec.upgrade.requests.promote) || object.spec.upgrade.requests.promote == "") ||
           (has(oldObject.status.upgradeRequests) && has(oldObject.status.upgradeRequests.lastHandledPromote) && object.spec.upgrade.requests.promote == oldObject.status.upgradeRequests.lastHandledPromote)) &&
          ((!has(object.spec.upgrade.requests.rollback) || object.spec.upgrade.requests.rollback == "") ||
           (has(oldObject.status.upgradeRequests) && has(oldObject.status.upgradeRequests.lastHandledRollback) && object.spec.upgrade.requests.rollback == oldObject.status.upgradeRequests.lastHandledRollback)))
     - name: requested_image
-      expression: >-
+      expression: |-
         has(object.spec.image) ? object.spec.image : ""
     - name: previous_image
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.spec.image) ? oldObject.spec.image : ""
     - name: requested_runtime_restart
-      expression: >-
+      expression: |-
         has(object.spec.runtime) && has(object.spec.runtime.restartAt) ? object.spec.runtime.restartAt : ""
     - name: previous_runtime_restart
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.spec.runtime) && has(oldObject.spec.runtime.restartAt) ? oldObject.spec.runtime.restartAt : ""
     - name: requested_read_replicas
-      expression: >-
+      expression: |-
         has(object.spec.readReplicas) ? object.spec.readReplicas.replicas : 0
     - name: previous_read_replicas
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.spec.readReplicas) ? oldObject.spec.readReplicas.replicas : 0
     - name: has_pre_upgrade_snapshot
       expression: has(object.spec.upgrade) && has(object.spec.upgrade.preUpgradeSnapshot) && object.spec.upgrade.preUpgradeSnapshot == true
     - name: has_bluegreen_pre_upgrade_snapshot
       expression: has(object.spec.upgrade) && has(object.spec.upgrade.blueGreen) && has(object.spec.upgrade.blueGreen.preUpgradeSnapshot) && object.spec.upgrade.blueGreen.preUpgradeSnapshot == true
     - name: backup_endpoint
-      expression: >-
+      expression: |-
         variables.has_backup && has(object.spec.backup.target.endpoint) ? object.spec.backup.target.endpoint.trim() : ""
     - name: backup_endpoint_is_set
       expression: variables.backup_endpoint != ""
     - name: backup_endpoint_is_url
-      expression: >-
+      expression: |-
         !variables.backup_endpoint_is_set || isURL(variables.backup_endpoint)
     - name: backup_endpoint_scheme
-      expression: >-
+      expression: |-
         variables.backup_endpoint_is_set && variables.backup_endpoint_is_url ? url(variables.backup_endpoint).getScheme().lowerAscii() : ""
     - name: backup_endpoint_hostname
-      expression: >-
+      expression: |-
         variables.backup_endpoint_is_set && variables.backup_endpoint_is_url ? url(variables.backup_endpoint).getHostname().lowerAscii() : ""
     - name: backup_endpoint_hostname_normalized
-      expression: >-
+      expression: |-
         variables.backup_endpoint_hostname.endsWith(".") ? variables.backup_endpoint_hostname.substring(0, size(variables.backup_endpoint_hostname) - 1) : variables.backup_endpoint_hostname
     - name: backup_endpoint_host_is_ip
-      expression: >-
+      expression: |-
         variables.backup_endpoint_hostname_normalized != "" && isIP(variables.backup_endpoint_hostname_normalized)
     - name: backup_endpoint_host_is_ambiguous_ip
-      expression: >-
-        variables.backup_endpoint_hostname_normalized != "" &&
-        !variables.backup_endpoint_host_is_ip &&
-        (variables.backup_endpoint_hostname_normalized.matches("^(0x[0-9a-f]+|[0-9]+)(\\.(0x[0-9a-f]+|[0-9]+)){0,3}$") ||
+      expression: |-
+        variables.backup_endpoint_hostname_normalized != "" && !variables.backup_endpoint_host_is_ip && (variables.backup_endpoint_hostname_normalized.matches("^(0x[0-9a-f]+|[0-9]+)(\\.(0x[0-9a-f]+|[0-9]+)){0,3}$") ||
           variables.backup_endpoint_hostname_normalized.contains(":"))
     - name: spec_version_normalized
-      expression: >-
+      expression: |-
         object.spec.version.startsWith("v") ? object.spec.version.substring(1) : object.spec.version
     - name: spec_version_build_stripped
-      expression: >-
+      expression: |-
         variables.spec_version_normalized.contains("+") ? variables.spec_version_normalized.substring(0, variables.spec_version_normalized.indexOf("+")) : variables.spec_version_normalized
     - name: spec_version_core
-      expression: >-
+      expression: |-
         variables.spec_version_build_stripped.contains("-") ? variables.spec_version_build_stripped.substring(0, variables.spec_version_build_stripped.indexOf("-")) : variables.spec_version_build_stripped
     - name: spec_version_prerelease
-      expression: >-
+      expression: |-
         variables.spec_version_build_stripped.contains("-") ? variables.spec_version_build_stripped.substring(variables.spec_version_build_stripped.indexOf("-") + 1) : ""
     - name: spec_version_valid
-      expression: >-
+      expression: |-
         variables.spec_version_normalized.matches("^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$")
     - name: spec_version_parts
-      expression: >-
+      expression: |-
         variables.spec_version_core.split(".").map(part, int(part))
     - name: current_version_normalized
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.status) && has(oldObject.status.currentVersion) && oldObject.status.currentVersion != "" ? (oldObject.status.currentVersion.startsWith("v") ? oldObject.status.currentVersion.substring(1) : oldObject.status.currentVersion) : ""
     - name: current_version_build_stripped
-      expression: >-
+      expression: |-
         variables.current_version_normalized.contains("+") ? variables.current_version_normalized.substring(0, variables.current_version_normalized.indexOf("+")) : variables.current_version_normalized
     - name: current_version_core
-      expression: >-
+      expression: |-
         variables.current_version_build_stripped.contains("-") ? variables.current_version_build_stripped.substring(0, variables.current_version_build_stripped.indexOf("-")) : variables.current_version_build_stripped
     - name: current_version_prerelease
-      expression: >-
+      expression: |-
         variables.current_version_build_stripped.contains("-") ? variables.current_version_build_stripped.substring(variables.current_version_build_stripped.indexOf("-") + 1) : ""
     - name: current_version_valid
-      expression: >-
+      expression: |-
         variables.current_version_normalized.matches("^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$")
     - name: current_version_parts
-      expression: >-
+      expression: |-
         variables.current_version_core.split(".").map(part, int(part))
     - name: listener_key_exchange_version_supported
-      expression: >-
-        variables.spec_version_valid &&
-        (variables.spec_version_parts[0] > 2 ||
+      expression: |-
+        variables.spec_version_valid && (variables.spec_version_parts[0] > 2 ||
          (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] > 7) ||
          (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] == 7 &&
           (variables.spec_version_parts[2] > 0 || variables.spec_version_prerelease == "")))
     - name: listener_key_exchange_current_version_supported
-      expression: >-
-        variables.current_version_normalized == "" ||
-        (variables.current_version_valid &&
+      expression: |-
+        variables.current_version_normalized == "" || (variables.current_version_valid &&
          (variables.current_version_parts[0] > 2 ||
           (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] > 7) ||
           (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] == 7 &&
            (variables.current_version_parts[2] > 0 || variables.current_version_prerelease == ""))))
     - name: azure_key_vault_auth_method_version_supported
-      expression: >-
-        variables.spec_version_valid &&
-        (variables.spec_version_parts[0] > 2 ||
+      expression: |-
+        variables.spec_version_valid && (variables.spec_version_parts[0] > 2 ||
          (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] > 6) ||
          (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] == 6 &&
           (variables.spec_version_parts[2] > 0 || variables.spec_version_prerelease == "")))
     - name: azure_key_vault_auth_method_current_version_supported
-      expression: >-
-        variables.current_version_normalized == "" ||
-        (variables.current_version_valid &&
+      expression: |-
+        variables.current_version_normalized == "" || (variables.current_version_valid &&
          (variables.current_version_parts[0] > 2 ||
           (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] > 6) ||
           (variables.current_version_parts[0] == 2 && variables.current_version_parts[1] == 6 &&
            (variables.current_version_parts[2] > 0 || variables.current_version_prerelease == ""))))
     - name: self_init_request_controls_version_supported
-      expression: >-
-        variables.spec_version_valid &&
-        (variables.spec_version_parts[0] > 2 ||
+      expression: |-
+        variables.spec_version_valid && (variables.spec_version_parts[0] > 2 ||
          (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] > 6) ||
          (variables.spec_version_parts[0] == 2 && variables.spec_version_parts[1] == 6 &&
           (variables.spec_version_parts[2] > 0 || variables.spec_version_prerelease == "")))
     - name: rolling_target_version_normalized
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.status) && has(oldObject.status.upgrade) && has(oldObject.status.upgrade.targetVersion) && oldObject.status.upgrade.targetVersion != "" ? (oldObject.status.upgrade.targetVersion.startsWith("v") ? oldObject.status.upgrade.targetVersion.substring(1) : oldObject.status.upgrade.targetVersion) : ""
     - name: rolling_target_version_build_stripped
-      expression: >-
+      expression: |-
         variables.rolling_target_version_normalized.contains("+") ? variables.rolling_target_version_normalized.substring(0, variables.rolling_target_version_normalized.indexOf("+")) : variables.rolling_target_version_normalized
     - name: rolling_target_version_core
-      expression: >-
+      expression: |-
         variables.rolling_target_version_build_stripped.contains("-") ? variables.rolling_target_version_build_stripped.substring(0, variables.rolling_target_version_build_stripped.indexOf("-")) : variables.rolling_target_version_build_stripped
     - name: rolling_target_version_prerelease
-      expression: >-
+      expression: |-
         variables.rolling_target_version_build_stripped.contains("-") ? variables.rolling_target_version_build_stripped.substring(variables.rolling_target_version_build_stripped.indexOf("-") + 1) : ""
     - name: rolling_target_version_valid
-      expression: >-
+      expression: |-
         variables.rolling_target_version_normalized.matches("^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$")
     - name: rolling_target_version_parts
-      expression: >-
+      expression: |-
         variables.rolling_target_version_core.split(".").map(part, int(part))
     - name: rolling_upgrade_progress_started
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.status) && has(oldObject.status.upgrade) && (oldObject.status.upgrade.currentPartition < oldObject.spec.replicas || (has(oldObject.status.upgrade.completedPods) && size(oldObject.status.upgrade.completedPods) > 0))
     - name: custom_executables_authorized
-      expression: >-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecustomexecutables").allowed() ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usehelperimages").allowed()
+      expression: |-
+        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecustomexecutables").allowed() || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usehelperimages").allowed()
     - name: image_trust_roots_authorized
-      expression: >-
+      expression: |-
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("useimagetrustroots").allowed()
     - name: cloud_identities_authorized
-      expression: >-
+      expression: |-
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecloudidentities").allowed()
     - name: network_publication_authorized
-      expression: >-
+      expression: |-
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("publishnetworking").allowed()
     - name: has_network_publication_controls
-      expression: >-
+      expression: |-
         (
           has(object.spec.service) &&
           (
             (has(object.spec.service.type) && object.spec.service.type != "" && object.spec.service.type != "ClusterIP") ||
             (has(object.spec.service.annotations) && size(object.spec.service.annotations) > 0)
           )
-        ) ||
-        (
+        ) || (
           has(object.spec.readReplicas) &&
           has(object.spec.readReplicas.service) &&
           has(object.spec.readReplicas.service.enabled) &&
@@ -332,15 +301,13 @@ spec:
             (has(object.spec.readReplicas.service.type) && object.spec.readReplicas.service.type != "" && object.spec.readReplicas.service.type != "ClusterIP") ||
             (has(object.spec.readReplicas.service.annotations) && size(object.spec.readReplicas.service.annotations) > 0)
           )
-        ) ||
-        (
+        ) || (
           has(object.spec.ingress) &&
           (
             (has(object.spec.ingress.enabled) && object.spec.ingress.enabled == true) ||
             (has(object.spec.ingress.annotations) && size(object.spec.ingress.annotations) > 0)
           )
-        ) ||
-        (
+        ) || (
           has(object.spec.gateway) &&
           (
             (has(object.spec.gateway.enabled) && object.spec.gateway.enabled == true) ||
@@ -348,7 +315,7 @@ spec:
           )
         )
     - name: has_main_workload_cloud_identity_metadata
-      expression: >-
+      expression: |-
         (has(object.spec.serviceAccount) &&
           has(object.spec.serviceAccount.annotations) &&
           size(object.spec.serviceAccount.annotations) > 0) ||
@@ -366,11 +333,8 @@ spec:
                 key == "aadpodidbinding"))
           ))
     - name: has_read_replica_cloud_identity_metadata
-      expression: >-
-        has(object.spec.readReplicas) &&
-        has(object.spec.readReplicas.template) &&
-        has(object.spec.readReplicas.template.metadata) &&
-        (
+      expression: |-
+        has(object.spec.readReplicas) && has(object.spec.readReplicas.template) && has(object.spec.readReplicas.template.metadata) && (
           (has(object.spec.readReplicas.template.metadata.annotations) &&
             object.spec.readReplicas.template.metadata.annotations.exists(key,
               key.startsWith("eks.amazonaws.com/") ||
@@ -383,15 +347,13 @@ spec:
               key == "aadpodidbinding"))
         )
     - name: effective_backup_s3_role_arn
-      expression: >-
-        !has(object.spec.backup) ? "" :
-        (has(object.spec.backup.target.s3) && has(object.spec.backup.target.s3.roleArn)
+      expression: |-
+        !has(object.spec.backup) ? "" : (has(object.spec.backup.target.s3) && has(object.spec.backup.target.s3.roleArn)
           ? object.spec.backup.target.s3.roleArn.trim()
           : (has(object.spec.backup.target.roleArn) ? object.spec.backup.target.roleArn.trim() : ""))
     - name: has_backup_cloud_identity_metadata
-      expression: >-
-        has(object.spec.backup) &&
-        (
+      expression: |-
+        has(object.spec.backup) && (
           (variables.backup_target_uses_s3 && variables.effective_backup_s3_role_arn != "") ||
           (has(object.spec.backup.target.workloadIdentity) &&
             (
@@ -402,19 +364,14 @@ spec:
             ))
         )
     - name: has_unseal_workload_identity
-      expression: >-
-        has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) &&
-        has(object.spec.unseal.azureKeyVault.workloadIdentity)
+      expression: |-
+        has(object.spec.unseal) && has(object.spec.unseal.azureKeyVault) && has(object.spec.unseal.azureKeyVault.workloadIdentity)
     - name: has_cloud_identity_metadata
-      expression: >-
-        variables.has_main_workload_cloud_identity_metadata ||
-        variables.has_read_replica_cloud_identity_metadata ||
-        variables.has_backup_cloud_identity_metadata ||
-        variables.has_unseal_workload_identity
+      expression: |-
+        variables.has_main_workload_cloud_identity_metadata || variables.has_read_replica_cloud_identity_metadata || variables.has_backup_cloud_identity_metadata || variables.has_unseal_workload_identity
     - name: has_custom_main_image_trust_roots
-      expression: >-
-        has(object.spec.imageVerification) &&
-        (
+      expression: |-
+        has(object.spec.imageVerification) && (
           (has(object.spec.imageVerification.publicKey) && object.spec.imageVerification.publicKey.trim() != "") ||
           (has(object.spec.imageVerification.issuer) && object.spec.imageVerification.issuer.trim() != "") ||
           (has(object.spec.imageVerification.subject) && object.spec.imageVerification.subject.trim() != "") ||
@@ -423,9 +380,8 @@ spec:
           (has(object.spec.imageVerification.ignoreTlog) && object.spec.imageVerification.ignoreTlog == true)
         )
     - name: has_custom_operator_image_trust_roots
-      expression: >-
-        has(object.spec.operatorImageVerification) &&
-        (
+      expression: |-
+        has(object.spec.operatorImageVerification) && (
           (has(object.spec.operatorImageVerification.publicKey) && object.spec.operatorImageVerification.publicKey.trim() != "") ||
           (has(object.spec.operatorImageVerification.issuer) && object.spec.operatorImageVerification.issuer.trim() != "") ||
           (has(object.spec.operatorImageVerification.subject) && object.spec.operatorImageVerification.subject.trim() != "") ||
@@ -434,10 +390,8 @@ spec:
           (has(object.spec.operatorImageVerification.ignoreTlog) && object.spec.operatorImageVerification.ignoreTlog == true)
         )
     - name: requested_below_current_version
-      expression: >-
-        variables.current_version_valid &&
-        variables.spec_version_valid &&
-        (
+      expression: |-
+        variables.current_version_valid && variables.spec_version_valid && (
           variables.spec_version_parts[0] < variables.current_version_parts[0] ||
           (variables.spec_version_parts[0] == variables.current_version_parts[0] &&
             (
@@ -459,11 +413,8 @@ spec:
           )
         )
     - name: requested_below_rolling_target
-      expression: >-
-        variables.rolling_upgrade_progress_started &&
-        variables.rolling_target_version_valid &&
-        variables.spec_version_valid &&
-        (
+      expression: |-
+        variables.rolling_upgrade_progress_started && variables.rolling_target_version_valid && variables.spec_version_valid && (
           variables.spec_version_parts[0] < variables.rolling_target_version_parts[0] ||
           (variables.spec_version_parts[0] == variables.rolling_target_version_parts[0] &&
             (
@@ -485,9 +436,8 @@ spec:
           )
         )
     - name: has_restore_target_cloud_identity_metadata
-      expression: >-
-        has(object.spec.backup) && has(object.spec.backup.restoreTest) && (
-        (has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault) &&
+      expression: |-
+        has(object.spec.backup) && has(object.spec.backup.restoreTest) && ( (has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault) &&
           has(object.spec.backup.restoreTest.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||
         (has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) &&
           has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) && size(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.annotations) > 0) ||
@@ -499,97 +449,71 @@ spec:
             key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
   validations:
     # A static key source change remounts a different key and leaves Pods sealed.
-    - expression: >-
-        request.operation != 'UPDATE' || !variables.old_static_unseal || !variables.new_static_unseal ||
-        variables.old_unseal_secret == variables.new_unseal_secret
+    - expression: |-
+        request.operation != 'UPDATE' || !variables.old_static_unseal || !variables.new_static_unseal || variables.old_unseal_secret == variables.new_unseal_secret
       message: "spec.unseal.credentialsSecretRef cannot be added, changed, or removed on a static-unseal cluster; a different key source would leave OpenBao sealed."
 
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        !variables.has_restore_target_cloud_identity_metadata ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
       message: "Restore target workload identities require destination cloud identity delegation."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) || !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name) ||
-        object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name.trim() == '' ||
-        authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name).check("use").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount) || !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name) || object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name.trim() == '' || authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.clusterTemplate.serviceAccount.name).check("use").allowed()
       message: "Restore targets require use authority for their destination ServiceAccount."
-    - expression: >-
-        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) ||
-        !object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) || !object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")
       message: "Restore target unseal credentials must not reference operator-managed system Secrets; prepare a separate destination Secret."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        authorizer.group("openbao.org").resource("openbaorestores").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaorestores").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
       message: "Restore testing requires create authority for destination openbaorestores."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()
       message: "Restore testing requires create authority for destination openbaoclusters."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("restore").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("restore").allowed()
       message: "Restore testing requires restore authority for destination openbaoclusters."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) ||
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) ||
           authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef.name).check("get").allowed()
       message: "Restore testing requires access to the destination unseal credential Secret."
-    - expression: >-
-        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.credentialsSecretRef) ||
-        authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.credentialsSecretRef.name).check("get").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.credentialsSecretRef) || authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.credentialsSecretRef.name).check("get").allowed()
       message: "Restore testing requires access to destination storage credentials."
-    - expression: >-
-        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.imagePullSecrets) ||
-        object.spec.backup.restoreTest.clusterTemplate.imagePullSecrets.all(ref, authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(ref.name).check("get").allowed())
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.imagePullSecrets) || object.spec.backup.restoreTest.clusterTemplate.imagePullSecrets.all(ref, authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(ref.name).check("get").allowed())
       message: "Restore testing requires access to destination image pull Secrets."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecustomexecutables").allowed() ||
-        ((!has(object.spec.backup.image) || object.spec.backup.image == '') &&
+    - expression: |-
+        !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecustomexecutables").allowed() || ((!has(object.spec.backup.image) || object.spec.backup.image == '') &&
           (!has(object.spec.backup.restoreTest.clusterTemplate.image) || object.spec.backup.restoreTest.clusterTemplate.image == '') &&
           (!has(object.spec.backup.restoreTest.clusterTemplate.initContainer) || !has(object.spec.backup.restoreTest.clusterTemplate.initContainer.image) || object.spec.backup.restoreTest.clusterTemplate.initContainer.image == '') &&
           (!has(object.spec.backup.restoreTest.clusterTemplate.plugins) || object.spec.backup.restoreTest.clusterTemplate.plugins.all(p, (!has(p.image) || p.image == '') && (!has(p.command) || p.command == ''))))
       message: "Custom restore test images require destination executable delegation."
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        ((!has(object.spec.backup.restoreTest.roleArn) || object.spec.backup.restoreTest.roleArn == '') && !has(object.spec.backup.restoreTest.workloadIdentity)) ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || ((!has(object.spec.backup.restoreTest.roleArn) || object.spec.backup.restoreTest.roleArn == '') && !has(object.spec.backup.restoreTest.workloadIdentity)) || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()
       message: "Restore test workload identities require destination cloud identity delegation."
 
-    - expression: >-
-        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.serviceAccountName) ||
-        authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.serviceAccountName).check("use").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.serviceAccountName) || authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.serviceAccountName).check("use").allowed()
       message: "Restore test executors require use authority for their existing destination ServiceAccount."
 
-    - expression: >-
-        !variables.restore_test_authorization_required ||
-        !has(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName) ||
-        object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName.trim() == '' ||
-        authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()
+    - expression: |-
+        !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName) || object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName.trim() == '' || authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()
       message: "Restore testing requires use authority for the destination StorageClass."
 
-    - expression: >-
-        request.operation != "CREATE" ||
-        (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
+    - expression: |-
+        request.operation != "CREATE" || (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
       message: "spec.controllerJWTMode is required to be Target when creating a cluster"
-    - expression: >-
-        !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" ||
-        (has(object.spec.selfInit) && object.spec.selfInit.enabled &&
+    - expression: |-
+        !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" || (has(object.spec.selfInit) && object.spec.selfInit.enabled &&
          has(object.spec.selfInit.oidc) && object.spec.selfInit.oidc.enabled)
       message: "spec.controllerJWTMode Target requires spec.selfInit.enabled and spec.selfInit.oidc.enabled"
-    - expression: >-
-        oldObject == null || !has(oldObject.spec.controllerJWTMode) || oldObject.spec.controllerJWTMode != "Target" ||
-        (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
+    - expression: |-
+        oldObject == null || !has(oldObject.spec.controllerJWTMode) || oldObject.spec.controllerJWTMode != "Target" || (has(object.spec.controllerJWTMode) && object.spec.controllerJWTMode == "Target")
       message: "spec.controllerJWTMode cannot be downgraded or removed after selecting Target"
-    - expression: >-
+    - expression: |-
         has(object.spec.profile)
       message: spec.profile is required and must be explicitly set to Hardened or Development.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        (object.spec.tls.enabled == true &&
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || (object.spec.tls.enabled == true &&
           object.spec.tls.mode in ["External", "ACME"] &&
           has(object.spec.unseal) &&
           object.spec.unseal.type != "static" &&
@@ -597,65 +521,29 @@ spec:
           object.spec.selfInit.enabled == true &&
           !(has(object.spec.unseal.transit) && has(object.spec.unseal.transit.tlsSkipVerify) && object.spec.unseal.transit.tlsSkipVerify == true))
       message: Hardened profile requires TLS enabled with mode External or ACME, an external unseal (non-static), self-init enabled, and disallows tlsSkipVerify=true in seal configuration.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.transit) ||
-        !has(object.spec.unseal.transit.token) ||
-        size(object.spec.unseal.transit.token) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.unseal) || !has(object.spec.unseal.transit) || !has(object.spec.unseal.transit.token) || size(object.spec.unseal.transit.token) == 0
       message: Hardened profile does not allow spec.unseal.transit.token; use spec.unseal.credentialsSecretRef instead.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.awskms) ||
-        !has(object.spec.unseal.awskms.secretKey) ||
-        size(object.spec.unseal.awskms.secretKey) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.unseal) || !has(object.spec.unseal.awskms) || !has(object.spec.unseal.awskms.secretKey) || size(object.spec.unseal.awskms.secretKey) == 0
       message: Hardened profile does not allow spec.unseal.awskms.secretKey; use spec.unseal.credentialsSecretRef or workload identity instead.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.awskms) ||
-        !has(object.spec.unseal.awskms.sessionToken) ||
-        size(object.spec.unseal.awskms.sessionToken) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.unseal) || !has(object.spec.unseal.awskms) || !has(object.spec.unseal.awskms.sessionToken) || size(object.spec.unseal.awskms.sessionToken) == 0
       message: Hardened profile does not allow spec.unseal.awskms.sessionToken; use spec.unseal.credentialsSecretRef or workload identity instead.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.azureKeyVault) ||
-        !has(object.spec.unseal.azureKeyVault.clientSecret) ||
-        size(object.spec.unseal.azureKeyVault.clientSecret) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.unseal) || !has(object.spec.unseal.azureKeyVault) || !has(object.spec.unseal.azureKeyVault.clientSecret) || size(object.spec.unseal.azureKeyVault.clientSecret) == 0
       message: Hardened profile does not allow spec.unseal.azureKeyVault.clientSecret; use spec.unseal.credentialsSecretRef or managed identity instead.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.pkcs11) ||
-        !has(object.spec.unseal.pkcs11.pin) ||
-        size(object.spec.unseal.pkcs11.pin) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.unseal) || !has(object.spec.unseal.pkcs11) || !has(object.spec.unseal.pkcs11.pin) || size(object.spec.unseal.pkcs11.pin) == 0
       message: Hardened profile does not allow spec.unseal.pkcs11.pin; use spec.unseal.credentialsSecretRef instead.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.kms) ||
-        !has(object.spec.unseal.kms.config) ||
-        size(object.spec.unseal.kms.config) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.unseal) || !has(object.spec.unseal.kms) || !has(object.spec.unseal.kms.config) || size(object.spec.unseal.kms.config) == 0
       message: Hardened profile does not allow non-empty spec.unseal.kms.config; use spec.unseal.credentialsSecretRef instead.
-    - expression: >-
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.transit) ||
-        !has(object.spec.unseal.transit.address) ||
-        object.spec.unseal.transit.address.startsWith("https://")
+    - expression: |-
+        !has(object.spec.unseal) || !has(object.spec.unseal.transit) || !has(object.spec.unseal.transit.address) || object.spec.unseal.transit.address.startsWith("https://")
       message: Transit unseal address must use HTTPS.
-    - expression: >-
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.transit) ||
-        !has(object.spec.unseal.transit.address) ||
-        !(
+    - expression: |-
+        !has(object.spec.unseal) || !has(object.spec.unseal.transit) || !has(object.spec.unseal.transit.address) || !(
           object.spec.unseal.transit.address.contains("@") ||
           object.spec.unseal.transit.address.contains("?") ||
           object.spec.unseal.transit.address.contains("#") ||
@@ -667,142 +555,79 @@ spec:
           object.spec.unseal.transit.address.matches("^https://[0-9]+([:/?#].*)?$")
         )
       message: Transit unseal address must not include userinfo, query, fragment, localhost, loopback, link-local, or numeric host forms.
-    - expression: >-
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.transit) ||
-        ((has(object.spec.unseal.transit.tlsClientCert) && size(object.spec.unseal.transit.tlsClientCert) > 0) ==
+    - expression: |-
+        !has(object.spec.unseal) || !has(object.spec.unseal.transit) || ((has(object.spec.unseal.transit.tlsClientCert) && size(object.spec.unseal.transit.tlsClientCert) > 0) ==
           (has(object.spec.unseal.transit.tlsClientKey) && size(object.spec.unseal.transit.tlsClientKey) > 0))
       message: spec.unseal.transit.tlsClientCert and spec.unseal.transit.tlsClientKey must be set together.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.imageVerification) ||
-        object.spec.imageVerification.enabled == true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.imageVerification) || object.spec.imageVerification.enabled == true
       message: Hardened profile does not allow spec.imageVerification.enabled=false.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.operatorImageVerification) ||
-        object.spec.operatorImageVerification.enabled == true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.operatorImageVerification) || object.spec.operatorImageVerification.enabled == true
       message: Hardened profile does not allow spec.operatorImageVerification.enabled=false.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.imageVerification) ||
-        !has(object.spec.imageVerification.failurePolicy) ||
-        object.spec.imageVerification.failurePolicy != "Warn"
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.imageVerification) || !has(object.spec.imageVerification.failurePolicy) || object.spec.imageVerification.failurePolicy != "Warn"
       message: Hardened profile does not allow spec.imageVerification.failurePolicy=Warn.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.operatorImageVerification) ||
-        !has(object.spec.operatorImageVerification.failurePolicy) ||
-        object.spec.operatorImageVerification.failurePolicy != "Warn"
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.operatorImageVerification) || !has(object.spec.operatorImageVerification.failurePolicy) || object.spec.operatorImageVerification.failurePolicy != "Warn"
       message: Hardened profile does not allow spec.operatorImageVerification.failurePolicy=Warn.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.securityContext) ||
-        !has(object.spec.securityContext.runAsNonRoot) ||
-        object.spec.securityContext.runAsNonRoot == true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.securityContext) || !has(object.spec.securityContext.runAsNonRoot) || object.spec.securityContext.runAsNonRoot == true
       message: Hardened profile does not allow spec.securityContext.runAsNonRoot=false.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.securityContext) ||
-        !has(object.spec.securityContext.seccompProfile) ||
-        !has(object.spec.securityContext.seccompProfile.type) ||
-        object.spec.securityContext.seccompProfile.type != "Unconfined"
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.securityContext) || !has(object.spec.securityContext.seccompProfile) || !has(object.spec.securityContext.seccompProfile.type) || object.spec.securityContext.seccompProfile.type != "Unconfined"
       message: Hardened profile does not allow spec.securityContext.seccompProfile.type=Unconfined.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.securityContext) ||
-        ((!has(object.spec.securityContext.runAsUser) || object.spec.securityContext.runAsUser != 0) &&
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.securityContext) || ((!has(object.spec.securityContext.runAsUser) || object.spec.securityContext.runAsUser != 0) &&
           (!has(object.spec.securityContext.runAsGroup) || object.spec.securityContext.runAsGroup != 0) &&
           (!has(object.spec.securityContext.fsGroup) || object.spec.securityContext.fsGroup != 0))
       message: Hardened profile does not allow root UID/GID overrides in spec.securityContext.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.securityContext) ||
-        !has(object.spec.securityContext.supplementalGroups) ||
-        object.spec.securityContext.supplementalGroups.all(group, group != 0)
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.securityContext) || !has(object.spec.securityContext.supplementalGroups) || object.spec.securityContext.supplementalGroups.all(group, group != 0)
       message: Hardened profile does not allow root supplemental groups in spec.securityContext.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.securityContext) ||
-        !has(object.spec.securityContext.sysctls) ||
-        size(object.spec.securityContext.sysctls) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.securityContext) || !has(object.spec.securityContext.sysctls) || size(object.spec.securityContext.sysctls) == 0
       message: Hardened profile does not allow pod sysctl overrides in spec.securityContext.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.securityContext) ||
-        !has(object.spec.securityContext.windowsOptions)
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.securityContext) || !has(object.spec.securityContext.windowsOptions)
       message: Hardened profile does not allow Windows pod security options in spec.securityContext.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.configuration) ||
-        !has(object.spec.configuration.listener) ||
-        !has(object.spec.configuration.listener.tlsDisable) ||
-        object.spec.configuration.listener.tlsDisable != true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.configuration) || !has(object.spec.configuration.listener) || !has(object.spec.configuration.listener.tlsDisable) || object.spec.configuration.listener.tlsDisable != true
       message: Hardened profile does not allow spec.configuration.listener.tlsDisable=true.
-    - expression: >-
-        !variables.has_listener_proxy_authorization ||
-        (has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) &&
+    - expression: |-
+        !variables.has_listener_proxy_authorization || (has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) &&
          size(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) > 0)
       message: "spec.configuration.listener.proxyProtocolAuthorizedAddrs is required for allow_authorized and deny_unauthorized."
-    - expression: >-
-        !has(object.spec.configuration) || !has(object.spec.configuration.listener) ||
-        !has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) ||
-        object.spec.configuration.listener.proxyProtocolAuthorizedAddrs.all(addr, isIP(addr) || isCIDR(addr))
+    - expression: |-
+        !has(object.spec.configuration) || !has(object.spec.configuration.listener) || !has(object.spec.configuration.listener.proxyProtocolAuthorizedAddrs) || object.spec.configuration.listener.proxyProtocolAuthorizedAddrs.all(addr, isIP(addr) || isCIDR(addr))
       message: "spec.configuration.listener.proxyProtocolAuthorizedAddrs entries must be IP addresses or CIDRs."
-    - expression: >-
-        !variables.has_listener_tls_policy ||
-        (object.spec.tls.enabled &&
+    - expression: |-
+        !variables.has_listener_tls_policy || (object.spec.tls.enabled &&
          (!has(object.spec.configuration.listener.tlsDisable) || object.spec.configuration.listener.tlsDisable != true))
       message: "spec.configuration.listener TLS policy requires TLS enabled and tlsDisable!=true."
-    - expression: >-
-        !variables.has_listener_tls_policy ||
-        !has(object.spec.configuration.listener.tlsMinVersion) ||
-        !has(object.spec.configuration.listener.tlsMaxVersion) ||
-        object.spec.configuration.listener.tlsMinVersion != 'tls13' ||
-        object.spec.configuration.listener.tlsMaxVersion != 'tls12'
+    - expression: |-
+        !variables.has_listener_tls_policy || !has(object.spec.configuration.listener.tlsMinVersion) || !has(object.spec.configuration.listener.tlsMaxVersion) || object.spec.configuration.listener.tlsMinVersion != 'tls13' || object.spec.configuration.listener.tlsMaxVersion != 'tls12'
       message: "spec.configuration.listener.tlsMaxVersion must be greater than or equal to tlsMinVersion."
-    - expression: >-
-        !variables.has_listener_key_exchange ||
-        object.spec.configuration.listener.tlsKeyExchangePreferences.exists(g, g in ['CurveP256', 'CurveP384', 'CurveP521', 'X25519']) ||
-        (has(object.spec.configuration.listener.tlsMinVersion) && object.spec.configuration.listener.tlsMinVersion == 'tls13')
+    - expression: |-
+        !variables.has_listener_key_exchange || object.spec.configuration.listener.tlsKeyExchangePreferences.exists(g, g in ['CurveP256', 'CurveP384', 'CurveP521', 'X25519']) || (has(object.spec.configuration.listener.tlsMinVersion) && object.spec.configuration.listener.tlsMinVersion == 'tls13')
       message: "spec.configuration.listener PQ-only key exchange requires tlsMinVersion=tls13."
-    - expression: >-
+    - expression: |-
         !variables.has_listener_key_exchange || variables.listener_key_exchange_version_supported
       message: "spec.configuration.listener.tlsKeyExchangePreferences requires OpenBao >= 2.7.0."
-    - expression: >-
+    - expression: |-
         !variables.has_listener_key_exchange || variables.listener_key_exchange_current_version_supported
       message: "Complete the OpenBao >= 2.7.0 upgrade before configuring spec.configuration.listener.tlsKeyExchangePreferences."
-    - expression: >-
+    - expression: |-
         !variables.has_azure_key_vault_auth_method || variables.azure_key_vault_auth_method_version_supported
       message: "spec.unseal.azureKeyVault.authMethod or workloadIdentity requires OpenBao >= 2.6.0; earlier versions ignore auth_method and select managed identity when a client ID is set."
-    - expression: >-
+    - expression: |-
         !variables.has_azure_key_vault_auth_method || variables.azure_key_vault_auth_method_current_version_supported
       message: "Complete the OpenBao >= 2.6.0 upgrade before configuring spec.unseal.azureKeyVault.authMethod or workloadIdentity."
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !variables.has_backup ||
-        !has(object.spec.backup.target.insecureSkipVerify) ||
-        object.spec.backup.target.insecureSkipVerify != true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !variables.has_backup || !has(object.spec.backup.target.insecureSkipVerify) || object.spec.backup.target.insecureSkipVerify != true
       message: Hardened profile does not allow spec.backup.target.insecureSkipVerify=true.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !variables.has_backup ||
-        (has(object.spec.backup.target.credentialsSecretRef) && object.spec.backup.target.credentialsSecretRef.name.trim() != "") ||
-        (variables.backup_target_uses_s3 && variables.effective_backup_s3_role_arn != "") ||
-        (has(object.spec.backup.target.workloadIdentity) &&
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !variables.has_backup || (has(object.spec.backup.target.credentialsSecretRef) && object.spec.backup.target.credentialsSecretRef.name.trim() != "") || (variables.backup_target_uses_s3 && variables.effective_backup_s3_role_arn != "") || (has(object.spec.backup.target.workloadIdentity) &&
           (
             (has(object.spec.backup.target.workloadIdentity.serviceAccountAnnotations) &&
               size(object.spec.backup.target.workloadIdentity.serviceAccountAnnotations) > 0) ||
@@ -810,48 +635,23 @@ spec:
               size(object.spec.backup.target.workloadIdentity.podLabels) > 0)
           ))
       message: Hardened profile does not allow backup storage to rely on ambient credentials; configure target.credentialsSecretRef, target.workloadIdentity, or target.s3.roleArn (target.roleArn for compatibility) for S3 targets.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.observability) ||
-        !has(object.spec.observability.metrics) ||
-        !has(object.spec.observability.metrics.serviceMonitor) ||
-        !has(object.spec.observability.metrics.serviceMonitor.tlsConfig) ||
-        !has(object.spec.observability.metrics.serviceMonitor.tlsConfig.insecureSkipVerify) ||
-        object.spec.observability.metrics.serviceMonitor.tlsConfig.insecureSkipVerify != true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.observability) || !has(object.spec.observability.metrics) || !has(object.spec.observability.metrics.serviceMonitor) || !has(object.spec.observability.metrics.serviceMonitor.tlsConfig) || !has(object.spec.observability.metrics.serviceMonitor.tlsConfig.insecureSkipVerify) || object.spec.observability.metrics.serviceMonitor.tlsConfig.insecureSkipVerify != true
       message: Hardened profile does not allow ServiceMonitor TLS insecureSkipVerify.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.gateway) ||
-        object.spec.gateway.enabled != true ||
-        (has(object.spec.gateway.tlsPassthrough) && object.spec.gateway.tlsPassthrough == true) ||
-        !has(object.spec.gateway.backendTLS) ||
-        !has(object.spec.gateway.backendTLS.enabled) ||
-        object.spec.gateway.backendTLS.enabled == true
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.gateway) || object.spec.gateway.enabled != true || (has(object.spec.gateway.tlsPassthrough) && object.spec.gateway.tlsPassthrough == true) || !has(object.spec.gateway.backendTLS) || !has(object.spec.gateway.backendTLS.enabled) || object.spec.gateway.backendTLS.enabled == true
       message: Hardened profile requires Gateway backend TLS unless spec.gateway.tlsPassthrough=true.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.configuration) ||
-        ((!has(object.spec.configuration.detectDeadlocks) || object.spec.configuration.detectDeadlocks != true) &&
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.configuration) || ((!has(object.spec.configuration.detectDeadlocks) || object.spec.configuration.detectDeadlocks != true) &&
           (!has(object.spec.configuration.rawStorageEndpoint) || object.spec.configuration.rawStorageEndpoint != true) &&
           (!has(object.spec.configuration.introspectionEndpoint) || object.spec.configuration.introspectionEndpoint != true) &&
           (!has(object.spec.configuration.unsafeAllowAPIAuditCreation) || object.spec.configuration.unsafeAllowAPIAuditCreation != true))
       message: "Hardened profile does not allow dangerous runtime flags: detectDeadlocks, rawStorageEndpoint, introspectionEndpoint, or unsafeAllowAPIAuditCreation."
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.network) ||
-        !has(object.spec.network.ingressRules) ||
-        size(object.spec.network.ingressRules) == 0
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.network) || !has(object.spec.network.ingressRules) || size(object.spec.network.ingressRules) == 0
       message: Hardened profile does not allow spec.network.ingressRules; use spec.network.trustedIngressPeers.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.network) ||
-        !has(object.spec.network.trustedIngressPeers) ||
-        object.spec.network.trustedIngressPeers.all(peer,
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.network) || !has(object.spec.network.trustedIngressPeers) || object.spec.network.trustedIngressPeers.all(peer,
           (
             (has(peer.namespaceSelector) &&
               ((has(peer.namespaceSelector.matchLabels) && size(peer.namespaceSelector.matchLabels) > 0) ||
@@ -882,12 +682,8 @@ spec:
                 cidr(peer.ipBlock.cidr).containsCIDR("fe80::/10") ||
                 cidr("fe80::/10").containsCIDR(cidr(peer.ipBlock.cidr))))))
       message: Hardened profile requires spec.network.trustedIngressPeers entries to select explicit non-wildcard sources.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !has(object.spec.network) ||
-        !has(object.spec.network.egressRules) ||
-        object.spec.network.egressRules.all(rule,
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !has(object.spec.network) || !has(object.spec.network.egressRules) || object.spec.network.egressRules.all(rule,
           has(rule.to) &&
           size(rule.to) > 0 &&
           has(rule.ports) &&
@@ -924,55 +720,44 @@ spec:
                   cidr(peer.ipBlock.cidr).containsCIDR("fe80::/10") ||
                   cidr("fe80::/10").containsCIDR(cidr(peer.ipBlock.cidr)))))))
       message: Hardened profile requires spec.network.egressRules entries to be port-scoped and target explicit non-wildcard peers.
-    - expression: >-
-        !has(object.spec.initContainer) ||
-        object.spec.initContainer.enabled == true
+    - expression: |-
+        !has(object.spec.initContainer) || object.spec.initContainer.enabled == true
       message: spec.initContainer is optional; when set, spec.initContainer.enabled must be true.
-    - expression: >-
-        !has(object.spec.selfInit) ||
-        object.spec.selfInit.enabled == false ||
-        (has(object.spec.selfInit.requests) && size(object.spec.selfInit.requests) > 0)
+    - expression: |-
+        !has(object.spec.selfInit) || object.spec.selfInit.enabled == false || (has(object.spec.selfInit.requests) && size(object.spec.selfInit.requests) > 0)
       message: spec.selfInit.requests is required and must not be empty when spec.selfInit.enabled is true.
-    - expression: >-
+    - expression: |-
         !variables.has_self_init_request_controls || variables.self_init_request_controls_version_supported
       message: "spec.selfInit.requests headers and when require OpenBao >= 2.6.0."
-    - expression: >-
-        !has(object.spec.selfInit) || object.spec.selfInit.enabled == false ||
-        !has(object.spec.selfInit.requests) ||
-        object.spec.selfInit.requests.all(r, !has(r.dataFrom) || size(r.dataFrom) == 0) ||
-        variables.self_init_request_controls_version_supported
+    - expression: |-
+        !has(object.spec.selfInit) || object.spec.selfInit.enabled == false || !has(object.spec.selfInit.requests) || object.spec.selfInit.requests.all(r, !has(r.dataFrom) || size(r.dataFrom) == 0) || variables.self_init_request_controls_version_supported
       message: "spec.selfInit.requests dataFrom requires OpenBao >= 2.6.0."
-    - expression: >-
-        !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) ||
-        object.spec.selfInit.requests.all(r, !has(r.dataFrom) || size(r.dataFrom) == 0 ||
+    - expression: |-
+        !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) || object.spec.selfInit.requests.all(r, !has(r.dataFrom) || size(r.dataFrom) == 0 ||
           (!has(r.auditDevice) && !has(r.authMethod) && !has(r.secretEngine) && !has(r.policy) &&
            !r.path.matches('^/*sys/(audit|auth|mounts|policies)/') &&
            r.dataFrom.all(k, k.matches('^[A-Za-z_][A-Za-z0-9_-]*$'))))
       message: "Self-init dataFrom requires raw request payloads and field names that are valid HCL identifiers."
-    - expression: >-
+    - expression: |-
         variables.self_init_input_requests.all(r,
           r.dataFrom.all(k, r.dataFrom[k].secretKeyRef.name in variables.self_init_secret_names))
       message: "Self-init dataFrom supports at most two distinct Secrets per OpenBaoCluster."
-    - expression: >-
+    - expression: |-
         variables.self_init_input_requests.all(r,
           variables.self_init_input_requests.filter(x, x.name == r.name).size() == 1)
       message: "Self-init dataFrom requires unique source-bearing request names, including when self-init is disabled."
-    - expression: >-
-        oldObject == null ||
-        (size(variables.self_init_input_requests) == size(variables.old_self_init_input_requests) &&
+    - expression: |-
+        oldObject == null || (size(variables.self_init_input_requests) == size(variables.old_self_init_input_requests) &&
           variables.self_init_input_requests.all(r, variables.old_self_init_input_requests.exists(o,
             o.name == r.name && o.dataFrom == r.dataFrom)))
       message: "Self-init dataFrom mappings and their request names are immutable after cluster creation; repair inputs at the referenced Secret name and key."
-    - expression: >-
-        size(variables.self_init_input_requests) == 0 ||
-        (oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized) ||
-        object.spec.selfInit.enabled
+    - expression: |-
+        size(variables.self_init_input_requests) == 0 || (oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized) || object.spec.selfInit.enabled
       message: "Self-init with dataFrom must be enabled at creation and until initialization completes."
     # Secret projection delegates access to the workload. Authorize the submitter,
     # without requiring the controller to read the referenced Secret values.
-    - expression: >-
-        (variables.is_operator_controller && oldObject != null && object.spec == oldObject.spec) ||
-        (oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized &&
+    - expression: |-
+        (variables.is_operator_controller && oldObject != null && object.spec == oldObject.spec) || (oldObject != null && has(oldObject.status) && has(oldObject.status.initialized) && oldObject.status.initialized &&
           has(oldObject.spec.selfInit) && has(oldObject.spec.selfInit.requests) &&
           has(object.spec.selfInit) && has(object.spec.selfInit.requests) &&
           object.spec.selfInit.requests == oldObject.spec.selfInit.requests) ||
@@ -980,191 +765,130 @@ spec:
           authorizer.group("").resource("secrets").namespace(request.namespace).
             name(n).check("get").allowed())
       message: "Users configuring self-init dataFrom must be authorized to get every referenced Secret."
-    - expression: >-
-        !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) ||
-        object.spec.selfInit.requests.all(r, !has(r.dataFrom) || r.dataFrom.all(k,
+    - expression: |-
+        !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) || object.spec.selfInit.requests.all(r, !has(r.dataFrom) || r.dataFrom.all(k,
           !r.dataFrom[k].secretKeyRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")))
       message: "Self-init dataFrom must not reference operator system Secrets (unseal-key, root-token, tls-ca, tls-server)."
-    - expression: >-
-        !has(object.spec.selfInit) ||
-        object.spec.selfInit.enabled == false ||
-        (!has(object.spec.selfInit.requests) ||
+    - expression: |-
+        !has(object.spec.selfInit) || object.spec.selfInit.enabled == false || (!has(object.spec.selfInit.requests) ||
           (size(object.spec.selfInit.requests) <= 64 &&
             object.spec.selfInit.requests.all(r,
               object.spec.selfInit.requests.filter(x, x.name == r.name).size() == 1) &&
             object.spec.selfInit.requests.all(r, size(r.path) <= 256)))
       message: spec.selfInit.requests must have unique names (max 64) and request paths must be <= 256 characters.
-    - expression: >-
-        !has(object.spec.selfInit) ||
-        !has(object.spec.selfInit.oidc) ||
-        object.spec.selfInit.oidc.enabled == false ||
-        object.spec.selfInit.enabled == true
+    - expression: |-
+        !has(object.spec.selfInit) || !has(object.spec.selfInit.oidc) || object.spec.selfInit.oidc.enabled == false || object.spec.selfInit.enabled == true
       message: spec.selfInit.oidc.enabled requires spec.selfInit.enabled to be true.
-    - expression: >-
-        !has(object.spec.gateway) ||
-        object.spec.gateway.enabled == false ||
-        (object.spec.gateway.hostname != "" && object.spec.gateway.gatewayRef.name != "")
+    - expression: |-
+        !has(object.spec.gateway) || object.spec.gateway.enabled == false || (object.spec.gateway.hostname != "" && object.spec.gateway.gatewayRef.name != "")
       message: spec.gateway.hostname and spec.gateway.gatewayRef.name are required when Gateway is enabled.
-    - expression: >-
-        !has(object.spec.ingress) ||
-        !has(object.spec.ingress.enabled) ||
-        object.spec.ingress.enabled == false ||
-        (has(object.spec.network) &&
+    - expression: |-
+        !has(object.spec.ingress) || !has(object.spec.ingress.enabled) || object.spec.ingress.enabled == false || (has(object.spec.network) &&
           has(object.spec.network.trustedIngressPeers) &&
           size(object.spec.network.trustedIngressPeers) > 0)
       message: spec.ingress.enabled requires at least one spec.network.trustedIngressPeers entry so NetworkPolicy ingress remains source-scoped.
-    - expression: >-
-        !(variables.has_pre_upgrade_snapshot || variables.has_bluegreen_pre_upgrade_snapshot) ||
-        variables.has_backup
+    - expression: |-
+        !(variables.has_pre_upgrade_snapshot || variables.has_bluegreen_pre_upgrade_snapshot) || variables.has_backup
       message: spec.backup is required when pre-upgrade snapshots are enabled (spec.upgrade.preUpgradeSnapshot or spec.upgrade.blueGreen.preUpgradeSnapshot).
-    - expression: >-
-        !variables.has_backup ||
-        (object.spec.backup.schedule != "" &&
+    - expression: |-
+        !variables.has_backup || (object.spec.backup.schedule != "" &&
           ((has(object.spec.backup.jwtAuthRole) && object.spec.backup.jwtAuthRole != "") || has(object.spec.backup.tokenSecretRef) || ((!has(object.spec.backup.jwtAuthRole) || object.spec.backup.jwtAuthRole == "") && has(object.spec.selfInit) && object.spec.selfInit.enabled == true && has(object.spec.selfInit.oidc) && object.spec.selfInit.oidc.enabled == true)) &&
           object.spec.backup.schedule.matches("^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$"))
       message: spec.backup requires schedule, OpenBao auth (jwtAuthRole or tokenSecretRef, or self-init OIDC bootstrap enabled when jwtAuthRole is empty/unset for auto-creation of "openbao-operator-backup" role), and a 5-field cron expression. Hardened profile requires explicit storage credentials via target.credentialsSecretRef, target.workloadIdentity, or target.s3.roleArn (target.roleArn for compatibility) for S3 targets.
-    - expression: >-
-        !variables.upgrade_strategy_changed ||
-        (object.spec.version == oldObject.spec.version &&
+    - expression: |-
+        !variables.upgrade_strategy_changed || (object.spec.version == oldObject.spec.version &&
           variables.requested_image == variables.previous_image &&
           object.spec.replicas == oldObject.spec.replicas &&
           variables.requested_read_replicas == variables.previous_read_replicas &&
           object.spec.storage == oldObject.spec.storage &&
           variables.requested_runtime_restart == variables.previous_runtime_restart)
       message: "Change only spec.upgrade.strategy first; wait for the operator to accept it before changing version, image, replicas, storage, or restart controls."
-    - expression: >-
-        !variables.upgrade_strategy_changed ||
-        variables.upgrade_strategy_status_idle
+    - expression: |-
+        !variables.upgrade_strategy_changed || variables.upgrade_strategy_status_idle
       message: "spec.upgrade.strategy can change only while the cluster is initialized, healthy, fully ready, at spec.version, and no upgrade, backup/restore lock, restart/resize, BlueGreen phase, failure, pending Green workload, or safe-mode recovery is active."
-    - expression: >-
-        !variables.upgrade_strategy_changed ||
-        variables.upgrade_requests_handled
+    - expression: |-
+        !variables.upgrade_strategy_changed || variables.upgrade_requests_handled
       message: "Finish or clear pending spec.upgrade.requests before changing spec.upgrade.strategy."
-    - expression: >-
-        !variables.upgrade_strategy_changed ||
-        variables.requested_upgrade_strategy != "BlueGreen" ||
-        ((has(object.spec.upgrade.jwtAuthRole) && object.spec.upgrade.jwtAuthRole.trim() != "") ||
+    - expression: |-
+        !variables.upgrade_strategy_changed || variables.requested_upgrade_strategy != "BlueGreen" || ((has(object.spec.upgrade.jwtAuthRole) && object.spec.upgrade.jwtAuthRole.trim() != "") ||
           (has(object.spec.selfInit) && object.spec.selfInit.enabled == true && has(object.spec.selfInit.oidc) && object.spec.selfInit.oidc.enabled == true))
       message: "Switching to BlueGreen requires spec.upgrade.jwtAuthRole or the default upgrade role created by enabled spec.selfInit.oidc bootstrap."
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !(variables.has_backup || variables.has_pre_upgrade_snapshot || variables.has_bluegreen_pre_upgrade_snapshot) ||
-        (has(object.spec.network) &&
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !(variables.has_backup || variables.has_pre_upgrade_snapshot || variables.has_bluegreen_pre_upgrade_snapshot) || (has(object.spec.network) &&
           has(object.spec.network.egressRules) &&
           size(object.spec.network.egressRules) > 0)
       message: Hardened profile requires non-empty spec.network.egressRules when backups or pre-upgrade snapshots are enabled.
     # SSRF Protection: parse endpoint URL before host checks so userinfo,
     # uppercase schemes, IPv6 brackets, and encoded numeric hosts cannot bypass
     # raw string matching.
-    - expression: >-
-        !variables.backup_endpoint_is_set ||
-        (variables.backup_endpoint_is_url && variables.backup_endpoint_hostname_normalized != "")
+    - expression: |-
+        !variables.backup_endpoint_is_set || (variables.backup_endpoint_is_url && variables.backup_endpoint_hostname_normalized != "")
       message: "Backup endpoint must be a valid absolute URL with a host."
     # SSRF Protection: Block localhost endpoints (all profiles - localhost is never a valid backup target)
-    - expression: >-
-        !variables.backup_endpoint_is_set ||
-        !variables.backup_endpoint_is_url ||
-        (
+    - expression: |-
+        !variables.backup_endpoint_is_set || !variables.backup_endpoint_is_url || (
           !variables.backup_endpoint_hostname_normalized.matches("(^|.*\\.)localhost$") &&
           !variables.backup_endpoint_host_is_ambiguous_ip &&
           !(variables.backup_endpoint_host_is_ip && ip(variables.backup_endpoint_hostname_normalized).isLoopback())
         )
       message: "Backup endpoint cannot point to localhost, loopback, or use ambiguous numeric IP encoding (SSRF protection)."
     # SSRF Protection: Block link-local addresses (all profiles - cloud metadata is always dangerous)
-    - expression: >-
-        !variables.backup_endpoint_is_set ||
-        !variables.backup_endpoint_is_url ||
-        !(variables.backup_endpoint_host_is_ip && ip(variables.backup_endpoint_hostname_normalized).isLinkLocalUnicast())
+    - expression: |-
+        !variables.backup_endpoint_is_set || !variables.backup_endpoint_is_url || !(variables.backup_endpoint_host_is_ip && ip(variables.backup_endpoint_hostname_normalized).isLinkLocalUnicast())
       message: "Backup endpoint cannot point to link-local addresses (SSRF protection against cloud metadata services)."
     # SSRF Protection: Require HTTPS for Hardened profile
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !variables.backup_endpoint_is_set ||
-        (variables.backup_endpoint_is_url && variables.backup_endpoint_scheme in ["https", "s3"])
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !variables.backup_endpoint_is_set || (variables.backup_endpoint_is_url && variables.backup_endpoint_scheme in ["https", "s3"])
       message: "Backup endpoint must use HTTPS or S3 scheme in Hardened profile."
     # HA Enforcement: Hardened profile requires 3+ replicas for Raft quorum
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        object.spec.replicas >= 3
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || object.spec.replicas >= 3
       message: "Hardened profile requires at least 3 replicas for Raft quorum HA. Use Profile=Development for non-HA deployments."
     # Confused-deputy protection: CR-selected custom executables run with operator-managed identities,
     # OpenBao runtime mounts, or both. Existing usehelperimages grants are accepted as a compatibility alias.
-    - expression: >-
+    - expression: |-
         (
           (!has(object.spec.initContainer) || !has(object.spec.initContainer.image) || object.spec.initContainer.image == "") &&
           (!has(object.spec.backup) || !has(object.spec.backup.image) || object.spec.backup.image == "") &&
           (!has(object.spec.upgrade) || !has(object.spec.upgrade.image) || object.spec.upgrade.image == "") &&
           (!has(object.spec.upgrade) || !has(object.spec.upgrade.blueGreen) || !has(object.spec.upgrade.blueGreen.verification) || !has(object.spec.upgrade.blueGreen.verification.prePromotionHook)) &&
           (!has(object.spec.plugins) || object.spec.plugins.all(p, (!has(p.image) || p.image == "") && (!has(p.command) || p.command == "")))
-        ) ||
-        variables.custom_executables_authorized
+        ) || variables.custom_executables_authorized
       message: "Users configuring CR-selected custom executables (custom init, backup, upgrade, blue/green hook, or plugin executable configuration) must be authorized to use custom executables on this OpenBaoCluster."
     # Supply-chain protection: Hardened image verification may use official defaults without extra RBAC,
     # but CR-selected trust roots require a separate delegation.
-    - expression: >-
-        !has(object.spec.profile) ||
-        object.spec.profile != "Hardened" ||
-        !(variables.has_custom_main_image_trust_roots || variables.has_custom_operator_image_trust_roots) ||
-        variables.image_trust_roots_authorized
+    - expression: |-
+        !has(object.spec.profile) || object.spec.profile != "Hardened" || !(variables.has_custom_main_image_trust_roots || variables.has_custom_operator_image_trust_roots) || variables.image_trust_roots_authorized
       message: "Users configuring custom image verification trust roots in Hardened profile must be authorized to use image trust roots on this OpenBaoCluster."
     # Reference authorization: CR authors must be authorized for every external authority
     # their manifest asks the operator, kubelet, ingress, gateway, or monitoring stack to use.
-    - expression: >-
-        variables.is_operator_controller ||
-        !variables.has_cloud_identity_metadata ||
-        variables.cloud_identities_authorized
+    - expression: |-
+        variables.is_operator_controller || !variables.has_cloud_identity_metadata || variables.cloud_identities_authorized
       message: "Users configuring workload identity annotations, labels, S3 roleArn, workloadIdentity metadata, or an Azure Key Vault seal workloadIdentity must be authorized to use cloud identities on this OpenBaoCluster."
-    - expression: >-
-        variables.is_operator_controller ||
-        !variables.has_network_publication_controls ||
-        variables.network_publication_authorized
+    - expression: |-
+        variables.is_operator_controller || !variables.has_network_publication_controls || variables.network_publication_authorized
       message: "Users configuring non-ClusterIP Services, Service/Ingress/Gateway annotations, or managed Ingress/Gateway exposure must be authorized to publish networking for this OpenBaoCluster."
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.serviceAccount) ||
-        !has(object.spec.serviceAccount.name) ||
-        object.spec.serviceAccount.name.trim() == "" ||
-        authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccount.name).check("use").allowed()
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.serviceAccount) || !has(object.spec.serviceAccount.name) || object.spec.serviceAccount.name.trim() == "" || authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccount.name).check("use").allowed()
       message: "Users configuring spec.serviceAccount.name must be authorized to use that ServiceAccount."
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.imagePullSecrets) ||
-        object.spec.imagePullSecrets.all(secretRef,
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.imagePullSecrets) || object.spec.imagePullSecrets.all(secretRef,
           authorizer.group("").resource("secrets").namespace(request.namespace).name(secretRef.name).check("use").allowed() ||
           authorizer.group("").resource("secrets").namespace(request.namespace).name(secretRef.name).check("get").allowed())
       message: "Users configuring spec.imagePullSecrets must be authorized to use referenced image pull Secrets, or get those Secrets."
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.ingress) ||
-        object.spec.ingress.enabled != true ||
-        !has(object.spec.ingress.className) ||
-        object.spec.ingress.className.trim() == "" ||
-        authorizer.group("networking.k8s.io").resource("ingressclasses").name(object.spec.ingress.className).check("use").allowed()
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.ingress) || object.spec.ingress.enabled != true || !has(object.spec.ingress.className) || object.spec.ingress.className.trim() == "" || authorizer.group("networking.k8s.io").resource("ingressclasses").name(object.spec.ingress.className).check("use").allowed()
       message: "Users configuring spec.ingress.className must be authorized to use that IngressClass."
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.ingress) ||
-        object.spec.ingress.enabled != true ||
-        !has(object.spec.ingress.tlsSecretName) ||
-        object.spec.ingress.tlsSecretName.trim() == "" ||
-        authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.ingress.tlsSecretName).check("use").allowed() ||
-        authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.ingress.tlsSecretName).check("get").allowed()
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.ingress) || object.spec.ingress.enabled != true || !has(object.spec.ingress.tlsSecretName) || object.spec.ingress.tlsSecretName.trim() == "" || authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.ingress.tlsSecretName).check("use").allowed() || authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.ingress.tlsSecretName).check("get").allowed()
       message: "Users configuring spec.ingress.tlsSecretName must be authorized to use the referenced TLS Secret, or get that Secret."
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.gateway) ||
-        object.spec.gateway.enabled != true ||
-        object.spec.gateway.gatewayRef.name.trim() == "" ||
-        authorizer.group("gateway.networking.k8s.io").resource("gateways").
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.gateway) || object.spec.gateway.enabled != true || object.spec.gateway.gatewayRef.name.trim() == "" || authorizer.group("gateway.networking.k8s.io").resource("gateways").
           namespace(has(object.spec.gateway.gatewayRef.namespace) && object.spec.gateway.gatewayRef.namespace.trim() != "" ? object.spec.gateway.gatewayRef.namespace : request.namespace).
           name(object.spec.gateway.gatewayRef.name).check("use").allowed()
       message: "Users configuring spec.gateway.gatewayRef must be authorized to use the referenced Gateway."
-    - expression: >-
-        variables.is_operator_controller ||
-        (
+    - expression: |-
+        variables.is_operator_controller || (
           (!has(object.spec.tls.acme) ||
             !has(object.spec.tls.acme.sharedCache) ||
             !has(object.spec.tls.acme.sharedCache.existingClaimName) ||
@@ -1176,9 +900,8 @@ spec:
             authorizer.group("").resource("persistentvolumeclaims").namespace(request.namespace).name(object.spec.auditFileStorage.existingClaimName).check("use").allowed())
         )
       message: "Users configuring existing PVC references must be authorized to use the referenced PersistentVolumeClaims."
-    - expression: >-
-        variables.is_operator_controller ||
-        (
+    - expression: |-
+        variables.is_operator_controller || (
           (!has(object.spec.storage.storageClassName) ||
             object.spec.storage.storageClassName.trim() == "" ||
             authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.storage.storageClassName).check("use").allowed()) &&
@@ -1198,9 +921,8 @@ spec:
             authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.auditFileStorage.storageClassName).check("use").allowed())
         )
       message: "Users configuring StorageClass references must be authorized to use the referenced StorageClasses."
-    - expression: >-
-        variables.is_operator_controller ||
-        (
+    - expression: |-
+        variables.is_operator_controller || (
           (!has(object.spec.imageVerification) ||
             object.spec.imageVerification.enabled != true ||
             !has(object.spec.imageVerification.imagePullSecrets) ||
@@ -1213,13 +935,8 @@ spec:
               authorizer.group("").resource("secrets").namespace(request.namespace).name(secretRef.name).check("get").allowed()))
         )
       message: "Users configuring image verification pull Secrets must be authorized to get those Secrets."
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.observability) ||
-        !has(object.spec.observability.metrics) ||
-        !has(object.spec.observability.metrics.serviceMonitor) ||
-        !has(object.spec.observability.metrics.serviceMonitor.tlsConfig) ||
-        (
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.observability) || !has(object.spec.observability.metrics) || !has(object.spec.observability.metrics.serviceMonitor) || !has(object.spec.observability.metrics.serviceMonitor.tlsConfig) || (
           (!has(object.spec.observability.metrics.serviceMonitor.tlsConfig.caSecret) ||
             authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.observability.metrics.serviceMonitor.tlsConfig.caSecret.name).check("use").allowed() ||
             authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.observability.metrics.serviceMonitor.tlsConfig.caSecret.name).check("get").allowed()) &&
@@ -1229,31 +946,22 @@ spec:
         )
       message: "Users configuring ServiceMonitor TLS references must be authorized to use the referenced Secret or ConfigMap, or get it."
     # Confused-deputy protection: users configuring unseal Secret credentials must be able to read that Secret.
-    - expression: >-
-        variables.is_operator_controller ||
-        !has(object.spec.unseal) ||
-        !has(object.spec.unseal.credentialsSecretRef) ||
-        authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.unseal.credentialsSecretRef.name).check("get").allowed()
+    - expression: |-
+        variables.is_operator_controller || !has(object.spec.unseal) || !has(object.spec.unseal.credentialsSecretRef) || authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.unseal.credentialsSecretRef.name).check("get").allowed()
       message: "Users configuring unseal credentials must be authorized to get spec.unseal.credentialsSecretRef."
     # Confused-deputy protection: users configuring backup Secret credentials must be able to read those Secrets.
-    - expression: >-
-        !has(object.spec.backup) ||
-        ((!has(object.spec.backup.target.credentialsSecretRef) ||
+    - expression: |-
+        !has(object.spec.backup) || ((!has(object.spec.backup.target.credentialsSecretRef) ||
           authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.backup.target.credentialsSecretRef.name).check("get").allowed()) &&
         (!has(object.spec.backup.tokenSecretRef) ||
           authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.backup.tokenSecretRef.name).check("get").allowed()))
       message: "Users configuring backup credentials must be authorized to get referenced backup Secrets."
     # Confused-deputy protection: users configuring ServiceMonitor authorization credentials must be able to read that Secret.
-    - expression: >-
-        !has(object.spec.observability) ||
-        !has(object.spec.observability.metrics) ||
-        !has(object.spec.observability.metrics.serviceMonitor) ||
-        !has(object.spec.observability.metrics.serviceMonitor.authorization) ||
-        !has(object.spec.observability.metrics.serviceMonitor.authorization.credentialsSecret) ||
-        authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.observability.metrics.serviceMonitor.authorization.credentialsSecret.name).check("get").allowed()
+    - expression: |-
+        !has(object.spec.observability) || !has(object.spec.observability.metrics) || !has(object.spec.observability.metrics.serviceMonitor) || !has(object.spec.observability.metrics.serviceMonitor.authorization) || !has(object.spec.observability.metrics.serviceMonitor.authorization.credentialsSecret) || authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.observability.metrics.serviceMonitor.authorization.credentialsSecret.name).check("get").allowed()
       message: "Users configuring ServiceMonitor authorization must be authorized to get spec.observability.metrics.serviceMonitor.authorization.credentialsSecret."
     # Block references to system secrets in unseal/backup/observability
-    - expression: >-
+    - expression: |-
         (!has(object.spec.unseal) || !has(object.spec.unseal.credentialsSecretRef) ||
           !object.spec.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")) &&
         (!has(object.spec.backup) || !has(object.spec.backup.target.credentialsSecretRef) ||
@@ -1268,24 +976,16 @@ spec:
           !object.spec.observability.metrics.serviceMonitor.authorization.credentialsSecret.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$"))
       message: "References to system secrets (unseal-key, root-token, tls-ca, tls-server) are prohibited in unseal, backup, and observability configurations to prevent confused deputy attacks."
     # Storage Immutability: Prevent storage class changes (immutable in StatefulSet)
-    - expression: >-
-        oldObject == null ||
-        (has(object.spec.storage.storageClassName) ? object.spec.storage.storageClassName : "") ==
-        (has(oldObject.spec.storage.storageClassName) ? oldObject.spec.storage.storageClassName : "")
+    - expression: |-
+        oldObject == null || (has(object.spec.storage.storageClassName) ? object.spec.storage.storageClassName : "") == (has(oldObject.spec.storage.storageClassName) ? oldObject.spec.storage.storageClassName : "")
       message: "spec.storage.storageClassName is immutable after creation; set it explicitly before PVCs are created."
     # Storage Expansion: Prevent shrinking storage
-    - expression: >-
-        oldObject == null ||
-        !has(oldObject.spec.storage.size) ||
-        quantity(object.spec.storage.size).compareTo(quantity(oldObject.spec.storage.size)) >= 0
+    - expression: |-
+        oldObject == null || !has(oldObject.spec.storage.size) || quantity(object.spec.storage.size).compareTo(quantity(oldObject.spec.storage.size)) >= 0
       message: "spec.storage.size cannot be decreased."
     # OIDC issuer override hardening (not used as a fetch target by the operator)
-    - expression: >-
-        !has(object.spec.selfInit) ||
-        !has(object.spec.selfInit.oidc) ||
-        !has(object.spec.selfInit.oidc.issuer) ||
-        object.spec.selfInit.oidc.issuer == "" ||
-        (
+    - expression: |-
+        !has(object.spec.selfInit) || !has(object.spec.selfInit.oidc) || !has(object.spec.selfInit.oidc.issuer) || object.spec.selfInit.oidc.issuer == "" || (
           object.spec.selfInit.oidc.issuer.startsWith("https://") &&
           !object.spec.selfInit.oidc.issuer.contains("@") &&
           !object.spec.selfInit.oidc.issuer.contains("?") &&
@@ -1298,32 +998,23 @@ spec:
         )
       message: "spec.selfInit.oidc.issuer must be an https:// issuer URL (no userinfo/query/fragment; not localhost/link-local; must not include /.well-known/*)."
     # Self-init request lint: if a request targets auth/jwt/*, ensure the mount is enabled via sys/auth/jwt.
-    - expression: >-
-        !has(object.spec.selfInit) ||
-        !has(object.spec.selfInit.requests) ||
-        size(object.spec.selfInit.requests) == 0 ||
-        !(
+    - expression: |-
+        !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) || size(object.spec.selfInit.requests) == 0 || !(
           object.spec.selfInit.requests.filter(r, r.path.startsWith("auth/jwt/") || r.path == "auth/jwt/config").size() > 0
-        ) ||
-        object.spec.selfInit.requests.filter(r, r.path == "sys/auth/jwt").size() > 0
+        ) || object.spec.selfInit.requests.filter(r, r.path == "sys/auth/jwt").size() > 0
       message: "spec.selfInit.requests contains auth/jwt/* paths but is missing a sys/auth/jwt request to enable that auth mount."
     # Self-init request lint: if a request targets auth/jwt-operator/* without operator OIDC bootstrap, ensure sys/auth/jwt-operator is present.
-    - expression: >-
-        !has(object.spec.selfInit) ||
-        !has(object.spec.selfInit.requests) ||
-        size(object.spec.selfInit.requests) == 0 ||
-        !(
+    - expression: |-
+        !has(object.spec.selfInit) || !has(object.spec.selfInit.requests) || size(object.spec.selfInit.requests) == 0 || !(
           object.spec.selfInit.requests.filter(r, r.path.startsWith("auth/jwt-operator/") || r.path == "auth/jwt-operator/config").size() > 0
-        ) ||
-        (has(object.spec.selfInit.oidc) && object.spec.selfInit.oidc.enabled == true) ||
-        object.spec.selfInit.requests.filter(r, r.path == "sys/auth/jwt-operator").size() > 0
+        ) || (has(object.spec.selfInit.oidc) && object.spec.selfInit.oidc.enabled == true) || object.spec.selfInit.requests.filter(r, r.path == "sys/auth/jwt-operator").size() > 0
       message: "spec.selfInit.requests contains auth/jwt-operator/* paths but is missing sys/auth/jwt-operator (or spec.selfInit.oidc.enabled: true) to enable that auth mount."
     # Upgrade Safety: prevent version regressions below the running cluster version.
-    - expression: >-
+    - expression: |-
         !variables.requested_below_current_version
       message: "spec.version cannot be downgraded below status.currentVersion."
     # Upgrade Safety: once rolling progress has started, do not allow lowering the target version.
-    - expression: >-
+    - expression: |-
         !variables.requested_below_rolling_target
       message: "spec.version cannot be reduced below status.upgrade.targetVersion after rolling progress has started."
 ---

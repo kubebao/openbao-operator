@@ -17,23 +17,22 @@ spec:
         resources: ["statefulsets"]
   variables:
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: controller_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.controllerServiceAccountName" . }}'
     - name: controller_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name
     - name: is_controller
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.controller_principal
     # Bootstrap cleanup can remove only the optional Secret input projection.
     # It cannot add or redirect a dependency, executable, argument, or mount.
     - name: bootstrap_input_cleanup
-      expression: >-
-        object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
-        oldObject.metadata.ownerReferences.exists(o,
+      expression: |-
+        object.metadata.ownerReferences == oldObject.metadata.ownerReferences && oldObject.metadata.ownerReferences.exists(o,
           o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
         oldObject.spec.template.spec.volumes.exists(v,
           v.name == 'self-init-inputs' && has(v.projected) &&
@@ -45,17 +44,8 @@ spec:
     - name: api_volumes
       expression: object.spec.template.spec.volumes.filter(v, v.name == 'kube-api-access')
     - name: handoff
-      expression: >-
-        oldObject.spec.replicas == 1 && object.spec.replicas == 1 &&
-        object.spec.updateStrategy.type == 'OnDelete' &&
-        oldObject.spec.template.spec.enableServiceLinks == false &&
-        object.spec.template.spec.automountServiceAccountToken == false &&
-        object.spec.template.spec.serviceAccountName == oldObject.spec.template.spec.serviceAccountName &&
-        object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
-        oldObject.metadata.ownerReferences.exists(o, o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
-        oldObject.spec.template.spec.volumes.all(v, v.name != 'kube-api-access') &&
-        variables.api_volumes.size() == 1 &&
-        variables.api_volumes.all(v,
+      expression: |-
+        oldObject.spec.replicas == 1 && object.spec.replicas == 1 && object.spec.updateStrategy.type == 'OnDelete' && oldObject.spec.template.spec.enableServiceLinks == false && object.spec.template.spec.automountServiceAccountToken == false && object.spec.template.spec.serviceAccountName == oldObject.spec.template.spec.serviceAccountName && object.metadata.ownerReferences == oldObject.metadata.ownerReferences && oldObject.metadata.ownerReferences.exists(o, o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) && oldObject.spec.template.spec.volumes.all(v, v.name != 'kube-api-access') && variables.api_volumes.size() == 1 && variables.api_volumes.all(v,
           has(v.projected) && v.projected.defaultMode == 288 && v.projected.sources.size() == 3 &&
           has(v.projected.sources[0].serviceAccountToken) &&
           v.projected.sources[0].serviceAccountToken.path == 'token' &&
@@ -76,21 +66,15 @@ spec:
   # Projection maps contain strings, lists, and objects. Mark their values
   # dynamic after checking each field against the container schema.
   validations:
-    - expression: >-
-        !variables.is_controller ||
-        object.spec.template.spec.volumes == oldObject.spec.template.spec.volumes ||
-        variables.bootstrap_input_cleanup ||
-        (variables.handoff &&
+    - expression: |-
+        !variables.is_controller || object.spec.template.spec.volumes == oldObject.spec.template.spec.volumes || variables.bootstrap_input_cleanup || (variables.handoff &&
           object.spec.template.spec.volumes.filter(v, v.name != 'kube-api-access') == oldObject.spec.template.spec.volumes)
       message: OpenBao controller cannot modify StatefulSet volumes.
-    - expression: >-
-        !variables.is_controller ||
-        object.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) ==
-        oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)})
+    - expression: |-
+        !variables.is_controller || object.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) == oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)})
       message: OpenBao controller cannot modify container commands or args.
-    - expression: >-
-        !variables.is_controller ||
-        (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
+    - expression: |-
+        !variables.is_controller || (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
           .map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) ==
         (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
           .map(c, {'name': dyn(c.name), 'command': dyn(c.command), 'args': dyn(c.args)}) ||
@@ -102,9 +86,8 @@ spec:
               'args': dyn(c.name == 'bao-config-init' ?
                 c.args.filter(a, !a.startsWith('--self-init-secret-file=/etc/bao/self-init-inputs/')) : c.args)}))
       message: OpenBao controller cannot modify init container commands or args.
-    - expression: >-
-        !variables.is_controller ||
-        (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
+    - expression: |-
+        !variables.is_controller || (has(object.spec.template.spec.initContainers) ? object.spec.template.spec.initContainers : [])
           .map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ==
         (has(oldObject.spec.template.spec.initContainers) ? oldObject.spec.template.spec.initContainers : [])
           .map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ||
@@ -116,20 +99,15 @@ spec:
               'volumeMounts': dyn(c.name == 'bao-config-init' ?
                 c.volumeMounts.filter(m, m.name != 'self-init-inputs') : c.volumeMounts)}))
       message: OpenBao controller cannot modify init container securityContext or volumeMounts.
-    - expression: >-
-        !variables.is_controller ||
-        object.spec.template.spec.automountServiceAccountToken ==
+    - expression: |-
+        !variables.is_controller || object.spec.template.spec.automountServiceAccountToken ==
           oldObject.spec.template.spec.automountServiceAccountToken
       message: OpenBao controller cannot modify automountServiceAccountToken.
-    - expression: >-
-        !variables.is_controller ||
-        object.spec.template.spec.securityContext == oldObject.spec.template.spec.securityContext
+    - expression: |-
+        !variables.is_controller || object.spec.template.spec.securityContext == oldObject.spec.template.spec.securityContext
       message: OpenBao controller cannot modify pod securityContext.
-    - expression: >-
-        !variables.is_controller ||
-        object.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ==
-        oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ||
-        (variables.bootstrap_input_cleanup &&
+    - expression: |-
+        !variables.is_controller || object.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) == oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) || (variables.bootstrap_input_cleanup &&
           object.spec.template.spec.containers.map(c,
             {'name': dyn(c.name), 'securityContext': dyn(c.securityContext), 'volumeMounts': dyn(c.volumeMounts)}) ==
           oldObject.spec.template.spec.containers.map(c, {'name': dyn(c.name), 'securityContext': dyn(c.securityContext),

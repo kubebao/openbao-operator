@@ -15,26 +15,22 @@ spec:
         resources: ["openbaotenants"]
   variables:
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
   validations:
     # API contract: target namespace is immutable after creation.
-    - expression: >-
+    - expression: |-
         oldObject == null || object.spec.targetNamespace == oldObject.spec.targetNamespace
       message: "spec.targetNamespace is immutable."
     # Self-Service Constraint: targetNamespace must match metadata.namespace
     # Exception: Tenants in the operator namespace can target any namespace (admin mode)
-    - expression: >-
-        object.metadata.namespace == variables.operator_namespace ||
-        !has(object.spec.targetNamespace) ||
-        object.spec.targetNamespace == '' ||
-        object.spec.targetNamespace == object.metadata.namespace
+    - expression: |-
+        object.metadata.namespace == variables.operator_namespace || !has(object.spec.targetNamespace) || object.spec.targetNamespace == '' || object.spec.targetNamespace == object.metadata.namespace
       message: "OpenBaoTenant can only target its own namespace (self-service mode). Create the OpenBaoTenant in the operator namespace for cross-namespace targeting."
     # Self-Service Constraint: quota and limit-range overrides are reserved for
     # centrally managed onboarding from the operator namespace.
-    - expression: >-
-        object.metadata.namespace == variables.operator_namespace ||
-        (
+    - expression: |-
+        object.metadata.namespace == variables.operator_namespace || (
           !has(object.spec.quota) &&
           !has(object.spec.limitRange)
         )

@@ -21,78 +21,67 @@ spec:
     - name: controller_serviceaccount_name
       expression: "'{{ include "openbao-operator.controllerServiceAccountName" . }}'"
     - name: is_controller
-      expression: >-
+      expression: |-
         request.userInfo.username == 'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name
     # Garbage collection removes only its own finalizer after controller cleanup.
     # Bind every other field, including acknowledgement annotations and status.
     - name: is_foreground_finalizer_cleanup
-      expression: >-
-        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') && oldObject != null &&
-        has(oldObject.metadata.deletionTimestamp) &&
-        has(oldObject.metadata.finalizers) && oldObject.metadata.finalizers == ['foregroundDeletion'] &&
-        (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) &&
-        dyn(object).all(k, k == 'metadata' || (k in dyn(oldObject) && dyn(object)[k] == dyn(oldObject)[k])) &&
-        dyn(oldObject).all(k, k == 'metadata' || k in dyn(object)) &&
-        dyn(object.metadata).all(k, k in ['finalizers', 'managedFields'] ||
+      expression: |-
+        request.operation == 'UPDATE' && (!has(request.subResource) || request.subResource == '') && oldObject != null && has(oldObject.metadata.deletionTimestamp) && has(oldObject.metadata.finalizers) && oldObject.metadata.finalizers == ['foregroundDeletion'] && (!has(object.metadata.finalizers) || size(object.metadata.finalizers) == 0) && dyn(object).all(k, k == 'metadata' || (k in dyn(oldObject) && dyn(object)[k] == dyn(oldObject)[k])) && dyn(oldObject).all(k, k == 'metadata' || k in dyn(object)) && dyn(object.metadata).all(k, k in ['finalizers', 'managedFields'] ||
           (k in dyn(oldObject.metadata) && dyn(object.metadata)[k] == dyn(oldObject.metadata)[k])) &&
         dyn(oldObject.metadata).all(k, k in ['finalizers', 'managedFields'] || k in dyn(object.metadata))
     - name: delegated_authority
-      expression: >-
-        variables.is_controller ||
-        (oldObject != null && object.spec == oldObject.spec)
+      expression: |-
+        variables.is_controller || (oldObject != null && object.spec == oldObject.spec)
     - name: restore_endpoint
-      expression: >-
+      expression: |-
         has(object.spec.source.target.endpoint) ? object.spec.source.target.endpoint.trim() : ""
     - name: restore_target_provider
-      expression: >-
+      expression: |-
         has(object.spec.source.target.provider) && object.spec.source.target.provider.trim() != "" ? object.spec.source.target.provider.trim().lowerAscii() : "s3"
     - name: restore_target_uses_s3
       expression: variables.restore_target_provider == "s3"
     - name: restore_endpoint_is_set
       expression: variables.restore_endpoint != ""
     - name: restore_endpoint_is_url
-      expression: >-
+      expression: |-
         !variables.restore_endpoint_is_set || isURL(variables.restore_endpoint)
     - name: restore_endpoint_scheme
-      expression: >-
+      expression: |-
         variables.restore_endpoint_is_set && variables.restore_endpoint_is_url ? url(variables.restore_endpoint).getScheme().lowerAscii() : ""
     - name: restore_endpoint_hostname
-      expression: >-
+      expression: |-
         variables.restore_endpoint_is_set && variables.restore_endpoint_is_url ? url(variables.restore_endpoint).getHostname().lowerAscii() : ""
     - name: restore_endpoint_hostname_normalized
-      expression: >-
+      expression: |-
         variables.restore_endpoint_hostname.endsWith(".") ? variables.restore_endpoint_hostname.substring(0, size(variables.restore_endpoint_hostname) - 1) : variables.restore_endpoint_hostname
     - name: restore_endpoint_host_is_ip
-      expression: >-
+      expression: |-
         variables.restore_endpoint_hostname_normalized != "" && isIP(variables.restore_endpoint_hostname_normalized)
     - name: restore_endpoint_host_is_ambiguous_ip
-      expression: >-
-        variables.restore_endpoint_hostname_normalized != "" &&
-        !variables.restore_endpoint_host_is_ip &&
-        (variables.restore_endpoint_hostname_normalized.matches("^(0x[0-9a-f]+|[0-9]+)(\\.(0x[0-9a-f]+|[0-9]+)){0,3}$") ||
+      expression: |-
+        variables.restore_endpoint_hostname_normalized != "" && !variables.restore_endpoint_host_is_ip && (variables.restore_endpoint_hostname_normalized.matches("^(0x[0-9a-f]+|[0-9]+)(\\.(0x[0-9a-f]+|[0-9]+)){0,3}$") ||
           variables.restore_endpoint_hostname_normalized.contains(":"))
     - name: restore_endpoint_is_in_cluster_service
-      expression: >-
+      expression: |-
         variables.restore_endpoint_hostname_normalized.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?\\.svc(\\.cluster\\.local)?$")
     - name: custom_executables_authorized
-      expression: >-
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecustomexecutables").allowed() ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usehelperimages").allowed()
+      expression: |-
+        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecustomexecutables").allowed() || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usehelperimages").allowed()
     - name: cloud_identities_authorized
-      expression: >-
+      expression: |-
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
     - name: restore_authorized
-      expression: >-
+      expression: |-
         authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("restore").allowed()
     - name: effective_restore_s3_role_arn
-      expression: >-
+      expression: |-
         has(object.spec.source.target.s3) && has(object.spec.source.target.s3.roleArn)
           ? object.spec.source.target.s3.roleArn.trim()
           : (has(object.spec.source.target.roleArn) ? object.spec.source.target.roleArn.trim() : "")
     - name: has_restore_cloud_identity_metadata
-      expression: >-
-        (variables.restore_target_uses_s3 && variables.effective_restore_s3_role_arn != "") ||
-        (has(object.spec.source.target.workloadIdentity) &&
+      expression: |-
+        (variables.restore_target_uses_s3 && variables.effective_restore_s3_role_arn != "") || (has(object.spec.source.target.workloadIdentity) &&
           (
             (has(object.spec.source.target.workloadIdentity.serviceAccountAnnotations) &&
               size(object.spec.source.target.workloadIdentity.serviceAccountAnnotations) > 0) ||
@@ -100,9 +89,8 @@ spec:
               size(object.spec.source.target.workloadIdentity.podLabels) > 0)
           ))
     - name: has_restore_target_cloud_identity_metadata
-      expression: >-
-        has(object.spec.clusterTemplate) && (
-        (has(object.spec.clusterTemplate.unseal.azureKeyVault) &&
+      expression: |-
+        has(object.spec.clusterTemplate) && ( (has(object.spec.clusterTemplate.unseal.azureKeyVault) &&
           has(object.spec.clusterTemplate.unseal.azureKeyVault.workloadIdentity)) ||
         (has(object.spec.clusterTemplate.serviceAccount) &&
           has(object.spec.clusterTemplate.serviceAccount.annotations) && size(object.spec.clusterTemplate.serviceAccount.annotations) > 0) ||
@@ -114,41 +102,34 @@ spec:
             key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
   validations:
 
-    - expression: >-
-        variables.delegated_authority || !has(object.spec.serviceAccountName) ||
-        authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccountName).check("use").allowed()
+    - expression: |-
+        variables.delegated_authority || !has(object.spec.serviceAccountName) || authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccountName).check("use").allowed()
       message: "Restore executors require use authority for their existing ServiceAccount."
 
-    - expression: >-
-        variables.delegated_authority || !has(object.spec.clusterTemplate) ||
-        !variables.has_restore_target_cloud_identity_metadata ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
+    - expression: |-
+        variables.delegated_authority || !has(object.spec.clusterTemplate) || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
       message: "Restore target workload identities require destination cloud identity delegation."
-    - expression: >-
-        variables.delegated_authority || !has(object.spec.clusterTemplate) ||
-        !has(object.spec.clusterTemplate.serviceAccount) || !has(object.spec.clusterTemplate.serviceAccount.name) ||
-        object.spec.clusterTemplate.serviceAccount.name.trim() == '' ||
-        authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.clusterTemplate.serviceAccount.name).check("use").allowed()
+    - expression: |-
+        variables.delegated_authority || !has(object.spec.clusterTemplate) || !has(object.spec.clusterTemplate.serviceAccount) || !has(object.spec.clusterTemplate.serviceAccount.name) || object.spec.clusterTemplate.serviceAccount.name.trim() == '' || authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.clusterTemplate.serviceAccount.name).check("use").allowed()
       message: "Restore targets require use authority for their destination ServiceAccount."
-    - expression: >-
-        variables.delegated_authority || !has(object.spec.clusterTemplate) || !has(object.spec.clusterTemplate.unseal.credentialsSecretRef) ||
-        !object.spec.clusterTemplate.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")
+    - expression: |-
+        variables.delegated_authority || !has(object.spec.clusterTemplate) || !has(object.spec.clusterTemplate.unseal.credentialsSecretRef) || !object.spec.clusterTemplate.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")
       message: "Restore target unseal credentials must not reference operator-managed system Secrets; prepare a separate destination Secret."
 
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           !has(object.spec.clusterTemplate) ||
           authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).check("create").allowed()
         )
       message: "Fresh restore targets require permission to create OpenBaoClusters."
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           !has(object.spec.clusterTemplate) ||
           !has(object.spec.clusterTemplate.unseal.credentialsSecretRef) ||
           authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.clusterTemplate.unseal.credentialsSecretRef.name).check("get").allowed()
         )
       message: "Fresh restore targets require access to the unseal credential Secret."
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           !has(object.spec.clusterTemplate) || variables.custom_executables_authorized ||
           ((!has(object.spec.clusterTemplate.image) || object.spec.clusterTemplate.image == '') &&
@@ -156,7 +137,7 @@ spec:
           (!has(object.spec.clusterTemplate.plugins) || object.spec.clusterTemplate.plugins.all(p, (!has(p.image) || p.image == '') && (!has(p.command) || p.command == ''))))
         )
       message: "Custom fresh-target images require executable delegation."
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           !has(object.spec.clusterTemplate) || !has(object.spec.clusterTemplate.imagePullSecrets) ||
           object.spec.clusterTemplate.imagePullSecrets.all(ref, authorizer.group("").resource("secrets").namespace(request.namespace).name(ref.name).check("get").allowed())
@@ -164,61 +145,53 @@ spec:
       message: "Fresh restore targets require access to image pull Secrets."
 
     # API contract: restore specs are immutable after creation.
-    - expression: >-
+    - expression: |-
         oldObject == null || object.spec == oldObject.spec
       message: "spec is immutable; create a new OpenBaoRestore for changed restore parameters."
     # Destructive restore target authorization: restore can replace data, policies, and keys.
-    - expression: >-
+    - expression: |-
         variables.is_controller || variables.is_foreground_finalizer_cleanup || variables.restore_authorized
       message: "Users creating or updating an OpenBaoRestore must be authorized to restore the target OpenBaoCluster."
     # Reference authorization: restore cloud identity metadata delegates cloud authority
     # to the generated restore ServiceAccount or Job pod.
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           !variables.has_restore_cloud_identity_metadata ||
           variables.cloud_identities_authorized
         )
       message: "Users configuring restore S3 roleArn or workloadIdentity metadata must be authorized to use cloud identities on the target OpenBaoCluster."
     # Safety: overrideOperationLock requires force=true (break-glass is explicit).
-    - expression: >-
-        !has(object.spec.overrideOperationLock) ||
-        object.spec.overrideOperationLock == false ||
-        object.spec.force == true
+    - expression: |-
+        !has(object.spec.overrideOperationLock) || object.spec.overrideOperationLock == false || object.spec.force == true
       message: "spec.overrideOperationLock requires spec.force=true."
     # SSRF Protection: parse endpoint URL before host checks so userinfo,
     # uppercase schemes, IPv6 brackets, and encoded numeric hosts cannot bypass
     # raw string matching.
-    - expression: >-
-        !variables.restore_endpoint_is_set ||
-        (variables.restore_endpoint_is_url && variables.restore_endpoint_hostname_normalized != "")
+    - expression: |-
+        !variables.restore_endpoint_is_set || (variables.restore_endpoint_is_url && variables.restore_endpoint_hostname_normalized != "")
       message: "Restore endpoint must be a valid absolute URL with a host."
     # SSRF Protection: Block localhost endpoints (all profiles - localhost is never a valid snapshot source)
-    - expression: >-
-        !variables.restore_endpoint_is_set ||
-        !variables.restore_endpoint_is_url ||
-        (
+    - expression: |-
+        !variables.restore_endpoint_is_set || !variables.restore_endpoint_is_url || (
           !variables.restore_endpoint_hostname_normalized.matches("(^|.*\\.)localhost$") &&
           !variables.restore_endpoint_host_is_ambiguous_ip &&
           !(variables.restore_endpoint_host_is_ip && ip(variables.restore_endpoint_hostname_normalized).isLoopback())
         )
       message: "Restore endpoint cannot point to localhost, loopback, or use ambiguous numeric IP encoding (SSRF protection)."
     # SSRF Protection: Block link-local addresses (all profiles - cloud metadata is always dangerous)
-    - expression: >-
-        !variables.restore_endpoint_is_set ||
-        !variables.restore_endpoint_is_url ||
-        !(variables.restore_endpoint_host_is_ip && ip(variables.restore_endpoint_hostname_normalized).isLinkLocalUnicast())
+    - expression: |-
+        !variables.restore_endpoint_is_set || !variables.restore_endpoint_is_url || !(variables.restore_endpoint_host_is_ip && ip(variables.restore_endpoint_hostname_normalized).isLinkLocalUnicast())
       message: "Restore endpoint cannot point to link-local addresses (SSRF protection against cloud metadata services)."
     # Safety: Require HTTPS for non-cluster endpoints.
     # We allow http:// only for in-cluster Service DNS names (useful for local dev emulators).
-    - expression: >-
-        !variables.restore_endpoint_is_set ||
-        (variables.restore_endpoint_is_url &&
+    - expression: |-
+        !variables.restore_endpoint_is_set || (variables.restore_endpoint_is_url &&
           (variables.restore_endpoint_scheme in ["https", "s3"] ||
             (variables.restore_endpoint_scheme == "http" && variables.restore_endpoint_is_in_cluster_service)))
       message: "Restore endpoint must use HTTPS or S3 scheme, unless it targets an in-cluster Service (*.svc)."
     # Confused-deputy protection: custom restore helper images run with restore credentials.
     # Existing usehelperimages grants are accepted as a compatibility alias.
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           !has(object.spec.image) ||
           object.spec.image == "" ||
@@ -226,7 +199,7 @@ spec:
         )
       message: "Users configuring custom restore helper images must be authorized to use custom executables on the target OpenBaoCluster."
     # Confused-deputy protection: users configuring restore Secret credentials must be able to read those Secrets.
-    - expression: >-
+    - expression: |-
         variables.delegated_authority || (
           (!has(object.spec.source.target.credentialsSecretRef) ||
             authorizer.group("").resource("secrets").namespace(request.namespace).name(object.spec.source.target.credentialsSecretRef.name).check("get").allowed()) &&
@@ -235,16 +208,14 @@ spec:
         )
       message: "Users configuring restore credentials must be authorized to get referenced restore Secrets."
     # Confused-deputy protection: Block references to system secrets (restore auth + object store credentials)
-    - expression: >-
+    - expression: |-
         (!has(object.spec.source.target.credentialsSecretRef) ||
           !object.spec.source.target.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")) &&
         (!has(object.spec.tokenSecretRef) ||
           !object.spec.tokenSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$"))
       message: "References to system secrets (unseal-key, root-token, tls-ca, tls-server) are prohibited in restore configuration to prevent confused deputy attacks."
-    - expression: >-
-        variables.delegated_authority || !has(object.spec.clusterTemplate) ||
-        !has(object.spec.clusterTemplate.storage.storageClassName) || object.spec.clusterTemplate.storage.storageClassName.trim() == '' ||
-        authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.clusterTemplate.storage.storageClassName).check("use").allowed()
+    - expression: |-
+        variables.delegated_authority || !has(object.spec.clusterTemplate) || !has(object.spec.clusterTemplate.storage.storageClassName) || object.spec.clusterTemplate.storage.storageClassName.trim() == '' || authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.clusterTemplate.storage.storageClassName).check("use").allowed()
       message: "Fresh restore targets require use authority for their StorageClass."
 ---
 apiVersion: admissionregistration.k8s.io/v1

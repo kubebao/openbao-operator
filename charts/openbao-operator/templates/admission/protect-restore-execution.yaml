@@ -31,61 +31,54 @@ spec:
     - name: old_claim
       expression: "variables.is_restore && oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).submissionClaim)"
     - name: helper
-      expression: >-
+      expression: |-
         variables.is_restore && oldObject != null && request.userInfo.username ==
           'system:serviceaccount:' + request.namespace + ':' +
           (has(dyn(oldObject.spec).serviceAccountName) ? dyn(oldObject.spec).serviceAccountName : dyn(oldObject.spec).cluster + '-restore-serviceaccount')
     - name: old_hold
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-hold' in oldObject.metadata.annotations ?
           oldObject.metadata.annotations['openbao.org/restore-hold'] : ''
     - name: new_hold
-      expression: >-
+      expression: |-
         object != null && has(object.metadata.annotations) && 'openbao.org/restore-hold' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-hold'] : ''
     - name: old_origin
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-origin' in oldObject.metadata.annotations ?
           oldObject.metadata.annotations['openbao.org/restore-origin'] : ''
     - name: new_origin
-      expression: >-
+      expression: |-
         object != null && has(object.metadata.annotations) && 'openbao.org/restore-origin' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-origin'] : ''
     - name: submission_excluded
-      expression: >-
-        variables.is_restore && oldObject != null && has(oldObject.status) &&
-        !has(dyn(oldObject.status).submissionClaim) && has(dyn(oldObject.status).execution) &&
-        dyn(oldObject.status).phase == 'Failed' && dyn(oldObject.status).execution.stage == 'TerminalObserved' &&
-        dyn(oldObject.status).execution.terminalResult == 'Failed'
+      expression: |-
+        variables.is_restore && oldObject != null && has(oldObject.status) && !has(dyn(oldObject.status).submissionClaim) && has(dyn(oldObject.status).execution) && dyn(oldObject.status).phase == 'Failed' && dyn(oldObject.status).execution.stage == 'TerminalObserved' && dyn(oldObject.status).execution.terminalResult == 'Failed'
     - name: old_acknowledgement
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-acknowledge' in oldObject.metadata.annotations ?
           oldObject.metadata.annotations['openbao.org/restore-acknowledge'] : ''
     - name: new_acknowledgement
-      expression: >-
+      expression: |-
         object != null && has(object.metadata.annotations) && 'openbao.org/restore-acknowledge' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-acknowledge'] : ''
     - name: old_test_acknowledgement
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-test-acknowledge' in oldObject.metadata.annotations ?
           oldObject.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''
     - name: new_test_acknowledgement
-      expression: >-
+      expression: |-
         object != null && has(object.metadata.annotations) && 'openbao.org/restore-test-acknowledge' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''
   # Cluster and Restore share metadata but have different spec/status fields.
   # Resource guards select each schema; dynamic access also permits complete-map
   # comparisons that restrict helper writes to the submission claim.
   validations:
-    - expression: >-
-        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
-        (has(object.status) && has(dyn(object.status).restart) ? dyn(object.status).restart : null) ==
-        (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)
+    - expression: |-
+        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (has(object.status) && has(dyn(object.status).restart) ? dyn(object.status).restart : null) == (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)
       message: "Only the controller can record managed restore restarts; use the acknowledgement annotation."
-    - expression: >-
-        variables.is_restore || request.operation == 'DELETE' || variables.new_test_acknowledgement == variables.old_test_acknowledgement ||
-        variables.new_test_acknowledgement == '' ||
-        (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).backup) &&
+    - expression: |-
+        variables.is_restore || request.operation == 'DELETE' || variables.new_test_acknowledgement == variables.old_test_acknowledgement || variables.new_test_acknowledgement == '' || (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).backup) &&
          has(dyn(oldObject.status).backup.restoreTest) && has(dyn(oldObject.status).backup.restoreTest.active) &&
          (!has(dyn(oldObject.status).backup.restoreTest.active.uid) || dyn(oldObject.status).backup.restoreTest.active.uid == '') &&
          variables.new_test_acknowledgement == dyn(oldObject.status).backup.restoreTest.active.name + '/Release' &&
@@ -93,40 +86,30 @@ spec:
       message: "Restore test release requires the active unbound run name followed by /Release and restore permission on the source cluster. Inspect the destination and stop the old controller first."
     # Approval is checked only for new requests and new targets. Revocation must
     # not block status updates, administrator handoff, or resource cleanup.
-    - expression: >-
-        request.operation != 'CREATE' ||
-        !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') ||
-        (namespaceObject != null && has(namespaceObject.metadata.labels) &&
+    - expression: |-
+        request.operation != 'CREATE' || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null && has(namespaceObject.metadata.labels) &&
          'openbao.org/restore-target-approved' in namespaceObject.metadata.labels &&
          namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')
       message: "Fresh restore targets require openbao.org/restore-target-approved=true on the destination Namespace. Approval does not verify network isolation."
-    - expression: >-
-        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
-        ((has(object.metadata.annotations) && 'openbao.org/restore-test-source' in object.metadata.annotations ?
+    - expression: |-
+        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' || ((has(object.metadata.annotations) && 'openbao.org/restore-test-source' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-test-source'] : '') ==
          (oldObject != null && has(oldObject.metadata.annotations) && 'openbao.org/restore-test-source' in oldObject.metadata.annotations ?
           oldObject.metadata.annotations['openbao.org/restore-test-source'] : ''))
       message: "Only the controller can assign or change a restore test source."
-    - expression: >-
-        !variables.is_restore || request.operation != 'UPDATE' || !has(oldObject.status) ||
-        !has(dyn(oldObject.status).target) || !has(dyn(oldObject.spec).targetLifecycle) || dyn(oldObject.spec).targetLifecycle != 'Disposable' ||
-        (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition == 'Abandon') ||
-        (has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Complete') ||
-        !has(oldObject.metadata.finalizers) || !('openbao.org/openbaorestore-finalizer' in oldObject.metadata.finalizers) ||
-        (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
+    - expression: |-
+        !variables.is_restore || request.operation != 'UPDATE' || !has(oldObject.status) || !has(dyn(oldObject.status).target) || !has(dyn(oldObject.spec).targetLifecycle) || dyn(oldObject.spec).targetLifecycle != 'Disposable' || (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition == 'Abandon') || (has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Complete') || !has(oldObject.metadata.finalizers) || !('openbao.org/openbaorestore-finalizer' in oldObject.metadata.finalizers) || (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
       message: "Disposable restores retain their finalizer until target cleanup completes."
-    - expression: >-
-        variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
-        (variables.new_origin == variables.old_origin && (variables.old_origin == '' || object.spec == oldObject.spec))
+    - expression: |-
+        variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (variables.new_origin == variables.old_origin && (variables.old_origin == '' || object.spec == oldObject.spec))
       message: "Only the controller can create or change restricted restore targets."
 
-    - expression: >-
+    - expression: |-
         !variables.old_claim || request.operation == 'DELETE' ||
           (has(dyn(object.status).submissionClaim) && dyn(object.status).submissionClaim == dyn(oldObject.status).submissionClaim)
       message: "A submission claim cannot be changed or removed."
-    - expression: >-
-        !variables.helper ||
-        (request.subResource == 'status' && request.operation == 'UPDATE' &&
+    - expression: |-
+        !variables.helper || (request.subResource == 'status' && request.operation == 'UPDATE' &&
          !variables.old_claim && has(dyn(object.status).submissionClaim) &&
          dyn(oldObject.status).phase == 'Running' && dyn(oldObject.status).execution.stage == 'Created' &&
          dyn(oldObject.status).execution.operationID == oldObject.metadata.uid &&
@@ -138,42 +121,23 @@ spec:
          dyn(object.status).all(k, k == 'submissionClaim' || (k in dyn(oldObject.status) && dyn(object.status)[k] == dyn(oldObject.status)[k])) &&
          dyn(oldObject.status).all(k, k in dyn(object.status)))
       message: "The executor can only append its own Pod-bound submission claim."
-    - expression: >-
-        !variables.is_restore || request.operation != 'DELETE' || !has(oldObject.status) ||
-        !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage == 'Prepared' || variables.submission_excluded ||
-        dyn(oldObject.status).phase == 'Completed' ||
-        (has(dyn(oldObject.spec).targetLifecycle) && dyn(oldObject.spec).targetLifecycle == 'Disposable') ||
-        (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition != '')
+    - expression: |-
+        !variables.is_restore || request.operation != 'DELETE' || !has(oldObject.status) || !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage == 'Prepared' || variables.submission_excluded || dyn(oldObject.status).phase == 'Completed' || (has(dyn(oldObject.spec).targetLifecycle) && dyn(oldObject.spec).targetLifecycle == 'Disposable') || (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition != '')
       message: "A committed restore requires administrator acknowledgement before deletion."
-    - expression: >-
-        variables.is_restore || variables.is_controller ||
-        (request.operation in ['CREATE', 'UPDATE'] && variables.new_hold == variables.old_hold) ||
-        (request.operation == 'DELETE' && variables.old_hold == '')
+    - expression: |-
+        variables.is_restore || variables.is_controller || (request.operation in ['CREATE', 'UPDATE'] && variables.new_hold == variables.old_hold) || (request.operation == 'DELETE' && variables.old_hold == '')
       message: "Only the controller can change a restore hold; acknowledge the restore before deleting its target."
-    - expression: >-
-        !variables.is_restore || request.operation != 'UPDATE' || !has(oldObject.status) ||
-        !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage == 'Prepared' || variables.submission_excluded ||
-        dyn(oldObject.status).phase == 'Completed' ||
-        (has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Complete') ||
-        (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition != '') ||
-        !has(oldObject.metadata.finalizers) || !('openbao.org/openbaorestore-finalizer' in oldObject.metadata.finalizers) ||
-        (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
+    - expression: |-
+        !variables.is_restore || request.operation != 'UPDATE' || !has(oldObject.status) || !has(dyn(oldObject.status).execution) || dyn(oldObject.status).execution.stage == 'Prepared' || variables.submission_excluded || dyn(oldObject.status).phase == 'Completed' || (has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Complete') || (has(dyn(oldObject.status).administratorDisposition) && dyn(oldObject.status).administratorDisposition != '') || !has(oldObject.metadata.finalizers) || !('openbao.org/openbaorestore-finalizer' in oldObject.metadata.finalizers) || (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
       message: "A committed restore retains its finalizer until administrator acknowledgement."
-    - expression: >-
-        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
-        (has(object.status) && has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') ==
-        (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')
+    - expression: |-
+        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (has(object.status) && has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') == (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')
       message: "Only the controller can record administrator disposition; use the acknowledgement annotation."
-    - expression: >-
-        !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement ||
-        variables.new_acknowledgement == '' || oldObject == null || !has(oldObject.status) ||
-        !has(dyn(oldObject.status).administratorDisposition) || dyn(oldObject.status).administratorDisposition == '' ||
-        variables.new_acknowledgement == oldObject.metadata.uid + '/' + dyn(oldObject.status).administratorDisposition
+    - expression: |-
+        !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement || variables.new_acknowledgement == '' || oldObject == null || !has(oldObject.status) || !has(dyn(oldObject.status).administratorDisposition) || dyn(oldObject.status).administratorDisposition == '' || variables.new_acknowledgement == oldObject.metadata.uid + '/' + dyn(oldObject.status).administratorDisposition
       message: "Recovery has already been released. The recorded Resume or Abandon decision cannot be changed; manage the target directly."
-    - expression: >-
-        !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement ||
-        variables.new_acknowledgement == '' ||
-        (oldObject != null && has(oldObject.status) &&
+    - expression: |-
+        !variables.is_restore || request.operation == 'DELETE' || variables.new_acknowledgement == variables.old_acknowledgement || variables.new_acknowledgement == '' || (oldObject != null && has(oldObject.status) &&
          ((dyn(oldObject.status).phase == 'Unknown' &&
            !(has(dyn(oldObject.status).target) && has(dyn(oldObject.status).target.cleanup) && dyn(oldObject.status).target.cleanup == 'Failed') &&
            (variables.new_acknowledgement == oldObject.metadata.uid + '/Abandon' ||
