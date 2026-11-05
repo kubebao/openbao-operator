@@ -9,6 +9,7 @@ verifiedBy:
   - .github/workflows/release-pr-gate.yml
   - .github/workflows/release-candidate.yml
   - .github/actions/package-release-payloads/action.yml
+  - hack/ci/build-api-migration.sh
   - .github/workflows/release-tag.yml
   - .github/workflows/release.yml
   - .github/workflows/post-release-verification.yml
@@ -290,6 +291,12 @@ publication artifacts.
 `operator-policy-approval-with-backup.hcl` in `dist/`. Both approve the two supported upgrade strategies; only the second
 includes backup policy management. The Release workflow generates and compares both files in its reproducibility
 check, includes them in signed checksums and the provenance index, and uploads them with the release.
+
+`hack/ci/build-api-migration.sh` builds the `api-migration` command for Linux amd64, Linux arm64, and macOS arm64.
+Intel Macs are not supported. The release candidate builds the binaries twice, and the Release workflow builds
+them again at the tag. Every build must match byte for byte. The Release workflow includes the binaries in signed
+checksums and the provenance index, attests each one, and uploads them with the release. They exist for the 0.7 line,
+which moves installations to the `kubebao.org` API group.
 
 ## Verify the published release
 

@@ -142,6 +142,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout event source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,6 +182,21 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/primary dist/rebuild
+
+      - name: Build edge migration CLI payloads
+        if: startsWith(inputs.version, 'edge-')
+        working-directory: source-under-test
+        env:
+          VERSION: ${{ inputs.version }}
+          OUTPUT_ROOT: ${{ github.workspace }}/dist
+        run: |
+          set -euo pipefail
+          cache_dir="$(mktemp -d)"
+          trap 'rm -rf "${cache_dir}"' EXIT
+          for pass in primary rebuild; do
+            GOCACHE="${cache_dir}/${pass}" bash hack/ci/build-api-migration.sh "${OUTPUT_ROOT}/${pass}" "${VERSION}"
+            test "$("${OUTPUT_ROOT}/${pass}/api-migration-linux-amd64" version)" = "${VERSION}"
+          done
 
       - name: Generate primary manifests
         env:
@@ -394,19 +411,22 @@ jobs:
             cd dist/primary
             sha256sum install.yaml crds.yaml > checksums.txt
             if [[ "${VERSION}" == edge-* ]]; then
-              sha256sum "openbao-operator-${CHART_VERSION}.tgz" >> checksums.txt
+              sha256sum "openbao-operator-${CHART_VERSION}.tgz" \
+                api-migration-linux-amd64 api-migration-linux-arm64 api-migration-darwin-arm64 >> checksums.txt
             fi
           )
           (
             cd dist/rebuild
             sha256sum install.yaml crds.yaml > checksums.txt
             if [[ "${VERSION}" == edge-* ]]; then
-              sha256sum "openbao-operator-${CHART_VERSION}.tgz" >> checksums.txt
+              sha256sum "openbao-operator-${CHART_VERSION}.tgz" \
+                api-migration-linux-amd64 api-migration-linux-arm64 api-migration-darwin-arm64 >> checksums.txt
             fi
           )
 
       - name: Verify byte reproducibility
         env:
+          VERSION: ${{ inputs.version }}
           PRIMARY_DIR: dist/primary
           REBUILD_DIR: dist/rebuild
           MANAGER_DIGEST: ${{ needs.build.outputs.manager_digest }}
@@ -426,7 +446,21 @@ jobs:
             sbom-openbao-init.spdx.json
             sbom-openbao-backup.spdx.json
             sbom-openbao-upgrade.spdx.json
-        run: bash .github-workflow-src/hack/ci/verify-byte-reproducibility.sh
+        run: |
+          set -euo pipefail
+          if [[ "${VERSION}" == edge-* ]]; then
+            export REPRO_REQUIRED_FILES="${REPRO_REQUIRED_FILES} api-migration-linux-amd64 api-migration-linux-arm64 api-migration-darwin-arm64"
+          fi
+          bash .github-workflow-src/hack/ci/verify-byte-reproducibility.sh
+
+      - name: Attest edge migration CLI provenance
+        if: startsWith(inputs.version, 'edge-')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/primary/api-migration-linux-amd64
+            dist/primary/api-migration-linux-arm64
+            dist/primary/api-migration-darwin-arm64
 
       - name: Upload byte-verified channel assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -437,6 +471,9 @@ jobs:
             dist/primary/crds.yaml
             dist/primary/checksums.txt
             dist/primary/openbao-operator-${{ inputs.chart_version }}.tgz
+            dist/primary/api-migration-linux-amd64
+            dist/primary/api-migration-linux-arm64
+            dist/primary/api-migration-darwin-arm64
             dist/primary/sbom-openbao-operator.spdx.json
             dist/primary/sbom-openbao-init.spdx.json
             dist/primary/sbom-openbao-backup.spdx.json

@@ -287,6 +287,9 @@ jobs:
             operator-policy-approval-with-backup.hcl
             checksums.txt
             openbao-operator-${{ needs.prepare.outputs.chart_version }}.tgz
+            api-migration-darwin-arm64
+            api-migration-linux-amd64
+            api-migration-linux-arm64
             sbom-openbao-operator.spdx.json
             sbom-openbao-init.spdx.json
             sbom-openbao-backup.spdx.json
@@ -372,6 +375,9 @@ jobs:
           compare_file "operator-policy-approval-with-backup.hcl"
           compare_file "checksums.txt"
           compare_file "openbao-operator-${CHART_VERSION}.tgz"
+          for platform in darwin-arm64 linux-amd64 linux-arm64; do
+            compare_file "api-migration-${platform}"
+          done
           compare_file "sbom-openbao-operator.spdx.json"
           compare_file "sbom-openbao-init.spdx.json"
           compare_file "sbom-openbao-backup.spdx.json"
@@ -397,6 +403,9 @@ jobs:
             dist/release/operator-policy-approval-with-backup.hcl
             dist/release/checksums.txt
             dist/release/openbao-operator-${{ needs.prepare.outputs.chart_version }}.tgz
+            dist/release/api-migration-darwin-arm64
+            dist/release/api-migration-linux-amd64
+            dist/release/api-migration-linux-arm64
             dist/release/sbom-openbao-operator.spdx.json
             dist/release/sbom-openbao-init.spdx.json
             dist/release/sbom-openbao-backup.spdx.json
@@ -600,6 +609,12 @@ jobs:
         with:
           subject-path: dist/checksums.txt
 
+      # Administrators download one binary; let them verify it on its own.
+      - name: Attest api-migration binaries provenance (GitHub)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/api-migration-*
+
       - name: Sign release checksums (keyless, bundle format)
         run: |
           set -euo pipefail
@@ -628,6 +643,10 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           OWNER: ${{ github.repository_owner }}
           CHART_DIGEST: ${{ steps.chart-digest.outputs.chart_digest }}
+          EXTRA_FILE_SUBJECTS: >-
+            dist/api-migration-darwin-arm64
+            dist/api-migration-linux-amd64
+            dist/api-migration-linux-arm64
         run: bash hack/ci/verify-release-artifact-attestations.sh
 
       - name: Export Scorecard-compatible release signature assets
@@ -727,6 +746,9 @@ jobs:
             dist/checksums.txt.bundle
             dist/checksums.txt.sigstore.json
             dist/checksums.intoto.jsonl
+            dist/api-migration-darwin-arm64
+            dist/api-migration-linux-amd64
+            dist/api-migration-linux-arm64
             dist/sbom-openbao-operator.spdx.json
             dist/sbom-openbao-init.spdx.json
             dist/sbom-openbao-backup.spdx.json

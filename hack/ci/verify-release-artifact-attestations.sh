@@ -14,6 +14,11 @@ MAX_ATTEMPTS="${MAX_ATTEMPTS:-10}"
 RETRY_SECONDS="${RETRY_SECONDS:-6}"
 VERIFY_CHART="${VERIFY_CHART:-auto}"
 CHART_IMAGE="${CHART_IMAGE:-ghcr.io/${OWNER}/charts/openbao-operator}"
+# Release files attested on their own, such as the api-migration binaries.
+# They are verified through the attestation API, never the checksums bundle.
+EXTRA_FILE_SUBJECTS="${EXTRA_FILE_SUBJECTS:-}"
+EXTRA_FILE_SIGNER_WORKFLOW="${EXTRA_FILE_SIGNER_WORKFLOW:-${SIGNER_WORKFLOW}}"
+EXTRA_FILE_SOURCE_DIGEST="${EXTRA_FILE_SOURCE_DIGEST:-}"
 
 if [[ ! -f "${CHECKSUMS_PATH}" ]]; then
   echo "checksums file not found: ${CHECKSUMS_PATH}" >&2
@@ -65,14 +70,23 @@ verify_oci_subject() {
 
 verify_file_subject() {
   local file_path="$1"
+  local signer_workflow="$2"
+  local source_digest="$3"
+  shift 3
+  local bundle_args=("$@")
+  local source_args=()
+  if [[ -n "${source_digest}" ]]; then
+    source_args=(--source-digest "${source_digest}")
+  fi
   local attempts=0
 
   while (( attempts < MAX_ATTEMPTS )); do
     attempts=$((attempts + 1))
     if gh attestation verify "${file_path}" \
-      "${checksums_bundle_args[@]}" \
+      ${bundle_args[@]+"${bundle_args[@]}"} \
+      ${source_args[@]+"${source_args[@]}"} \
       --repo "${REPO}" \
-      --signer-workflow "${SIGNER_WORKFLOW}" \
+      --signer-workflow "${signer_workflow}" \
       --source-ref "${SOURCE_REF}" \
       --cert-oidc-issuer "${CERT_OIDC_ISSUER}" \
       --deny-self-hosted-runners >/dev/null; then
@@ -92,4 +106,11 @@ if [[ "${VERIFY_CHART}" == "true" ]]; then
   : "${CHART_DIGEST:?CHART_DIGEST is required when VERIFY_CHART=true}"
   verify_oci_subject "${CHART_IMAGE}@${CHART_DIGEST}"
 fi
-verify_file_subject "${CHECKSUMS_PATH}"
+verify_file_subject "${CHECKSUMS_PATH}" "${SIGNER_WORKFLOW}" "" ${checksums_bundle_args[@]+"${checksums_bundle_args[@]}"}
+for subject in ${EXTRA_FILE_SUBJECTS}; do
+  if [[ ! -f "${subject}" ]]; then
+    echo "attested file not found: ${subject}" >&2
+    exit 1
+  fi
+  verify_file_subject "${subject}" "${EXTRA_FILE_SIGNER_WORKFLOW}" "${EXTRA_FILE_SOURCE_DIGEST}"
+done
