@@ -36,6 +36,8 @@ func TestCiliumAPIServerPolicyLifecycle(t *testing.T) {
 	ensureDefaultAdmissionPoliciesApplied(t)
 	namespace := newTestNamespace(t)
 	ensureProvisionerRBACApplied(t)
+	waitForResourceAuthorization(t, provisionerUsername, namespace, rbacv1.GroupName,
+		"roles", "openbao-operator-tenant-role", "patch")
 	provisionerClient := newImpersonatedClient(t, provisionerUsername)
 	applyClientObject(t, provisionerClient, provisioner.GenerateTenantRole(namespace))
 	applyClientObject(t, provisionerClient, provisioner.GenerateTenantRoleBinding(namespace, provisioner.OperatorServiceAccount{Name: testControllerSAName, Namespace: testDefaultOperatorNS}))
