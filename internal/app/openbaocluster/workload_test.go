@@ -9,7 +9,9 @@ import (
 	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	"github.com/kubebao/openbao-operator/internal/service/configuration"
 	"github.com/stretchr/testify/assert"
@@ -68,6 +70,44 @@ func (s readerStub) Get(ctx context.Context, key client.ObjectKey, obj client.Ob
 
 func (s readerStub) List(context.Context, client.ObjectList, ...client.ListOption) error {
 	return nil
+}
+
+func TestAutopilotConfigReconciler_ReportsConfigurationRejections(t *testing.T) {
+	failure := portopenbao.NewAPIError("autopilot config request failed", 400,
+		[]byte(`{"errors":["min_quorum must be at least 3"]}`))
+	for _, tt := range []struct {
+		name      string
+		err       error
+		wantError bool
+	}{
+		{name: "configuration rejected", err: operatorerrors.WrapPermanentConfig(failure), wantError: true},
+		{name: "transient connection", err: operatorerrors.WrapTransientConnection(errors.New("connection refused"))},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var messages []string
+			logger := funcr.New(func(_, message string) {
+				messages = append(messages, message)
+			}, funcr.Options{})
+			reconciler := &autopilotConfigReconciler{
+				autopilotRuntime: autopilotRuntimeStub{
+					reconcileFunc: func(context.Context, logr.Logger, *openbaov1alpha1.OpenBaoCluster) error {
+						return tt.err
+					},
+				},
+				requeueShort: 5 * time.Second,
+			}
+			result, err := reconciler.Reconcile(t.Context(), logger, &openbaov1alpha1.OpenBaoCluster{})
+			require.NoError(t, err)
+			if tt.wantError {
+				require.Len(t, messages, 1, "configuration rejections must be visible without debug logging")
+				require.Contains(t, messages[0], "min_quorum must be at least 3")
+				require.Zero(t, result.RequeueAfter)
+			} else {
+				require.Empty(t, messages)
+				require.Equal(t, 5*time.Second, result.RequeueAfter)
+			}
+		})
+	}
 }
 
 func TestAutopilotConfigReconciler_Reconcile_UsesStatefulSetReplicasDuringScaleDown(t *testing.T) {

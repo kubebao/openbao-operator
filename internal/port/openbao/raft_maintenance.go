@@ -8,7 +8,8 @@ import (
 
 // BuildAutopilotConfig constructs the Autopilot configuration from CRD settings or defaults.
 // Hardened clusters default to a minimum quorum of at least three. Other profiles
-// use the replica count, with a minimum of one.
+// use the replica count, with a minimum of one. Enabling dead-server cleanup
+// raises the derived minimum quorum to at least three.
 func BuildAutopilotConfig(cluster *openbaov1alpha1.OpenBaoCluster) AutopilotConfig {
 	config := AutopilotConfig{
 		CleanupDeadServers:             true,
@@ -46,7 +47,8 @@ func BuildAutopilotConfig(cluster *openbaov1alpha1.OpenBaoCluster) AutopilotConf
 
 	// A zero override uses the profile default, as does an omitted override.
 	if config.MinQuorum == 0 {
-		if cluster.Spec.Profile == openbaov1alpha1.ProfileHardened {
+		if cluster.Spec.Profile == openbaov1alpha1.ProfileHardened ||
+			(cleanupDeadServersOverridden && config.CleanupDeadServers) {
 			config.MinQuorum = max(3, int(cluster.Spec.Replicas))
 		} else {
 			config.MinQuorum = max(1, int(cluster.Spec.Replicas))
@@ -54,7 +56,7 @@ func BuildAutopilotConfig(cluster *openbaov1alpha1.OpenBaoCluster) AutopilotConf
 	}
 
 	// OpenBao requires MinQuorum >= 3 for dead-server cleanup. Preserve an
-	// explicit cleanup override even when the configured quorum is smaller.
+	// explicit cleanup override; its derived quorum is at least three.
 	if config.MinQuorum < 3 && !cleanupDeadServersOverridden {
 		config.CleanupDeadServers = false
 	}

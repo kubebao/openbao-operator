@@ -275,7 +275,8 @@ type RaftConfig struct {
 	PerformanceMultiplier *int32 `json:"performanceMultiplier,omitempty"`
 
 	// Autopilot configures Raft Autopilot settings.
-	// By default, dead server cleanup is enabled with a 5-minute threshold.
+	// When this object is present, dead-server cleanup defaults to enabled
+	// with a 5-minute threshold.
 	// +optional
 	Autopilot *RaftAutopilotConfig `json:"autopilot,omitempty"`
 }
@@ -286,7 +287,7 @@ type RaftAutopilotConfig struct {
 	// CleanupDeadServers enables automatic removal of dead Raft peers.
 	// When enabled, Autopilot periodically removes servers that have been
 	// unhealthy for longer than DeadServerLastContactThreshold.
-	// Requires MinQuorum to be set (defaults to replicas/2 + 1).
+	// If MinQuorum is omitted, enabling cleanup sets it to at least three.
 	// +kubebuilder:default=true
 	// +optional
 	CleanupDeadServers *bool `json:"cleanupDeadServers,omitempty"`
@@ -300,7 +301,8 @@ type RaftAutopilotConfig struct {
 
 	// MinQuorum is the minimum number of servers before Autopilot can prune
 	// dead servers. This prevents removing so many servers that quorum is lost.
-	// If not specified, defaults to max(3, replicas/2 + 1).
+	// Defaults to the voter replica count, with a minimum of three for Hardened
+	// clusters or when cleanupDeadServers is true. Other clusters use a minimum of one.
 	// +kubebuilder:validation:Minimum=3
 	// +optional
 	MinQuorum *int32 `json:"minQuorum,omitempty"`
