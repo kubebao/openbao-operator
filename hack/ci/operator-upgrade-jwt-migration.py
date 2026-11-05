@@ -24,6 +24,9 @@ OPERATOR_NAMESPACE = "openbao-operator-system"
 ROLE = "auth/jwt-operator/role/openbao-operator"
 AUTOPILOT = "sys/storage/raft/autopilot/configuration"
 SHARED = "openbao-internal"
+# Qualified with its group once more than one API group serves OpenBaoCluster.
+CLUSTERS = os.environ.get("OPENBAO_CLUSTER_RESOURCE", "openbaocluster")
+SOURCE_UID_ANNOTATION = "migration.kubebao.org/source-uid"
 
 
 def kubectl(*args):
@@ -48,6 +51,16 @@ def canonical_role(role):
         if field in result and result[field] is None:
             result[field] = []
     return result
+
+
+def controller_identity(cluster):
+    """The UID a Target controller presents for the Cluster.
+
+    A Cluster created by the API group migration continues the Cluster its
+    marker names; any other Cluster is its own identity.
+    """
+    annotations = cluster["metadata"].get("annotations") or {}
+    return annotations.get(SOURCE_UID_ANNOTATION) or cluster["metadata"]["uid"]
 
 
 def leader_pod(cluster, uid):
@@ -151,7 +164,7 @@ def controller_token(pod, audience):
 
 
 def main():
-    cluster = resource("openbaocluster", CLUSTER)
+    cluster = resource(CLUSTERS, CLUSTER)
     uid = cluster["metadata"]["uid"]
     require(cluster["spec"].get("controllerJWTMode", "Shared") == "Shared",
             "migration requires a legacy Shared fixture")
@@ -160,14 +173,14 @@ def main():
                              "-l", "app.kubernetes.io/component=controller", "-o", "json"))["items"]
     require(len(pods) == 1, "expected one controller Pod")
     pod = pods[0]
-    audience = "urn:openbao:controller:" + uid
+    audience = "urn:openbao:controller:" + controller_identity(cluster)
     shared = controller_token(pod, SHARED)
     target = controller_token(pod, audience)
     unrelated = controller_token(pod, "urn:openbao:controller:unrelated-" + uid)
     admin_jwt = kubectl("create", "token", "default", "-n", NAMESPACE,
                         f"--audience={SHARED}", "--duration=10m")
     ca = base64.b64decode(resource("secret", CLUSTER + "-tls-ca")["data"]["ca.crt"]).decode()
-    leader = leader_pod(resource("openbaocluster", CLUSTER), uid)
+    leader = leader_pod(resource(CLUSTERS, CLUSTER), uid)
     with port_forward(leader) as port:
         api = API(port, ca, leader)
         api.token = api.login("operator-upgrade-hardened", admin_jwt)["auth"]["client_token"]
@@ -182,14 +195,14 @@ def main():
         api.login("openbao-operator", target)
         patch = [{"op": "test", "path": "/metadata/uid", "value": uid},
                  {"op": "add", "path": "/spec/controllerJWTMode", "value": "Target"}]
-        kubectl("patch", "openbaocluster", CLUSTER, "-n", NAMESPACE,
+        kubectl("patch", CLUSTERS, CLUSTER, "-n", NAMESPACE,
                 "--type=json", "-p", json.dumps(patch))
         api.role_audiences(role, [audience])
         api.login("openbao-operator", target)
         api.login("openbao-operator", shared, allowed=False)
         api.login("openbao-operator", unrelated, allowed=False)
         api.request("POST", AUTOPILOT, {"min_quorum": 99})
-        kubectl("annotate", "openbaocluster", CLUSTER, "-n", NAMESPACE,
+        kubectl("annotate", CLUSTERS, CLUSTER, "-n", NAMESPACE,
                 f"e2e.openbao.org/reconcile-trigger={time.time_ns()}", "--overwrite")
         deadline = time.monotonic() + 180
         while api.request("GET", AUTOPILOT)["data"]["min_quorum"] != 3:
@@ -197,7 +210,7 @@ def main():
             time.sleep(2)
         value = api.request("GET", "secret/data/operator-upgrade-hardened")["data"]["data"]["value"]
         require(value == "preserved", "pre-upgrade data changed during JWT migration")
-        actual = resource("openbaocluster", CLUSTER)
+        actual = resource(CLUSTERS, CLUSTER)
         require(actual["metadata"]["uid"] == uid and actual["spec"]["controllerJWTMode"] == "Target",
                 "migration changed cluster identity or lost Target mode")
         api.require_active()

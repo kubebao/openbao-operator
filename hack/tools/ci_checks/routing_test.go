@@ -172,6 +172,10 @@ func TestChangeDetectionRoutesRealGitDiffs(t *testing.T) {
 		{"docs", "", "website/content/example.md", eventPullRequest, []string{"docs"}},
 		{"scripts", "", ".github/scripts/example.go", eventPullRequest, []string{"workflow"}},
 		{"renamed upgrade", "rename", "website/old.go", eventPullRequest, []string{"e2e_upgrade"}},
+		{"api migration command", "", "cmd/api-migration/main.go", eventPullRequest,
+			[]string{"operator_upgrade_e2e", "go_tests"}},
+		{"operator upgrade jwt helper", "", "hack/ci/operator-upgrade-jwt-migration.py", eventPullRequest,
+			[]string{"operator_upgrade_e2e"}},
 		{"initial push", "initial push", "", eventPush, []string{"docs"}},
 		{"existing base ignores failed fetch", "", "README.md", eventPullRequest, []string{"docs"}},
 	}

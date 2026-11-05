@@ -13,6 +13,13 @@ migration = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(migration)
 
 
+class ControllerIdentityTests(unittest.TestCase):
+    def test_imported_cluster_keeps_its_source_identity(self):
+        imported = {"metadata": {"uid": "destination", "annotations": {migration.SOURCE_UID_ANNOTATION: "source"}}}
+        self.assertEqual(migration.controller_identity(imported), "source")
+        self.assertEqual(migration.controller_identity({"metadata": {"uid": "own"}}), "own")
+
+
 class RoleMigrationTests(unittest.TestCase):
     def test_audience_change_preserves_custom_role_restrictions(self):
         role = {

@@ -101,6 +101,9 @@ class BaselineSelection(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(ROOT / name, target)
             shutil.copytree(ROOT / "test/fixtures", root / "test/fixtures")
+            pins = root / "test/fixtures/operator-upgrade/versions.env"
+            pins.write_text("\n".join(line for line in pins.read_text().splitlines()
+                                      if not line.startswith("OPERATOR_UPGRADE_TARGET_RELEASE=")) + "\n")
             (root / "test/e2e").mkdir(parents=True)
             shutil.copy(ROOT / "test/e2e/suites.yaml", root / "test/e2e/suites.yaml")
             env = dict(os.environ, OPERATOR_UPGRADE_E2E_VERIFY_ONLY="true",
@@ -111,6 +114,13 @@ class BaselineSelection(unittest.TestCase):
                                         env=env, text=True, capture_output=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn(f" -> {version}-e2e (baseline chart:", result.stdout)
+            pins.write_text(pins.read_text() + "OPERATOR_UPGRADE_TARGET_RELEASE=0.7.0\n")
+            for override, expected in [("", "0.7.0"), ("9.8.7-rc.1", "9.8.7-rc.1")]:
+                env["OPERATOR_UPGRADE_E2E_TARGET_RELEASE"] = override
+                result = subprocess.run(["bash", str(root / "hack/ci/operator-upgrade-e2e.sh")],
+                                        env=env, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f" -> {expected}-e2e (baseline chart:", result.stdout)
 
     def test_candidate_check_rejects_stale_pins(self):
         image = {"name": "openbao-operator", "ref": "ghcr.io/kubebao/openbao-operator", "digest": "sha256:" + "a" * 64}

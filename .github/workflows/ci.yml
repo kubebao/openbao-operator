@@ -241,7 +241,7 @@ jobs:
             echo "e2e=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(api/stability/v1alpha1\.yaml|charts/openbao-operator/|release-notes/|test/e2e/suites\.yaml|test/fixtures/(api-migration|operator-upgrade)/|Dockerfile(\.init)?$|hack/ci/(operator-upgrade[^/]*|test-operator-upgrade[^/]*|test_e2e_operator_upgrade[^/]*)$|hack/dev/tool-versions\.env$|Makefile|mk/)'; then
+          if changed_matches '^(api/stability/v1alpha1\.yaml|charts/openbao-operator/|cmd/api-migration/|release-notes/|test/e2e/suites\.yaml|test/fixtures/(api-migration|operator-upgrade)/|Dockerfile(\.init)?$|hack/ci/(operator-upgrade[^/]*|test-operator-upgrade[^/]*|test_e2e_operator_upgrade[^/]*)$|hack/dev/tool-versions\.env$|Makefile|mk/)'; then
             echo "operator_upgrade_e2e=true" >> "${GITHUB_OUTPUT}"
           else
             echo "operator_upgrade_e2e=false" >> "${GITHUB_OUTPUT}"
@@ -1508,6 +1508,11 @@ jobs:
                   "install_yaml": "install.yaml",
                   "crds_yaml": "crds.yaml",
                   "checksums_txt": "checksums.txt",
+                  "api_migration": {
+                      "linux-amd64": "api-migration-linux-amd64",
+                      "linux-arm64": "api-migration-linux-arm64",
+                      "darwin-arm64": "api-migration-darwin-arm64",
+                  },
               },
               "images": {
                   "manager": {"ref": os.environ["MANAGER_IMAGE"], "digest": os.environ["MANAGER_DIGEST"]},
@@ -1529,10 +1534,14 @@ jobs:
             dist/candidate/install.yaml \
             dist/candidate/crds.yaml \
             dist/candidate/checksums.txt \
+            dist/candidate/api-migration-linux-amd64 \
+            dist/candidate/api-migration-linux-arm64 \
+            dist/candidate/api-migration-darwin-arm64 \
             "dist/candidate/openbao-operator-${CHART_VERSION}.tgz" \
             dist/candidate/metadata.json; do
             test -f "${path}" || { echo "missing required edge candidate file: ${path}" >&2; exit 1; }
           done
+          (cd dist/candidate && sha256sum --check checksums.txt)
 
       - name: Upload edge candidate bundle
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

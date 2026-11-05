@@ -14,12 +14,16 @@ BASELINE_CHART="${OPERATOR_UPGRADE_E2E_BASELINE_CHART:-${OPERATOR_UPGRADE_BASELI
 BASELINE_CHART_PIN="${BASELINE_CHART}@${OPERATOR_UPGRADE_BASELINE_CHART_DIGEST}"
 MIGRATION_FROM_VERSION="${OPERATOR_UPGRADE_MIGRATION_BASELINE}"
 MIGRATION_TO_VERSION="${OPERATOR_UPGRADE_MIGRATION_TARGET}"
-TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-$(jq -er '."."' "${ROOT_DIR}/.release-please-manifest.json")}"
+TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-${OPERATOR_UPGRADE_TARGET_RELEASE:-$(jq -er '."."' "${ROOT_DIR}/.release-please-manifest.json")}}"
 TARGET_VERSION="${OPERATOR_UPGRADE_E2E_TARGET_VERSION:-${TARGET_RELEASE}-e2e}"
 VERIFY_ONLY="${OPERATOR_UPGRADE_E2E_VERIFY_ONLY:-false}"
 LEGACY_SEED_VERSION="${OPERATOR_UPGRADE_LEGACY_SEED}"
 LEGACY_SEED_INIT_IMAGE="${OPERATOR_UPGRADE_LEGACY_SEED_INIT_IMAGE}"
 BASELINE_MANAGER_IMAGE="${OPERATOR_UPGRADE_E2E_BASELINE_MANAGER_IMAGE:-${OPERATOR_UPGRADE_BASELINE_MANAGER_IMAGE}}"
+# The candidate serves kubebao.org. A baseline line that served openbao.org
+# reaches it through the API group migration instead of an in-place upgrade.
+API_MIGRATION_SOURCE="${OPERATOR_UPGRADE_E2E_API_MIGRATION_SOURCE-${OPERATOR_UPGRADE_API_MIGRATION_SOURCE:-}}"
+TARGET_GROUP="kubebao.org"
 
 KIND_BIN="${KIND:-kind}"
 KUBECTL_BIN="${KUBECTL:-kubectl}"
@@ -184,6 +188,43 @@ pvc_uid_set() {
   done
 
   jq -Rsc 'split("\n") | map(select(length > 0)) | sort' <<<"${uid_lines}"
+}
+
+# assert_cluster_continues checks that a Cluster is the one created before the
+# upgrade. An in-place upgrade keeps the object; an API group migration creates
+# a new one whose import marker names the source UID.
+assert_cluster_continues() {
+  local resource="$1"
+  local source_uid="$2"
+  local cluster_json
+
+  cluster_json="$("${KUBECTL_BIN}" get "${resource}" -n "${TENANT_NAMESPACE}" -o json)"
+  if [[ -n "${API_MIGRATION_SOURCE}" ]]; then
+    assert_equal "${resource} does not continue its source Cluster" "${source_uid}" \
+      "$(jq -r '.metadata.annotations["migration.kubebao.org/source-uid"] // ""' <<<"${cluster_json}")"
+  else
+    assert_equal "${resource} UID changed during the operator upgrade" "${source_uid}" \
+      "$(jq -r '.metadata.uid' <<<"${cluster_json}")"
+  fi
+}
+
+# assert_statefulset_continues checks a Cluster StatefulSet. A migration
+# recreates it for the new owner without restarting its Pods.
+assert_statefulset_continues() {
+  local name="$1"
+  local source_uid="$2"
+  local cluster_resource="$3"
+  local statefulset_json
+
+  statefulset_json="$("${KUBECTL_BIN}" get "statefulset/${name}" -n "${TENANT_NAMESPACE}" -o json)"
+  if [[ -n "${API_MIGRATION_SOURCE}" ]]; then
+    assert_equal "StatefulSet ${name} is not controlled by ${cluster_resource}" \
+      "$("${KUBECTL_BIN}" get "${cluster_resource}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')" \
+      "$(jq -r '.metadata.ownerReferences[]? | select(.controller == true) | .uid' <<<"${statefulset_json}")"
+  else
+    assert_equal "StatefulSet ${name} UID changed during the operator upgrade" "${source_uid}" \
+      "$(jq -r '.metadata.uid' <<<"${statefulset_json}")"
+  fi
 }
 
 assert_resource_absent() {
@@ -403,6 +444,14 @@ verify_harness() {
     echo "legacy seed helper must be an immutable official image" >&2
     exit 1
   fi
+  if [[ -n "${API_MIGRATION_SOURCE}" && ! "${API_MIGRATION_SOURCE}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "API migration source must be a stable semver: ${API_MIGRATION_SOURCE}" >&2
+    exit 1
+  fi
+  if [[ -n "${API_MIGRATION_SOURCE}" && "${API_MIGRATION_SOURCE}" != "${FROM_VERSION}" ]]; then
+    echo "API migration source must match the digest-pinned upgrade baseline: ${FROM_VERSION}" >&2
+    exit 1
+  fi
   if ! [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
     echo "operator upgrade target must be a semver-compatible image tag: ${TARGET_VERSION}" >&2
     exit 1
@@ -431,7 +480,11 @@ verify_harness() {
     exit 1
   fi
 
-  echo "Operator upgrade E2E harness verified: ${FROM_VERSION} -> ${TARGET_VERSION} (baseline chart: ${BASELINE_CHART}; API migration fixtures: ${MIGRATION_FROM_VERSION} -> ${MIGRATION_TO_VERSION})"
+  local procedure="in-place upgrade"
+  if [[ -n "${API_MIGRATION_SOURCE}" ]]; then
+    procedure="API group migration from ${API_MIGRATION_SOURCE}"
+  fi
+  echo "Operator upgrade E2E harness verified: ${FROM_VERSION} -> ${TARGET_VERSION} (baseline chart: ${BASELINE_CHART}; API migration fixtures: ${MIGRATION_FROM_VERSION} -> ${MIGRATION_TO_VERSION}; ${procedure})"
 }
 
 verify_harness
@@ -442,20 +495,26 @@ fi
 for command_name in "${KIND_BIN}" "${KUBECTL_BIN}" "${HELM_INSTALL_BIN}" "${HELM_BIN}" "${DOCKER_BIN}" jq python3; do
   require_command "${command_name}"
 done
+if [[ -n "${API_MIGRATION_SOURCE}" ]]; then
+  require_command go
+fi
 verify_hardened_init_image
 verify_baseline_manager_image
 
 WORK_DIR="$(mktemp -d)"
 KUBECONFIG_PATH="${WORK_DIR}/kubeconfig"
 CANDIDATE_CHART="${WORK_DIR}/openbao-operator"
+API_MIGRATION_BIN_DIR="${WORK_DIR}/api-migration-bin"
+API_MIGRATION_BIN="${API_MIGRATION_BIN_DIR}/api-migration"
 CLUSTER_CREATED=false
 REGISTRY_CREATED=false
 
 collect_diagnostics() {
   echo "Collecting operator upgrade diagnostics..." >&2
   "${KUBECTL_BIN}" get pods -A -o wide >&2 || true
-  "${KUBECTL_BIN}" get openbaotenants -A -o yaml >&2 || true
-  "${KUBECTL_BIN}" get openbaoclusters -A -o yaml >&2 || true
+  for group in openbao.org kubebao.org; do
+    "${KUBECTL_BIN}" get "openbaotenants.${group},openbaoclusters.${group},openbaorestores.${group}" -A -o yaml >&2 || true
+  done
   "${KUBECTL_BIN}" get certificates,issuers -A -o wide >&2 || true
   "${KUBECTL_BIN}" get jobs -A -o wide >&2 || true
   "${KUBECTL_BIN}" get events -A --sort-by=.lastTimestamp >&2 || true
@@ -779,15 +838,95 @@ jq -n --arg version "${FROM_VERSION}" --arg manager "${BASELINE_MANAGER_IMAGE}" 
   --arg helper "${DEFAULT_HARDENED_INIT_IMAGE}" \
   '{publishedBaseline: $version, managerImage: $manager, initImage: $helper, retainedData: "verified"}'
 
-echo "Applying candidate CRDs before the Helm upgrade..." >&2
-make build-crds >/dev/null
-"${KUBECTL_BIN}" apply -f "${ROOT_DIR}/dist/crds.yaml" >/dev/null
-"${KUBECTL_BIN}" wait \
-  --for=condition=Established \
-  crd/openbaoclusters.kubebao.org \
-  crd/openbaotenants.kubebao.org \
-  crd/openbaorestores.kubebao.org \
-  --timeout=2m >/dev/null
+# wait_for_workloads_settled waits until every fixture StatefulSet has finished
+# its rollout and stayed unchanged for 30 seconds: an operator upgrade rolls
+# them shortly after its Deployments become ready.
+wait_for_workloads_settled() {
+  local deadline=$((SECONDS + 900))
+  local previous=""
+  local current=""
+  local stable=0
+
+  while ((SECONDS < deadline)); do
+    current="$(
+      "${KUBECTL_BIN}" get statefulsets -n "${TENANT_NAMESPACE}" -o json | jq -c '
+        [.items[] | {name: .metadata.name, generation: .metadata.generation,
+          settled: ((.status.observedGeneration // 0) == .metadata.generation and
+            (.status.currentRevision // "") != "" and .status.currentRevision == .status.updateRevision and
+            (.status.readyReplicas // 0) == .spec.replicas and (.status.updatedReplicas // 0) == .spec.replicas)}]'
+    )"
+    if jq -e 'all(.[]; .settled)' <<<"${current}" >/dev/null && [[ "${current}" == "${previous}" ]]; then
+      stable=$((stable + 1))
+      if ((stable >= 6)); then
+        return 0
+      fi
+    else
+      stable=0
+    fi
+    previous="${current}"
+    sleep 5
+  done
+  echo "fixture StatefulSets did not settle: ${current}" >&2
+  return 1
+}
+
+# migrate_to_candidate moves the installation to the candidate chart with the
+# api-migration command built from this tree, as an administrator runs it.
+migrate_to_candidate() {
+  local state_dir="${WORK_DIR}/api-migration-state"
+  local config_path="${WORK_DIR}/api-migration.json"
+  local values_path="${WORK_DIR}/api-migration-values.yaml"
+  local command_name
+
+  echo "Moving the installation to candidate ${TARGET_VERSION} with the api-migration command..." >&2
+  mkdir -p "${API_MIGRATION_BIN_DIR}"
+  (cd "${ROOT_DIR}" && go build -mod=vendor -o "${API_MIGRATION_BIN}" ./cmd/api-migration)
+  # The command runs helm and kubectl from PATH: give it the clients this job selected.
+  ln -sf "$(command -v "${HELM_BIN}")" "${API_MIGRATION_BIN_DIR}/helm"
+  ln -sf "$(command -v "${KUBECTL_BIN}")" "${API_MIGRATION_BIN_DIR}/kubectl"
+  cat >"${values_path}" <<EOF
+image:
+  repository: operator-upgrade.local/openbao-operator
+  tag: "${TARGET_VERSION}"
+  # The baseline release pins its published digest; the candidate uses its tag.
+  digest: ""
+operatorVersion: "${TARGET_VERSION}"
+helperImages:
+  # The baseline release pins its published init image; the candidate derives its own.
+  init: ""
+controller:
+  extraEnv:
+    - name: OPERATOR_INIT_IMAGE_REPOSITORY
+      value: operator-upgrade.local/openbao-init
+EOF
+  jq -n \
+    --arg kubeconfig "${KUBECONFIG_PATH}" \
+    --arg context "kind-${CLUSTER_NAME}" \
+    --arg namespace "${OPERATOR_NAMESPACE}" \
+    --arg source "${API_MIGRATION_SOURCE}" \
+    --arg chart "${CANDIDATE_CHART}" \
+    --arg values "${values_path}" \
+    '{kubeconfig: $kubeconfig, context: $context, release: "openbao-operator", operatorNamespace: $namespace,
+      sourceVersion: $source, destinationChart: $chart, destinationValues: $values}' >"${config_path}"
+  PATH="${API_MIGRATION_BIN_DIR}:${PATH}" "${API_MIGRATION_BIN}" plan --state "${state_dir}" --config "${config_path}" >&2
+  for command_name in migrate commit; do
+    PATH="${API_MIGRATION_BIN_DIR}:${PATH}" "${API_MIGRATION_BIN}" "${command_name}" --state "${state_dir}" >&2
+  done
+}
+
+# target_manifest copies a fixture for the candidate. After an API group
+# migration, manifests name kubebao.org, as the administrator converts them.
+target_manifest() {
+  local source_path="$1"
+  local target_path
+  target_path="${WORK_DIR}/target-$(basename "${source_path}")"
+
+  cp "${source_path}" "${target_path}"
+  if [[ -n "${API_MIGRATION_SOURCE}" ]]; then
+    "${API_MIGRATION_BIN}" convert --write "${target_path}" >/dev/null
+  fi
+  echo "${target_path}"
+}
 
 cp -R "${ROOT_DIR}/charts/openbao-operator" "${CANDIDATE_CHART}"
 python3 - "${CANDIDATE_CHART}/Chart.yaml" "${TARGET_VERSION}" <<'PY'
@@ -803,17 +942,41 @@ contents = re.sub(r"(?m)^appVersion:.*$", f"appVersion: {version}", contents, co
 chart_path.write_text(contents, encoding="utf-8")
 PY
 
-echo "Upgrading the operator to candidate ${TARGET_VERSION}..." >&2
-echo "Upgrade client: $("${HELM_BIN}" version --short)" >&2
-"${HELM_BIN}" upgrade openbao-operator "${CANDIDATE_CHART}" \
-  --namespace "${OPERATOR_NAMESPACE}" \
-  --set-string image.repository=operator-upgrade.local/openbao-operator \
-  --set-string "image.tag=${TARGET_VERSION}" \
-  --set-string "operatorVersion=${TARGET_VERSION}" \
-  --set-string 'controller.extraEnv[0].name=OPERATOR_INIT_IMAGE_REPOSITORY' \
-  --set-string 'controller.extraEnv[0].value=operator-upgrade.local/openbao-init' \
-  --wait \
-  --timeout 5m >/dev/null
+if [[ -n "${API_MIGRATION_SOURCE}" ]]; then
+  wait_for_workloads_settled
+  migrate_to_candidate
+else
+  echo "Applying candidate CRDs before the Helm upgrade..." >&2
+  make build-crds >/dev/null
+  "${KUBECTL_BIN}" apply -f "${ROOT_DIR}/dist/crds.yaml" >/dev/null
+  "${KUBECTL_BIN}" wait \
+    --for=condition=Established \
+    "crd/openbaoclusters.${TARGET_GROUP}" \
+    "crd/openbaotenants.${TARGET_GROUP}" \
+    "crd/openbaorestores.${TARGET_GROUP}" \
+    --timeout=2m >/dev/null
+
+  echo "Upgrading the operator to candidate ${TARGET_VERSION}..." >&2
+  echo "Upgrade client: $("${HELM_BIN}" version --short)" >&2
+  "${HELM_BIN}" upgrade openbao-operator "${CANDIDATE_CHART}" \
+    --namespace "${OPERATOR_NAMESPACE}" \
+    --set-string image.repository=operator-upgrade.local/openbao-operator \
+    --set-string "image.tag=${TARGET_VERSION}" \
+    --set-string "operatorVersion=${TARGET_VERSION}" \
+    --set-string 'controller.extraEnv[0].name=OPERATOR_INIT_IMAGE_REPOSITORY' \
+    --set-string 'controller.extraEnv[0].value=operator-upgrade.local/openbao-init' \
+    --wait \
+    --timeout 5m >/dev/null
+fi
+
+# The candidate's resources. Both groups' CRDs exist after a migration, so
+# every name is qualified with the group.
+CLUSTER_KIND="openbaoclusters.${TARGET_GROUP}"
+RESTORE_KIND="openbaorestores.${TARGET_GROUP}"
+TENANT_KIND="openbaotenants.${TARGET_GROUP}"
+CLUSTER_RESOURCE="${CLUSTER_KIND}/operator-upgrade"
+TRANSIT_CLUSTER_RESOURCE="${CLUSTER_KIND}/operator-upgrade-transit"
+HARDENED_CLUSTER_RESOURCE="${CLUSTER_KIND}/operator-upgrade-hardened"
 
 "${KUBECTL_BIN}" rollout status deployment/openbao-operator-controller \
   -n "${OPERATOR_NAMESPACE}" \
@@ -855,36 +1018,22 @@ wait_for_statefulset_init_image operator-upgrade-transit "${LOCAL_INIT_IMAGE}"
   --timeout=10m >/dev/null
 
 echo "Reapplying the Hardened contract through candidate admission..." >&2
-render_hardened_fixture | \
-  inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
+render_hardened_fixture >"${WORK_DIR}/hardened-cluster.yaml"
+inject_api_server_endpoint_ips "${api_server_endpoint_ips}" \
+  <"$(target_manifest "${WORK_DIR}/hardened-cluster.yaml")" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
 wait_for_statefulset_init_image operator-upgrade-hardened "${HARDENED_INIT_IMAGE}"
 wait_for_hardened_cluster
 
-assert_equal "OpenBaoCluster UID changed during the operator upgrade" "${cluster_uid}" \
-  "$("${KUBECTL_BIN}" get "${CLUSTER_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
-assert_equal "StatefulSet UID changed during the operator upgrade" "${statefulset_uid}" \
-  "$("${KUBECTL_BIN}" get statefulset/operator-upgrade -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+assert_cluster_continues "${CLUSTER_RESOURCE}" "${cluster_uid}"
+assert_statefulset_continues operator-upgrade "${statefulset_uid}" "${CLUSTER_RESOURCE}"
 assert_equal "PVC UID changed during the operator upgrade" "${pvc_uid}" \
   "$("${KUBECTL_BIN}" get "${PVC_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
-assert_equal "Migration fixture UID changed during the operator upgrade" "${migration_uid}" \
-  "$(
-    "${KUBECTL_BIN}" get openbaocluster/api-stability-migration \
-      -n "${TENANT_NAMESPACE}" \
-      -o jsonpath='{.metadata.uid}'
-  )"
-assert_equal "Hardened OpenBaoCluster UID changed during the operator upgrade" "${hardened_cluster_uid}" \
-  "$(
-    "${KUBECTL_BIN}" get "${HARDENED_CLUSTER_RESOURCE}" \
-      -n "${TENANT_NAMESPACE}" \
-      -o jsonpath='{.metadata.uid}'
-  )"
-assert_equal "Hardened StatefulSet UID changed during the operator upgrade" "${hardened_statefulset_uid}" \
-  "$(
-    "${KUBECTL_BIN}" get statefulset/operator-upgrade-hardened \
-      -n "${TENANT_NAMESPACE}" \
-      -o jsonpath='{.metadata.uid}'
-  )"
+assert_cluster_continues "${CLUSTER_KIND}/api-stability-migration" "${migration_uid}"
+assert_cluster_continues "${HARDENED_CLUSTER_RESOURCE}" "${hardened_cluster_uid}"
+assert_statefulset_continues operator-upgrade-hardened "${hardened_statefulset_uid}" "${HARDENED_CLUSTER_RESOURCE}"
+# Later checks follow the Cluster the candidate owns.
+cluster_uid="$("${KUBECTL_BIN}" get "${CLUSTER_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
 assert_equal "Hardened PVC UIDs changed during the operator upgrade" "${hardened_pvc_uids}" \
   "$(pvc_uid_set operator-upgrade-hardened 3)"
 assert_resource_absent secret/operator-upgrade-hardened-root-token
@@ -905,7 +1054,7 @@ jq -e --arg image "${HARDENED_INIT_IMAGE}" '
   any(.spec.template.spec.initContainers[]; .name == "bao-config-init" and .image == $image)
 ' <<<"${hardened_statefulset_json}" >/dev/null
 
-migration_json="$("${KUBECTL_BIN}" get openbaocluster/api-stability-migration -n "${TENANT_NAMESPACE}" -o json)"
+migration_json="$("${KUBECTL_BIN}" get "${CLUSTER_KIND}/api-stability-migration" -n "${TENANT_NAMESPACE}" -o json)"
 jq -e '
   .spec.paused == true and
   .spec.tls.acme.domains == ["bao.example.com"] and
@@ -934,7 +1083,8 @@ assert_equal "Hardened OpenBao data changed during the operator upgrade" "preser
   "$("${KUBECTL_BIN}" logs -n "${TENANT_NAMESPACE}" job/operator-upgrade-hardened-read | tr -d '\r\n')"
 
 echo "Migrating the initialized legacy Hardened cluster to Target authentication..." >&2
-KUBECTL="${KUBECTL_BIN}" python3 "${ROOT_DIR}/hack/ci/operator-upgrade-jwt-migration.py"
+KUBECTL="${KUBECTL_BIN}" OPENBAO_CLUSTER_RESOURCE="${CLUSTER_KIND}" \
+  python3 "${ROOT_DIR}/hack/ci/operator-upgrade-jwt-migration.py"
 assert_equal "Hardened PVC UIDs changed during JWT migration" "${hardened_pvc_uids}" \
   "$(pvc_uid_set operator-upgrade-hardened 3)"
 assert_resource_absent secret/operator-upgrade-hardened-root-token
@@ -945,10 +1095,10 @@ echo "Checking static restore-token labeling on the legacy Development cluster..
     (.spec.controllerJWTMode // "Shared") == "Shared" and
     (.spec.selfInit.enabled // false) == false' >/dev/null
 "${KUBECTL_BIN}" apply -n "${TENANT_NAMESPACE}" \
-  -f "${FIXTURE_DIR}/static-restore-token-guardrail.yaml" >/dev/null
-"${KUBECTL_BIN}" wait openbaorestore/operator-upgrade-static-token-guardrail \
+  -f "$(target_manifest "${FIXTURE_DIR}/static-restore-token-guardrail.yaml")" >/dev/null
+"${KUBECTL_BIN}" wait "${RESTORE_KIND}/operator-upgrade-static-token-guardrail" \
   -n "${TENANT_NAMESPACE}" --for=jsonpath='{.status.phase}'=Failed --timeout=2m >/dev/null
-legacy_restore_json="$("${KUBECTL_BIN}" get openbaorestore/operator-upgrade-static-token-guardrail \
+legacy_restore_json="$("${KUBECTL_BIN}" get "${RESTORE_KIND}/operator-upgrade-static-token-guardrail" \
   -n "${TENANT_NAMESPACE}" -o json)"
 jq -e '.status.execution == null and any(.status.conditions[]?; .type == "RestoreConfigurationReady" and
   .status == "False" and .reason == "TokenSecretInvalid" and
@@ -958,7 +1108,7 @@ jq -e '.status.execution == null and any(.status.conditions[]?; .type == "Restor
     'all(.items[]; all(.metadata.ownerReferences[]?; .uid != $uid))' >/dev/null
 jq -n --arg uid "${cluster_uid}" \
   '{legacyStaticRestoreGuardrail: "passed", clusterUID: $uid, restoreJobCreated: false}'
-"${KUBECTL_BIN}" delete openbaorestore/operator-upgrade-static-token-guardrail \
+"${KUBECTL_BIN}" delete "${RESTORE_KIND}/operator-upgrade-static-token-guardrail" \
   -n "${TENANT_NAMESPACE}" --wait=true --timeout=2m >/dev/null
 
 echo "Verifying retained legacy root-token and unseal-key custody..." >&2
@@ -978,8 +1128,8 @@ assert_equal "Retained legacy PVC UID changed" "${pvc_uid}" \
   "$("${KUBECTL_BIN}" get "${PVC_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
 
 echo "Exercising the upgraded provisioner with a new tenant..." >&2
-"${KUBECTL_BIN}" apply -f "${FIXTURE_DIR}/post-upgrade-tenant.yaml" >/dev/null
-"${KUBECTL_BIN}" wait openbaotenant/openbao-upgrade-post \
+"${KUBECTL_BIN}" apply -f "$(target_manifest "${FIXTURE_DIR}/post-upgrade-tenant.yaml")" >/dev/null
+"${KUBECTL_BIN}" wait "${TENANT_KIND}/openbao-upgrade-post" \
   -n "${OPERATOR_NAMESPACE}" \
   --for=jsonpath='{.status.provisioned}'=true \
   --timeout=5m >/dev/null
