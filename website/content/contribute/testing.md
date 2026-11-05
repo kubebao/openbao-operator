@@ -34,6 +34,11 @@ devenv tasks run operator:doctor
 devenv tasks run operator:ci-core
 {{< /command >}}
 
+Go package checks cover `api/`, `cmd/`, `hack/`, `internal/`, and `test/`. Local output directories such as
+`artifacts/` and `dist/` are outside this scope, so generated Go files there do not enter lint, vet, or test discovery.
+Formatting verification also covers Go fixtures under `.github/` and `.semgrep/`. When you add a source package in a
+new top-level directory, add that directory to `GO_SOURCE_DIRS` in `mk/development.mk`.
+
 ## Run specialized lanes
 
 - Use `make fuzz` for parsers, renderers, auth, or normalization code. Set `FUZZTIME` or `FUZZ_TARGET_FILTER` for a focused run.

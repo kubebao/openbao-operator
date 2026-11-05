@@ -1,5 +1,9 @@
 ##@ Development
 
+# Keep local generated Go artifacts outside package checks.
+GO_SOURCE_DIRS := api cmd hack internal test
+GO_PACKAGE_PATTERNS := $(addsuffix /...,$(addprefix ./,$(GO_SOURCE_DIRS)))
+
 .PHONY: bootstrap
 bootstrap: controller-gen kustomize crd-ref-docs setup-envtest golangci-lint actionlint ginkgo govulncheck govulncheck-ignore go-licenses gotestsum semgrep ast-grep ## Install tools required by the core contributor workflow.
 	@echo "Bootstrap complete."
@@ -49,11 +53,11 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
-	go fmt ./...
+	go fmt $(GO_PACKAGE_PATTERNS)
 
 .PHONY: verify-fmt
 verify-fmt: ## Verify all Go code is gofmt'd (does not modify files).
-	@unformatted="$$(find . \( -path ./.git -o -path ./.devenv -o -path ./vendor \) -prune -o -name '*.go' -print0 | xargs -0 gofmt -l)"; \
+	@unformatted="$$(find $(GO_SOURCE_DIRS) .github .semgrep -name '*.go' -print0 | xargs -0 gofmt -l)"; \
 	if [ -n "$$unformatted" ]; then \
 		echo "The following files are not gofmt'd:"; \
 		echo "$$unformatted"; \
@@ -64,21 +68,21 @@ E2E_SUITE_PACKAGE := $(shell GOFLAGS="$(GOFLAGS_VENDOR)" go list -m)/test/e2e
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	GOFLAGS="$(GOFLAGS_VENDOR)" go vet ./...
+	GOFLAGS="$(GOFLAGS_VENDOR)" go vet $(GO_PACKAGE_PATTERNS)
 
 .PHONY: vet-tagged
 vet-tagged: ## Run go vet against integration and E2E tagged code without a cluster.
-	GOFLAGS="$(GOFLAGS_VENDOR)" go vet -tags=integration ./...
+	GOFLAGS="$(GOFLAGS_VENDOR)" go vet -tags=integration $(GO_PACKAGE_PATTERNS)
 	GOFLAGS="$(GOFLAGS_VENDOR)" go vet -tags=e2e ./test/e2e/...
 
 .PHONY: test
 test: manifests generate fmt vet kustomize ## Run unit tests (fast, no envtest).
-	GOFLAGS="$(GOFLAGS_VENDOR)" go test $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list ./... | grep -vx '$(E2E_SUITE_PACKAGE)') -coverprofile cover.out
+	GOFLAGS="$(GOFLAGS_VENDOR)" go test $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list $(GO_PACKAGE_PATTERNS) | grep -vx '$(E2E_SUITE_PACKAGE)') -coverprofile cover.out
 
 .PHONY: test-sum
 test-sum: manifests generate fmt vet kustomize gotestsum ## Run unit tests with gotestsum output and JUnit XML.
 	@mkdir -p "$(TEST_ARTIFACT_DIR)"
-	GOFLAGS="$(GOFLAGS_VENDOR)" "$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" --junitfile "$(TEST_ARTIFACT_DIR)/unit.xml" -- -coverprofile "$(TEST_ARTIFACT_DIR)/unit.cover.out" $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list ./... | grep -vx '$(E2E_SUITE_PACKAGE)')
+	GOFLAGS="$(GOFLAGS_VENDOR)" "$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" --junitfile "$(TEST_ARTIFACT_DIR)/unit.xml" -- -coverprofile "$(TEST_ARTIFACT_DIR)/unit.cover.out" $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list $(GO_PACKAGE_PATTERNS) | grep -vx '$(E2E_SUITE_PACKAGE)')
 
 COVERAGE_PROFILE ?= cover.out
 COVERAGE_MIN_INTERNAL ?= 68.0
@@ -97,17 +101,17 @@ test-ci: manifests generate vet kustomize setup-envtest gotestsum test-e2e-suppo
 		-tags=integration \
 		-count=1 \
 		-coverprofile "$(COVERAGE_PROFILE)" \
-		$$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration ./... | grep -vx '$(E2E_SUITE_PACKAGE)')
+		$$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration $(GO_PACKAGE_PATTERNS) | grep -vx '$(E2E_SUITE_PACKAGE)')
 	$(MAKE) verify-coverage COVERAGE_PROFILE="$(COVERAGE_PROFILE)" COVERAGE_MIN_INTERNAL="$(COVERAGE_MIN_INTERNAL)"
 
 .PHONY: test-integration
 test-integration: manifests generate vet kustomize setup-envtest ## Run envtest-based integration tests (envtest; requires -tags=integration).
-	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" GOFLAGS="$(GOFLAGS_VENDOR)" go test $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration ./... | grep -vx '$(E2E_SUITE_PACKAGE)') -tags=integration -count=1 -v
+	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" GOFLAGS="$(GOFLAGS_VENDOR)" go test $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration $(GO_PACKAGE_PATTERNS) | grep -vx '$(E2E_SUITE_PACKAGE)') -tags=integration -count=1 -v
 
 .PHONY: test-integration-sum
 test-integration-sum: manifests generate vet kustomize setup-envtest gotestsum ## Run envtest-based integration tests with gotestsum output and JUnit XML.
 	@mkdir -p "$(TEST_ARTIFACT_DIR)"
-	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" GOFLAGS="$(GOFLAGS_VENDOR)" "$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" --junitfile "$(TEST_ARTIFACT_DIR)/integration.xml" -- -tags=integration -count=1 -coverprofile "$(TEST_ARTIFACT_DIR)/integration.cover.out" $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration ./... | grep -vx '$(E2E_SUITE_PACKAGE)')
+	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" GOFLAGS="$(GOFLAGS_VENDOR)" "$(GOTESTSUM)" --format="$(GOTESTSUM_FORMAT)" --junitfile "$(TEST_ARTIFACT_DIR)/integration.xml" -- -tags=integration -count=1 -coverprofile "$(TEST_ARTIFACT_DIR)/integration.cover.out" $$(GOFLAGS="$(GOFLAGS_VENDOR)" go list -tags=integration $(GO_PACKAGE_PATTERNS) | grep -vx '$(E2E_SUITE_PACKAGE)')
 
 .PHONY: fuzz
 fuzz: ## Run the curated fuzz smoke sweep across repo fuzz targets.
@@ -918,11 +922,11 @@ SEMGREP_OUTPUT_JSON ?= $(SEMGREP_ARTIFACT_DIR)/semgrep.json
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
-	"$(GOLANGCI_LINT)" run
+	"$(GOLANGCI_LINT)" run $(GO_PACKAGE_PATTERNS)
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	"$(GOLANGCI_LINT)" run --fix
+	"$(GOLANGCI_LINT)" run --fix $(GO_PACKAGE_PATTERNS)
 
 .PHONY: lint-config
 lint-config: golangci-lint ## Verify golangci-lint linter configuration
