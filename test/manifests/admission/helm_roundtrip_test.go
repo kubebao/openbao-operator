@@ -16,7 +16,11 @@ func TestHelmPolicySpecsSurviveKustomizeRoundTrip(t *testing.T) {
 	if _, err := exec.LookPath("helm"); err != nil {
 		t.Skip("helm binary not available")
 	}
-	kustomize, err := filepath.Abs("../../../bin/kustomize")
+	kustomize := os.Getenv("KUSTOMIZE")
+	if kustomize == "" {
+		kustomize = filepath.Join("..", "..", "..", "bin", "kustomize")
+	}
+	kustomize, err := filepath.Abs(kustomize)
 	require.NoError(t, err)
 	for _, tt := range []struct {
 		name string

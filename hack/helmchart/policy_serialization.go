@@ -14,7 +14,8 @@ func literalPolicyExpressions(content string) (string, error) {
 	var result []string
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
-		if strings.TrimPrefix(strings.TrimSpace(line), "- ") != "expression: >-" {
+		header, _, _ := strings.Cut(line, "#")
+		if strings.TrimPrefix(strings.TrimSpace(header), "- ") != "expression: >-" {
 			result = append(result, line)
 			continue
 		}
@@ -32,7 +33,7 @@ func literalPolicyExpressions(content string) (string, error) {
 		if err := yaml.Unmarshal([]byte(">-\n"+strings.Join(lines[i+1:bodyEnd], "\n")+"\n"), &expression); err != nil {
 			return "", fmt.Errorf("decode expression at line %d: %w", i+1, err)
 		}
-		result = append(result, line[:column]+"expression: |-")
+		result = append(result, strings.Replace(line, ">-", "|-", 1))
 		for _, part := range strings.Split(expression, "\n") {
 			if part != "" {
 				part = strings.Repeat(" ", column+2) + part

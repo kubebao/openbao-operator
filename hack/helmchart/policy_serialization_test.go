@@ -15,7 +15,7 @@ func TestLiteralPolicyExpressionsPreserveValues(t *testing.T) {
         object != null &&
         has(object.metadata)
     - name: nested
-      expression: >-
+      expression: >- # nested CEL expression
         (
           object != null &&
           has(object.metadata)
@@ -32,7 +32,7 @@ func TestLiteralPolicyExpressionsPreserveValues(t *testing.T) {
     - name: quoted
       expression: "true"
   validations:
-    - expression: >-
+    - expression: >- # validation expression
         variables.folded ||
         variables.nested
       message: >-
@@ -46,6 +46,8 @@ func TestLiteralPolicyExpressionsPreserveValues(t *testing.T) {
 	require.Equal(t, before, after)
 	require.NotContains(t, got, "expression: >-")
 	require.Contains(t, got, "message: >-")
+	require.Contains(t, got, "expression: |- # nested CEL expression")
+	require.Contains(t, got, "expression: |- # validation expression")
 	require.Contains(t, got, "expression: \"true\"")
 	require.Contains(t, got, `{{ include "openbao-operator.fullname" . }}`)
 }
