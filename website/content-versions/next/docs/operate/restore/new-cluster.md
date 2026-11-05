@@ -118,7 +118,7 @@ family. See [IPv6 and dual-stack networks](../../../configure/network/#use-ipv6-
 For a Transit target, apply this request after replacing the source identity and storage settings:
 
 ```yaml
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoRestore
 metadata:
   name: recovery-20261005

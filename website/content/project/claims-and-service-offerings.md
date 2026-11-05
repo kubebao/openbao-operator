@@ -13,7 +13,7 @@ entire `OpenBaoCluster` workload specification to every tenant.
 
 {{< callout type="warning" title="Not available in 0.5.x" >}}
 The current repository API and CRDs do not contain `OpenBaoClusterClaim`, `OpenBaoServiceOffering`, or the proposed
-`claims.openbao.org` API group. This page is a design boundary, not usage documentation.
+`claims.kubebao.org` API group. This page is a design boundary, not usage documentation.
 {{< /callout >}}
 
 ## Intended model
@@ -30,7 +30,7 @@ The concrete cluster remains visible and operator-managed. Claims do not replace
 
 | Concern | Proposed boundary |
 | --- | --- |
-| API ownership | Module resources use an independently versioned `claims.openbao.org` group |
+| API ownership | Module resources use an independently versioned `claims.kubebao.org` group |
 | Dependency direction | Claims can consume stable core contracts; core packages cannot depend on the Claims module |
 | Installation | The lifecycle core starts and reconciles without Claims CRDs or controllers |
 | Materialization | A claim creates a deterministic, ownership-marked `OpenBaoCluster` in the same cluster |

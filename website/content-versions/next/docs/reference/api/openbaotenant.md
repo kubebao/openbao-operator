@@ -15,10 +15,10 @@ This page is synchronized from the generated API reference at `HEAD` for the `ne
 
 
 ## Packages
-- [openbao.org/v1alpha1](#openbaoorgv1alpha1)
+- [kubebao.org/v1alpha1](#kubebaoorgv1alpha1)
 
 
-## openbao.org/v1alpha1
+## kubebao.org/v1alpha1
 
 Package v1alpha1 contains API Schema definitions for the openbao v1alpha1 API group.
 
@@ -43,7 +43,7 @@ for the Provisioner to have list/watch permissions on namespaces.
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `openbao.org/v1alpha1` | | |
+| `apiVersion` _string_ | `kubebao.org/v1alpha1` | | |
 | `kind` _string_ | `OpenBaoTenant` | | |
 | `spec` _[OpenBaoTenantSpec](#openbaotenantspec)_ |  |  |  |
 | `status` _[OpenBaoTenantStatus](#openbaotenantstatus)_ |  |  |  |

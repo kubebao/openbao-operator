@@ -76,7 +76,7 @@ best-effort support contract.
 
 ## Pre-GA API lifecycle
 
-The operator currently serves one API version, `openbao.org/v1alpha1`.
+The operator currently serves one API version, `kubebao.org/v1alpha1`.
 
 | Change | Current contract |
 | --- | --- |

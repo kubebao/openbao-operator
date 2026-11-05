@@ -72,7 +72,7 @@ controller from starting against an older schema.
 2. Verify that the stored CRD version is `v1alpha1` and that the CRDs report `Established=True`.
 
    ```bash
-   kubectl get crd openbaoclusters.openbao.org \
+   kubectl get crd openbaoclusters.kubebao.org \
      -o jsonpath='{.status.storedVersions}{"\n"}{.status.conditions}{"\n"}'
    ```
 

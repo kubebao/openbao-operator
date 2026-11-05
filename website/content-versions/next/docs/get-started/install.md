@@ -153,7 +153,7 @@ An existing installation can report a server-side apply conflict when a differen
 Inspect the managers that own `spec.versions` on each installed CRD:
 
 ```sh
-kubectl get crd openbaoclusters.openbao.org openbaotenants.openbao.org openbaorestores.openbao.org \
+kubectl get crd openbaoclusters.kubebao.org openbaotenants.kubebao.org openbaorestores.kubebao.org \
   --show-managed-fields -o json \
   | jq '.items[] | {name: .metadata.name, schemaManagers: [
       .metadata.managedFields[]? | select(.fieldsV1["f:spec"]["f:versions"] != null) |
@@ -213,9 +213,9 @@ metadata before applying it so you know the exact commit and image digests under
 
    {{< command label="verify" title="Verify cluster-scoped resources" >}}
    kubectl get crd \
-     openbaoclusters.openbao.org \
-     openbaotenants.openbao.org \
-     openbaorestores.openbao.org
+     openbaoclusters.kubebao.org \
+     openbaotenants.kubebao.org \
+     openbaorestores.kubebao.org
    kubectl get validatingadmissionpolicies
    {{< /command >}}
 
