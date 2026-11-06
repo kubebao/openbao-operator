@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,6 +16,7 @@ import (
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/observability"
+	platformsemver "github.com/kubebao/openbao-operator/internal/platform/semver"
 	"github.com/kubebao/openbao-operator/internal/port/adminops"
 )
 
@@ -72,8 +74,12 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 			"Configure destination storage-reader credentials or a reader ServiceAccount; backup writer identities are not inherited")
 	}
 	snapshot := backup.LatestSnapshot
-	if backup.LastBackupName == "" || snapshot == nil || snapshot.ClusterID == "" || snapshot.Version != config.ClusterTemplate.Version {
+	if backup.LastBackupName == "" || snapshot == nil || snapshot.ClusterID == "" {
 		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "NoCompatibleSnapshot", "Waiting for a successful backup with a compatible source identity and version observation")
+	}
+	template, err := restoreTestTemplate(config.ClusterTemplate, snapshot.Version)
+	if err != nil {
+		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "NoCompatibleSnapshot", err.Error())
 	}
 
 	name := fmt.Sprintf("restore-test-%.12s-%d", cluster.UID, now.UnixNano())
@@ -85,7 +91,7 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 		},
 		Spec: api.OpenBaoRestoreSpec{
 			Cluster:             name,
-			ClusterTemplate:     config.ClusterTemplate.DeepCopy(),
+			ClusterTemplate:     template,
 			TargetLifecycle:     api.RestoreTargetLifecycleDisposable,
 			Force:               true,
 			Image:               cluster.Spec.Backup.Image,
@@ -133,6 +139,27 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 	}
 	logger.Info("Created disposable restore test", "namespace", child.Namespace, "restore", child.Name)
 	return nil
+}
+
+func restoreTestTemplate(config api.RestoreClusterTemplate, sourceVersion string) (*api.RestoreClusterTemplate, error) {
+	version, err := platformsemver.Parse(sourceVersion)
+	if err != nil || version.String() != sourceVersion || version.Prerelease() != "" ||
+		version.Major() < 2 || (version.Major() == 2 && version.Minor() < 7) {
+		return nil, fmt.Errorf("snapshot source version %q must be a stable OpenBao release from 2.7.0 onward", sourceVersion)
+	}
+	if config.Version != "" && config.Version != sourceVersion {
+		return nil, fmt.Errorf("restore test version %q does not match snapshot source version %q", config.Version, sourceVersion)
+	}
+	if config.Image != "" && config.Version == "" {
+		return nil, fmt.Errorf("custom restore test images require a matching clusterTemplate.version")
+	}
+	if version.Build() != "" && strings.TrimSpace(config.Image) == "" {
+		return nil, fmt.Errorf("snapshot source version %q includes build metadata; "+
+			"configure an explicit matching image and clusterTemplate.version", sourceVersion)
+	}
+	template := config.DeepCopy()
+	template.Version = sourceVersion
+	return template, nil
 }
 
 func restoreTestDue(config *api.RestoreTest, status *api.RestoreTestStatus, successful int64, created, now time.Time) (bool, error) {

@@ -51,6 +51,15 @@ but the operator still blocks pre-2.6 to 2.6-or-newer `BlueGreen` transitions un
 The forwarding fix does not establish datastore downgrade compatibility.
 {{< /callout >}}
 
+## Restore version support
+
+OpenBao Operator 0.6.0 supports OpenBao 2.7.0 and 2.7.1 for fresh-target restores and scheduled restore tests. The
+template version must match the snapshot source version.
+
+Runtime checks verify bootstrap, unseal, cluster identity, version, and healthy leadership. The snapshot digest is
+compared with a known value only when `source.expectedDigest` is supplied; scheduled tests supply it from backup
+metadata. Restore tests do not authenticate as application users or read their secrets.
+
 ## Earlier focused qualification
 
 The results below describe focused checks completed before the final 0.6.0 candidate freeze. They do not replace

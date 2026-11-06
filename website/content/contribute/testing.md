@@ -233,6 +233,15 @@ request-copy contracts without a cluster.
 When using `test-e2e-existing` with an isolated test cluster, set both `E2E_OPENBAO_VERSION` and `E2E_OPENBAO_IMAGE`,
 and configure its API-server egress addresses through `E2E_API_SERVER_CIDR` and `E2E_API_SERVER_ENDPOINT_IPS`.
 
+The Restore Compatibility workflow runs daily and supports manual dispatch. It resolves the latest stable OpenBao
+release through the upstream GitHub Releases API and runs the scheduled and retained restore scenarios against
+that release and the 2.7.0 minimum. Before creating a cluster, it waits up to five minutes for each release image.
+Image unavailability fails preparation without starting or reporting restore scenarios. The retained scenario verifies
+independent authentication and known fixture data
+before and after a target restart. Reports record the exact tested version. Set `E2E_RESTORE_OPENBAO_VERSION` to
+select a version locally; the default is 2.7.2. This override applies to fresh-restore source and target fixtures.
+The Transit seal service retains its separate pinned version.
+
 The `upgrade-rolling` and `upgrade-bluegreen-core` lanes use two Ginkgo workers. Each ordered scenario owns its tenant
 namespace. Rolling snapshot recovery and native Blue/Green snapshot promotion also own separate RustFS namespaces;
 their endpoints and snapshot egress policies select that backend. Cleanup deletes storage with a namespace UID

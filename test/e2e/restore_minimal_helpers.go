@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
@@ -145,10 +146,12 @@ type minimalRestoreFixture struct {
 	template                *api.RestoreClusterTemplate
 	snapshot                api.RestoreSource
 	storageNamespace        *corev1.Namespace
+	password                string
 }
 
 func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
-	const image = "openbao/openbao:2.7.2"
+	version := envOrDefault("E2E_RESTORE_OPENBAO_VERSION", defaultRestoreOpenBaoVersion)
+	image := "openbao/openbao:" + version
 	f := &minimalRestoreFixture{}
 	ginkgo.DeferCleanup(func() {
 		if skipCleanup {
@@ -224,7 +227,8 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 	prepareMinimalDestinationNetwork(ctx, f.client, f.destinationFW.Namespace, f.sourceFW.Namespace, f.storageNamespace.Name)
 	setMinimalDestinationApproval(ctx, f.client, f.destinationFW.Namespace, true)
 
-	requests := helpers.CreateE2ERequests(f.sourceFW.Namespace)
+	f.password = uuid.NewString()
+	requests := crossClusterAdminRequests(f.password)
 	f.source = &api.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "source",
@@ -233,7 +237,7 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 		Spec: api.OpenBaoClusterSpec{
 			ControllerJWTMode: api.ControllerJWTModeTarget,
 			Profile:           api.ProfileDevelopment,
-			Version:           "2.7.2",
+			Version:           version,
 			Image:             image,
 			Replicas:          1,
 			InitContainer: &api.InitContainerConfig{
@@ -322,7 +326,7 @@ func newMinimalRestoreFixture(ctx context.Context) *minimalRestoreFixture {
 		policy = corev1.IPFamilyPolicyRequireDualStack
 	}
 	f.template = &api.RestoreClusterTemplate{
-		Version: "2.7.2",
+		Version: version,
 		Image:   image,
 		Storage: f.source.Spec.Storage,
 		TLS:     f.source.Spec.TLS,

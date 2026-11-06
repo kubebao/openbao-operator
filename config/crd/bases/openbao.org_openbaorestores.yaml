@@ -115,7 +115,9 @@ spec:
                         type: object
                     type: object
                   image:
-                    description: Image defaults to the version-derived image.
+                    description: |-
+                      Image defaults to the version-derived image. Versions with build metadata
+                      require an explicit matching image because '+' is not valid in an image tag.
                     type: string
                   imagePullSecrets:
                     items:
@@ -1071,18 +1073,17 @@ spec:
                         is pkcs11
                       rule: self.type == 'pkcs11' || !has(self.pkcs11)
                   version:
-                    description: Version must match the administrator-observed snapshot
-                      source version.
-                    enum:
-                    - 2.7.0
-                    - 2.7.1
-                    - 2.7.2
+                    description: |-
+                      Version accepts stable OpenBao releases from 2.7.0 onward and must match
+                      the snapshot source version. Scheduled restore tests can omit this field
+                      to use the version recorded with each backup. Restore requests require it.
+                    maxLength: 64
+                    pattern: ^((2\.([7-9]|[1-9][0-9]+))|(([3-9]|[1-9][0-9]+)\.(0|[1-9][0-9]*)))\.(0|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$
                     type: string
                 required:
                 - storage
                 - tls
                 - unseal
-                - version
                 type: object
                 x-kubernetes-validations:
                 - message: restore targets require OperatorManaged or External TLS
@@ -1107,6 +1108,10 @@ spec:
                   rule: '!has(self.plugins) || self.plugins.all(p, p.type == ''kms'')'
                 - message: restore targets require the configuration init container
                   rule: '!has(self.initContainer) || self.initContainer.enabled'
+                - message: restore versions with build metadata require an explicit
+                    matching image
+                  rule: '!has(self.version) || !self.version.contains(''+'') || (has(self.image)
+                    && size(self.image.trim()) > 0)'
               force:
                 default: false
                 description: |-
@@ -1448,7 +1453,8 @@ spec:
                 && !has(self.tokenSecretRef) && !has(self.jwtAuthRole) && (!has(self.overrideOperationLock)
                 || !self.overrideOperationLock) && has(self.source.expectedClusterID)
                 && size(self.source.expectedClusterID) > 0 && has(self.source.expectedVersion)
-                && self.source.expectedVersion == self.clusterTemplate.version)'
+                && has(self.clusterTemplate.version) && self.source.expectedVersion
+                == self.clusterTemplate.version)'
             - message: targetLifecycle requires clusterTemplate
               rule: has(self.clusterTemplate) || !has(self.targetLifecycle)
             - message: cleanupAfterSeconds requires a disposable fresh target

@@ -89,6 +89,8 @@ Labels: `restore-minimal`, `dr`, `backup`, `restore`, `e2e-anchor`
 
 Recorded checkpoints:
 - checking ready client Service backends for each destination family
+- authenticating independently and reading the restored fixture data
+- restarting the target and verifying that authentication and data survive
 
 
 ## `restore-minimal-scheduled`

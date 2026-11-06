@@ -50,6 +50,26 @@ but the operator still blocks pre-2.6 to 2.6-or-newer `BlueGreen` transitions un
 The forwarding fix does not establish datastore downgrade compatibility.
 {{< /callout >}}
 
+## Restore version support
+
+Fresh-target restores and scheduled restore tests support stable OpenBao releases from 2.7.0 onward, including later
+minor and major releases. Admission does not require each release to appear in a version allowlist. Prereleases and
+versions below 2.7.0 are rejected. Each target must run the exact source version recorded with its snapshot.
+Versions with build metadata require an explicit matching image because `+` is not valid in an image tag.
+
+The validation table records tested combinations; accepting a version does not establish that every provider,
+plugin, or future release works with the current operator. The daily Restore Compatibility workflow tests 2.7.0 and
+the latest stable upstream release with scheduled restores, retained recovery, authentication, fixture data reads,
+and target restart. Known incompatibilities require a documented exclusion and a regression test before adding a
+version-specific block.
+
+Runtime checks verify bootstrap, unseal, cluster identity, version, and healthy leadership. The snapshot digest is
+compared with a known value only when `source.expectedDigest` is supplied; scheduled tests supply it from backup
+metadata. Scheduled restore tests do not authenticate as application users or read their secrets. The additional
+authentication and data
+checks belong to the CI fixture. A successful restore test establishes only its
+[documented checks](../../operate/restore/tests/).
+
 ## OpenBao 2.6.5 and 2.7.2 upgrade considerations
 
 [OpenBao 2.6.5](https://github.com/openbao/openbao/releases/tag/v2.6.5) and

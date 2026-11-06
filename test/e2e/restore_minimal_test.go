@@ -126,6 +126,8 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				ServiceAccountName:   readerAccount.Name,
 				CleanupAfterSeconds:  30,
 			}
+			source.Spec.Backup.RestoreTest.ClusterTemplate.Version = ""
+			source.Spec.Backup.RestoreTest.ClusterTemplate.Image = ""
 			Expect(c.Patch(ctx, source, client.MergeFrom(before))).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(c.Get(ctx, client.ObjectKeyFromObject(source), source)).To(Succeed())
@@ -146,6 +148,8 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				name := source.Status.Backup.RestoreTest.Active.Name
 				child := &api.OpenBaoRestore{}
 				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name}, child)).To(Succeed())
+				g.Expect(child.Spec.ClusterTemplate.Version).To(Equal(child.Spec.Source.ExpectedVersion))
+				g.Expect(child.Spec.ClusterTemplate.Version).To(Equal(snapshot.ExpectedVersion))
 				g.Expect(child.Spec.ClusterTemplate.Service).To(Equal(template.Service))
 				target := &api.OpenBaoCluster{}
 				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name}, target)).To(Succeed())
@@ -276,6 +280,36 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				"targetFamilies": service.Spec.IPFamilies, "targetClusterIPs": service.Spec.ClusterIPs,
 			})
 			Expect(cluster.Annotations[constants.AnnotationRestoreHold]).To(Equal(string(request.UID)))
+			By("authenticating independently and reading the restored fixture data")
+			admin := crossClusterAdministrator(ctx, c, cluster, fixture.password)
+			Eventually(admin.login, time.Minute, time.Second).Should(Succeed())
+			data, err := admin.read("secret/recovery-proof")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(data["value"]).To(Equal("from-source-snapshot"))
+
+			By("restarting the target and verifying that authentication and data survive")
+			pod := &corev1.Pod{}
+			Expect(c.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name + "-0"}, pod)).To(Succeed())
+			originalUID := pod.UID
+			controllerUser := "system:serviceaccount:" + operatorNamespace + ":openbao-operator-controller"
+			controllerGroups := []string{"system:serviceaccounts", "system:serviceaccounts:" + operatorNamespace, "system:authenticated"}
+			Expect(helpers.RunWithImpersonation(ctx, fixture.config, c.Scheme(), controllerUser, controllerGroups,
+				func(controller client.Client) error {
+					return controller.Delete(ctx, pod, client.Preconditions{UID: &originalUID})
+				})).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name + "-0"}, pod)).To(Succeed())
+				g.Expect(pod.UID).NotTo(Equal(originalUID))
+				g.Expect(pod.Status.ContainerStatuses).NotTo(BeEmpty())
+				for _, status := range pod.Status.ContainerStatuses {
+					g.Expect(status.Ready).To(BeTrue())
+				}
+			}, 3*time.Minute, time.Second).Should(Succeed())
+			restarted := crossClusterAdministrator(ctx, c, cluster, fixture.password)
+			Eventually(restarted.login, time.Minute, time.Second).Should(Succeed())
+			data, err = restarted.read("secret/recovery-proof")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(data["value"]).To(Equal("from-source-snapshot"))
 			before := request.DeepCopy()
 			request.Annotations = map[string]string{constants.AnnotationRestoreAcknowledge: string(request.UID) + "/Abandon"}
 			Expect(c.Patch(ctx, request, client.MergeFrom(before))).To(Succeed())

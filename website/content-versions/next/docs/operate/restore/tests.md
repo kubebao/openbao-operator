@@ -62,6 +62,20 @@ Kubernetes and cloud principal. Submission claims still require a Pod-bound toke
 
 Add `restoreTest` beneath `spec.backup`. Use either `everySuccessfulBackups` or a five-field UTC cron `schedule`.
 
+The backup must come from a stable OpenBao release from 2.7.0 onward. For an older source, upgrade it and create a
+new backup before enabling restore tests.
+
+Omit `clusterTemplate.version` to use the source version recorded with each successful backup. Each generated restore
+request pins that version before it starts. A source upgrade does not require a separate restore-test configuration
+change, and a running test keeps its original version. The current source cluster version does not replace the
+version recorded with an older backup.
+
+To pin a version, set `clusterTemplate.version`. The test waits with `NoCompatibleSnapshot` until the latest backup
+has that exact version. Custom `clusterTemplate.image` values require a matching version pin. The operator checks
+the target's reported version before submitting the snapshot; it does not rewrite custom image references.
+Versions with build metadata, such as `2.7.2+build.1`, require an explicit image and matching version pin because
+`+` cannot appear in a container image tag.
+
 For any KMS seal plugin distributed as an OCI image, set
 `spec.backup.restoreTest.clusterTemplate.configuration.plugin.autoDownload: true`. The operator copies these settings
 to the generated restore request and target. The template does not inherit plugin settings from the source cluster.
@@ -85,7 +99,6 @@ restoreTest:
   # roleArn: arn:aws:iam::123456789012:role/snapshot-reader
   cleanupAfterSeconds: 300
   clusterTemplate:
-    version: "2.7.2"
     storage:
       size: 10Gi
     tls:
@@ -130,7 +143,7 @@ Alert on the age of the last-success timestamp. A past pass does not show that t
 | `Passed` reason | Meaning | Action |
 | --- | --- | --- |
 | `Running` | A test is in progress. | None. |
-| `NoCompatibleSnapshot` | No backup yet records a source identity matching the template version. Backups from older executors lack it. | Wait for a new backup, or align `clusterTemplate.version`. |
+| `NoCompatibleSnapshot` | The latest backup lacks source metadata, has an unsupported source version, or does not match the template. | Upgrade older sources to a stable release from 2.7.0 onward and create a new backup. For supported backups, align or omit the version pin; build metadata also requires an explicit matching image. |
 | `InvalidSchedule` | The cron expression cannot be parsed. | Fix `schedule`. |
 | `StorageIdentityRequired` | The test has no destination reader configuration. | Configure destination `credentialsSecretRef` or an existing reader `serviceAccountName`. Cloud metadata requires `serviceAccountName`. |
 | `DestinationRejected` | Admission rejected the test request, for example a missing namespace approval or permission. A pre-check rejection consumes no run; a rejection at creation records `Failed`. | Fix the namespace or permissions. The next due run proceeds. |

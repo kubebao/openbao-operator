@@ -158,7 +158,7 @@ type RestoreSource struct {
 
 // OpenBaoRestoreSpec defines the desired state for a restore operation.
 // An OpenBaoRestore acts as a "job request" - it is immutable after creation.
-// +kubebuilder:validation:XValidation:rule="!has(self.clusterTemplate) || (has(self.targetLifecycle) && self.force && !has(self.tokenSecretRef) && !has(self.jwtAuthRole) && (!has(self.overrideOperationLock) || !self.overrideOperationLock) && has(self.source.expectedClusterID) && size(self.source.expectedClusterID) > 0 && has(self.source.expectedVersion) && self.source.expectedVersion == self.clusterTemplate.version)",message="fresh targets require a lifecycle, matching source identity/version, force, and generated JWT authentication"
+// +kubebuilder:validation:XValidation:rule="!has(self.clusterTemplate) || (has(self.targetLifecycle) && self.force && !has(self.tokenSecretRef) && !has(self.jwtAuthRole) && (!has(self.overrideOperationLock) || !self.overrideOperationLock) && has(self.source.expectedClusterID) && size(self.source.expectedClusterID) > 0 && has(self.source.expectedVersion) && has(self.clusterTemplate.version) && self.source.expectedVersion == self.clusterTemplate.version)",message="fresh targets require a lifecycle, matching source identity/version, force, and generated JWT authentication"
 // +kubebuilder:validation:XValidation:rule="has(self.clusterTemplate) || !has(self.targetLifecycle)",message="targetLifecycle requires clusterTemplate"
 // +kubebuilder:validation:XValidation:rule="!has(self.cleanupAfterSeconds) || (has(self.targetLifecycle) && self.targetLifecycle == 'Disposable')",message="cleanupAfterSeconds requires a disposable fresh target"
 type OpenBaoRestoreSpec struct {
