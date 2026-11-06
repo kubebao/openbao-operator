@@ -64,6 +64,11 @@ func TestAPIContractWorkflowDependencies(t *testing.T) {
 	if candidate.Jobs["api-contract"].If != "" {
 		t.Fatal("candidate API contract gate must run unconditionally after preparation")
 	}
+	baseline := findStep(t, candidate.Jobs["api-contract"], "Verify previous-stable upgrade baseline")
+	if baseline.Run != "make verify-operator-upgrade-baseline" || baseline.ContinueOnError ||
+		baseline.Env["OPERATOR_UPGRADE_E2E_TARGET_RELEASE"] != "${{ needs.prepare.outputs.version }}" {
+		t.Fatal("candidate qualification must reject stale runtime baseline pins before publication approval")
+	}
 	want := "fromJSON(needs.changes.outputs.expected_checks)['api-contract']"
 	if ci.Jobs["api-contract"].If != want {
 		t.Fatal("CI must gate contract changes, main pushes, and manual runs")

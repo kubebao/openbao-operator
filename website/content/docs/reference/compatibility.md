@@ -1,6 +1,6 @@
 ---
 title: Compatibility
-description: Configured validation targets, prior qualification, and the production upgrade stance.
+description: Configured validation targets, focused qualification, and the production upgrade stance.
 eyebrow: Reference
 weight: 1
 verifiedBy:
@@ -11,10 +11,9 @@ verifiedBy:
   - internal/service/upgrade/bluegreen/version_compatibility.go
 ---
 
-The operator requires Kubernetes 1.33 or newer. The tables describe validation targets and focused checks.
-Release qualification covers selected scenarios on Kubernetes 1.34.3, 1.35.1, and 1.36.1 with OpenBao 2.6.4 and
-selected OpenBao 2.7.1 scenarios. These results do not qualify every cloud authentication method, distribution,
-seal, storage driver, or topology. Historical focused results below retain their original scope.
+The operator requires Kubernetes 1.33 or newer. The tables describe configured validation targets and focused checks.
+OpenBao Operator 0.6.1 release qualification is pending. The results below do not replace qualification of the final
+candidate or validate every cloud authentication method, distribution, seal, storage driver, or topology.
 
 ## Kubernetes versions
 
@@ -30,9 +29,11 @@ seal, storage driver, or topology. Historical focused results below retain their
 
 | Version | Validation | Production note |
 | --- | --- | --- |
+| 2.7.2 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and fresh-target restore qualification | Validate the exact production combination in staging |
 | 2.7.1 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and restore qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification; rolling-upgrade source for local 2.7.1 qualification | Use the latest qualified security patch |
-| 2.6.4 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Primary 0.6.0 qualification target; validate the production combination in staging |
+| 2.6.5 | Default CI, nightly, and release target; focused local lifecycle, rolling-upgrade, backup, and recovery qualification | Validate the exact production combination in staging |
+| 2.6.4 | Previous default target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Use the latest qualified security patch |
 | 2.6.3 | OpenBao Operator 0.5.1 validation target; rolling-upgrade source for local 2.6.4 qualification | Use the latest qualified security patch |
 | 2.6.2 | OpenBao Operator 0.5.0 release target | Use the latest qualified security patch |
 | Other 2.6.x | Not individually release-gated | Validate the exact patch in staging |
@@ -40,7 +41,7 @@ seal, storage driver, or topology. Historical focused results below retain their
 | 2.4.x | Outside the default config gate | Upgrade before a new production rollout |
 | 2.3.x | Not validated | Out of support scope |
 
-The configuration compatibility gate checks OpenBao 2.6.4 as a migration target and 2.7.1 as the current release.
+The configuration compatibility gate checks OpenBao 2.6.5 as a migration target and 2.7.2 as the current release.
 These labels describe operator validation. The [upstream support policy](https://openbao.org/community/policies/support/)
 provides best-effort support centered on the latest release and does not promise a two-minor maintenance window.
 
@@ -53,18 +54,56 @@ The forwarding fix does not establish datastore downgrade compatibility.
 
 ## Restore version support
 
-OpenBao Operator 0.6.0 supports OpenBao 2.7.0 and 2.7.1 for fresh-target restores and scheduled restore tests. The
-template version must match the snapshot source version.
+Fresh-target restore templates and scheduled restore-test templates accept stable OpenBao releases from 2.7.0
+onward, including later minor and major releases. Admission does not require each release to appear in a version allowlist. Prereleases and
+versions below 2.7.0 are rejected. Each target must run the exact source version recorded with its snapshot.
+Versions with build metadata require an explicit matching image because `+` is not valid in an image tag.
+
+The validation table records tested combinations; accepting a version does not establish that every provider,
+plugin, or future release works with the current operator. The daily Restore Compatibility workflow is configured
+to test 2.7.0 and the latest stable upstream release with scheduled restores, retained recovery, authentication,
+fixture data reads, and target restart. Its results apply to the versions and operator commit recorded in each run.
+Known incompatibilities require a documented exclusion and a regression test before adding a version-specific block.
 
 Runtime checks verify bootstrap, unseal, cluster identity, version, and healthy leadership. The snapshot digest is
 compared with a known value only when `source.expectedDigest` is supplied; scheduled tests supply it from backup
-metadata. Restore tests do not authenticate as application users or read their secrets.
+metadata. Scheduled restore tests do not authenticate as application users or read their secrets. The additional
+authentication and data checks belong to the CI fixture. A successful restore test establishes only its
+[documented checks](../../operate/restore/tests/).
+
+## OpenBao 2.6.5 and 2.7.2 upgrade considerations
+
+[OpenBao 2.6.5](https://github.com/openbao/openbao/releases/tag/v2.6.5) and
+[OpenBao 2.7.2](https://github.com/openbao/openbao/releases/tag/v2.7.2) include upstream security fixes.
+Review SSH roles that use identity templates before upgrading. Template substitutions reject wildcard characters
+(`*`) by default. Enable `allow_wildcards_in_identity_templates` only when all substituted identity data is trusted.
+
+OpenBao 2.7.2 also fixes health responses during leader promotion, cluster-wide external plugin reloads, and
+OpenBao namespace deletion after a pre-2.7 upgrade.
 
 ## Earlier focused qualification
 
-The results below describe focused checks completed before the final 0.6.0 candidate freeze. They do not replace
-current-candidate release qualification. Cilium native routing remains unqualified; VXLAN coverage does not qualify
-native routing. Cloud identity, storage-driver, and network-topology changes require separate staging evidence.
+The following results retain their original scope. Cilium native routing remains unqualified; VXLAN coverage does
+not qualify native routing. Cloud identity, storage-driver, and network-topology changes require separate staging
+evidence.
+
+### OpenBao 2.6.5 and 2.7.2
+
+Kind qualification uses Kubernetes 1.36.1 on Linux ARM64 in a single-node cluster with the CSI hostpath storage
+fixture. Both versions pass fresh initialization.
+Rolling upgrades pass from 2.6.4 to 2.6.5 and from 2.7.1 to 2.7.2 with three voters, one read replica, and retained data.
+Separate container and Envtest checks pass policy reconciliation and controller JWT isolation on both versions.
+The 2.7.2 hybrid PQ TLS container check also covers Raft membership, snapshot restore, and follower restart.
+
+On 2.6.5, S3 backup and existing-target recovery pass with RustFS. Recovery checks administrator acknowledgement,
+managed voter and read-replica replacement, and KV access. The existing-target restore keeps an unconfirmed
+application outcome after recovery.
+
+On 2.7.2, fresh-target restore tests pass with static and Transit seals. They cover scheduled disposable restores,
+reader account reuse, cleanup, and retained-target handoff. Each fresh target has one voter.
+
+The SoftHSM fixture builds on 2.6.5. PKCS#11 and KMIP lifecycle qualification remains listed under 2.6.4.
+These local checks cover the stated Kubernetes version, architecture, storage fixture, and upgrade pairs.
 
 ### OpenBao 2.6.3
 

@@ -3,9 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HARNESS="${ROOT_DIR}/hack/ci/operator-upgrade-e2e.sh"
+# shellcheck source=../../test/fixtures/operator-upgrade/versions.env
+source "${ROOT_DIR}/test/fixtures/operator-upgrade/versions.env"
 digest="sha256:$(printf '%064d' 0)"
 
-expected="Operator upgrade E2E harness verified: 0.5.3 -> 0.6.0-e2e (baseline chart: oci://ghcr.io/kubebao/charts/openbao-operator; API migration fixtures: 0.5.0 -> 0.5.1)"
+target="$(jq -er '."."' "${ROOT_DIR}/.release-please-manifest.json")"
+expected="Operator upgrade E2E harness verified: ${OPERATOR_UPGRADE_BASELINE} -> ${target}-e2e (baseline chart: ${OPERATOR_UPGRADE_BASELINE_CHART}; API migration fixtures: ${OPERATOR_UPGRADE_MIGRATION_BASELINE} -> ${OPERATOR_UPGRADE_MIGRATION_TARGET})"
 actual="$(OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true bash "${HARNESS}")"
 if [[ "${actual}" != "${expected}" ]]; then
   echo "operator upgrade defaults do not qualify the latest stable source: ${actual}" >&2
@@ -13,10 +16,10 @@ if [[ "${actual}" != "${expected}" ]]; then
 fi
 
 actual="$(OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true \
-  OPERATOR_UPGRADE_E2E_TARGET_RELEASE=0.6.0-rc.1 \
-  OPERATOR_UPGRADE_E2E_TARGET_VERSION=0.6.0-rc.1 \
+  OPERATOR_UPGRADE_E2E_TARGET_RELEASE=9.8.7-rc.1 \
+  OPERATOR_UPGRADE_E2E_TARGET_VERSION=9.8.7-rc.1 \
   bash "${HARNESS}")"
-expected="Operator upgrade E2E harness verified: 0.5.3 -> 0.6.0-rc.1 (baseline chart: oci://ghcr.io/kubebao/charts/openbao-operator; API migration fixtures: 0.5.0 -> 0.5.1)"
+expected="Operator upgrade E2E harness verified: ${OPERATOR_UPGRADE_BASELINE} -> 9.8.7-rc.1 (baseline chart: ${OPERATOR_UPGRADE_BASELINE_CHART}; API migration fixtures: ${OPERATOR_UPGRADE_MIGRATION_BASELINE} -> ${OPERATOR_UPGRADE_MIGRATION_TARGET})"
 if [[ "${actual}" != "${expected}" ]]; then
   echo "operator upgrade release-candidate override was not applied: ${actual}" >&2
   exit 1

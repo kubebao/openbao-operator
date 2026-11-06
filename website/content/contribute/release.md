@@ -82,12 +82,27 @@ devenv shell -- make verify-workflows
 Also confirm that compatibility guidance, generated API surfaces, and release notes match the candidate. Review current
 main, Nightly, and performance evidence, and the release PR's qualification results, before authorizing publication.
 
-Set the previous stable version, target release, and pinned baseline init image in
-`test/fixtures/operator-upgrade/versions.env`. Keep the Hardened fixture's init image consistent with that pin.
+Refresh the runtime upgrade baseline from a published stable release:
+
+```sh
+make update-operator-upgrade-baseline BASELINE_VERSION=X.Y.Z
+```
+
+The command updates `test/fixtures/operator-upgrade/versions.env` and the Hardened fixture from that release's
+provenance index. Review the pinned manager and init images. The harness reads its default target from
+`.release-please-manifest.json`; release qualification supplies the candidate version and checks that the pins match
+the latest published stable release below that version. Runtime inputs stay pinned. If another publication changes
+the expected predecessor, the check stops qualification and requires a reviewed refresh.
+
+The harness seeds legacy Shared-mode resources under the pinned 0.5.3 CREATE contract, then runs the published runtime
+baseline. Before the candidate handoff, it verifies the baseline manager and helper images, healthy Pods, retained
+resource identities, and pre-existing data. This preserves legacy migration and credential-custody coverage after
+new clusters require Target authentication.
+
 Add an upgrade section for the target release. Add or update API migration fixtures only when a manifest migration
-needs coverage, and wire each new fixture into a test. Preserve approved historical migration pairs: the runtime
-upgrade baseline, the fixture pair, and the schema compatibility baseline are independent. Merge these fixture
-changes in a normal PR before the release PR; the release PR cannot change tests or fixtures.
+needs coverage, and wire each new fixture into a test. The legacy seed release, runtime upgrade baseline, historical
+fixture pair, and schema compatibility baseline are independent. Merge fixture and tooling changes in a normal PR
+before the release PR; the release PR cannot change tests or fixtures.
 
 `CRD_COMPAT_TARGET` labels the compatibility report; it does not select a version-named migration fixture. Advancing
 the release target alone does not require an unused target fixture. Keep the existing 0.5.0-to-0.5.1 operator-upgrade

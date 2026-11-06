@@ -84,7 +84,7 @@ def is_security_description(description):
     normalized = description.lower()
     if re.match(r"^[a-z0-9_,./-]*security[a-z0-9_,./-]*\s*:", normalized):
         return True
-    return bool(re.search(r"\b(cve-[0-9-]+|ghsa-[0-9a-z-]+|vulnerab\w*)\b", normalized))
+    return bool(re.search(r"\b(cve-[0-9-]+|ghsa-[0-9a-z-]+|vulnerab\w*|denial[ -]of[ -]service)\b", normalized))
 
 
 def clean_description(raw):
