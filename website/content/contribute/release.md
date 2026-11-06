@@ -89,7 +89,8 @@ make update-operator-upgrade-baseline BASELINE_VERSION=X.Y.Z
 ```
 
 The command updates `test/fixtures/operator-upgrade/versions.env` and the Hardened fixture from that release's
-provenance index. Review the pinned manager and init images. The harness reads its default target from
+provenance index. Review the pinned chart, manager, and init digests. The harness retrieves the baseline chart by
+digest for both CRD application and Helm upgrade. It reads its default target from
 `.release-please-manifest.json`; release qualification supplies the candidate version and checks that the pins match
 the latest published stable release below that version. Runtime inputs stay pinned. If another publication changes
 the expected predecessor, the check stops qualification and requires a reviewed refresh.

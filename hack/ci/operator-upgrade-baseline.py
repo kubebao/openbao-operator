@@ -41,7 +41,13 @@ def release_pins(index, version):
     chart = index["chart"]["ref"]
     if not re.fullmatch(r"ghcr\.io/(kubebao|dc-tec)/charts/openbao-operator", chart):
         raise ValueError("baseline chart is not an official chart")
-    pins = {"OPERATOR_UPGRADE_BASELINE": version, "OPERATOR_UPGRADE_BASELINE_CHART": f"oci://{chart}"}
+    chart_digest = index["chart"]["digest"]
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", chart_digest):
+        raise ValueError("baseline chart digest is invalid")
+    if index["chart"]["oci_subject"] != f"{chart}@{chart_digest}":
+        raise ValueError("baseline chart subject does not match its digest")
+    pins = {"OPERATOR_UPGRADE_BASELINE": version, "OPERATOR_UPGRADE_BASELINE_CHART": f"oci://{chart}",
+            "OPERATOR_UPGRADE_BASELINE_CHART_DIGEST": chart_digest}
     for name, field in [("openbao-operator", "MANAGER"), ("openbao-init", "INIT")]:
         images = [image for image in index["images"] if image["name"] == name]
         if len(images) != 1:

@@ -70,6 +70,10 @@ request pins that version before it starts. A source upgrade does not require a 
 change, and a running test keeps its original version. The current source cluster version does not replace the
 version recorded with an older backup.
 
+Snapshot metadata must contain a canonical version such as `2.7.2`, without a `v` prefix. A backup recorded as
+`v2.7.2` is rejected even when the version pin is omitted. Use a source image that reports the canonical version
+and create a new backup.
+
 To pin a version, set `clusterTemplate.version`. The test waits with `NoCompatibleSnapshot` until the latest backup
 has that exact version. Custom `clusterTemplate.image` values require a matching version pin. The operator checks
 the target's reported version before submitting the snapshot; it does not rewrite custom image references.
@@ -143,7 +147,7 @@ Alert on the age of the last-success timestamp. A past pass does not show that t
 | `Passed` reason | Meaning | Action |
 | --- | --- | --- |
 | `Running` | A test is in progress. | None. |
-| `NoCompatibleSnapshot` | The latest backup lacks source metadata, has an unsupported source version, or does not match the template. | Upgrade older sources to a stable release from 2.7.0 onward and create a new backup. For supported backups, align or omit the version pin; build metadata also requires an explicit matching image. |
+| `NoCompatibleSnapshot` | The latest backup lacks source metadata, has an unsupported source version, or does not match the template. | Upgrade older sources to a stable release from 2.7.0 onward and create a new backup. For supported backups, align the version pin and any custom image with the recorded version. Omit the pin only when no custom image is configured; build metadata requires both an explicit matching image and pin. |
 | `InvalidSchedule` | The cron expression cannot be parsed. | Fix `schedule`. |
 | `StorageIdentityRequired` | The test has no destination reader configuration. | Configure destination `credentialsSecretRef` or an existing reader `serviceAccountName`. Cloud metadata requires `serviceAccountName`. |
 | `DestinationRejected` | Admission rejected the test request, for example a missing namespace approval or permission. A pre-check rejection consumes no run; a rejection at creation records `Failed`. | Fix the namespace or permissions. The next due run proceeds. |
