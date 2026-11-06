@@ -2,6 +2,20 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.6.1](https://github.com/kubebao/openbao-operator/compare/0.6.0...0.6.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **ci:** publish and verify qualification registry bundles ([#927](https://github.com/kubebao/openbao-operator/issues/927)) ([36a964f](https://github.com/kubebao/openbao-operator/commit/36a964f6a79e606b3d3c84980b1fec23aeeab3ad))
+* **ci:** tag releases only after manifest changes ([#914](https://github.com/kubebao/openbao-operator/issues/914)) ([e761cfa](https://github.com/kubebao/openbao-operator/commit/e761cfa72cc55dc994589f1af525bb45cc4e7ad5))
+* **ci:** validate root release manifest in qualification ([#926](https://github.com/kubebao/openbao-operator/issues/926)) ([dab15f3](https://github.com/kubebao/openbao-operator/commit/dab15f3ece031ab399c5c1b59d624a82a502632d))
+* **deps:** patch go-jose RSA JWK denial of service ([#920](https://github.com/kubebao/openbao-operator/issues/920)) ([c5d61dc](https://github.com/kubebao/openbao-operator/commit/c5d61dcc48ec053ff5d685aa30fe680b89edb215))
+* **dev:** exclude local artifacts from Go source checks ([#933](https://github.com/kubebao/openbao-operator/issues/933)) ([495fbf3](https://github.com/kubebao/openbao-operator/commit/495fbf3ee75d599da2d403d0a66582aa4bf96c79))
+* **helm:** preserve admission policies through YAML post-rendering ([#934](https://github.com/kubebao/openbao-operator/issues/934)) ([58e2673](https://github.com/kubebao/openbao-operator/commit/58e2673a70fafc4c73b2dbee56613497f191f588))
+* **raft:** apply Autopilot settings on small clusters ([#932](https://github.com/kubebao/openbao-operator/issues/932)) ([4353096](https://github.com/kubebao/openbao-operator/commit/4353096f3e079fabdb279159e87989a568e257da))
+* **restore:** accept stable OpenBao versions from 2.7 ([#935](https://github.com/kubebao/openbao-operator/issues/935)) ([ced35e7](https://github.com/kubebao/openbao-operator/commit/ced35e7ea5e2a5ab0b95cd7adc25082a19d5146e))
+
 ## [0.6.0](https://github.com/kubebao/openbao-operator/compare/0.5.3...0.6.0) (2026-10-24)
 
 This rollup excludes fixes already published in 0.5.2 and 0.5.3.
