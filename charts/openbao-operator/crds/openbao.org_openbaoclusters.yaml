@@ -1298,18 +1298,17 @@ spec:
                                 is pkcs11
                               rule: self.type == 'pkcs11' || !has(self.pkcs11)
                           version:
-                            description: Version must match the administrator-observed
-                              snapshot source version.
-                            enum:
-                            - 2.7.0
-                            - 2.7.1
-                            - 2.7.2
+                            description: |-
+                              Version accepts stable OpenBao releases from 2.7.0 onward and must match
+                              the snapshot source version. Scheduled restore tests can omit this field
+                              to use the version recorded with each backup. Restore requests require it.
+                            maxLength: 64
+                            pattern: ^((2\.([7-9]|[1-9][0-9]+))|(([3-9]|[1-9][0-9]+)\.(0|[1-9][0-9]*)))\.(0|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$
                             type: string
                         required:
                         - storage
                         - tls
                         - unseal
-                        - version
                         type: object
                         x-kubernetes-validations:
                         - message: restore targets require OperatorManaged or External
@@ -1425,6 +1424,9 @@ spec:
                       rule: has(self.serviceAccountName) || (has(self.credentialsSecretRef)
                         && has(self.credentialsSecretRef.name) && size(self.credentialsSecretRef.name)
                         > 0)
+                    - message: custom restore test images require a matching clusterTemplate.version
+                      rule: '!has(self.clusterTemplate.image) || size(self.clusterTemplate.image)
+                        == 0 || has(self.clusterTemplate.version)'
                   retention:
                     description: Retention defines optional backup retention policy.
                     properties:

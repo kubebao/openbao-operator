@@ -128,8 +128,24 @@ func TestCRD_FreshRestoreOptions(t *testing.T) {
 		{name: "version-272", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
 			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.2", "2.7.2"
 		}},
-		{name: "unqualified-patch", edit: func(s *api.OpenBaoRestoreSpec) {
+		{name: "unqualified-patch", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
 			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.3", "2.7.3"
+		}},
+		{name: "future-minor", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.10.0", "2.10.0"
+		}},
+		{name: "future-major", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "10.0.0", "10.0.0"
+		}},
+		{name: "build-metadata", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.2+build.1", "2.7.2+build.1"
+		}},
+		{name: "prerelease", edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.8.0-rc.1", "2.8.0-rc.1"
+		}},
+		{name: "missing-template-version", edit: func(s *api.OpenBaoRestoreSpec) { s.ClusterTemplate.Version = "" }},
+		{name: "noncanonical-version", edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "02.7.0", "02.7.0"
 		}},
 		{name: "disposable", valid: true, edit: func(s *api.OpenBaoRestoreSpec) { s.TargetLifecycle = api.RestoreTargetLifecycleDisposable }},
 		{name: "legacy", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {

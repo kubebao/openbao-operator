@@ -30,6 +30,42 @@ import (
 	"github.com/kubebao/openbao-operator/internal/service/restore"
 )
 
+func TestCRD_RestoreTestVersionPolicy(t *testing.T) {
+	namespace := newTestNamespace(t)
+	for _, tc := range []struct {
+		name, version, image string
+		valid                bool
+	}{
+		{name: "inherit", valid: true},
+		{name: "pin", version: "2.7.2", valid: true},
+		{name: "future-patch", version: "2.7.99", valid: true},
+		{name: "future-minor", version: "2.8.0", valid: true},
+		{name: "future-major", version: "3.0.0", valid: true},
+		{name: "custom-pinned", version: "2.7.2", image: "registry.example/bao:custom", valid: true},
+		{name: "custom-unpinned", image: "registry.example/bao:custom"},
+		{name: "old", version: "2.6.5"},
+		{name: "prerelease", version: "2.8.0-rc.1"},
+		{name: "malformed", version: "latest"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cluster := newMinimalClusterObj(namespace, tc.name)
+			template := newFreshRestoreRequest(namespace, tc.name).Spec.ClusterTemplate
+			template.Version, template.Image = tc.version, tc.image
+			cluster.Spec.Backup = &api.BackupSchedule{
+				Schedule: "0 0 * * *", Target: api.BackupTarget{Bucket: "snapshots", Endpoint: "https://storage.example"},
+				RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: namespace,
+					CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage"}, ClusterTemplate: *template},
+			}
+			err := k8sClient.Create(ctx, cluster, client.DryRunAll)
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				requireInvalidRequest(t, err)
+			}
+		})
+	}
+}
+
 func TestSourceDeletionDuringRejectedRestoreTestReleasesReservation(t *testing.T) {
 	namespace := newTestNamespace(t)
 	cluster := newMinimalClusterObj(namespace, "rejected-restore-test")
@@ -105,7 +141,7 @@ func TestRestoreTestReservesOneRequestAcrossRestarts(t *testing.T) {
 		Target: api.BackupTarget{Endpoint: "https://storage.example", Bucket: "snapshots"},
 		RestoreTest: &api.RestoreTest{EverySuccessfulBackups: 1, Namespace: destination,
 			CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
-			ClusterTemplate: api.RestoreClusterTemplate{Version: "2.7.2",
+			ClusterTemplate: api.RestoreClusterTemplate{
 				ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-a"}, {Name: "registry-b"}}, Storage: api.StorageConfig{Size: "1Gi"},
 				TLS:    api.TLSConfig{Enabled: true, Mode: api.TLSModeOperatorManaged, RotationPeriod: "720h"},
 				Unseal: api.UnsealConfig{Type: "transit", Transit: &api.TransitSealConfig{Address: "https://seal.example", KeyName: "recovery", MountPath: "transit"}, CredentialsSecretRef: &corev1.LocalObjectReference{Name: "transit"}}},
@@ -160,6 +196,9 @@ func TestRestoreTestReservesOneRequestAcrossRestarts(t *testing.T) {
 	child := &children.Items[0]
 	require.Equal(t, api.RestoreTargetLifecycleDisposable, child.Spec.TargetLifecycle)
 	require.Equal(t, cluster.Status.Backup.LatestSnapshot.Digest, child.Spec.Source.ExpectedDigest)
+	require.Empty(t, cluster.Spec.Backup.RestoreTest.ClusterTemplate.Version)
+	require.Equal(t, "2.7.2", child.Spec.ClusterTemplate.Version)
+	require.Equal(t, child.Spec.Source.ExpectedVersion, child.Spec.ClusterTemplate.Version)
 
 	// Target admission must also succeed before the provisioner has granted
 	// access to the referenced Secrets. The configuring user already delegated them.

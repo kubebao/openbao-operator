@@ -3884,7 +3884,9 @@
       "e2e-anchor"
     ],
     "steps": [
-      "checking ready client Service backends for each destination family"
+      "checking ready client Service backends for each destination family",
+      "authenticating independently and reading the restored fixture data",
+      "restarting the target and verifying that authentication and data survive"
     ],
     "focused": false,
     "pending": false,

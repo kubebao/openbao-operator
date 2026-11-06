@@ -40,9 +40,13 @@ const (
 // +kubebuilder:validation:XValidation:rule="!has(self.plugins) || self.plugins.all(p, p.type == 'kms')",message="restore target plugins are limited to KMS seal plugins"
 // +kubebuilder:validation:XValidation:rule="!has(self.initContainer) || self.initContainer.enabled",message="restore targets require the configuration init container"
 type RestoreClusterTemplate struct {
-	// Version must match the administrator-observed snapshot source version.
-	// +kubebuilder:validation:Enum="2.7.0";"2.7.1";"2.7.2"
-	Version string `json:"version"`
+	// Version accepts stable OpenBao releases from 2.7.0 onward and must match
+	// the snapshot source version. Scheduled restore tests can omit this field
+	// to use the version recorded with each backup. Restore requests require it.
+	// +optional
+	// +kubebuilder:validation:MaxLength=64
+	// +kubebuilder:validation:Pattern=`^((2\.([7-9]|[1-9][0-9]+))|(([3-9]|[1-9][0-9]+)\.(0|[1-9][0-9]*)))\.(0|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`
+	Version string `json:"version,omitempty"`
 
 	// Image defaults to the version-derived image.
 	// +optional

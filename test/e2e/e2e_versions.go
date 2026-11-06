@@ -13,6 +13,8 @@ import (
 
 const defaultOpenBaoVersion = "2.6.5"
 
+const defaultRestoreOpenBaoVersion = "2.7.2"
+
 // defaultUpgradeFromVersion is the version to start with for upgrade tests.
 // This should be set to a stable, known-good version.
 const defaultUpgradeFromVersion = "2.5.5"

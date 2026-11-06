@@ -1855,7 +1855,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1 2.7.2] <br /> |
+| `version` _string_ | Version accepts stable OpenBao releases from 2.7.0 onward and must match<br />the snapshot source version. Scheduled restore tests can omit this field<br />to use the version recorded with each backup. Restore requests require it. |  | MaxLength: 64 <br />Pattern: `^((2\.([7-9]\|[1-9][0-9]+))\|(([3-9]\|[1-9][0-9]+)\.(0\|[1-9][0-9]*)))\.(0\|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` <br />Optional: \{\} <br /> |
 | `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |
@@ -3405,7 +3405,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1 2.7.2] <br /> |
+| `version` _string_ | Version accepts stable OpenBao releases from 2.7.0 onward and must match<br />the snapshot source version. Scheduled restore tests can omit this field<br />to use the version recorded with each backup. Restore requests require it. |  | MaxLength: 64 <br />Pattern: `^((2\.([7-9]\|[1-9][0-9]+))\|(([3-9]\|[1-9][0-9]+)\.(0\|[1-9][0-9]*)))\.(0\|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` <br />Optional: \{\} <br /> |
 | `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |

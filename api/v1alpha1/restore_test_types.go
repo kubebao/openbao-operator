@@ -12,6 +12,7 @@ import (
 // +kubebuilder:validation:XValidation:rule="self.clusterTemplate.tls.mode == 'OperatorManaged'",message="scheduled restore tests require OperatorManaged TLS for generated target names"
 // +kubebuilder:validation:XValidation:rule="(!has(self.roleArn) && !has(self.workloadIdentity)) || has(self.serviceAccountName)",message="restore test cloud identities require an existing destination serviceAccountName"
 // +kubebuilder:validation:XValidation:rule="has(self.serviceAccountName) || (has(self.credentialsSecretRef) && has(self.credentialsSecretRef.name) && size(self.credentialsSecretRef.name) > 0)",message="restore tests require destination reader credentials or an existing reader serviceAccountName"
+// +kubebuilder:validation:XValidation:rule="!has(self.clusterTemplate.image) || size(self.clusterTemplate.image) == 0 || has(self.clusterTemplate.version)",message="custom restore test images require a matching clusterTemplate.version"
 type RestoreTest struct {
 	// Schedule uses five-field cron syntax and UTC.
 	// +kubebuilder:validation:MaxLength=128
