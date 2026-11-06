@@ -443,6 +443,33 @@ func TestFixtureChangesSelectOwningLaneFamily(t *testing.T) {
 	}
 }
 
+func TestOperatorUpgradeToolsSelectOwningGate(t *testing.T) {
+	for _, path := range []string{
+		"hack/ci/operator-upgrade-e2e.sh",
+		"hack/ci/operator-upgrade-baseline.py",
+		"hack/ci/test-operator-upgrade-e2e.sh",
+		"hack/ci/test_e2e_operator_upgrade_baseline.py",
+	} {
+		t.Run(path, func(t *testing.T) {
+			routing, err := runRouting(t, "normal", path, "", eventPullRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if routing["operator_upgrade_e2e"] != routingTrue {
+				t.Fatalf("upgrade qualification change %s must select the operator-upgrade gate", path)
+			}
+			plan, err := buildPlan(eventPullRequest, "refs/pull/1/merge", "owner/repo", "tested-sha",
+				prEvent("owner/repo"), routing)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !plan.Checks["operator-upgrade-e2e"] {
+				t.Fatal("operator-upgrade qualification must be required for same-repository tool changes")
+			}
+		})
+	}
+}
+
 func TestFixtureContractChangesSelectSupportTestsOnTrustedAndForkPRs(t *testing.T) {
 	for _, path := range []string{
 		"test/e2e/fixture_contract_test.go",

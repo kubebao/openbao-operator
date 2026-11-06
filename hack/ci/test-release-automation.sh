@@ -437,4 +437,41 @@ if PRESERVE_CHANGE_METADATA=invalid \
   fail "invalid PRESERVE_CHANGE_METADATA value was accepted"
 fi
 
+security_changelog="${tmp_dir}/security-CHANGELOG.md"
+cat > "${security_changelog}" <<'EOF'
+# Changelog
+
+## [0.6.2](https://example.test/0.6.2) (2026-11-08)
+
+### Bug Fixes
+
+* **backup:** correct the snapshot timestamp
+
+## [0.6.1](https://example.test/0.6.1) (2026-11-07)
+
+### Bug Fixes
+
+* **deps:** patch go-jose RSA JWK denial of service
+EOF
+
+security_chart_dir="${tmp_dir}/security-chart"
+mkdir -p "${security_chart_dir}"
+write_chart_fixture "${security_chart_dir}/Chart.yaml"
+CHART_DIR="${security_chart_dir}" \
+  CHANGELOG_FILE="${security_changelog}" \
+  CHART_VERSION="0.6.1" \
+  OWNER="kubebao" \
+  bash "${CHART_PREPARER}"
+assert_contains "${security_chart_dir}/Chart.yaml" "artifacthub.io/containsSecurityUpdates: 'true'"
+assert_contains "${security_chart_dir}/Chart.yaml" "kind: security"
+assert_contains "${security_chart_dir}/Chart.yaml" "deps: patch go-jose RSA JWK denial of service"
+
+CHART_DIR="${security_chart_dir}" \
+  CHANGELOG_FILE="${security_changelog}" \
+  CHART_VERSION="0.6.2" \
+  OWNER="kubebao" \
+  bash "${CHART_PREPARER}"
+assert_contains "${security_chart_dir}/Chart.yaml" "artifacthub.io/containsSecurityUpdates: 'false'"
+assert_not_contains "${security_chart_dir}/Chart.yaml" "go-jose"
+
 echo "release automation tests passed"

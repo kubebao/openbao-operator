@@ -241,7 +241,7 @@ jobs:
             echo "e2e=false" >> "${GITHUB_OUTPUT}"
           fi
 
-          if changed_matches '^(api/stability/v1alpha1\.yaml|charts/openbao-operator/|release-notes/|test/e2e/suites\.yaml|test/fixtures/(api-migration|operator-upgrade)/|Dockerfile(\.init)?$|hack/ci/operator-upgrade-e2e\.sh|hack/dev/tool-versions\.env$|Makefile|mk/)'; then
+          if changed_matches '^(api/stability/v1alpha1\.yaml|charts/openbao-operator/|release-notes/|test/e2e/suites\.yaml|test/fixtures/(api-migration|operator-upgrade)/|Dockerfile(\.init)?$|hack/ci/(operator-upgrade[^/]*|test-operator-upgrade[^/]*|test_e2e_operator_upgrade[^/]*)$|hack/dev/tool-versions\.env$|Makefile|mk/)'; then
             echo "operator_upgrade_e2e=true" >> "${GITHUB_OUTPUT}"
           else
             echo "operator_upgrade_e2e=false" >> "${GITHUB_OUTPUT}"

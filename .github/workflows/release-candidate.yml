@@ -135,6 +135,12 @@ jobs:
           CRD_COMPAT_TARGET: ${{ needs.prepare.outputs.version }}
         run: make verify-api-contract
 
+      - name: Verify previous-stable upgrade baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATOR_UPGRADE_E2E_TARGET_RELEASE: ${{ needs.prepare.outputs.version }}
+        run: make verify-operator-upgrade-baseline
+
   authorize:
     name: Approve Candidate Publication
     needs: [prepare, api-contract]

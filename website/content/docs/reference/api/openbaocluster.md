@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoCluster API.
 eyebrow: Reference · Generated API
 weight: 1
 verifiedBy:
-  - api/v1alpha1 at 0.6.0
-  - website/generated/api-reference.md at 0.6.0
+  - api/v1alpha1 at 0.6.1
+  - website/generated/api-reference.md at 0.6.1
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.6.0` for the `0.6.x` documentation line.
+This page is synchronized from the generated API reference at `0.6.1` for the `0.6.x` documentation line.
 {{< /callout >}}
 
 
@@ -1648,9 +1648,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `cleanupDeadServers` _boolean_ | CleanupDeadServers enables automatic removal of dead Raft peers.<br />When enabled, Autopilot periodically removes servers that have been<br />unhealthy for longer than DeadServerLastContactThreshold.<br />Requires MinQuorum to be set (defaults to replicas/2 + 1). | true | Optional: \{\} <br /> |
+| `cleanupDeadServers` _boolean_ | CleanupDeadServers enables automatic removal of dead Raft peers.<br />When enabled, Autopilot periodically removes servers that have been<br />unhealthy for longer than DeadServerLastContactThreshold.<br />If MinQuorum is omitted, enabling cleanup sets it to at least three. | true | Optional: \{\} <br /> |
 | `deadServerLastContactThreshold` _string_ | DeadServerLastContactThreshold is the duration after which a server<br />is considered dead if it hasn't contacted the leader.<br />Minimum: "1m". Default: "5m" (operator default, shorter than OpenBao's 24h). | 5m | Optional: \{\} <br /> |
-| `minQuorum` _integer_ | MinQuorum is the minimum number of servers before Autopilot can prune<br />dead servers. This prevents removing so many servers that quorum is lost.<br />If not specified, defaults to max(3, replicas/2 + 1). |  | Minimum: 3 <br />Optional: \{\} <br /> |
+| `minQuorum` _integer_ | MinQuorum is the minimum number of servers before Autopilot can prune<br />dead servers. This prevents removing so many servers that quorum is lost.<br />Defaults to the voter replica count, with a minimum of three for Hardened<br />clusters or when cleanupDeadServers is true. Other clusters use a minimum of one. |  | Minimum: 3 <br />Optional: \{\} <br /> |
 | `serverStabilizationTime` _string_ | ServerStabilizationTime is the minimum time a server must be healthy<br />before being promoted to voter. Default: "10s". |  | Optional: \{\} <br /> |
 | `lastContactThreshold` _string_ | LastContactThreshold is the limit on the amount of time a server can<br />go without leader contact before being considered unhealthy.<br />Default: "10s". |  | Optional: \{\} <br /> |
 | `maxTrailingLogs` _integer_ | MaxTrailingLogs is the amount of entries in the Raft Log that a server<br />can be behind before being considered unhealthy. Default: 1000. |  | Optional: \{\} <br /> |
@@ -1670,7 +1670,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `performanceMultiplier` _integer_ | PerformanceMultiplier scales the Raft timing parameters. |  | Minimum: 0 <br />Optional: \{\} <br /> |
-| `autopilot` _[RaftAutopilotConfig](#raftautopilotconfig)_ | Autopilot configures Raft Autopilot settings.<br />By default, dead server cleanup is enabled with a 5-minute threshold. |  | Optional: \{\} <br /> |
+| `autopilot` _[RaftAutopilotConfig](#raftautopilotconfig)_ | Autopilot configures Raft Autopilot settings.<br />When this object is present, dead-server cleanup defaults to enabled<br />with a 5-minute threshold. |  | Optional: \{\} <br /> |
 
 
 #### ReadReplicaConfig
@@ -1862,8 +1862,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1] <br /> |
-| `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
+| `version` _string_ | Version accepts stable OpenBao releases from 2.7.0 onward and must match<br />the snapshot source version. Scheduled restore tests can omit this field<br />to use the version recorded with each backup. Restore requests require it. |  | MaxLength: 64 <br />Pattern: `^((2\.([7-9]\|[1-9][0-9]+))\|(([3-9]\|[1-9][0-9]+)\.(0\|[1-9][0-9]*)))\.(0\|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` <br />Optional: \{\} <br /> |
+| `image` _string_ | Image defaults to the version-derived image. Versions with build metadata<br />require an explicit matching image because '+' is not valid in an image tag. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |
 | `service` _[RestoreTargetServiceConfig](#restoretargetserviceconfig)_ | Service configures an optional ClusterIP Service for the destination.<br />When omitted, the target has only its internal headless Service. |  | Optional: \{\} <br /> |
