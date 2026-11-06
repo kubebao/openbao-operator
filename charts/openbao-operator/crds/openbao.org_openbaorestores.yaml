@@ -116,7 +116,9 @@ spec:
                         type: object
                     type: object
                   image:
-                    description: Image defaults to the version-derived image.
+                    description: |-
+                      Image defaults to the version-derived image. Versions with build metadata
+                      require an explicit matching image because '+' is not valid in an image tag.
                     type: string
                   imagePullSecrets:
                     items:
@@ -1107,6 +1109,10 @@ spec:
                   rule: '!has(self.plugins) || self.plugins.all(p, p.type == ''kms'')'
                 - message: restore targets require the configuration init container
                   rule: '!has(self.initContainer) || self.initContainer.enabled'
+                - message: restore versions with build metadata require an explicit
+                    matching image
+                  rule: '!has(self.version) || !self.version.contains(''+'') || (has(self.image)
+                    && size(self.image.trim()) > 0)'
               force:
                 default: false
                 description: |-

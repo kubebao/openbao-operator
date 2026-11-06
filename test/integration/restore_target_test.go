@@ -139,6 +139,14 @@ func TestCRD_FreshRestoreOptions(t *testing.T) {
 		}},
 		{name: "build-metadata", valid: true, edit: func(s *api.OpenBaoRestoreSpec) {
 			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.2+build.1", "2.7.2+build.1"
+			s.ClusterTemplate.Image = "registry.example/bao:custom"
+		}},
+		{name: "build-metadata-missing-image", edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.2+build.1", "2.7.2+build.1"
+		}},
+		{name: "build-metadata-blank-image", edit: func(s *api.OpenBaoRestoreSpec) {
+			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.7.2+build.1", "2.7.2+build.1"
+			s.ClusterTemplate.Image = " "
 		}},
 		{name: "prerelease", edit: func(s *api.OpenBaoRestoreSpec) {
 			s.ClusterTemplate.Version, s.Source.ExpectedVersion = "2.8.0-rc.1", "2.8.0-rc.1"

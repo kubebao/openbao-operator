@@ -39,6 +39,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.unseal.type in ['static', 'transit', 'kmip', 'kms'] || (has(self.plugins) && self.plugins.exists(p, p.type == 'kms' && p.name == self.unseal.type))",message="OpenBao 2.7 restore targets require a matching KMS plugin for external seal providers"
 // +kubebuilder:validation:XValidation:rule="!has(self.plugins) || self.plugins.all(p, p.type == 'kms')",message="restore target plugins are limited to KMS seal plugins"
 // +kubebuilder:validation:XValidation:rule="!has(self.initContainer) || self.initContainer.enabled",message="restore targets require the configuration init container"
+// +kubebuilder:validation:XValidation:rule="!has(self.version) || !self.version.contains('+') || (has(self.image) && size(self.image.trim()) > 0)",message="restore versions with build metadata require an explicit matching image"
 type RestoreClusterTemplate struct {
 	// Version accepts stable OpenBao releases from 2.7.0 onward and must match
 	// the snapshot source version. Scheduled restore tests can omit this field
@@ -48,7 +49,8 @@ type RestoreClusterTemplate struct {
 	// +kubebuilder:validation:Pattern=`^((2\.([7-9]|[1-9][0-9]+))|(([3-9]|[1-9][0-9]+)\.(0|[1-9][0-9]*)))\.(0|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`
 	Version string `json:"version,omitempty"`
 
-	// Image defaults to the version-derived image.
+	// Image defaults to the version-derived image. Versions with build metadata
+	// require an explicit matching image because '+' is not valid in an image tag.
 	// +optional
 	Image   string        `json:"image,omitempty"`
 	Storage StorageConfig `json:"storage"`

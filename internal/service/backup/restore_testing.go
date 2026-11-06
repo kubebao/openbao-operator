@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -151,6 +152,10 @@ func restoreTestTemplate(config api.RestoreClusterTemplate, sourceVersion string
 	}
 	if config.Image != "" && config.Version == "" {
 		return nil, fmt.Errorf("custom restore test images require a matching clusterTemplate.version")
+	}
+	if version.Build() != "" && strings.TrimSpace(config.Image) == "" {
+		return nil, fmt.Errorf("snapshot source version %q includes build metadata; "+
+			"configure an explicit matching image and clusterTemplate.version", sourceVersion)
 	}
 	template := config.DeepCopy()
 	template.Version = sourceVersion

@@ -55,6 +55,7 @@ The forwarding fix does not establish datastore downgrade compatibility.
 Fresh-target restores and scheduled restore tests support stable OpenBao releases from 2.7.0 onward, including later
 minor and major releases. Admission does not require each release to appear in a version allowlist. Prereleases and
 versions below 2.7.0 are rejected. Each target must run the exact source version recorded with its snapshot.
+Versions with build metadata require an explicit matching image because `+` is not valid in an image tag.
 
 The validation table records tested combinations; accepting a version does not establish that every provider,
 plugin, or future release works with the current operator. The daily Restore Compatibility workflow tests 2.7.0 and
@@ -62,8 +63,10 @@ the latest stable upstream release with scheduled restores, retained recovery, a
 and target restart. Known incompatibilities require a documented exclusion and a regression test before adding a
 version-specific block.
 
-Runtime checks verify bootstrap, unseal, snapshot digest, cluster identity, version, and healthy leadership. Scheduled
-restore tests do not authenticate as application users or read their secrets. The additional authentication and data
+Runtime checks verify bootstrap, unseal, cluster identity, version, and healthy leadership. The snapshot digest is
+compared with a known value only when `source.expectedDigest` is supplied; scheduled tests supply it from backup
+metadata. Scheduled restore tests do not authenticate as application users or read their secrets. The additional
+authentication and data
 checks belong to the CI fixture. A successful restore test establishes only its
 [documented checks](../../operate/restore/tests/).
 

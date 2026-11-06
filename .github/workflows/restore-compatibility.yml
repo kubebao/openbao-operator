@@ -63,6 +63,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Wait for the published release image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/test/restore-compatibility
+          if ! timeout 5m bash hack/ci/wait-openbao-image.sh "openbao/openbao:${E2E_RESTORE_OPENBAO_VERSION}" 2>&1 \
+            | tee dist/test/restore-compatibility/image-availability.log; then
+            echo "::error::Release image preparation failed; restore compatibility tests have not started."
+            exit 1
+          fi
+
       - name: Setup repo tools
         uses: ./.github/actions/setup-repo-tools
 
@@ -70,15 +81,17 @@ jobs:
         uses: ./.github/actions/setup-kubernetes-tools
 
       - name: Create isolated test cluster
+        id: cluster
         run: |
           mkdir -p dist/test/restore-compatibility
           make setup-test-e2e
 
       - name: Test scheduled restores and retained recovery
+        id: restore
         run: make test-e2e-ci
 
       - name: Verify both restore scenarios passed
-        if: always()
+        if: always() && (steps.restore.outcome == 'success' || steps.restore.outcome == 'failure')
         run: |
           mkdir -p dist/test/restore-compatibility
           printf '%s\n' '["restore-minimal-scheduled","restore-minimal-retain"]' \
@@ -94,7 +107,7 @@ jobs:
           cat dist/test/restore-compatibility/summary.md >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Remove test cluster
-        if: always()
+        if: always() && (steps.cluster.outcome == 'success' || steps.cluster.outcome == 'failure')
         run: make cleanup-test-e2e
 
       - name: Upload restore evidence

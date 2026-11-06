@@ -323,7 +323,9 @@ spec:
                                 type: object
                             type: object
                           image:
-                            description: Image defaults to the version-derived image.
+                            description: |-
+                              Image defaults to the version-derived image. Versions with build metadata
+                              require an explicit matching image because '+' is not valid in an image tag.
                             type: string
                           imagePullSecrets:
                             items:
@@ -1336,6 +1338,10 @@ spec:
                         - message: restore targets require the configuration init
                             container
                           rule: '!has(self.initContainer) || self.initContainer.enabled'
+                        - message: restore versions with build metadata require an
+                            explicit matching image
+                          rule: '!has(self.version) || !self.version.contains(''+'')
+                            || (has(self.image) && size(self.image.trim()) > 0)'
                       credentialsSecretRef:
                         description: |-
                           CredentialsSecretRef is the existing destination storage credential Secret.
