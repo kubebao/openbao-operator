@@ -447,6 +447,16 @@ cat > "${security_changelog}" <<'EOF'
 
 * **backup:** correct the snapshot timestamp
 
+### Documentation
+
+* **docs:** explain denial of service risks
+
+## [0.6.3](https://example.test/0.6.3) (2026-11-09)
+
+### Bug Fixes
+
+* **deps:** patch a denial-of-service issue
+
 ## [0.6.1](https://example.test/0.6.1) (2026-11-07)
 
 ### Bug Fixes
@@ -473,5 +483,14 @@ CHART_DIR="${security_chart_dir}" \
   bash "${CHART_PREPARER}"
 assert_contains "${security_chart_dir}/Chart.yaml" "artifacthub.io/containsSecurityUpdates: 'false'"
 assert_not_contains "${security_chart_dir}/Chart.yaml" "go-jose"
+
+CHART_DIR="${security_chart_dir}" \
+  CHANGELOG_FILE="${security_changelog}" \
+  CHART_VERSION="0.6.3" \
+  OWNER="kubebao" \
+  bash "${CHART_PREPARER}"
+assert_contains "${security_chart_dir}/Chart.yaml" "artifacthub.io/containsSecurityUpdates: 'true'"
+assert_contains "${security_chart_dir}/Chart.yaml" "kind: security"
+assert_contains "${security_chart_dir}/Chart.yaml" "deps: patch a denial-of-service issue"
 
 echo "release automation tests passed"

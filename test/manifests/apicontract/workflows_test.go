@@ -24,6 +24,7 @@ type workflowJob struct {
 }
 
 type workflowStep struct {
+	If              string            `yaml:"if"`
 	Name            string            `yaml:"name"`
 	Uses            string            `yaml:"uses"`
 	With            map[string]string `yaml:"with"`
@@ -65,7 +66,7 @@ func TestAPIContractWorkflowDependencies(t *testing.T) {
 		t.Fatal("candidate API contract gate must run unconditionally after preparation")
 	}
 	baseline := findStep(t, candidate.Jobs["api-contract"], "Verify previous-stable upgrade baseline")
-	if baseline.Run != "make verify-operator-upgrade-baseline" || baseline.ContinueOnError ||
+	if baseline.If != "" || baseline.Run != "make verify-operator-upgrade-baseline" || baseline.ContinueOnError ||
 		baseline.Env["OPERATOR_UPGRADE_E2E_TARGET_RELEASE"] != "${{ needs.prepare.outputs.version }}" {
 		t.Fatal("candidate qualification must reject stale runtime baseline pins before publication approval")
 	}

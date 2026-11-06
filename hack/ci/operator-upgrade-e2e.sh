@@ -11,6 +11,7 @@ source "${FIXTURE_DIR}/versions.env"
 
 FROM_VERSION="${OPERATOR_UPGRADE_E2E_FROM_VERSION:-${OPERATOR_UPGRADE_BASELINE}}"
 BASELINE_CHART="${OPERATOR_UPGRADE_E2E_BASELINE_CHART:-${OPERATOR_UPGRADE_BASELINE_CHART}}"
+BASELINE_CHART_PIN="${BASELINE_CHART}@${OPERATOR_UPGRADE_BASELINE_CHART_DIGEST}"
 MIGRATION_FROM_VERSION="${OPERATOR_UPGRADE_MIGRATION_BASELINE}"
 MIGRATION_TO_VERSION="${OPERATOR_UPGRADE_MIGRATION_TARGET}"
 TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-$(jq -er '."."' "${ROOT_DIR}/.release-please-manifest.json")}"
@@ -394,6 +395,10 @@ verify_harness() {
     echo "baseline manager must be an immutable official image" >&2
     exit 1
   fi
+  if ! [[ "${OPERATOR_UPGRADE_BASELINE_CHART_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    echo "baseline chart must have a reviewed immutable digest" >&2
+    exit 1
+  fi
   if ! [[ "${LEGACY_SEED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
     echo "legacy seed helper must be an immutable official image" >&2
     exit 1
@@ -722,10 +727,9 @@ jq -e '
 ' <<<"${migration_json}" >/dev/null
 
 echo "Establishing published operator ${FROM_VERSION} before the candidate handoff..." >&2
-"${HELM_BIN}" show crds "${BASELINE_CHART}" --version "${FROM_VERSION}" | \
+"${HELM_BIN}" show crds "${BASELINE_CHART_PIN}" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
-"${HELM_BIN}" upgrade openbao-operator "${BASELINE_CHART}" \
-  --version "${FROM_VERSION}" \
+"${HELM_BIN}" upgrade openbao-operator "${BASELINE_CHART_PIN}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --set-string "image.repository=${BASELINE_MANAGER_IMAGE%@*}" \
   --set-string "image.digest=${BASELINE_MANAGER_IMAGE#*@}" \
@@ -745,7 +749,10 @@ for cluster_name in operator-upgrade operator-upgrade-transit operator-upgrade-h
   wait_for_statefulset_init_image "${cluster_name}" "${DEFAULT_HARDENED_INIT_IMAGE}"
   "${KUBECTL_BIN}" wait "openbaocluster/${cluster_name}" -n "${TENANT_NAMESPACE}" \
     --for=condition=Available --timeout=10m >/dev/null
-  replicas="$("${KUBECTL_BIN}" get "statefulset/${cluster_name}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.spec.replicas}')"
+  replicas=1
+  if [[ "${cluster_name}" == "operator-upgrade-hardened" ]]; then
+    replicas=3
+  fi
   wait_for_baseline_pods "${cluster_name}" "${replicas}"
 done
 verify_baseline_data read-data-job.yaml operator-upgrade-baseline-read

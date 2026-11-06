@@ -38,13 +38,59 @@ class BaselineSelection(unittest.TestCase):
         helper = dict(image, name="openbao-init", ref="ghcr.io/kubebao/openbao-init")
         helper["oci_subject"] = helper["ref"] + "@" + helper["digest"]
         index = {"release": {"tag": "0.6.0", "source_ref": "refs/tags/0.6.0"},
-                 "chart": {"ref": "ghcr.io/kubebao/charts/openbao-operator"}, "images": [image, helper]}
+                 "chart": {"ref": "ghcr.io/kubebao/charts/openbao-operator", "digest": "sha256:" + "a" * 64,
+                           "oci_subject": "ghcr.io/kubebao/charts/openbao-operator@sha256:" + "a" * 64},
+                 "images": [image, helper]}
         self.assertIn("OPERATOR_UPGRADE_BASELINE_MANAGER_IMAGE", BASELINE.release_pins(index, "0.6.0"))
         with self.assertRaisesRegex(ValueError, "does not match the baseline"):
             BASELINE.release_pins(index, "0.6.1")
         helper["oci_subject"] = helper["ref"] + "@sha256:" + "b" * 64
         with self.assertRaisesRegex(ValueError, "subject does not match"):
             BASELINE.release_pins(index, "0.6.0")
+
+    def test_chart_digest_must_match_its_provenance_subject(self):
+        chart = "ghcr.io/kubebao/charts/openbao-operator"
+        for digest, subject, message in [
+            ("not-a-digest", chart + "@sha256:" + "a" * 64, "chart digest is invalid"),
+            ("sha256:" + "a" * 64, chart + "@sha256:" + "b" * 64, "chart subject does not match"),
+        ]:
+            with self.subTest(digest=digest, subject=subject):
+                index = {"release": {"tag": "0.6.0", "source_ref": "refs/tags/0.6.0"},
+                         "chart": {"ref": chart, "digest": digest, "oci_subject": subject}, "images": []}
+                with self.assertRaisesRegex(ValueError, message):
+                    BASELINE.release_pins(index, "0.6.0")
+
+    def test_refresh_updates_pins_and_hardened_fixture_together(self):
+        old = "ghcr.io/kubebao/openbao-init@sha256:" + "b" * 64
+        digest = "sha256:" + "a" * 64
+        chart = "ghcr.io/kubebao/charts/openbao-operator"
+        images = [{"name": name, "ref": "ghcr.io/kubebao/" + name, "digest": digest,
+                   "oci_subject": "ghcr.io/kubebao/" + name + "@" + digest}
+                  for name in ["openbao-operator", "openbao-init"]]
+        index = {"release": {"tag": "0.6.0", "source_ref": "refs/tags/0.6.0"},
+                 "chart": {"ref": chart, "digest": digest, "oci_subject": chart + "@" + digest},
+                 "images": images}
+        responses = [{"tagName": "0.6.0", "isDraft": False, "isPrerelease": False}, index]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixture = root / "test/fixtures/operator-upgrade/hardened-cluster.yaml"
+            fixture.parent.mkdir(parents=True)
+            fixture.write_text('spec:\n  initContainer:\n    image: "' + old + '"\n')
+            pins = fixture.with_name("versions.env")
+            pins.write_text("OPERATOR_UPGRADE_BASELINE=0.5.3\n"
+                            "OPERATOR_UPGRADE_LEGACY_SEED=0.5.3\n"
+                            "OPERATOR_UPGRADE_BASELINE_INIT_IMAGE=" + old + "\n")
+            argv = ["operator-upgrade-baseline.py", "refresh", "--version", "0.6.0"]
+            with patch.object(BASELINE, "ROOT", root), patch("sys.argv", argv), \
+                    patch.object(BASELINE, "gh", side_effect=responses):
+                BASELINE.main()
+            expected = BASELINE.release_pins(index, "0.6.0")
+            current = BASELINE.read_pins(pins)
+            for key, value in expected.items():
+                self.assertEqual(current[key], value)
+            self.assertEqual(current["OPERATOR_UPGRADE_LEGACY_SEED"], "0.5.3")
+            self.assertIn('    image: "' + expected["OPERATOR_UPGRADE_BASELINE_INIT_IMAGE"] + '"', fixture.read_text())
+            self.assertNotIn(old, fixture.read_text())
 
     def test_default_target_follows_manifest_without_another_pin(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -72,7 +118,9 @@ class BaselineSelection(unittest.TestCase):
         helper = dict(image, name="openbao-init", ref="ghcr.io/kubebao/openbao-init")
         helper["oci_subject"] = helper["ref"] + "@" + helper["digest"]
         index = {"release": {"tag": "0.6.0", "source_ref": "refs/tags/0.6.0"},
-                 "chart": {"ref": "ghcr.io/kubebao/charts/openbao-operator"}, "images": [image, helper]}
+                 "chart": {"ref": "ghcr.io/kubebao/charts/openbao-operator", "digest": "sha256:" + "a" * 64,
+                           "oci_subject": "ghcr.io/kubebao/charts/openbao-operator@sha256:" + "a" * 64},
+                 "images": [image, helper]}
         responses = [[[release("0.6.0"), release("0.6.1")]],
                      {"tagName": "0.6.0", "isDraft": False, "isPrerelease": False}, index]
         with tempfile.TemporaryDirectory() as directory:
