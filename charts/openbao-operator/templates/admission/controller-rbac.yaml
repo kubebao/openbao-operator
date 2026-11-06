@@ -15,21 +15,21 @@ spec:
         resources: ["roles", "rolebindings"]
   variables:
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: controller_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.controllerServiceAccountName" . }}'
     - name: controller_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name
     - name: is_controller
       # Matches the ServiceAccount of the Controller.
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.controller_principal
     - name: component_label
       # openbao.org/component label if present; empty otherwise.
-      expression: >-
+      expression: |-
         request.operation == "DELETE" ?
           (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.labels) && ("openbao.org/component" in oldObject.metadata.labels) ?
             oldObject.metadata.labels["openbao.org/component"] : "") :
@@ -42,11 +42,8 @@ spec:
   validations:
     # Rule 0: Role restriction
     # The controller may only create/update/delete Roles used for pod discovery and service registration.
-    - expression: >-
-        !variables.is_controller ||
-        request.resource.resource != "roles" ||
-        request.operation == "DELETE" ||
-        (
+    - expression: |-
+        !variables.is_controller || request.resource.resource != "roles" || request.operation == "DELETE" || (
           object != null &&
           has(object.metadata) &&
           has(object.metadata.name) &&
@@ -95,11 +92,8 @@ spec:
 
     # Rule 1: RoleBinding restriction
     # Bind one local ServiceAccount to its own Role or a target-owned restore Role.
-    - expression: >-
-        !variables.is_controller ||
-        request.resource.resource != "rolebindings" ||
-        request.operation == "DELETE" ||
-        (
+    - expression: |-
+        !variables.is_controller || request.resource.resource != "rolebindings" || request.operation == "DELETE" || (
           object != null &&
           has(object.metadata) &&
           has(object.metadata.name) &&
@@ -130,11 +124,8 @@ spec:
       message: "The controller can only create/update RoleBindings for a ServiceAccount's pod-discovery Role or a target-owned restore Role."
 
     # Rule 2: Deletion restriction (Roles)
-    - expression: >-
-        !variables.is_controller ||
-        request.operation != "DELETE" ||
-        request.resource.resource != "roles" ||
-        (
+    - expression: |-
+        !variables.is_controller || request.operation != "DELETE" || request.resource.resource != "roles" || (
           oldObject != null &&
           has(oldObject.metadata) &&
           has(oldObject.metadata.name) &&
@@ -143,11 +134,8 @@ spec:
       message: "The controller can only delete Roles for pod discovery."
 
     # Rule 3: Deletion restriction (RoleBindings)
-    - expression: >-
-        !variables.is_controller ||
-        request.operation != "DELETE" ||
-        request.resource.resource != "rolebindings" ||
-        (
+    - expression: |-
+        !variables.is_controller || request.operation != "DELETE" || request.resource.resource != "rolebindings" || (
           oldObject != null &&
           has(oldObject.metadata) &&
           has(oldObject.metadata.name) &&

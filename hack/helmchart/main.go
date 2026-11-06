@@ -275,6 +275,10 @@ func syncPolicies(opts options) error {
 					return fmt.Errorf("add Pod metadata sync callers to %q: %w", inputFile, err)
 				}
 			}
+			transformed, err = literalPolicyExpressions(transformed)
+			if err != nil {
+				return fmt.Errorf("serialize policy expressions in %q: %w", inputFile, err)
+			}
 			parts = append(parts, transformed)
 		}
 

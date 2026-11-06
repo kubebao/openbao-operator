@@ -15,20 +15,20 @@ spec:
         resources: ["roles", "rolebindings"]
   variables:
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: controller_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.controllerServiceAccountName" . }}'
     - name: provisioner_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.provisionerServiceAccountName" . }}'
     - name: provisioner_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.provisioner_serviceaccount_name
     - name: is_provisioner
       # Matches the ServiceAccount of the Provisioner.
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.provisioner_principal
   # Role and RoleBinding share this policy. Resource guards select each kind.
   # Native lists can be present with null values; retain their null guards.
@@ -45,9 +45,8 @@ spec:
     # - AKS/Azure namespaces (aks-*, azure-*) [best-effort; tune for your cluster]
     #
     # This is defense-in-depth against a compromised Provisioner or a future RBAC misconfiguration.
-    - expression: >-
-        !variables.is_provisioner ||
-        !(
+    - expression: |-
+        !variables.is_provisioner || !(
           request.namespace == variables.operator_namespace ||
           request.namespace.startsWith('kube-') ||
           request.namespace == 'openshift' ||
@@ -63,11 +62,8 @@ spec:
     # Rule 1: Role Name Restriction
     # The Provisioner can ONLY create Roles with specific names.
     # This prevents creation of arbitrary privileged roles.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        object.metadata.name in [
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name in [
           'openbao-operator-tenant-role',
           'openbao-operator-tenant-secrets-reader',
           'openbao-operator-tenant-secrets-writer'
@@ -77,12 +73,8 @@ spec:
     # Rule 1b: Tenant Role Content Allowlist
     # The tenant Role must not be broadened beyond the operator-defined set of allowed rule shapes.
     # This blocks privilege escalation via unexpected RBAC grants (e.g., pods/exec, serviceaccounts/token).
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        object.metadata.name != 'openbao-operator-tenant-role' ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name != 'openbao-operator-tenant-role' || (
           has(dyn(object).rules) &&
           dyn(object).rules != null &&
           !dyn(object).rules.exists(rule,
@@ -238,11 +230,8 @@ spec:
 
     # Rule 2: RoleBinding Name Restriction
     # The Provisioner can ONLY create RoleBindings with specific names.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        object.metadata.name in [
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || object.metadata.name in [
           'openbao-operator-tenant-rolebinding',
           'openbao-operator-tenant-secrets-reader-rolebinding',
           'openbao-operator-tenant-secrets-writer-rolebinding'
@@ -252,11 +241,8 @@ spec:
     # Rule 3: Role Reference Restriction (Prevent Admin Grant)
     # The Provisioner can ONLY bind to the specific operator-defined roles.
     # It cannot bind 'cluster-admin' or any other privileged role.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        dyn(object).roleRef.name in [
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || dyn(object).roleRef.name in [
           'openbao-operator-tenant-role',
           'openbao-operator-tenant-secrets-reader',
           'openbao-operator-tenant-secrets-writer'
@@ -265,38 +251,26 @@ spec:
 
     # Rule 4: Subject Type Restriction
     # The Provisioner can ONLY bind roles to ServiceAccounts (not users or groups).
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        dyn(object).subjects.all(s, s.kind == 'ServiceAccount')
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || dyn(object).subjects.all(s, s.kind == 'ServiceAccount')
       message: "The Provisioner can only grant permissions to ServiceAccounts."
 
     # Rule 4b: Subject API Group Restriction
     # For ServiceAccount subjects, apiGroup must be empty/omitted.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        dyn(object).subjects.all(s, !has(s.apiGroup) || s.apiGroup == '')
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || dyn(object).subjects.all(s, !has(s.apiGroup) || s.apiGroup == '')
       message: "The Provisioner can only bind to core ServiceAccount subjects (apiGroup must be empty)."
 
     # Rule 4c: RoleRef Kind/API Group Restriction
     # RoleBindings must point to a namespaced Role (not ClusterRole).
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        (dyn(object).roleRef.kind == 'Role' && dyn(object).roleRef.apiGroup == 'rbac.authorization.k8s.io')
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || (dyn(object).roleRef.kind == 'Role' && dyn(object).roleRef.apiGroup == 'rbac.authorization.k8s.io')
       message: "The Provisioner can only create RoleBindings that reference a Role (not ClusterRole)."
 
     # Rule 5: Subject Restriction (Prevent Backdoor Creation)
     # Tenant RoleBinding must bind ONLY the controller ServiceAccount in the operator namespace.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'rolebindings' || (
           (
             object.metadata.name == 'openbao-operator-tenant-rolebinding' &&
             dyn(object).roleRef.name == 'openbao-operator-tenant-role' &&
@@ -328,13 +302,8 @@ spec:
     # The Provisioner cannot create or update Roles that grant impersonation,
     # bind/escalate, or wildcard permissions. This provides defense-in-depth
     # even if the Provisioner ClusterRole is accidentally broadened in the future.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        !has(dyn(object).rules) ||
-        dyn(object).rules == null ||
-        !dyn(object).rules.exists(rule,
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
           has(rule.verbs) &&
           rule.verbs != null &&
           rule.verbs.exists(v,
@@ -348,13 +317,8 @@ spec:
 
     # Rule 7: Content Restriction (Prevent Wildcard Resources)
     # Defense-in-depth: prevent creating Roles with wildcard apiGroups or resources.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        !has(dyn(object).rules) ||
-        dyn(object).rules == null ||
-        !dyn(object).rules.exists(rule,
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
           (
             has(rule.apiGroups) &&
             rule.apiGroups != null &&
@@ -370,13 +334,8 @@ spec:
 
     # Rule 7b: Content Restriction (Prevent Non-Resource URLs)
     # Defense-in-depth: prevent granting access to non-resource URLs.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        !has(dyn(object).rules) ||
-        dyn(object).rules == null ||
-        !dyn(object).rules.exists(rule,
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
           has(rule.nonResourceURLs) &&
           rule.nonResourceURLs != null &&
           rule.nonResourceURLs.size() > 0
@@ -386,13 +345,8 @@ spec:
     # Rule 8: Content Restriction (Secrets)
     # Defense-in-depth: prevent accidental broadening of tenant roles to include
     # Secrets access. Secret access is only allowed via the explicit allowlist Roles.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        !has(dyn(object).rules) ||
-        dyn(object).rules == null ||
-        !dyn(object).rules.exists(rule,
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || !has(dyn(object).rules) || dyn(object).rules == null || !dyn(object).rules.exists(rule,
           has(rule.resources) &&
           rule.resources != null &&
           rule.resources.exists(r, r == 'secrets') &&
@@ -405,12 +359,8 @@ spec:
 
     # Rule 9: Content Restriction (Secrets Reader Role)
     # The secrets reader Role must be strictly name-scoped (resourceNames) and read-only.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        object.metadata.name != 'openbao-operator-tenant-secrets-reader' ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name != 'openbao-operator-tenant-secrets-reader' || (
           has(dyn(object).rules) &&
           dyn(object).rules != null &&
           dyn(object).rules.size() == 1 &&
@@ -425,12 +375,8 @@ spec:
 
     # Rule 10: Content Restriction (Secrets Writer Role)
     # The secrets writer Role must be limited to: create on the collection + name-scoped mutations.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation == 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        object.metadata.name != 'openbao-operator-tenant-secrets-writer' ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation == 'DELETE' || request.resource.resource != 'roles' || object.metadata.name != 'openbao-operator-tenant-secrets-writer' || (
           has(dyn(object).rules) &&
           dyn(object).rules != null &&
           dyn(object).rules.size() == 2 &&
@@ -455,11 +401,8 @@ spec:
 
     # Rule 11: Deletion Restriction (Roles)
     # The Provisioner can ONLY delete the fixed tenant template Roles.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation != 'DELETE' ||
-        request.resource.resource != 'roles' ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation != 'DELETE' || request.resource.resource != 'roles' || (
           oldObject != null &&
           has(oldObject.metadata) &&
           oldObject.metadata.name in [
@@ -472,11 +415,8 @@ spec:
 
     # Rule 12: Deletion Restriction (RoleBindings)
     # The Provisioner can ONLY delete the fixed tenant template RoleBindings.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation != 'DELETE' ||
-        request.resource.resource != 'rolebindings' ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation != 'DELETE' || request.resource.resource != 'rolebindings' || (
           oldObject != null &&
           has(oldObject.metadata) &&
           oldObject.metadata.name in [

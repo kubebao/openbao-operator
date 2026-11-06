@@ -15,52 +15,44 @@ spec:
         resources: ["namespaces"]
   variables:
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: provisioner_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.provisionerServiceAccountName" . }}'
     - name: provisioner_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.provisioner_serviceaccount_name
     - name: is_provisioner
       # Matches the ServiceAccount of the Provisioner.
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.provisioner_principal
     - name: is_system_namespace
       # Use request.name for cluster-scoped Namespace objects.
-      expression: >-
-        request.name == variables.operator_namespace ||
-        request.name.startsWith("kube-") ||
-        request.name == "openshift" ||
-        request.name.startsWith("openshift-") ||
-        request.name.startsWith("gke-")
+      expression: |-
+        request.name == variables.operator_namespace || request.name.startsWith("kube-") || request.name == "openshift" || request.name.startsWith("openshift-") || request.name.startsWith("gke-")
     - name: new_labels
-      expression: >-
+      expression: |-
         (object != null && has(object.metadata) && has(object.metadata.labels)) ? object.metadata.labels : {}
     - name: old_labels
-      expression: >-
+      expression: |-
         (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.labels)) ? oldObject.metadata.labels : {}
   validations:
     # Rule 0: Never mutate system namespaces.
-    - expression: >-
-        !variables.is_provisioner ||
-        !variables.is_system_namespace
+    - expression: |-
+        !variables.is_provisioner || !variables.is_system_namespace
       message: "The Provisioner may not mutate system namespaces."
 
 {{ if eq .Values.tenancy.namespacePodSecurityLabels.mode "external" }}
     # Rule 1: Namespace Pod Security labels are externally managed, so the Provisioner must not mutate Namespaces.
-    - expression: >-
+    - expression: |-
         !variables.is_provisioner
       message: >-
         The Provisioner may not mutate Namespaces when tenant namespace Pod Security labels are externally managed.
 {{ else }}
     # Rule 1: Only enforce Pod Security Standards labels (restricted), and do not change anything else.
-    - expression: >-
-        !variables.is_provisioner ||
-        request.operation != "UPDATE" ||
-        request.resource.resource != "namespaces" ||
-        (
+    - expression: |-
+        !variables.is_provisioner || request.operation != "UPDATE" || request.resource.resource != "namespaces" || (
           oldObject != null &&
           object != null &&
           object.spec == oldObject.spec &&

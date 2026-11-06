@@ -15,47 +15,37 @@ spec:
         resources: ["resourcequotas", "limitranges"]
   variables:
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: provisioner_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.provisionerServiceAccountName" . }}'
     - name: provisioner_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.provisioner_serviceaccount_name
     - name: is_provisioner
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.provisioner_principal
     - name: is_kube_controller_manager
-      expression: >-
-        request.userInfo.username == "system:kube-controller-manager" ||
-        request.userInfo.username == "system:serviceaccount:kube-system:kube-controller-manager"
+      expression: |-
+        request.userInfo.username == "system:kube-controller-manager" || request.userInfo.username == "system:serviceaccount:kube-system:kube-controller-manager"
     - name: is_system_controller
-      expression: >-
+      expression: |-
         request.userInfo.username.startsWith("system:controller:")
     - name: is_garbage_collector_sa
-      expression: >-
+      expression: |-
         request.userInfo.username in [
           "system:serviceaccount:kube-system:generic-garbage-collector",
           "system:serviceaccount:kube-system:resourcequota-controller"
         ]
     - name: is_kube_system_controller
-      expression: >-
-        request.userInfo.groups.exists(g, g == "system:serviceaccounts:kube-system") ||
-        request.userInfo.username.startsWith("system:serviceaccount:kube-system:")
+      expression: |-
+        request.userInfo.groups.exists(g, g == "system:serviceaccounts:kube-system") || request.userInfo.username.startsWith("system:serviceaccount:kube-system:")
     - name: is_system_namespace
-      expression: >-
-        request.namespace == variables.operator_namespace ||
-        request.namespace.startsWith('kube-') ||
-        request.namespace == 'openshift' ||
-        request.namespace.startsWith('openshift-') ||
-        request.namespace.startsWith('gke-') ||
-        request.namespace.startsWith('eks-') ||
-        request.namespace.startsWith('aws-') ||
-        request.namespace.startsWith('aks-') ||
-        request.namespace.startsWith('azure-')
+      expression: |-
+        request.namespace == variables.operator_namespace || request.namespace.startsWith('kube-') || request.namespace == 'openshift' || request.namespace.startsWith('openshift-') || request.namespace.startsWith('gke-') || request.namespace.startsWith('eks-') || request.namespace.startsWith('aws-') || request.namespace.startsWith('aks-') || request.namespace.startsWith('azure-')
     - name: resource_name
-      expression: >-
+      expression: |-
         request.operation == 'DELETE' ?
           request.name :
           (
@@ -64,15 +54,14 @@ spec:
             object.metadata.name != ''
           ) ? object.metadata.name : request.name
     - name: is_guardrail_request
-      expression: >-
+      expression: |-
         (request.resource.resource == 'resourcequotas' &&
           variables.resource_name == 'openbao-operator-tenant-quota') ||
         (request.resource.resource == 'limitranges' &&
           variables.resource_name == 'openbao-operator-tenant-limits')
     - name: has_required_labels
-      expression: >-
-        request.operation == 'DELETE' ||
-        (
+      expression: |-
+        request.operation == 'DELETE' || (
           object != null &&
           has(object.metadata) &&
           has(object.metadata.labels) &&
@@ -85,26 +74,24 @@ spec:
         )
   validations:
     # Rule 0: The Provisioner must not manage tenant guardrails in system namespaces.
-    - expression: >-
+    - expression: |-
         !variables.is_provisioner || !variables.is_system_namespace
       message: "The Provisioner may not manage tenant ResourceQuota or LimitRange guardrails in system namespaces."
 
     # Rule 1: The Provisioner may only manage the fixed tenant governance objects.
-    - expression: >-
+    - expression: |-
         !variables.is_provisioner || variables.is_guardrail_request
       message: "The Provisioner can only manage the operator tenant ResourceQuota and LimitRange guardrail objects."
 
     # Rule 2: Provisioner-managed tenant guardrails must carry the expected operator labels.
-    - expression: >-
+    - expression: |-
         !variables.is_provisioner || variables.has_required_labels
       message: "The Provisioner must label tenant ResourceQuota and LimitRange guardrails as operator-managed."
 
     # Rule 3: The fixed tenant guardrail objects are controller-owned and may only
     # be changed by the Provisioner or Kubernetes system controllers during cleanup.
-    - expression: >-
-        !variables.is_guardrail_request ||
-        variables.is_provisioner ||
-        (
+    - expression: |-
+        !variables.is_guardrail_request || variables.is_provisioner || (
           request.operation == 'DELETE' &&
           (
             variables.is_kube_controller_manager ||

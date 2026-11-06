@@ -19,35 +19,22 @@ spec:
         resources: ["jobs"]
   variables:
     - name: is_openbao_managed
-      expression: >-
-        object != null &&
-        has(object.metadata) &&
-        has(object.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in object.metadata.labels) &&
-        object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator"
+      expression: |-
+        object != null && has(object.metadata) && has(object.metadata.labels) && ("app.kubernetes.io/managed-by" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator"
     - name: digest_enforcement_required
-      expression: >-
-        object != null &&
-        has(object.metadata) &&
-        has(object.metadata.labels) &&
-        ("openbao.org/digest-enforcement" in object.metadata.labels) &&
-        object.metadata.labels["openbao.org/digest-enforcement"] == "required"
+      expression: |-
+        object != null && has(object.metadata) && has(object.metadata.labels) && ("openbao.org/digest-enforcement" in object.metadata.labels) && object.metadata.labels["openbao.org/digest-enforcement"] == "required"
     - name: all_container_images_are_digests
-      expression: >-
-        !has(object.spec.template.spec.containers) ||
-        object.spec.template.spec.containers.all(c,
+      expression: |-
+        !has(object.spec.template.spec.containers) || object.spec.template.spec.containers.all(c,
           c.image.matches("^.+@sha256:[a-f0-9]{64}$"))
     - name: all_init_container_images_are_digests
-      expression: >-
-        !has(object.spec.template.spec.initContainers) ||
-        object.spec.template.spec.initContainers.all(c,
+      expression: |-
+        !has(object.spec.template.spec.initContainers) || object.spec.template.spec.initContainers.all(c,
           c.image.matches("^.+@sha256:[a-f0-9]{64}$"))
   validations:
-    - expression: >-
-        !variables.is_openbao_managed ||
-        !variables.digest_enforcement_required ||
-        (variables.all_container_images_are_digests &&
-        variables.all_init_container_images_are_digests)
+    - expression: |-
+        !variables.is_openbao_managed || !variables.digest_enforcement_required || (variables.all_container_images_are_digests && variables.all_init_container_images_are_digests)
       message: Operator-managed workloads with openbao.org/digest-enforcement=required must use digest-pinned images (repo@sha256:...) for all containers and initContainers.
 ---
 apiVersion: admissionregistration.k8s.io/v1

@@ -343,6 +343,9 @@ helm-test: helm-sync helm-lint verify-edge-chart ## Test the Helm chart without 
 	@helm template openbao-operator charts/openbao-operator \
 		--namespace openbao-operator-system \
 		--include-crds > /dev/null
+	@echo "Testing Helm chart: admission policy specs survive YAML post-rendering..."
+	@KUSTOMIZE="$(abspath $(KUSTOMIZE))" GOFLAGS="$(GOFLAGS_VENDOR)" \
+		go test -count=1 ./test/manifests/admission -run '^TestHelmPolicySpecsSurviveKustomizeRoundTrip$$'
 	@echo "Helm chart tests passed successfully!"
 
 .PHONY: helm-e2e-smoke

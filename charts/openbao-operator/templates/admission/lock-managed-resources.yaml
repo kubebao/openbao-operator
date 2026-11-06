@@ -59,22 +59,22 @@ spec:
     - name: pod_metadata_sync_callers
       expression: {{ include "openbao-operator.podMetadataSyncCallers" . | quote }}
     - name: operator_namespace
-      expression: >-
+      expression: |-
         '{{ .Release.Namespace }}'
     - name: controller_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.controllerServiceAccountName" . }}'
     - name: provisioner_serviceaccount_name
-      expression: >-
+      expression: |-
         '{{ include "openbao-operator.provisionerServiceAccountName" . }}'
     - name: controller_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.controller_serviceaccount_name
     - name: provisioner_principal
-      expression: >-
+      expression: |-
         'system:serviceaccount:' + variables.operator_namespace + ':' + variables.provisioner_serviceaccount_name
     - name: is_openbao_managed_by_operator
-      expression: >-
+      expression: |-
         request.operation == "DELETE" ?
           (oldObject != null &&
             has(oldObject.metadata) &&
@@ -92,7 +92,7 @@ spec:
               ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
               oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator"))
     - name: has_openbao_specific_label
-      expression: >-
+      expression: |-
         request.operation == "DELETE" ?
           (oldObject != null &&
             has(oldObject.metadata) &&
@@ -107,51 +107,48 @@ spec:
               has(oldObject.metadata.labels) &&
               oldObject.metadata.labels.exists(k, v, k.startsWith("openbao.org/"))))
     - name: is_managed
-      expression: >-
+      expression: |-
         variables.is_openbao_managed_by_operator && variables.has_openbao_specific_label
     - name: is_operator_controller
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.controller_principal
     - name: is_operator_provisioner
-      expression: >-
+      expression: |-
         request.userInfo.username == variables.provisioner_principal
     - name: is_kube_controller_manager
-      expression: >-
-        request.userInfo.username == "system:kube-controller-manager" ||
-        request.userInfo.username == "system:serviceaccount:kube-system:kube-controller-manager"
+      expression: |-
+        request.userInfo.username == "system:kube-controller-manager" || request.userInfo.username == "system:serviceaccount:kube-system:kube-controller-manager"
     - name: is_kube_scheduler
-      expression: >-
-        request.userInfo.username == "system:kube-scheduler" ||
-        request.userInfo.username == "system:serviceaccount:kube-system:kube-scheduler"
+      expression: |-
+        request.userInfo.username == "system:kube-scheduler" || request.userInfo.username == "system:serviceaccount:kube-system:kube-scheduler"
     # Azure Kubernetes Service runs its managed control plane, including the
     # scheduler and the volume controllers, as the user "aksService". Only the
     # narrowly scoped PVC binding update below accepts it.
     - name: is_aks_control_plane
-      expression: >-
+      expression: |-
         request.userInfo.username == "aksService"
     - name: is_storage_provisioner_serviceaccount
-      expression: >-
+      expression: |-
         request.userInfo.username.matches("^system:serviceaccount:[^:]+:.*(csi|provisioner).*$")
     - name: is_persistent_volume_binder
-      expression: >-
+      expression: |-
         request.userInfo.username == "system:serviceaccount:kube-system:persistent-volume-binder"
     - name: is_pvc_protection_controller
-      expression: >-
+      expression: |-
         request.userInfo.username == "system:serviceaccount:kube-system:pvc-protection-controller"
     - name: is_system_controller
-      expression: >-
+      expression: |-
         request.userInfo.username.startsWith("system:controller:")
     - name: is_statefulset_controller
-      expression: >-
-        request.userInfo.username == "system:controller:statefulset-controller" ||
-        request.userInfo.username == "system:serviceaccount:kube-system:statefulset-controller"
+      expression: |-
+        request.userInfo.username == "system:controller:statefulset-controller" || request.userInfo.username == "system:serviceaccount:kube-system:statefulset-controller"
     # Some controller managers use dedicated ServiceAccount credentials for the namespace controller.
     - name: is_namespace_controller_serviceaccount
-      expression: >-
+      expression: |-
         request.userInfo.username == "system:serviceaccount:kube-system:namespace-controller"
     # K3s/K3d and some distributions use service accounts for GC instead of system:controller:*
     - name: is_garbage_collector_sa
-      expression: >-
+      expression: |-
         request.userInfo.username in [
           "system:serviceaccount:kube-system:generic-garbage-collector",
           "system:serviceaccount:kube-system:resourcequota-controller",
@@ -162,158 +159,90 @@ spec:
           "system:serviceaccount:kube-system:ttl-after-finished-controller"
         ]
     - name: is_kube_system_controller
-      expression: >-
-        request.userInfo.groups.exists(g, g == "system:serviceaccounts:kube-system") ||
-        request.userInfo.username.startsWith("system:serviceaccount:kube-system:")
+      expression: |-
+        request.userInfo.groups.exists(g, g == "system:serviceaccounts:kube-system") || request.userInfo.username.startsWith("system:serviceaccount:kube-system:")
     - name: is_endpoints_controller_request
-      expression: >-
+      expression: |-
         request.resource.resource in ["endpoints", "endpointslices"]
     - name: is_pod_request
-      expression: >-
+      expression: |-
         request.kind.group == "" && request.kind.kind == "Pod"
     - name: is_job_request
-      expression: >-
+      expression: |-
         request.kind.group == "batch" && request.kind.kind == "Job"
     - name: is_service_request
-      expression: >-
+      expression: |-
         request.kind.group == "" && request.kind.kind == "Service"
     - name: is_pvc_request
-      expression: >-
+      expression: |-
         request.kind.group == "" && request.kind.kind == "PersistentVolumeClaim"
     - name: has_current_owner_uid_annotation
-      expression: >-
-        object != null &&
-        has(object.metadata) &&
-        has(object.metadata.annotations) &&
-        ("openbao.org/owner-uid" in object.metadata.annotations)
+      expression: |-
+        object != null && has(object.metadata) && has(object.metadata.annotations) && ("openbao.org/owner-uid" in object.metadata.annotations)
     - name: has_old_owner_uid_annotation
-      expression: >-
-        oldObject != null &&
-        has(oldObject.metadata) &&
-        has(oldObject.metadata.annotations) &&
-        ("openbao.org/owner-uid" in oldObject.metadata.annotations)
+      expression: |-
+        oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.annotations) && ("openbao.org/owner-uid" in oldObject.metadata.annotations)
     - name: owner_uid_annotation_allowed
-      expression: >-
-        variables.is_operator_controller ||
-        variables.is_operator_provisioner ||
-        variables.is_kube_controller_manager ||
-        variables.is_system_controller ||
-        variables.is_kube_system_controller
+      expression: |-
+        variables.is_operator_controller || variables.is_operator_provisioner || variables.is_kube_controller_manager || variables.is_system_controller || variables.is_kube_system_controller
     - name: is_cilium_policy_request
-      expression: >-
+      expression: |-
         request.kind.group == "cilium.io" && request.kind.kind == "CiliumNetworkPolicy"
     - name: current_cilium_policy_is_operator_owned
-      expression: >-
-        object != null && request.namespace != "" &&
-        has(object.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in object.metadata.labels) &&
-        object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        ("openbao.org/cluster" in object.metadata.labels) &&
-        object.metadata.labels["openbao.org/cluster"] != "" &&
-        object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-api-server" &&
-        has(object.metadata.annotations) &&
-        ("openbao.org/owner-uid" in object.metadata.annotations) &&
-        has(object.metadata.ownerReferences) &&
-        object.metadata.ownerReferences.exists(ref,
+      expression: |-
+        object != null && request.namespace != "" && has(object.metadata.labels) && ("app.kubernetes.io/managed-by" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in object.metadata.labels) && object.metadata.labels["openbao.org/cluster"] != "" && object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-api-server" && has(object.metadata.annotations) && ("openbao.org/owner-uid" in object.metadata.annotations) && has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(ref,
           ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
           ref.name == object.metadata.labels["openbao.org/cluster"] &&
           ref.uid == object.metadata.annotations["openbao.org/owner-uid"] &&
           has(ref.controller) && ref.controller)
     - name: old_cilium_policy_is_operator_owned
-      expression: >-
-        oldObject != null && request.namespace != "" &&
-        has(oldObject.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        ("openbao.org/cluster" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["openbao.org/cluster"] != "" &&
-        oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-api-server" &&
-        has(oldObject.metadata.annotations) &&
-        ("openbao.org/owner-uid" in oldObject.metadata.annotations) &&
-        has(oldObject.metadata.ownerReferences) &&
-        oldObject.metadata.ownerReferences.exists(ref,
+      expression: |-
+        oldObject != null && request.namespace != "" && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-api-server" && has(oldObject.metadata.annotations) && ("openbao.org/owner-uid" in oldObject.metadata.annotations) && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
           ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
           ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
           ref.uid == oldObject.metadata.annotations["openbao.org/owner-uid"] &&
           has(ref.controller) && ref.controller)
     - name: is_service_monitor_request
-      expression: >-
+      expression: |-
         request.kind.group == "monitoring.coreos.com" && request.kind.kind == "ServiceMonitor"
     - name: current_service_monitor_is_operator_owned
-      expression: >-
-        object != null &&
-        has(object.metadata) &&
-        request.namespace != "" &&
-        object.metadata.name.endsWith("-metrics") &&
-        has(object.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in object.metadata.labels) &&
-        object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        ("app.kubernetes.io/component" in object.metadata.labels) &&
-        object.metadata.labels["app.kubernetes.io/component"] == "metrics" &&
-        ("openbao.org/component" in object.metadata.labels) &&
-        object.metadata.labels["openbao.org/component"] == "metrics" &&
-        ("openbao.org/cluster" in object.metadata.labels) &&
-        object.metadata.labels["openbao.org/cluster"] != "" &&
-        object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-metrics" &&
-        has(object.metadata.ownerReferences) &&
-        object.metadata.ownerReferences.exists(ref,
+      expression: |-
+        object != null && has(object.metadata) && request.namespace != "" && object.metadata.name.endsWith("-metrics") && has(object.metadata.labels) && ("app.kubernetes.io/managed-by" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("app.kubernetes.io/component" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/component"] == "metrics" && ("openbao.org/component" in object.metadata.labels) && object.metadata.labels["openbao.org/component"] == "metrics" && ("openbao.org/cluster" in object.metadata.labels) && object.metadata.labels["openbao.org/cluster"] != "" && object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-metrics" && has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(ref,
           ref.apiVersion == "openbao.org/v1alpha1" &&
           ref.kind == "OpenBaoCluster" &&
           ref.name == object.metadata.labels["openbao.org/cluster"] &&
           has(ref.controller) &&
           ref.controller == true)
     - name: old_service_monitor_is_operator_owned
-      expression: >-
-        oldObject != null &&
-        has(oldObject.metadata) &&
-        request.namespace != "" &&
-        oldObject.metadata.name.endsWith("-metrics") &&
-        has(oldObject.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        ("app.kubernetes.io/component" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["app.kubernetes.io/component"] == "metrics" &&
-        ("openbao.org/component" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["openbao.org/component"] == "metrics" &&
-        ("openbao.org/cluster" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["openbao.org/cluster"] != "" &&
-        oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-metrics" &&
-        has(oldObject.metadata.ownerReferences) &&
-        oldObject.metadata.ownerReferences.exists(ref,
+      expression: |-
+        oldObject != null && has(oldObject.metadata) && request.namespace != "" && oldObject.metadata.name.endsWith("-metrics") && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("app.kubernetes.io/component" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/component"] == "metrics" && ("openbao.org/component" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/component"] == "metrics" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-metrics" && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
           ref.apiVersion == "openbao.org/v1alpha1" &&
           ref.kind == "OpenBaoCluster" &&
           ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
           has(ref.controller) &&
           ref.controller == true)
     - name: is_kubelet_node
-      expression: >-
+      expression: |-
         request.userInfo.username.startsWith("system:node:")
     - name: pod_cluster_name
-      expression: >-
+      expression: |-
         object != null && has(object.metadata) && has(object.metadata.labels) && ("openbao.org/cluster" in object.metadata.labels) ?
           object.metadata.labels["openbao.org/cluster"] :
           (object != null && has(object.metadata) && has(object.metadata.labels) && ("app.kubernetes.io/instance" in object.metadata.labels) ?
             object.metadata.labels["app.kubernetes.io/instance"] : "")
     - name: is_cluster_serviceaccount
-      expression: >-
-        variables.pod_cluster_name != "" &&
-        request.userInfo.username ==
+      expression: |-
+        variables.pod_cluster_name != "" && request.userInfo.username ==
           ("system:serviceaccount:" + request.namespace + ":" + variables.pod_cluster_name + "-serviceaccount")
     - name: is_service_registration_label_update
-      expression: >-
-        variables.is_pod_request &&
-        request.operation == "UPDATE" &&
-        variables.is_cluster_serviceaccount &&
-        object.spec == oldObject.spec &&
-        (has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
+      expression: |-
+        variables.is_pod_request && request.operation == "UPDATE" && variables.is_cluster_serviceaccount && object.spec == oldObject.spec && (has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
           (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations)) &&
         (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
         (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
           (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)) &&
-        has(object.metadata.labels) &&
-        has(oldObject.metadata.labels) &&
-        (
+        has(object.metadata.labels) && has(oldObject.metadata.labels) && (
           (
             object.metadata.labels.all(k, v,
               k in [
@@ -334,60 +263,44 @@ spec:
           )
         )
     - name: is_kube_system_pod_finalizer_update
-      expression: >-
-        variables.is_pod_request &&
-        request.operation == "UPDATE" &&
-        variables.is_kube_system_controller &&
-        object.spec == oldObject.spec &&
-        (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+      expression: |-
+        variables.is_pod_request && request.operation == "UPDATE" && variables.is_kube_system_controller && object.spec == oldObject.spec && (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
           (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels)) &&
         (has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
           (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations)) &&
         (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
-        (has(object.metadata.finalizers) || has(oldObject.metadata.finalizers)) &&
-        (!has(object.metadata.finalizers) || !has(oldObject.metadata.finalizers) || object.metadata.finalizers != oldObject.metadata.finalizers)
+        (has(object.metadata.finalizers) || has(oldObject.metadata.finalizers)) && (!has(object.metadata.finalizers) || !has(oldObject.metadata.finalizers) || object.metadata.finalizers != oldObject.metadata.finalizers)
     - name: is_kube_system_job_finalizer_update
-      expression: >-
-        variables.is_job_request &&
-        request.operation == "UPDATE" &&
-        (variables.is_kube_controller_manager || variables.is_system_controller || variables.is_kube_system_controller || variables.is_garbage_collector_sa) &&
-        has(oldObject.metadata.deletionTimestamp) &&
-        object.spec == oldObject.spec &&
-        object.status == oldObject.status &&
-        (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+      expression: |-
+        variables.is_job_request && request.operation == "UPDATE" && (variables.is_kube_controller_manager || variables.is_system_controller || variables.is_kube_system_controller || variables.is_garbage_collector_sa) && has(oldObject.metadata.deletionTimestamp) && object.spec == oldObject.spec && object.status == oldObject.status && (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
           (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels)) &&
         (has(object.metadata.annotations) == has(oldObject.metadata.annotations) &&
           (!has(object.metadata.annotations) || object.metadata.annotations == oldObject.metadata.annotations)) &&
         (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
-        (has(object.metadata.finalizers) || has(oldObject.metadata.finalizers)) &&
-        (!has(object.metadata.finalizers) || !has(oldObject.metadata.finalizers) || object.metadata.finalizers != oldObject.metadata.finalizers)
+        (has(object.metadata.finalizers) || has(oldObject.metadata.finalizers)) && (!has(object.metadata.finalizers) || !has(oldObject.metadata.finalizers) || object.metadata.finalizers != oldObject.metadata.finalizers)
     - name: service_new_annotations
-      expression: >-
+      expression: |-
         (object != null && has(object.metadata) && has(object.metadata.annotations)) ? object.metadata.annotations : {}
     - name: service_old_annotations
-      expression: >-
+      expression: |-
         (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.annotations)) ? oldObject.metadata.annotations : {}
     - name: pvc_new_annotations
-      expression: >-
+      expression: |-
         (object != null && has(object.metadata) && has(object.metadata.annotations)) ? object.metadata.annotations : {}
     - name: pvc_old_annotations
-      expression: >-
+      expression: |-
         (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.annotations)) ? oldObject.metadata.annotations : {}
     - name: pvc_new_finalizers
-      expression: >-
+      expression: |-
         (object != null && has(object.metadata) && has(object.metadata.finalizers)) ? object.metadata.finalizers : []
     - name: pvc_old_finalizers
-      expression: >-
+      expression: |-
         (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.finalizers)) ? oldObject.metadata.finalizers : []
     - name: is_kube_system_service_metadata_update
-      expression: >-
-        variables.is_service_request &&
-        request.operation == "UPDATE" &&
-        variables.is_kube_system_controller &&
-        object.spec == oldObject.spec &&
-        (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+      expression: |-
+        variables.is_service_request && request.operation == "UPDATE" && variables.is_kube_system_controller && object.spec == oldObject.spec && (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
           (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels)) &&
         (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
@@ -398,21 +311,14 @@ spec:
           !k.startsWith("openbao.org/") ||
           (k in variables.service_new_annotations && variables.service_new_annotations[k] == v))
     - name: is_storage_pvc_binding_update
-      expression: >-
-        variables.is_pvc_request &&
-        request.operation == "UPDATE" &&
-        (variables.is_kube_scheduler ||
+      expression: |-
+        variables.is_pvc_request && request.operation == "UPDATE" && (variables.is_kube_scheduler ||
           variables.is_aks_control_plane ||
           variables.is_kube_controller_manager ||
           variables.is_persistent_volume_binder ||
           variables.is_pvc_protection_controller ||
           variables.is_storage_provisioner_serviceaccount) &&
-        object != null &&
-        oldObject != null &&
-        object.metadata.name == oldObject.metadata.name &&
-        object.metadata.namespace == oldObject.metadata.namespace &&
-        object.status == oldObject.status &&
-        (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
+        object != null && oldObject != null && object.metadata.name == oldObject.metadata.name && object.metadata.namespace == oldObject.metadata.namespace && object.status == oldObject.status && (has(object.metadata.labels) == has(oldObject.metadata.labels) &&
           (!has(object.metadata.labels) || object.metadata.labels == oldObject.metadata.labels)) &&
         (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
@@ -430,9 +336,7 @@ spec:
         variables.pvc_old_annotations.all(k, v,
           !k.startsWith("openbao.org/") ||
           (k in variables.pvc_new_annotations && variables.pvc_new_annotations[k] == v)) &&
-        object.spec.accessModes == oldObject.spec.accessModes &&
-        object.spec.resources == oldObject.spec.resources &&
-        (has(object.spec.storageClassName) == has(oldObject.spec.storageClassName) &&
+        object.spec.accessModes == oldObject.spec.accessModes && object.spec.resources == oldObject.spec.resources && (has(object.spec.storageClassName) == has(oldObject.spec.storageClassName) &&
           (!has(object.spec.storageClassName) || object.spec.storageClassName == oldObject.spec.storageClassName)) &&
         (has(object.spec.volumeMode) == has(oldObject.spec.volumeMode) &&
           (!has(object.spec.volumeMode) || object.spec.volumeMode == oldObject.spec.volumeMode)) &&
@@ -448,15 +352,12 @@ spec:
           (has(object.spec.volumeName) && object.spec.volumeName != "" && (!has(oldObject.spec.volumeName) || oldObject.spec.volumeName == ""))
         )
     - name: is_pvc_binding_sync_caller
-      expression: >-
+      expression: |-
         variables.pvc_binding_sync_callers.exists(username,
           username == request.userInfo.username && request.namespace in variables.pvc_binding_sync_callers[username])
     - name: pvc_binding_sync_preserves_spec
-      expression: >-
-        object != null && oldObject != null &&
-        object.spec.accessModes == oldObject.spec.accessModes &&
-        object.spec.resources == oldObject.spec.resources &&
-        (has(object.spec.storageClassName) == has(oldObject.spec.storageClassName) &&
+      expression: |-
+        object != null && oldObject != null && object.spec.accessModes == oldObject.spec.accessModes && object.spec.resources == oldObject.spec.resources && (has(object.spec.storageClassName) == has(oldObject.spec.storageClassName) &&
           (!has(object.spec.storageClassName) || object.spec.storageClassName == oldObject.spec.storageClassName)) &&
         (has(object.spec.volumeMode) == has(oldObject.spec.volumeMode) &&
           (!has(object.spec.volumeMode) || object.spec.volumeMode == oldObject.spec.volumeMode)) &&
@@ -477,21 +378,8 @@ spec:
             (!has(oldObject.spec.volumeName) || oldObject.spec.volumeName == ""))
         )
     - name: is_pvc_binding_sync_update
-      expression: >-
-        variables.is_pvc_request && request.operation == "UPDATE" &&
-        (!has(request.subResource) || request.subResource == "") &&
-        variables.is_pvc_binding_sync_caller &&
-        object != null && oldObject != null &&
-        has(oldObject.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        ("openbao.org/cluster" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["openbao.org/cluster"] != "" &&
-        variables.has_old_owner_uid_annotation && variables.has_current_owner_uid_annotation &&
-        oldObject.metadata.annotations["openbao.org/owner-uid"] != "" &&
-        object.metadata.annotations["openbao.org/owner-uid"] == oldObject.metadata.annotations["openbao.org/owner-uid"] &&
-        object.metadata.labels == oldObject.metadata.labels &&
-        (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
+      expression: |-
+        variables.is_pvc_request && request.operation == "UPDATE" && (!has(request.subResource) || request.subResource == "") && variables.is_pvc_binding_sync_caller && object != null && oldObject != null && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && variables.has_old_owner_uid_annotation && variables.has_current_owner_uid_annotation && oldObject.metadata.annotations["openbao.org/owner-uid"] != "" && object.metadata.annotations["openbao.org/owner-uid"] == oldObject.metadata.annotations["openbao.org/owner-uid"] && object.metadata.labels == oldObject.metadata.labels && (has(object.metadata.ownerReferences) == has(oldObject.metadata.ownerReferences) &&
           (!has(object.metadata.ownerReferences) || object.metadata.ownerReferences == oldObject.metadata.ownerReferences)) &&
         (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
           (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)) &&
@@ -507,43 +395,28 @@ spec:
           (!has(object.status) || object.status == oldObject.status)) &&
         variables.pvc_binding_sync_preserves_spec
     - name: pod_metadata_sync_annotation_keys
-      expression: >-
-        request.userInfo.username in variables.pod_metadata_sync_callers &&
-        request.namespace in variables.pod_metadata_sync_callers[request.userInfo.username] ?
+      expression: |-
+        request.userInfo.username in variables.pod_metadata_sync_callers && request.namespace in variables.pod_metadata_sync_callers[request.userInfo.username] ?
           variables.pod_metadata_sync_callers[request.userInfo.username][request.namespace] : []
     - name: pod_new_annotations
-      expression: >-
+      expression: |-
         object != null && has(object.metadata.annotations) ? object.metadata.annotations : {}
     - name: pod_old_annotations
-      expression: >-
+      expression: |-
         oldObject != null && has(oldObject.metadata.annotations) ? oldObject.metadata.annotations : {}
     - name: is_pod_metadata_sync_update
-      expression: >-
-        variables.is_pod_request && request.operation == "UPDATE" &&
-        (!has(request.subResource) || request.subResource == "") &&
-        object != null && oldObject != null && request.namespace != "" &&
-        variables.pod_metadata_sync_annotation_keys.size() > 0 &&
-        variables.pod_metadata_sync_annotation_keys.all(k,
+      expression: |-
+        variables.is_pod_request && request.operation == "UPDATE" && (!has(request.subResource) || request.subResource == "") && object != null && oldObject != null && request.namespace != "" && variables.pod_metadata_sync_annotation_keys.size() > 0 && variables.pod_metadata_sync_annotation_keys.all(k,
           !k.startsWith("openbao.org/") && !k.startsWith("vcluster.loft.sh/") &&
           !k.matches("(^|[.])(kubernetes[.]io|k8s[.]io)/")) &&
-        has(oldObject.metadata.labels) &&
-        ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" &&
-        ("openbao.org/component" in oldObject.metadata.labels) &&
-        (!variables.has_old_owner_uid_annotation || oldObject.metadata.annotations["openbao.org/owner-uid"] != "") &&
-        has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
+        has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && ("openbao.org/component" in oldObject.metadata.labels) && (!variables.has_old_owner_uid_annotation || oldObject.metadata.annotations["openbao.org/owner-uid"] != "") && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
           ref.name != "" && ref.uid != "" && has(ref.controller) && ref.controller &&
           ((oldObject.metadata.labels["openbao.org/component"] == "openbaocluster" &&
               ref.apiVersion == "apps/v1" && ref.kind == "StatefulSet") ||
             (oldObject.metadata.labels["openbao.org/component"] in
               ["backup", "restore", "upgrade", "upgrade-snapshot", "validation-hook"] &&
               ref.apiVersion == "batch/v1" && ref.kind == "Job"))) &&
-        object.spec == oldObject.spec &&
-        (has(object.status) == has(oldObject.status) && (!has(object.status) || object.status == oldObject.status)) &&
-        has(object.metadata.labels) && object.metadata.labels == oldObject.metadata.labels &&
-        has(object.metadata.ownerReferences) && object.metadata.ownerReferences == oldObject.metadata.ownerReferences &&
-        (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
+        object.spec == oldObject.spec && (has(object.status) == has(oldObject.status) && (!has(object.status) || object.status == oldObject.status)) && has(object.metadata.labels) && object.metadata.labels == oldObject.metadata.labels && has(object.metadata.ownerReferences) && object.metadata.ownerReferences == oldObject.metadata.ownerReferences && (has(object.metadata.finalizers) == has(oldObject.metadata.finalizers) &&
           (!has(object.metadata.finalizers) || object.metadata.finalizers == oldObject.metadata.finalizers)) &&
         (has(object.metadata.deletionTimestamp) == has(oldObject.metadata.deletionTimestamp) &&
           (!has(object.metadata.deletionTimestamp) || object.metadata.deletionTimestamp == oldObject.metadata.deletionTimestamp)) &&
@@ -559,7 +432,7 @@ spec:
           k in variables.pod_metadata_sync_annotation_keys ||
           (k in variables.pod_old_annotations && variables.pod_old_annotations[k] == v))
     - name: maintenance_enabled
-      expression: >-
+      expression: |-
         request.operation == "DELETE" ?
           (oldObject != null &&
             has(oldObject.metadata) &&
@@ -577,13 +450,13 @@ spec:
               ("openbao.org/maintenance" in oldObject.metadata.annotations) &&
               oldObject.metadata.annotations["openbao.org/maintenance"] == "true"))
     - name: maintenance_current_labels
-      expression: >-
+      expression: |-
         (object != null && has(object.metadata) && has(object.metadata.labels)) ? object.metadata.labels : {}
     - name: maintenance_old_labels
-      expression: >-
+      expression: |-
         (oldObject != null && has(oldObject.metadata) && has(oldObject.metadata.labels)) ? oldObject.metadata.labels : {}
     - name: maintenance_cluster_name
-      expression: >-
+      expression: |-
         request.operation == "CREATE" ?
           ("openbao.org/cluster" in variables.maintenance_current_labels ?
             variables.maintenance_current_labels["openbao.org/cluster"] :
@@ -594,11 +467,8 @@ spec:
             ("app.kubernetes.io/instance" in variables.maintenance_old_labels ?
               variables.maintenance_old_labels["app.kubernetes.io/instance"] : ""))
     - name: maintenance_authorized
-      expression: >-
-        variables.maintenance_enabled &&
-        request.namespace != "" &&
-        variables.maintenance_cluster_name != "" &&
-        authorizer.group("openbao.org").
+      expression: |-
+        variables.maintenance_enabled && request.namespace != "" && variables.maintenance_cluster_name != "" && authorizer.group("openbao.org").
           resource("openbaoclusters").
           namespace(request.namespace).
           name(variables.maintenance_cluster_name).
@@ -608,99 +478,54 @@ spec:
     # the deleting cluster. Keep recovery material until the operator applies
     # its deletion policy. Namespace deletion cannot retain namespaced data.
     - name: is_recovery_secret_delete
-      expression: >-
-        request.operation == "DELETE" &&
-        request.kind.group == "" && request.kind.kind == "Secret" &&
-        variables.is_managed &&
-        ("openbao.org/cluster" in oldObject.metadata.labels) &&
-        oldObject.metadata.labels["openbao.org/cluster"] != "" &&
-        oldObject.metadata.name in [
+      expression: |-
+        request.operation == "DELETE" && request.kind.group == "" && request.kind.kind == "Secret" && variables.is_managed && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && oldObject.metadata.name in [
           oldObject.metadata.labels["openbao.org/cluster"] + "-unseal-key",
           oldObject.metadata.labels["openbao.org/cluster"] + "-root-token"
         ]
     - name: is_provisioner_rbac_gc_delete
-      expression: >-
-        request.operation == "DELETE" &&
-        (variables.is_kube_controller_manager || variables.is_system_controller ||
+      expression: |-
+        request.operation == "DELETE" && (variables.is_kube_controller_manager || variables.is_system_controller ||
           variables.is_namespace_controller_serviceaccount || variables.is_garbage_collector_sa) &&
-        oldObject != null && has(oldObject.metadata.labels) &&
-        "app.kubernetes.io/managed-by" in oldObject.metadata.labels &&
-        oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" &&
-        "openbao.org/component" in oldObject.metadata.labels &&
-        oldObject.metadata.labels["openbao.org/component"] == "provisioner" &&
-        "app.kubernetes.io/name" in oldObject.metadata.labels &&
-        oldObject.metadata.labels["app.kubernetes.io/name"] == "openbao-operator" &&
-        "app.kubernetes.io/component" in oldObject.metadata.labels &&
-        oldObject.metadata.labels["app.kubernetes.io/component"] == "provisioner" &&
-        ((request.resource.resource == "roles" && oldObject.metadata.name in
+        oldObject != null && has(oldObject.metadata.labels) && "app.kubernetes.io/managed-by" in oldObject.metadata.labels && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && "openbao.org/component" in oldObject.metadata.labels && oldObject.metadata.labels["openbao.org/component"] == "provisioner" && "app.kubernetes.io/name" in oldObject.metadata.labels && oldObject.metadata.labels["app.kubernetes.io/name"] == "openbao-operator" && "app.kubernetes.io/component" in oldObject.metadata.labels && oldObject.metadata.labels["app.kubernetes.io/component"] == "provisioner" && ((request.resource.resource == "roles" && oldObject.metadata.name in
             ["openbao-operator-tenant-role", "openbao-operator-tenant-secrets-reader", "openbao-operator-tenant-secrets-writer"]) ||
           (request.resource.resource == "rolebindings" && oldObject.metadata.name in
             ["openbao-operator-tenant-rolebinding", "openbao-operator-tenant-secrets-reader-rolebinding",
               "openbao-operator-tenant-secrets-writer-rolebinding"]))
   validations:
-    - expression: >-
+    - expression: |-
         !variables.is_provisioner_rbac_gc_delete
       message: Tenant RBAC must remain available until OpenBao resource finalization completes; the provisioner removes it.
-    - expression: >-
-        !variables.is_recovery_secret_delete ||
-        variables.is_operator_controller || variables.is_operator_provisioner ||
-        variables.maintenance_authorized ||
-        (namespaceObject != null && has(namespaceObject.metadata.deletionTimestamp))
+    - expression: |-
+        !variables.is_recovery_secret_delete || variables.is_operator_controller || variables.is_operator_provisioner || variables.maintenance_authorized || (namespaceObject != null && has(namespaceObject.metadata.deletionTimestamp))
       message: Generated recovery Secrets require operator deletion or authorized maintenance while their namespace is active.
-    - expression: >-
-        !(variables.is_operator_controller || variables.is_operator_provisioner) ||
-        !variables.is_cilium_policy_request ||
-        (
+    - expression: |-
+        !(variables.is_operator_controller || variables.is_operator_provisioner) || !variables.is_cilium_policy_request || (
           (request.operation == "CREATE" && variables.current_cilium_policy_is_operator_owned) ||
           (request.operation == "UPDATE" && variables.current_cilium_policy_is_operator_owned && variables.old_cilium_policy_is_operator_owned) ||
           (request.operation == "DELETE" && variables.old_cilium_policy_is_operator_owned)
         )
       message: The operator can only manage CiliumNetworkPolicies that match the OpenBao API-server ownership shape.
-    - expression: >-
-        request.operation == "DELETE" ||
-        variables.owner_uid_annotation_allowed ||
-        (
+    - expression: |-
+        request.operation == "DELETE" || variables.owner_uid_annotation_allowed || (
           !variables.has_current_owner_uid_annotation &&
           !variables.has_old_owner_uid_annotation
-        ) ||
-        (
+        ) || (
           request.operation == "UPDATE" &&
           variables.has_current_owner_uid_annotation &&
           variables.has_old_owner_uid_annotation &&
           object.metadata.annotations["openbao.org/owner-uid"] == oldObject.metadata.annotations["openbao.org/owner-uid"]
         )
       message: The openbao.org/owner-uid annotation is reserved for OpenBao Operator managed-resource provenance.
-    - expression: >-
-        !(variables.is_operator_controller || variables.is_operator_provisioner) ||
-        !variables.is_service_monitor_request ||
-        (
+    - expression: |-
+        !(variables.is_operator_controller || variables.is_operator_provisioner) || !variables.is_service_monitor_request || (
           (request.operation == "CREATE" && variables.current_service_monitor_is_operator_owned) ||
           (request.operation == "UPDATE" && variables.current_service_monitor_is_operator_owned && variables.old_service_monitor_is_operator_owned) ||
           (request.operation == "DELETE" && variables.old_service_monitor_is_operator_owned)
         )
       message: The operator can only create, update, or delete ServiceMonitors that match the OpenBao metrics ownership shape.
-    - expression: >-
-        !variables.is_managed ||
-        variables.is_operator_controller ||
-        variables.is_operator_provisioner ||
-        (variables.is_kube_controller_manager && (request.operation == "DELETE" || request.resource.resource == "pods")) ||
-        (variables.is_system_controller && request.operation == "DELETE") ||
-        (variables.is_namespace_controller_serviceaccount && request.operation == "DELETE") ||
-        (variables.is_garbage_collector_sa && (request.operation == "DELETE" || request.operation == "UPDATE")) ||
-        (variables.is_system_controller && request.resource.resource == "pods") ||
-        (variables.is_system_controller && variables.is_endpoints_controller_request) ||
-        (variables.is_kube_system_controller && request.resource.resource == "pods" && (request.operation == "CREATE" || request.operation == "DELETE")) ||
-        (variables.is_statefulset_controller && request.resource.resource == "persistentvolumeclaims" && request.operation == "CREATE") ||
-        variables.is_storage_pvc_binding_update ||
-        variables.is_pvc_binding_sync_update ||
-        variables.is_pod_metadata_sync_update ||
-        (variables.is_kube_system_controller && variables.is_endpoints_controller_request) ||
-        variables.is_kube_system_service_metadata_update ||
-        (variables.is_pod_request && variables.is_kubelet_node && request.operation == "DELETE") ||
-        variables.is_service_registration_label_update ||
-        variables.is_kube_system_pod_finalizer_update ||
-        variables.is_kube_system_job_finalizer_update ||
-        variables.maintenance_authorized
+    - expression: |-
+        !variables.is_managed || variables.is_operator_controller || variables.is_operator_provisioner || (variables.is_kube_controller_manager && (request.operation == "DELETE" || request.resource.resource == "pods")) || (variables.is_system_controller && request.operation == "DELETE") || (variables.is_namespace_controller_serviceaccount && request.operation == "DELETE") || (variables.is_garbage_collector_sa && (request.operation == "DELETE" || request.operation == "UPDATE")) || (variables.is_system_controller && request.resource.resource == "pods") || (variables.is_system_controller && variables.is_endpoints_controller_request) || (variables.is_kube_system_controller && request.resource.resource == "pods" && (request.operation == "CREATE" || request.operation == "DELETE")) || (variables.is_statefulset_controller && request.resource.resource == "persistentvolumeclaims" && request.operation == "CREATE") || variables.is_storage_pvc_binding_update || variables.is_pvc_binding_sync_update || variables.is_pod_metadata_sync_update || (variables.is_kube_system_controller && variables.is_endpoints_controller_request) || variables.is_kube_system_service_metadata_update || (variables.is_pod_request && variables.is_kubelet_node && request.operation == "DELETE") || variables.is_service_registration_label_update || variables.is_kube_system_pod_finalizer_update || variables.is_kube_system_job_finalizer_update || variables.maintenance_authorized
       message: Direct modification of OpenBao-managed resources is prohibited; modify the parent OpenBaoCluster/OpenBaoTenant instead.
 ---
 apiVersion: admissionregistration.k8s.io/v1
