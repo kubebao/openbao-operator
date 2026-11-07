@@ -15,6 +15,11 @@ The current manual stays focused on the current contract. Release pages preserve
   <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
 
+## Release in preparation
+
+[OpenBao Operator 0.6.1](0.6.1/) prepares Helm admission-policy, small-cluster Autopilot, security, and restore-version
+updates. Publication and final candidate qualification are pending. The latest published release remains 0.6.0.
+
 ## Archive
 
 | Release | Published | Context |

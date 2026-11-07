@@ -357,6 +357,15 @@ verify-operator-upgrade-e2e: ## Verify the previous-stable Development and Harde
 	@bash -n hack/ci/operator-upgrade-e2e.sh
 	@OPERATOR_UPGRADE_E2E_VERIFY_ONLY=true bash hack/ci/operator-upgrade-e2e.sh
 	@bash hack/ci/test-operator-upgrade-e2e.sh
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s hack/ci -p 'test_e2e_operator_upgrade_baseline.py'
+
+.PHONY: verify-operator-upgrade-baseline
+verify-operator-upgrade-baseline: ## Require the reviewed pins for the stable release preceding this candidate.
+	@python3 hack/ci/operator-upgrade-baseline.py check
+
+.PHONY: update-operator-upgrade-baseline
+update-operator-upgrade-baseline: ## Refresh runtime upgrade pins from one published release's provenance index.
+	@python3 hack/ci/operator-upgrade-baseline.py refresh --version "$(BASELINE_VERSION)"
 
 .PHONY: test-e2e-operator-upgrade
 test-e2e-operator-upgrade: ## Upgrade previous-stable Development and Hardened resources to the local candidate in Kind.

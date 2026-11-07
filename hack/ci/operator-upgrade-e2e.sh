@@ -11,11 +11,15 @@ source "${FIXTURE_DIR}/versions.env"
 
 FROM_VERSION="${OPERATOR_UPGRADE_E2E_FROM_VERSION:-${OPERATOR_UPGRADE_BASELINE}}"
 BASELINE_CHART="${OPERATOR_UPGRADE_E2E_BASELINE_CHART:-${OPERATOR_UPGRADE_BASELINE_CHART}}"
+BASELINE_CHART_PIN="${BASELINE_CHART}@${OPERATOR_UPGRADE_BASELINE_CHART_DIGEST}"
 MIGRATION_FROM_VERSION="${OPERATOR_UPGRADE_MIGRATION_BASELINE}"
 MIGRATION_TO_VERSION="${OPERATOR_UPGRADE_MIGRATION_TARGET}"
-TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-${OPERATOR_UPGRADE_TARGET_RELEASE}}"
+TARGET_RELEASE="${OPERATOR_UPGRADE_E2E_TARGET_RELEASE:-$(jq -er '."."' "${ROOT_DIR}/.release-please-manifest.json")}"
 TARGET_VERSION="${OPERATOR_UPGRADE_E2E_TARGET_VERSION:-${TARGET_RELEASE}-e2e}"
 VERIFY_ONLY="${OPERATOR_UPGRADE_E2E_VERIFY_ONLY:-false}"
+LEGACY_SEED_VERSION="${OPERATOR_UPGRADE_LEGACY_SEED}"
+LEGACY_SEED_INIT_IMAGE="${OPERATOR_UPGRADE_LEGACY_SEED_INIT_IMAGE}"
+BASELINE_MANAGER_IMAGE="${OPERATOR_UPGRADE_E2E_BASELINE_MANAGER_IMAGE:-${OPERATOR_UPGRADE_BASELINE_MANAGER_IMAGE}}"
 
 KIND_BIN="${KIND:-kind}"
 KUBECTL_BIN="${KUBECTL:-kubectl}"
@@ -64,15 +68,6 @@ verify_hardened_init_image() {
   local baseline_digest=""
   local expected_image=""
 
-  if [[ -n "${OPERATOR_UPGRADE_E2E_HARDENED_INIT_IMAGE:-}" ]]; then
-    if ! "${DOCKER_BIN}" buildx imagetools inspect "${HARDENED_INIT_IMAGE}" >/dev/null; then
-      echo "hardened upgrade helper does not resolve: ${HARDENED_INIT_IMAGE}" >&2
-      return 1
-    fi
-    echo "Verified overridden Hardened upgrade helper: ${HARDENED_INIT_IMAGE}"
-    return 0
-  fi
-
   if ! baseline_digest="$(
     "${DOCKER_BIN}" buildx imagetools inspect "${baseline_ref}" \
       --format '{{json .Manifest.Digest}}' | tr -d '"'
@@ -93,6 +88,19 @@ verify_hardened_init_image() {
   fi
 
   echo "Verified baseline Hardened upgrade helper: ${DEFAULT_HARDENED_INIT_IMAGE}"
+  if [[ -n "${OPERATOR_UPGRADE_E2E_HARDENED_INIT_IMAGE:-}" ]]; then
+    "${DOCKER_BIN}" buildx imagetools inspect "${HARDENED_INIT_IMAGE}" >/dev/null
+    echo "Verified overridden Hardened upgrade helper: ${HARDENED_INIT_IMAGE}"
+  fi
+}
+
+verify_baseline_manager_image() {
+  local repository="${BASELINE_MANAGER_IMAGE%@*}"
+  local digest
+  digest="$("${DOCKER_BIN}" buildx imagetools inspect "${repository}:${FROM_VERSION}" \
+    --format '{{json .Manifest.Digest}}' | tr -d '"')"
+  assert_equal "Baseline manager tag does not match the reviewed image pin" \
+    "${BASELINE_MANAGER_IMAGE}" "${repository}@${digest}"
 }
 
 assert_equal() {
@@ -125,6 +133,38 @@ wait_for_statefulset_init_image() {
 
   echo "StatefulSet ${statefulset_name} init image did not converge to ${expected_image}; got ${actual_image}" >&2
   return 1
+}
+
+wait_for_baseline_pods() {
+  local cluster_name="$1"
+  local replicas="$2"
+  local deadline=$((SECONDS + 600))
+  while ((SECONDS < deadline)); do
+    if "${KUBECTL_BIN}" get pods -n "${TENANT_NAMESPACE}" \
+      -l "openbao.org/cluster=${cluster_name}" -o json | \
+      jq -e --arg image "${DEFAULT_HARDENED_INIT_IMAGE}" --argjson replicas "${replicas}" '
+        [.items[] | select(.metadata.deletionTimestamp == null)] |
+        length == $replicas and all(.[];
+          any(.spec.initContainers[]?; .name == "bao-config-init" and .image == $image) and
+          any(.status.conditions[]?; .type == "Ready" and .status == "True"))' >/dev/null; then
+      return 0
+    fi
+    sleep 5
+  done
+  echo "Baseline ${FROM_VERSION} helper Pods did not become ready for ${cluster_name}" >&2
+  return 1
+}
+
+verify_baseline_data() {
+  local fixture="$1"
+  local job_name="$2"
+  "${KUBECTL_BIN}" create --dry-run=client -f "${FIXTURE_DIR}/${fixture}" -o json | \
+    jq --arg name "${job_name}" '.metadata.name = $name' | \
+    "${KUBECTL_BIN}" apply -f - >/dev/null
+  "${KUBECTL_BIN}" wait "job/${job_name}" -n "${TENANT_NAMESPACE}" \
+    --for=condition=Complete --timeout=5m >/dev/null
+  assert_equal "Pre-upgrade data changed under the published baseline" "preserved" \
+    "$("${KUBECTL_BIN}" logs -n "${TENANT_NAMESPACE}" "job/${job_name}" | tr -d '\r\n')"
 }
 
 pvc_uid_set() {
@@ -347,6 +387,22 @@ verify_harness() {
     echo "operator upgrade baseline must be a stable semver: ${FROM_VERSION}" >&2
     exit 1
   fi
+  if ! [[ "${LEGACY_SEED_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "legacy seed operator must be a stable semver" >&2
+    exit 1
+  fi
+  if ! [[ "${BASELINE_MANAGER_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-operator@sha256:[0-9a-f]{64}$ ]]; then
+    echo "baseline manager must be an immutable official image" >&2
+    exit 1
+  fi
+  if ! [[ "${OPERATOR_UPGRADE_BASELINE_CHART_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    echo "baseline chart must have a reviewed immutable digest" >&2
+    exit 1
+  fi
+  if ! [[ "${LEGACY_SEED_INIT_IMAGE}" =~ ^ghcr\.io/(dc-tec|kubebao)/openbao-init@sha256:[0-9a-f]{64}$ ]]; then
+    echo "legacy seed helper must be an immutable official image" >&2
+    exit 1
+  fi
   if ! [[ "${TARGET_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
     echo "operator upgrade target must be a semver-compatible image tag: ${TARGET_VERSION}" >&2
     exit 1
@@ -387,6 +443,7 @@ for command_name in "${KIND_BIN}" "${KUBECTL_BIN}" "${HELM_INSTALL_BIN}" "${HELM
   require_command "${command_name}"
 done
 verify_hardened_init_image
+verify_baseline_manager_image
 
 WORK_DIR="$(mktemp -d)"
 KUBECONFIG_PATH="${WORK_DIR}/kubeconfig"
@@ -405,9 +462,11 @@ collect_diagnostics() {
   for job_name in \
     operator-upgrade-seed \
     operator-upgrade-read \
+    operator-upgrade-baseline-read \
     operator-upgrade-transit-config \
     operator-upgrade-hardened-seed \
-    operator-upgrade-hardened-read; do
+    operator-upgrade-hardened-read \
+    operator-upgrade-hardened-baseline-read; do
     "${KUBECTL_BIN}" logs -n "${TENANT_NAMESPACE}" "job/${job_name}" >&2 || true
   done
   "${KUBECTL_BIN}" logs -n "${OPERATOR_NAMESPACE}" -l app.kubernetes.io/name=openbao-operator \
@@ -439,6 +498,18 @@ cleanup() {
   return "${status}"
 }
 trap cleanup EXIT
+
+# Helm 4 writes OCI pull messages to stdout. Read CRDs from the downloaded
+# archive so those messages cannot enter the manifest stream sent to kubectl.
+baseline_chart_dir="${WORK_DIR}/baseline-chart"
+mkdir "${baseline_chart_dir}"
+"${HELM_BIN}" pull "${BASELINE_CHART_PIN}" --destination "${baseline_chart_dir}" >&2
+baseline_chart_archives=("${baseline_chart_dir}"/*.tgz)
+if [[ "${#baseline_chart_archives[@]}" -ne 1 || ! -f "${baseline_chart_archives[0]}" ]]; then
+  echo "expected exactly one baseline chart archive from the digest pull" >&2
+  exit 1
+fi
+baseline_chart_archive="${baseline_chart_archives[0]}"
 
 if "${KIND_BIN}" get clusters | grep -qx "${CLUSTER_NAME}"; then
   echo "Kind cluster ${CLUSTER_NAME} already exists; choose another OPERATOR_UPGRADE_E2E_KIND_CLUSTER" >&2
@@ -526,10 +597,10 @@ echo "Installing cert-manager..." >&2
   --for=condition=Available \
   --timeout=5m >/dev/null
 
-echo "Installing released operator ${FROM_VERSION}..." >&2
+echo "Installing legacy fixture seed operator ${LEGACY_SEED_VERSION}..." >&2
 echo "Install client: $("${HELM_INSTALL_BIN}" version --short)" >&2
 "${HELM_INSTALL_BIN}" install openbao-operator "${BASELINE_CHART}" \
-  --version "${FROM_VERSION}" \
+  --version "${LEGACY_SEED_VERSION}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --create-namespace \
   --wait \
@@ -610,9 +681,10 @@ create_external_tls_secrets
 echo "Provisioning a signed, self-initialized Hardened cluster..." >&2
 # The previous operator retains its historical publisher defaults. Apply the
 # candidate helper only after the candidate operator owns the cluster.
-inject_api_server_endpoint_ips "${api_server_endpoint_ips}" < "${FIXTURE_DIR}/hardened-cluster.yaml" | \
+HARDENED_INIT_IMAGE="${LEGACY_SEED_INIT_IMAGE}" E2E_CANDIDATE_PR="" render_hardened_fixture | \
+  inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
-wait_for_statefulset_init_image operator-upgrade-hardened "${DEFAULT_HARDENED_INIT_IMAGE}"
+wait_for_statefulset_init_image operator-upgrade-hardened "${LEGACY_SEED_INIT_IMAGE}"
 wait_for_hardened_cluster
 assert_resource_absent secret/operator-upgrade-hardened-root-token
 assert_resource_absent secret/operator-upgrade-hardened-unseal-key
@@ -645,7 +717,7 @@ render_migration_fixture() {
   ' "${fixture}"
 }
 
-echo "Migrating stored API fields while ${FROM_VERSION} still owns the cluster..." >&2
+echo "Migrating stored API fields under the legacy fixture seed operator..." >&2
 render_migration_fixture "${MIGRATION_FIXTURE_DIR}/${MIGRATION_FROM_VERSION}-openbaocluster.yaml" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
 migration_uid="$(
@@ -665,6 +737,47 @@ jq -e '
   (.spec.maintenance | has("restartAt") | not) and
   (.spec.upgrade | has("tokenSecretRef") | not)
 ' <<<"${migration_json}" >/dev/null
+
+echo "Establishing published operator ${FROM_VERSION} before the candidate handoff..." >&2
+"${HELM_BIN}" show crds "${baseline_chart_archive}" | \
+  "${KUBECTL_BIN}" apply -f - >/dev/null
+"${HELM_BIN}" upgrade openbao-operator "${baseline_chart_archive}" \
+  --namespace "${OPERATOR_NAMESPACE}" \
+  --set-string "image.repository=${BASELINE_MANAGER_IMAGE%@*}" \
+  --set-string "image.digest=${BASELINE_MANAGER_IMAGE#*@}" \
+  --set-string "operatorVersion=${FROM_VERSION}" \
+  --set-string "helperImages.init=${DEFAULT_HARDENED_INIT_IMAGE}" \
+  --wait --timeout 5m >/dev/null
+for deployment in openbao-operator-controller openbao-operator-provisioner; do
+  "${KUBECTL_BIN}" rollout status "deployment/${deployment}" -n "${OPERATOR_NAMESPACE}" --timeout=5m >/dev/null
+  assert_equal "Published baseline manager image does not match its reviewed digest" "${BASELINE_MANAGER_IMAGE}" \
+    "$("${KUBECTL_BIN}" get "deployment/${deployment}" -n "${OPERATOR_NAMESPACE}" \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].image}')"
+done
+HARDENED_INIT_IMAGE="${DEFAULT_HARDENED_INIT_IMAGE}" E2E_CANDIDATE_PR="" render_hardened_fixture | \
+  inject_api_server_endpoint_ips "${api_server_endpoint_ips}" | \
+  "${KUBECTL_BIN}" apply -f - >/dev/null
+for cluster_name in operator-upgrade operator-upgrade-transit operator-upgrade-hardened; do
+  wait_for_statefulset_init_image "${cluster_name}" "${DEFAULT_HARDENED_INIT_IMAGE}"
+  "${KUBECTL_BIN}" wait "openbaocluster/${cluster_name}" -n "${TENANT_NAMESPACE}" \
+    --for=condition=Available --timeout=10m >/dev/null
+  replicas=1
+  if [[ "${cluster_name}" == "operator-upgrade-hardened" ]]; then
+    replicas=3
+  fi
+  wait_for_baseline_pods "${cluster_name}" "${replicas}"
+done
+verify_baseline_data read-data-job.yaml operator-upgrade-baseline-read
+verify_baseline_data hardened-read-data-job.yaml operator-upgrade-hardened-baseline-read
+assert_equal "Development Cluster UID changed before the candidate handoff" "${cluster_uid}" \
+  "$("${KUBECTL_BIN}" get "${CLUSTER_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+assert_equal "Development PVC UID changed before the candidate handoff" "${pvc_uid}" \
+  "$("${KUBECTL_BIN}" get "${PVC_RESOURCE}" -n "${TENANT_NAMESPACE}" -o jsonpath='{.metadata.uid}')"
+assert_equal "Hardened PVC UIDs changed before the candidate handoff" "${hardened_pvc_uids}" \
+  "$(pvc_uid_set operator-upgrade-hardened 3)"
+jq -n --arg version "${FROM_VERSION}" --arg manager "${BASELINE_MANAGER_IMAGE}" \
+  --arg helper "${DEFAULT_HARDENED_INIT_IMAGE}" \
+  '{publishedBaseline: $version, managerImage: $manager, initImage: $helper, retainedData: "verified"}'
 
 echo "Applying candidate CRDs before the Helm upgrade..." >&2
 make build-crds >/dev/null
