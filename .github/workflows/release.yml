@@ -407,6 +407,11 @@ jobs:
   promote:
     name: Promote + Publish Release
     runs-on: *runner
+    # Serialize publication across versions so Latest selection cannot race.
+    concurrency:
+      group: release-promotion-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
     needs:
       - prepare
       - authorize
@@ -677,6 +682,7 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           version="${{ needs.prepare.outputs.version }}"
@@ -707,6 +713,11 @@ jobs:
             exit 0
           fi
 
+          latest="false"
+          if [[ -z "${prerelease_flag}" ]]; then
+            latest="$(VERSION="${version}" python3 hack/ci/resolve-release-latest.py)"
+          fi
+
           assets=(
             dist/install.yaml
             dist/crds.yaml
@@ -731,7 +742,7 @@ jobs:
           if [[ -n "${prerelease_flag}" ]]; then
             gh release edit "${version}" --title "${version}" --draft=false --prerelease
           else
-            gh release edit "${version}" --title "${version}" --draft=false --latest
+            gh release edit "${version}" --title "${version}" --draft=false --latest="${latest}"
           fi
 
   cleanup-release-state:
