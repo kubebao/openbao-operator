@@ -499,6 +499,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Helm 4 writes OCI pull messages to stdout. Read CRDs from the downloaded
+# archive so those messages cannot enter the manifest stream sent to kubectl.
+baseline_chart_dir="${WORK_DIR}/baseline-chart"
+mkdir "${baseline_chart_dir}"
+"${HELM_BIN}" pull "${BASELINE_CHART_PIN}" --destination "${baseline_chart_dir}" >&2
+baseline_chart_archives=("${baseline_chart_dir}"/*.tgz)
+if [[ "${#baseline_chart_archives[@]}" -ne 1 || ! -f "${baseline_chart_archives[0]}" ]]; then
+  echo "expected exactly one baseline chart archive from the digest pull" >&2
+  exit 1
+fi
+baseline_chart_archive="${baseline_chart_archives[0]}"
+
 if "${KIND_BIN}" get clusters | grep -qx "${CLUSTER_NAME}"; then
   echo "Kind cluster ${CLUSTER_NAME} already exists; choose another OPERATOR_UPGRADE_E2E_KIND_CLUSTER" >&2
   exit 1
@@ -727,9 +739,9 @@ jq -e '
 ' <<<"${migration_json}" >/dev/null
 
 echo "Establishing published operator ${FROM_VERSION} before the candidate handoff..." >&2
-"${HELM_BIN}" show crds "${BASELINE_CHART_PIN}" | \
+"${HELM_BIN}" show crds "${baseline_chart_archive}" | \
   "${KUBECTL_BIN}" apply -f - >/dev/null
-"${HELM_BIN}" upgrade openbao-operator "${BASELINE_CHART_PIN}" \
+"${HELM_BIN}" upgrade openbao-operator "${baseline_chart_archive}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --set-string "image.repository=${BASELINE_MANAGER_IMAGE%@*}" \
   --set-string "image.digest=${BASELINE_MANAGER_IMAGE#*@}" \
