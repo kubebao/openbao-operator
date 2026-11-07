@@ -11,19 +11,15 @@ The current manual stays focused on the current contract. Release pages preserve
 ## Latest published release
 
 <div class="link-grid">
-  <a href="0.6.0/"><strong>0.6.0</strong><p>Target-specific controller authentication, guarded restore recovery, and scheduled restore tests.</p></a>
+  <a href="0.6.1/"><strong>0.6.1</strong><p>Helm admission-policy, small-cluster Autopilot, security, and restore-version fixes.</p></a>
   <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
-
-## Release in preparation
-
-[OpenBao Operator 0.6.1](0.6.1/) prepares Helm admission-policy, small-cluster Autopilot, security, and restore-version
-updates. Publication and final candidate qualification are pending. The latest published release remains 0.6.0.
 
 ## Archive
 
 | Release | Published | Context |
 | --- | --- | --- |
+| [0.6.1](0.6.1/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.1) | Helm admission policies, small-cluster Autopilot, security, and restore versions |
 | [0.6.0](0.6.0/) | 2026-10-24 | Target JWT authentication, restore recovery, and networking changes |
 | [0.5.3](0.5.3/) | 2026-10-20 | Security update for compromised intermediate CA keys |
 | [0.5.2](0.5.2/) | 2026-10-14 | Backup scheduling and compatible fixes |
