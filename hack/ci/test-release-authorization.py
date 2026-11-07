@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """Exercise release authorization and publication steps without remote writes."""
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
+import runpy
 import subprocess
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SHA = "a" * 40
@@ -277,6 +281,21 @@ elif args[:2] not in (['release', 'upload'], ['release', 'edit']):
                 self.assertFalse(any(args[:2] in (["release", "upload"], ["release", "edit"])
                                      for args in calls), calls)
 
+    def test_latest_lookup_timeout_fails_with_a_diagnostic(self):
+        output, errors = io.StringIO(), io.StringIO()
+        with mock.patch.dict(os.environ, REPO="kubebao/openbao-operator", VERSION="0.6.1"), \
+                mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired("gh", 60)) as lookup, \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            with self.assertRaises(SystemExit) as failure:
+                runpy.run_path(str(ROOT / "hack/ci/resolve-release-latest.py"), run_name="__main__")
+        self.assertEqual(failure.exception.code, 1)
+        self.assertEqual(output.getvalue(), "")
+        self.assertIn("Cannot select Latest:", errors.getvalue())
+        self.assertIn("timed out", errors.getvalue())
+        self.assertNotIn("Traceback", errors.getvalue())
+        self.assertGreater(lookup.call_args.kwargs["timeout"], 0)
+        self.assertLessEqual(lookup.call_args.kwargs["timeout"], 60)
+
     def test_prerelease_does_not_query_or_claim_latest(self):
         result, calls = self.publish("0.7.0-rc.1", [[]], api_error=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -295,7 +314,9 @@ elif args[:2] not in (['release', 'upload'], ['release', 'edit']):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         promote = workflow.split("\n  promote:\n", 1)[1].split("\n  cleanup-release-state:", 1)[0]
         self.assertIn("    concurrency:\n      group: release-promotion-${{ github.repository }}\n"
-                      "      cancel-in-progress: false", promote)
+                      "      cancel-in-progress: false\n      queue: max\n", promote)
+        # This is the only queue key excluded from actionlint's older schema.
+        self.assertEqual(workflow.count("queue:"), 1)
 
     def test_verification_evidence_precedes_comment_credentials_and_comment(self):
         source = (ROOT / ".github/workflows/post-release-verification.yml").read_text()

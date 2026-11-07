@@ -47,7 +47,7 @@ def main():
         raise ValueError("REPO must be owner/repository")
     result = subprocess.run(
         ["gh", "api", f"repos/{repo}/releases", "--paginate", "--slurp"],
-        text=True, capture_output=True, check=True,
+        text=True, capture_output=True, check=True, timeout=60,
     )
     pages = json.loads(result.stdout)
     if not isinstance(pages, list) or not all(isinstance(page, list) for page in pages):
@@ -59,7 +59,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+    except (ValueError, OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         if isinstance(error, subprocess.CalledProcessError) and error.stderr:
             print(error.stderr.rstrip(), file=sys.stderr)
         print(f"Cannot select Latest: {error}", file=sys.stderr)
