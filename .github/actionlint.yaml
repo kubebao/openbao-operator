@@ -1,0 +1,7 @@
+paths:
+  .github/workflows/release.yml:
+    ignore:
+      # actionlint does not yet support GitHub's concurrency.queue property.
+      # Remove after https://github.com/rhysd/actionlint/issues/657 is fixed.
+      # test-release-authorization.py validates the queue and cancellation settings.
+      - '^unexpected key "queue" for "concurrency" section\. expected one of "cancel-in-progress", "group"$'
