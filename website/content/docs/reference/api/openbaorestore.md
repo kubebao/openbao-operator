@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoRestore API.
 eyebrow: Reference · Generated API
 weight: 2
 verifiedBy:
-  - api/v1alpha1 at 0.6.0
-  - website/generated/api-reference.md at 0.6.0
+  - api/v1alpha1 at 0.6.1
+  - website/generated/api-reference.md at 0.6.1
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.6.0` for the `0.6.x` documentation line.
+This page is synchronized from the generated API reference at `0.6.1` for the `0.6.x` documentation line.
 {{< /callout >}}
 
 
@@ -570,8 +570,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `version` _string_ | Version must match the administrator-observed snapshot source version. |  | Enum: [2.7.0 2.7.1] <br /> |
-| `image` _string_ | Image defaults to the version-derived image. |  | Optional: \{\} <br /> |
+| `version` _string_ | Version accepts stable OpenBao releases from 2.7.0 onward and must match<br />the snapshot source version. Scheduled restore tests can omit this field<br />to use the version recorded with each backup. Restore requests require it. |  | MaxLength: 64 <br />Pattern: `^((2\.([7-9]\|[1-9][0-9]+))\|(([3-9]\|[1-9][0-9]+)\.(0\|[1-9][0-9]*)))\.(0\|[1-9][0-9]*)(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$` <br />Optional: \{\} <br /> |
+| `image` _string_ | Image defaults to the version-derived image. Versions with build metadata<br />require an explicit matching image because '+' is not valid in an image tag. |  | Optional: \{\} <br /> |
 | `storage` _[StorageConfig](#storageconfig)_ |  |  |  |
 | `tls` _[TLSConfig](#tlsconfig)_ |  |  |  |
 | `service` _[RestoreTargetServiceConfig](#restoretargetserviceconfig)_ | Service configures an optional ClusterIP Service for the destination.<br />When omitted, the target has only its internal headless Service. |  | Optional: \{\} <br /> |
