@@ -165,6 +165,14 @@ jobs:
           git show "${TAG_HEAD_SHA}:charts/openbao-operator/Chart.yaml" > dist/reviewed-Chart.yaml
           EXPECTED_CHART_FILE=dist/reviewed-Chart.yaml bash hack/ci/verify-post-release.sh
 
+      - name: Upload verification evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: post-release-verification-${{ steps.context.outputs.tag }}
+          path: dist/post-release-verification.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Mint GitHub App token for release PR comment
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -206,11 +214,3 @@ jobs:
               "- Verification: passed"
             ' dist/post-release-verification.json
           } >> "${GITHUB_STEP_SUMMARY}"
-
-      - name: Upload verification evidence
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: post-release-verification-${{ steps.context.outputs.tag }}
-          path: dist/post-release-verification.json
-          if-no-files-found: error
-          retention-days: 30
