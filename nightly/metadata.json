@@ -6,26 +6,26 @@
     "install_yaml": "install.yaml",
     "provenance_index": "provenance-index.json"
   },
-  "date_utc": "20261107",
-  "generated_at": "2026-11-07T09:35:54Z",
+  "date_utc": "20261109",
+  "generated_at": "2026-11-09T10:33:49Z",
   "images": {
     "backup_executor": {
-      "digest": "sha256:8888863192126b0761cfe02ab2ffdcc633c5ee6fed2791cf83aea135b21c5044",
+      "digest": "sha256:35c8ab4e448173fbfd8a49b5bc68f82b871c6b7ea550ab34d88e0d4d37da9589",
       "ref": "ghcr.io/kubebao/openbao-backup"
     },
     "config_init": {
-      "digest": "sha256:d3ba41f15860b3afc30ff5deb4dc6bab9342658ab2215fdd5156cfbe4619b4ad",
+      "digest": "sha256:b5d9049a1debe29e4497db2df9af0aa60ea07408047e87ebca38c90226af19ff",
       "ref": "ghcr.io/kubebao/openbao-init"
     },
     "manager": {
-      "digest": "sha256:dad5ed332e466d786aeb4c919558cbece04d5f664e17ca834b50da2a13323e5b",
+      "digest": "sha256:3b528f35fcc6407db40b60e64e6e26dc231042d4c15464e20c0ee921dbcf2317",
       "ref": "ghcr.io/kubebao/openbao-operator"
     },
     "upgrade_executor": {
-      "digest": "sha256:e024cee1147f88087568398133c09afeebe432d071a937cfdb60f0b378f444de",
+      "digest": "sha256:185d5f348b81b9e2dc1a828157adbb999a61dc00a2be9da1fe6ce787b90e344d",
       "ref": "ghcr.io/kubebao/openbao-upgrade"
     }
   },
-  "sha": "e5e8e4ba652b5c1a394fc436fdb425b47c73056f",
-  "version": "nightly-20261107-e5e8e4ba652b"
+  "sha": "88ecc2f0007b6a6eafab59d901ed90dd239d39e8",
+  "version": "nightly-20261109-88ecc2f0007b"
 }
