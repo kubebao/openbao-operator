@@ -9,7 +9,7 @@ This chart installs the OpenBao Operator and its cluster-scoped dependencies.
 
 ## Prerequisites
 
-- Kubernetes `>=1.33.0-0`
+- Kubernetes `>=1.34.0-0`
 - Helm `v3` or `v4`
 
 ## Install

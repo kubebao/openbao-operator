@@ -11,7 +11,8 @@ verifiedBy:
   - internal/service/upgrade/bluegreen/version_compatibility.go
 ---
 
-The operator requires Kubernetes 1.33 or newer. The tables describe configured validation targets and focused checks.
+Supported deployments require Kubernetes 1.34 or newer. The published 0.6.x Helm chart also permits Kubernetes 1.33,
+which is outside the supported range. The tables describe configured validation targets and focused checks.
 The [0.6.1 release qualification checks](https://github.com/kubebao/openbao-operator/pull/936/checks) record the exact
 candidate and results. The focused results below retain their stated scope and do not validate every cloud
 authentication method, distribution, seal, storage driver, or topology.
@@ -23,7 +24,6 @@ authentication method, distribution, seal, storage driver, or topology.
 | 1.36.x | Configured pull request, nightly, release, Helm, and upgrade coverage | Primary validation target |
 | 1.35.x | Configured daily smoke, alternating weekly full coverage, and release coverage | Compatibility target |
 | 1.34.x | Configured daily smoke, alternating weekly full coverage, and release coverage | Compatibility target |
-| 1.33.x | Not validated for the current release line | Upstream end of life; validate in staging before adoption |
 | OpenShift | Manifest, Helm, admission, and focused platform coverage | Validate on the target cluster |
 
 ## OpenBao versions
