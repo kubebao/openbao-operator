@@ -252,7 +252,7 @@ func (v *V001Entry) fetchExternalEntities(_ context.Context) (pki.PublicKey, pki
 	if v.RekordObj.Data.Hash == nil {
 		v.RekordObj.Data.Hash = &models.RekordV001SchemaDataHash{}
 		v.RekordObj.Data.Hash.Algorithm = conv.Pointer(models.RekordV001SchemaDataHashAlgorithmSha256)
-		v.RekordObj.Data.Hash.Value = conv.Pointer(computedSHA)
+		v.RekordObj.Data.Hash.Value = new(computedSHA)
 	}
 
 	return keyObj, sigObj, nil
@@ -268,10 +268,10 @@ func (v *V001Entry) Canonicalize(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	canonicalEntry := models.RekordV001Schema{}
+	canonicalEntry := models.RekordV001Schema{
 
-	// need to canonicalize signature & key content
-	canonicalEntry.Signature = &models.RekordV001SchemaSignature{}
+		// need to canonicalize signature & key content
+		Signature: &models.RekordV001SchemaSignature{}}
 	// signature URL (if known) is not set deliberately
 	canonicalEntry.Signature.Format = v.RekordObj.Signature.Format
 
@@ -295,9 +295,9 @@ func (v *V001Entry) Canonicalize(ctx context.Context) ([]byte, error) {
 	// data content is not set deliberately
 
 	// wrap in valid object with kind and apiVersion set
-	rekordObj := models.Rekord{}
-	rekordObj.APIVersion = conv.Pointer(APIVERSION)
-	rekordObj.Spec = &canonicalEntry
+	rekordObj := models.Rekord{
+		APIVersion: new(APIVERSION),
+		Spec:       &canonicalEntry}
 
 	v.RekordObj = canonicalEntry
 
@@ -444,7 +444,7 @@ func (v V001Entry) CreateFromArtifactProperties(ctx context.Context, props types
 		return nil, fmt.Errorf("error retrieving external entities: %w", err)
 	}
 
-	returnVal.APIVersion = conv.Pointer(re.APIVersion())
+	returnVal.APIVersion = new(re.APIVersion())
 	returnVal.Spec = re.RekordObj
 
 	return &returnVal, nil
