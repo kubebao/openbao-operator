@@ -11,7 +11,7 @@ verifiedBy:
   - internal/service/upgrade/bluegreen/version_compatibility.go
 ---
 
-The operator requires Kubernetes 1.33 or newer. The rows below describe the current validation baseline, not a blanket guarantee for every cloud, distribution, or topology.
+The operator requires Kubernetes 1.34 or newer. The rows below describe the current validation baseline, not a blanket guarantee for every cloud, distribution, or topology.
 
 ## Kubernetes versions
 
@@ -20,7 +20,6 @@ The operator requires Kubernetes 1.33 or newer. The rows below describe the curr
 | 1.36.x | Pull request, nightly, release, Helm, and upgrade coverage | Primary validated line |
 | 1.35.x | Daily smoke, alternating weekly full coverage, and release coverage | Validated compatibility line |
 | 1.34.x | Daily smoke, alternating weekly full coverage, and release coverage | Validated compatibility line |
-| 1.33.x | Not validated for the current release line | Upstream end of life; validate in staging before adoption |
 | OpenShift | Manifest, Helm, admission, and focused platform coverage | Validate on the target cluster |
 
 ## OpenBao versions

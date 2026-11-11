@@ -28,8 +28,8 @@ Historical 0.5.1 artifacts retain their `dc-tec` publisher identity.
 
 ## Before you begin
 
-- Confirm that the cluster meets the [compatibility requirements](../../reference/compatibility/). Kubernetes 1.33
-  satisfies the chart constraint; release qualification covers selected scenarios on Kubernetes 1.34, 1.35, and 1.36.
+- Use Kubernetes 1.34 or newer and check the [compatibility requirements](../../reference/compatibility/).
+  Release qualification covers selected scenarios on Kubernetes 1.34, 1.35, and 1.36.
 - Use an identity that can create cluster-scoped CRDs, RBAC, and ValidatingAdmissionPolicies.
 - Decide whether Helm, a release manifest, or a maintained Kustomize overlay owns future upgrades.
 - Decide the tenancy model. Use the separate [single-tenant procedure](../single-tenant/) for one watched namespace.
