@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: openbaorestores.openbao.org
+  name: openbaorestores.kubebao.org
 spec:
-  group: openbao.org
+  group: kubebao.org
   names:
     kind: OpenBaoRestore
     listKind: OpenBaoRestoreList

@@ -1,7 +1,8 @@
 name: Package release payloads
 description: >-
-  Generate the installer, CRDs, policy approval files, Helm chart, normalized SBOMs, and checksums for one set of
-  digest-pinned release images. Callers set up repository tools, Helm, and registry access first.
+  Generate the installer, CRDs, policy approval files, Helm chart, api-migration binaries, normalized SBOMs, and
+  checksums for one set of digest-pinned release images. Callers set up repository tools, Helm, and registry access
+  first.
 
 inputs:
   output-dir:
@@ -50,6 +51,13 @@ runs:
       env:
         OUTPUT_DIR: ${{ inputs.output-dir }}
       run: go run ./hack/tools/operator_policy_approval --output-dir "${OUTPUT_DIR}"
+
+    - name: Build api-migration binaries
+      shell: bash
+      env:
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        VERSION: ${{ inputs.version }}
+      run: bash hack/ci/build-api-migration.sh "${OUTPUT_DIR}" "${VERSION}"
 
     - name: Package Helm chart
       shell: bash
@@ -137,5 +145,7 @@ runs:
         done < <(find "${OUTPUT_DIR}" -maxdepth 1 -type f -name 'sbom-*.spdx.json' | LC_ALL=C sort)
         (
           cd "${OUTPUT_DIR}"
-          sha256sum install.yaml crds.yaml operator-policy-approval.hcl operator-policy-approval-with-backup.hcl "${sbom_names[@]}" > checksums.txt
+          sha256sum install.yaml crds.yaml operator-policy-approval.hcl operator-policy-approval-with-backup.hcl \
+            api-migration-darwin-arm64 api-migration-linux-amd64 api-migration-linux-arm64 \
+            "${sbom_names[@]}" > checksums.txt
         )

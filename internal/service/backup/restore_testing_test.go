@@ -271,7 +271,7 @@ func TestRestoreTestLostReservationAcknowledgementDoesNotCreate(t *testing.T) {
 }
 
 func TestRestoreTestCreationRejectionReleasesOnlyDefinitiveReservations(t *testing.T) {
-	resource := schema.GroupResource{Group: "openbao.org", Resource: "openbaorestores"}
+	resource := schema.GroupResource{Group: "kubebao.org", Resource: "openbaorestores"}
 	for _, tc := range []struct {
 		name     string
 		err      error

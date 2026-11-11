@@ -421,6 +421,66 @@ jobs:
             ${{ needs.prepare.outputs.config_init_image }}@${{ needs.build.outputs.config_init_digest }}
         run: make test-e2e-operator-upgrade
 
+  api-migration-e2e:
+    name: API Migration E2E (${{ matrix.case }})
+    runs-on: *runner
+    needs: [prepare, build]
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # The core subset; nightly runs every case.
+        case: [commit, rollback, recovery, ha, chart, kustomize, hardened, argocd-3.6, flux-2.10, flux-2.10-helmrelease]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          # The cases install the released charts and Kustomize bases from their tags.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+        with:
+          cache-tools: false
+
+      - name: Setup Helm
+        uses: ./.github/actions/setup-helm
+
+      - name: Setup Kubernetes CLI tools
+        uses: ./.github/actions/setup-kubernetes-tools
+        with:
+          install-dir: bin/
+
+      - name: Login to GHCR (pull)
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Migrate a released installation to the release candidate
+        env:
+          API_MIGRATION_E2E_BACKUP_IMAGE: >-
+            ${{ needs.prepare.outputs.backup_executor_image }}@${{ needs.build.outputs.backup_executor_digest }}
+          API_MIGRATION_E2E_CASE: ${{ matrix.case }}
+          API_MIGRATION_E2E_IMAGE: >-
+            ${{ needs.prepare.outputs.manager_image }}@${{ needs.build.outputs.manager_digest }}
+        run: make test-e2e-api-migration
+
+      - name: Upload migration availability observations
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-migration-${{ matrix.case }}
+          path: dist/test/api-migration/
+          if-no-files-found: ignore
+          retention-days: 7
+
   verify-provenance:
     name: Verify Image Provenance
     runs-on: *runner
@@ -522,6 +582,9 @@ jobs:
             operator-policy-approval-with-backup.hcl
             checksums.txt
             openbao-operator-${{ needs.prepare.outputs.chart_version }}.tgz
+            api-migration-darwin-arm64
+            api-migration-linux-amd64
+            api-migration-linux-arm64
             sbom-openbao-operator.spdx.json
             sbom-openbao-init.spdx.json
             sbom-openbao-backup.spdx.json
@@ -539,7 +602,8 @@ jobs:
           set -euo pipefail
           mkdir -p dist/candidate/payloads
           for file in install.yaml crds.yaml operator-policy-approval.hcl operator-policy-approval-with-backup.hcl \
-            checksums.txt "openbao-operator-${CHART_VERSION}.tgz" sbom-openbao-operator.spdx.json \
+            checksums.txt "openbao-operator-${CHART_VERSION}.tgz" api-migration-darwin-arm64 \
+            api-migration-linux-amd64 api-migration-linux-arm64 sbom-openbao-operator.spdx.json \
             sbom-openbao-init.spdx.json sbom-openbao-backup.spdx.json sbom-openbao-upgrade.spdx.json; do
             cp "dist/primary/${file}" "dist/candidate/payloads/${file}"
           done
@@ -580,6 +644,7 @@ jobs:
       - security-images
       - e2e
       - operator-upgrade-e2e
+      - api-migration-e2e
       - verify-provenance
       - verify-byte-reproducibility
     permissions: {}

@@ -19,7 +19,7 @@ metadata:
   name: openbaocluster-helper-image-role
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:

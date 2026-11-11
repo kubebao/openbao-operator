@@ -45,14 +45,14 @@ func TestRestoreReaderAccountClaimRemainsPodBoundAndRequestScoped(t *testing.T) 
 	role := &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: "target-restore-serviceaccount-role", Namespace: namespace,
 		Labels: map[string]string{"openbao.org/component": "restore"}}, Rules: []rbacv1.PolicyRule{
 		{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
-		{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaorestores"}, ResourceNames: []string{request.Name}, Verbs: []string{"get"}},
-		{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaorestores/status"}, ResourceNames: []string{request.Name}, Verbs: []string{"patch"}},
+		{APIGroups: []string{"kubebao.org"}, Resources: []string{"openbaorestores"}, ResourceNames: []string{request.Name}, Verbs: []string{"get"}},
+		{APIGroups: []string{"kubebao.org"}, Resources: []string{"openbaorestores/status"}, ResourceNames: []string{request.Name}, Verbs: []string{"patch"}},
 	}}
 	controller := newPrivilegedImpersonatedClient(t, controllerUsername)
 	require.NoError(t, controller.Create(ctx, role))
 	grant := &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: "target-restore-serviceaccount-rolebinding", Namespace: namespace,
 		Labels:          map[string]string{"openbao.org/component": "restore", "openbao.org/cluster": cluster.Name},
-		OwnerReferences: []metav1.OwnerReference{{APIVersion: "openbao.org/v1alpha1", Kind: "OpenBaoCluster", Name: cluster.Name, UID: cluster.UID, Controller: boolPtr(true)}},
+		OwnerReferences: []metav1.OwnerReference{{APIVersion: "kubebao.org/v1alpha1", Kind: "OpenBaoCluster", Name: cluster.Name, UID: cluster.UID, Controller: boolPtr(true)}},
 	}, RoleRef: rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: role.Name},
 		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Namespace: namespace, Name: request.Spec.ServiceAccountName}},
 	}
@@ -93,8 +93,8 @@ func TestRestoreReaderAccountRequiresDestinationUseAuthority(t *testing.T) {
 	username := "reader-configurator"
 	user := newImpersonatedClient(t, username)
 	grantTenantOpenBaoWriteAccess(t, sourceNS, username)
-	grantNamespacedResourceVerbs(t, destination, username, "restore-create", "openbao.org", "openbaorestores", nil, "create")
-	grantNamespacedResourceVerbs(t, destination, username, "target-create", "openbao.org", "openbaoclusters", nil, "create", "restore")
+	grantNamespacedResourceVerbs(t, destination, username, "restore-create", "kubebao.org", "openbaorestores", nil, "create")
+	grantNamespacedResourceVerbs(t, destination, username, "target-create", "kubebao.org", "openbaoclusters", nil, "create", "restore")
 	grantNamespacedResourceVerbs(t, destination, username, "unseal-read", "", "secrets", []string{"transit"}, "get")
 	account := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "snapshot-reader", Namespace: destination}}
 	require.NoError(t, k8sClient.Create(ctx, account))
@@ -124,6 +124,6 @@ func TestRestoreReaderAccountRequiresDestinationUseAuthority(t *testing.T) {
 
 	source.Spec.Backup.RestoreTest.RoleARN = "arn:aws:iam::123456789012:role/snapshot-reader"
 	require.ErrorContains(t, user.Create(ctx, source.DeepCopy(), client.DryRunAll), "Restore test workload identities require destination cloud identity delegation")
-	grantNamespacedResourceVerbs(t, destination, username, "reader-cloud", "openbao.org", "openbaoclusters", nil, "usecloudidentities")
+	grantNamespacedResourceVerbs(t, destination, username, "reader-cloud", "kubebao.org", "openbaoclusters", nil, "usecloudidentities")
 	require.Eventually(t, func() bool { return user.Create(ctx, source.DeepCopy(), client.DryRunAll) == nil }, 10*time.Second, 100*time.Millisecond)
 }

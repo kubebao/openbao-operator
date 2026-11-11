@@ -61,11 +61,33 @@ go run ./hack/tools/api_inventory --format markdown
 
 ## CRD compatibility gate
 
-`baselines/0.5.2.json` is the supported baseline. It records the normalized schemas
-from the [released 0.5.2 CRD bundle](https://github.com/kubebao/openbao-operator/releases/download/0.5.2/crds.yaml),
-whose SHA-256 digest is `d72469358ae4b6dc1264c98b61671226ddcefca1a73952ead877a6910ac2ea69`.
-Keep the older baselines for historical comparisons. Runtime upgrade qualification
-starts from 0.5.2; the separate 0.5.0-to-0.5.1 API migration fixtures remain unchanged.
+`baselines/0.6.1.json` is the supported baseline. It records the normalized schemas
+from the [released 0.6.1 CRD bundle](https://github.com/kubebao/openbao-operator/releases/download/0.6.1/crds.yaml),
+whose SHA-256 digest is `286592e23e18f07e51120bdc55a40ae579c1466c69eb31877be0f5bb13df9732`.
+0.6.1 is the source release of the `api-migration` command. Keep the older baselines
+for historical comparisons; the separate 0.5.0-to-0.5.1 API migration fixtures remain unchanged.
+
+### API-group transitions
+
+0.7.0 moves the CRDs from `openbao.org` to `kubebao.org`. A group change creates new
+Kubernetes resources, so the checker would otherwise report every released field as
+removed. The `groupTransitions` entry in `v1alpha1.yaml` declares the reviewed move.
+For each baseline CRD in the `from` group, the checker:
+
+1. Requires that the current CRDs no longer serve it.
+2. Requires a current CRD with the same plural in the `to` group, the same kind, and
+   the same served versions.
+3. Compares the two schemas field by field with the ordinary rules.
+4. Reports the move as one non-blocking `api-group-moved` change.
+
+The checker rejects a declaration that the current CRDs do not satisfy. Removing the
+declaration makes the move a breaking `field-removed` change again. Existing resources
+move with `cmd/api-migration`; the declaration does not replace that procedure.
+
+The command's [retirement policy](../../cmd/api-migration/README.md#retirement-policy) targets removal from `main`
+for 0.8.0. Keep `groupTransitions` while the supported baseline or required historical comparisons cross this group
+change. Retiring the declaration and checker logic requires a separate baseline-policy review. Preserve historical
+snapshots, and update migration references to the retained 0.7.x source or guide when the command leaves `main`.
 
 Run the inventory and compatibility gate with:
 

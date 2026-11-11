@@ -11,7 +11,7 @@
 # - GCP credentials JSON file (if not using Workload Identity)
 #
 # See: https://openbao.org/docs/configuration/seal/gcpckms/
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:

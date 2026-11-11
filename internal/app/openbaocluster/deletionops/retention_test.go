@@ -44,7 +44,7 @@ func TestOrphanRetentionSecrets(t *testing.T) {
 	}
 
 	ownerRef := metav1.OwnerReference{
-		APIVersion: "openbao.org/v1alpha1",
+		APIVersion: "kubebao.org/v1alpha1",
 		Kind:       "OpenBaoCluster",
 		Name:       cluster.Name,
 		UID:        cluster.UID,

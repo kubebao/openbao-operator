@@ -154,7 +154,7 @@ func restoreMetadata(object map[string]any) map[string]any {
 
 func restoreFinalizerFixture() map[string]any {
 	return map[string]any{
-		"apiVersion": "openbao.org/v1alpha1", "kind": "OpenBaoRestore",
+		"apiVersion": "kubebao.org/v1alpha1", "kind": "OpenBaoRestore",
 		"metadata": map[string]any{"name": "cleanup", "namespace": "tenant", "uid": "restore-uid", "resourceVersion": "10",
 			"deletionTimestamp": "2026-10-23T12:53:24Z", "finalizers": []any{"foregroundDeletion"},
 			"annotations": map[string]any{"openbao.org/restore-acknowledge": "restore-uid/Abandon"},

@@ -108,9 +108,9 @@ Disallowed direction:
 
 ## Optional Module Boundaries
 
-- Core lifecycle APIs remain under `openbao.org`; `OpenBaoCluster`, `OpenBaoRestore`, and `OpenBaoTenant` are core.
+- Core lifecycle APIs live under `kubebao.org`; `OpenBaoCluster`, `OpenBaoRestore`, and `OpenBaoTenant` are core.
 - Optional modules own separate API groups and versions. The Claims and Service Offerings module uses
-  `claims.openbao.org`.
+  `claims.kubebao.org`.
 - Optional module packages may depend on stable core APIs and narrow contracts. Core packages must not import
   optional module packages.
 - Core generation, installation, startup, and reconciliation must work when optional module CRDs and controllers

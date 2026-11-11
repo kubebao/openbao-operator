@@ -19,22 +19,27 @@ import (
 )
 
 const (
-	defaultBaselinePath = "api/stability/baselines/0.5.2.json"
+	defaultBaselinePath = "api/stability/baselines/0.6.1.json"
+	defaultContractPath = "api/stability/v1alpha1.yaml"
 	defaultCurrentDir   = "config/crd/bases"
 	defaultTarget       = "next"
 	impactBreaking      = "breaking"
 	impactCompatible    = "compatible"
 	impactReview        = "review"
+	impactMigration     = "migration"
 	validationRelaxed   = "validation-relaxed"
 	validationTightened = "validation-tightened"
 	trueValue           = "true"
 	currentAPIVersion   = "v1alpha1"
 	openBaoClusterKind  = "OpenBaoCluster"
-	openBaoClusterCRD   = "openbaoclusters.openbao.org"
+	openBaoClusterCRD   = "openbaoclusters.kubebao.org"
+	openBaoRestoreKind  = "OpenBaoRestore"
+	openBaoRestoreCRD   = "openbaorestores.kubebao.org"
 )
 
 type options struct {
 	BaselinePath   string
+	ContractPath   string
 	CurrentDir     string
 	Format         string
 	Mode           string
@@ -103,7 +108,7 @@ func main() {
 		return
 	}
 
-	report, err := buildReport(opts.BaselinePath, opts.CurrentDir, opts.Target, opts.Mode)
+	report, err := buildReport(opts.BaselinePath, opts.ContractPath, opts.CurrentDir, opts.Target, opts.Mode)
 	if err != nil {
 		fail(1, err)
 	}
@@ -118,6 +123,8 @@ func main() {
 func parseOptions() (options, error) {
 	var opts options
 	flag.StringVar(&opts.BaselinePath, "baseline", defaultBaselinePath, "normalized baseline snapshot")
+	flag.StringVar(&opts.ContractPath, "contract", defaultContractPath,
+		"API contract that declares reviewed group transitions")
 	flag.StringVar(&opts.CurrentDir, "current-dir", defaultCurrentDir, "directory containing current generated CRDs")
 	flag.StringVar(&opts.Format, "format", "markdown", "output format: markdown or json")
 	flag.StringVar(&opts.Mode, "mode", "enforce", "compatibility mode: report or enforce")
@@ -182,8 +189,12 @@ func generateBaseline(opts options) error {
 	return nil
 }
 
-func buildReport(baselinePath, currentDir, target, mode string) (report, error) {
+func buildReport(baselinePath, contractPath, currentDir, target, mode string) (report, error) {
 	baseline, err := loadSnapshot(baselinePath)
+	if err != nil {
+		return report{}, err
+	}
+	transitions, err := loadGroupTransitions(contractPath)
 	if err != nil {
 		return report{}, err
 	}
@@ -198,11 +209,17 @@ func buildReport(baselinePath, currentDir, target, mode string) (report, error) 
 	if err != nil {
 		return report{}, err
 	}
+	baselineNodes, moves, err := applyGroupTransitions(baseline.Nodes, current, transitions)
+	if err != nil {
+		return report{}, err
+	}
+	changes := append(moves, compareSnapshots(baselineNodes, current)...)
+	sortChanges(changes)
 	return report{
 		Baseline: baseline.Release,
 		Target:   target,
 		Mode:     mode,
-		Changes:  compareSnapshots(baseline.Nodes, current),
+		Changes:  changes,
 	}, nil
 }
 
@@ -652,7 +669,7 @@ func isOptionalS3TargetValidation(node schemaNode, added, removed []string) bool
 	}
 	clusterTarget := node.CRD == openBaoClusterCRD && node.Kind == openBaoClusterKind &&
 		node.Path == "spec.backup.target"
-	restoreTarget := node.CRD == "openbaorestores.openbao.org" && node.Kind == "OpenBaoRestore" &&
+	restoreTarget := node.CRD == openBaoRestoreCRD && node.Kind == openBaoRestoreKind &&
 		node.Path == "spec.source.target"
 	if !clusterTarget && !restoreTarget {
 		return false
@@ -687,7 +704,7 @@ func isTLSRotationPeriodDiagnosticFix(node schemaNode, added, removed []string) 
 // fields introduced after 0.5.0. Each rule accepts a request without those fields.
 // TestCRD_FreshRestoreOptions verifies legacy requests and the new constraints.
 func isFreshRestoreValidation(node schemaNode, added, removed []string) bool {
-	if node.CRD != "openbaorestores.openbao.org" || node.Kind != "OpenBaoRestore" ||
+	if node.CRD != openBaoRestoreCRD || node.Kind != openBaoRestoreKind ||
 		node.Version != currentAPIVersion || node.Path != "spec" || len(added) == 0 || len(removed) != 0 {
 		return false
 	}
@@ -849,7 +866,7 @@ func writeReport(writer io.Writer, result report, format string) error {
 		return encoder.Encode(result)
 	}
 
-	counts := map[string]int{impactBreaking: 0, impactReview: 0, impactCompatible: 0}
+	counts := map[string]int{impactBreaking: 0, impactReview: 0, impactCompatible: 0, impactMigration: 0}
 	for _, item := range result.Changes {
 		counts[item.Impact]++
 	}
@@ -866,13 +883,16 @@ func writeReport(writer io.Writer, result report, format string) error {
 	); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(
-		writer,
-		"Summary: %d breaking, %d review, %d compatible\n",
+	summary := fmt.Sprintf(
+		"Summary: %d breaking, %d review, %d compatible",
 		counts[impactBreaking],
 		counts[impactReview],
 		counts[impactCompatible],
-	); err != nil {
+	)
+	if counts[impactMigration] > 0 {
+		summary += fmt.Sprintf(", %d declared group move(s)", counts[impactMigration])
+	}
+	if _, err := fmt.Fprintln(writer, summary); err != nil {
 		return err
 	}
 	if len(result.Changes) == 0 {
@@ -958,7 +978,7 @@ func sortNodes(nodes []schemaNode) {
 }
 
 func sortChanges(changes []change) {
-	impactOrder := map[string]int{"breaking": 0, "review": 1, "compatible": 2}
+	impactOrder := map[string]int{impactBreaking: 0, impactReview: 1, impactMigration: 2, impactCompatible: 3}
 	sort.Slice(changes, func(i, j int) bool {
 		if impactOrder[changes[i].Impact] != impactOrder[changes[j].Impact] {
 			return impactOrder[changes[i].Impact] < impactOrder[changes[j].Impact]

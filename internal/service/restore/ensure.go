@@ -80,8 +80,8 @@ func ensureRestoreRBACForServiceAccount(ctx context.Context, c client.Client, sc
 
 	if len(requests) != 0 {
 		role.Rules = append(role.Rules,
-			rbacv1.PolicyRule{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaorestores"}, ResourceNames: requests, Verbs: []string{"get"}},
-			rbacv1.PolicyRule{APIGroups: []string{"openbao.org"}, Resources: []string{"openbaorestores/status"}, ResourceNames: requests, Verbs: []string{"patch"}},
+			rbacv1.PolicyRule{APIGroups: []string{"kubebao.org"}, Resources: []string{"openbaorestores"}, ResourceNames: requests, Verbs: []string{"get"}},
+			rbacv1.PolicyRule{APIGroups: []string{"kubebao.org"}, Resources: []string{"openbaorestores/status"}, ResourceNames: requests, Verbs: []string{"patch"}},
 		)
 	}
 	if err := resourceapply.ApplyOwned(ctx, c, scheme, cluster, role); err != nil {

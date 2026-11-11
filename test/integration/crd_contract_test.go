@@ -113,7 +113,7 @@ func grantTenantOpenBaoWriteAccess(t *testing.T, namespace, username string) {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{"openbao.org"},
+				APIGroups: []string{"kubebao.org"},
 				Resources: []string{"openbaoclusters", "openbaorestores"},
 				Verbs:     []string{"create", "delete", "get", "list", "patch", "update", "watch"},
 			},
@@ -148,7 +148,7 @@ func grantTenantOpenBaoWriteAccess(t *testing.T, namespace, username string) {
 	if err := k8sClient.Create(ctx, binding); err != nil {
 		t.Fatalf("create tenant writer rolebinding: %v", err)
 	}
-	waitForResourceAuthorization(t, username, namespace, "openbao.org", "openbaoclusters", "", "create")
+	waitForResourceAuthorization(t, username, namespace, "kubebao.org", "openbaoclusters", "", "create")
 }
 
 func grantClusterOpenBaoVerbs(t *testing.T, namespace, clusterName, username, roleName string, verbs ...string) {
@@ -165,7 +165,7 @@ func grantClusterOpenBaoVerbs(t *testing.T, namespace, clusterName, username, ro
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups:     []string{"openbao.org"},
+				APIGroups:     []string{"kubebao.org"},
 				Resources:     []string{"openbaoclusters"},
 				ResourceNames: []string{clusterName},
 				Verbs:         append([]string{"get"}, verbs...),
@@ -202,7 +202,7 @@ func grantClusterOpenBaoVerbs(t *testing.T, namespace, clusterName, username, ro
 		t.Fatalf("create delegated OpenBao rolebinding: %v", err)
 	}
 	for _, verb := range verbs {
-		waitForResourceAuthorization(t, username, namespace, "openbao.org", "openbaoclusters", clusterName, verb)
+		waitForResourceAuthorization(t, username, namespace, "kubebao.org", "openbaoclusters", clusterName, verb)
 	}
 }
 
@@ -392,7 +392,7 @@ func TestCRD_OpenBaoRestore_RejectsMissingSpec(t *testing.T) {
 
 	restore := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "openbao.org/v1alpha1",
+			"apiVersion": "kubebao.org/v1alpha1",
 			"kind":       "OpenBaoRestore",
 			"metadata": map[string]any{
 				"name":      "restore-missing-spec",
@@ -410,7 +410,7 @@ func TestCRD_OpenBaoCluster_RejectsMissingSpec(t *testing.T) {
 
 	cluster := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "openbao.org/v1alpha1",
+			"apiVersion": "kubebao.org/v1alpha1",
 			"kind":       "OpenBaoCluster",
 			"metadata": map[string]any{
 				"name":      "cluster-missing-spec",
@@ -428,7 +428,7 @@ func TestCRD_OpenBaoTenant_RejectsMissingSpec(t *testing.T) {
 
 	tenant := &unstructured.Unstructured{
 		Object: map[string]any{
-			"apiVersion": "openbao.org/v1alpha1",
+			"apiVersion": "kubebao.org/v1alpha1",
 			"kind":       "OpenBaoTenant",
 			"metadata": map[string]any{
 				"name":      "tenant-missing-spec",
@@ -596,6 +596,8 @@ func TestCRD_OpenBaoCluster_AcceptsMigratedStabilityFixture(t *testing.T) {
 	if err := json.Unmarshal(data, &cluster.Object); err != nil {
 		t.Fatalf("decode migrated API fixture: %v", err)
 	}
+	// The fixture keeps its released group; the stored shape is what this test checks.
+	cluster.SetAPIVersion(openbaov1alpha1.GroupVersion.String())
 	c, _, _ := startIsolatedEnv(t, isolatedEnvOptions{
 		crdDirs: []string{filepath.Join("..", "..", "config", "crd", "bases")},
 	})
@@ -2164,7 +2166,7 @@ func TestVAP_OpenBaoCluster_RejectsDisabledInitContainerOverride(t *testing.T) {
 	for attempt := 0; attempt < 25; attempt++ {
 		cluster := &unstructured.Unstructured{
 			Object: map[string]any{
-				"apiVersion": "openbao.org/v1alpha1",
+				"apiVersion": "kubebao.org/v1alpha1",
 				"kind":       "OpenBaoCluster",
 				"metadata": map[string]any{
 					"name":      fmt.Sprintf("cluster-disabled-init-override-%d", attempt),

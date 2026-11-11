@@ -12,7 +12,7 @@
 #   - <cluster-name>-tls-server: Server certificate Secret (tls.crt, tls.key, ca.crt)
 #
 # See: website/content/docs/configure/expose.md
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:

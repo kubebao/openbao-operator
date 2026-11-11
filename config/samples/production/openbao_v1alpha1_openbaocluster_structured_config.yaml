@@ -9,7 +9,7 @@
 # - kubectl explain support
 # - Better IDE autocomplete
 # - Clear documentation of available options
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:

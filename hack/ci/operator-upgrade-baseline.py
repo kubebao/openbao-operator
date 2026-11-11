@@ -78,7 +78,8 @@ def main():
     path = ROOT / "test/fixtures/operator-upgrade/versions.env"
     current = read_pins(path)
     if args.operation == "check":
-        target = args.target or json.loads((ROOT / ".release-please-manifest.json").read_text())["."]
+        target = (args.target or current.get("OPERATOR_UPGRADE_TARGET_RELEASE") or
+                  json.loads((ROOT / ".release-please-manifest.json").read_text())["."])
         pages = gh("api", "--paginate", "--slurp", f"repos/{args.repo}/releases?per_page=100")
         version = previous_stable([release for page in pages for release in page], target)
     else:

@@ -33,12 +33,18 @@ self-init OIDC, regardless of security profile.
 
 ## Prepare the target role
 
-Set the namespace and cluster name, then derive the target audience from the stored CR UID:
+Set the namespace and cluster name, then derive the target audience from the Cluster's identity. A Cluster created
+by the [API group migration](../api-group-migration/) continues the Cluster named by its
+`migration.kubebao.org/source-uid` annotation; any other Cluster uses its own UID:
 
 ```sh
 namespace=<namespace>
 cluster=<cluster>
-cluster_uid=$(kubectl -n "$namespace" get openbaocluster "$cluster" -o jsonpath='{.metadata.uid}')
+cluster_uid=$(kubectl -n "$namespace" get openbaoclusters.kubebao.org "$cluster" \
+  -o jsonpath='{.metadata.annotations.migration\.kubebao\.org/source-uid}')
+if [ -z "$cluster_uid" ]; then
+  cluster_uid=$(kubectl -n "$namespace" get openbaoclusters.kubebao.org "$cluster" -o jsonpath='{.metadata.uid}')
+fi
 test -n "$cluster_uid"
 target_audience="urn:openbao:controller:$cluster_uid"
 ```

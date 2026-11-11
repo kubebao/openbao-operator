@@ -17,7 +17,7 @@ metadata:
   name: openbaocluster-editor-role
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -29,7 +29,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     verbs:

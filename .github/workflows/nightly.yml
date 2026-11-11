@@ -458,6 +458,80 @@ jobs:
           OPERATOR_UPGRADE_E2E_INIT_SOURCE: ${{ needs.build-e2e-images.outputs.config_init_ref }}
         run: make test-e2e-operator-upgrade
 
+  api-migration-e2e:
+    name: API Migration E2E (${{ matrix.case }})
+    runs-on: *runner
+    needs: build-e2e-images
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [commit, rollback, interrupt, ha, backups, restores, tenants, chart, kustomize, legacy, paused, hardened, recovery,
+          bluegreen, partitioned, openbao-2.7, audit-managed, audit-existing, pkcs11, kmip, flux-2.10-hardened,
+          cli, cli-manifests, restore-lifecycle, operator-ha, helm-csa, flux-2.10-helmrelease-hardened, argocd-3.6-hardened,
+          argocd-3.4, argocd-3.5, argocd-3.6, flux-2.9, flux-2.10,
+          flux-2.9-helmrelease, flux-2.10-helmrelease,
+          argocd-3.6-shared, flux-2.10-shared, flux-2.10-helmrelease-explicit-suspend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          # The cases install the released charts and Kustomize bases from their tags.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup repo tools
+        uses: ./.github/actions/setup-repo-tools
+        with:
+          cache-tools: false
+
+      - name: Setup Helm
+        uses: ./.github/actions/setup-helm
+
+      - name: Setup Kubernetes CLI tools
+        uses: ./.github/actions/setup-kubernetes-tools
+        with:
+          install-dir: bin/
+
+      - name: Login to GHCR (pull)
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the pinned SoftHSM and PKCS#11 fixture
+        if: matrix.case == 'pkcs11'
+        run: make docker-build-e2e-openbao-softhsm OPENBAO_SOFTHSM_IMG=api-migration.local/softhsm:fixture
+
+      - name: Build the pinned PyKMIP fixture
+        if: matrix.case == 'kmip'
+        run: make docker-build-e2e-pykmip-server PYKMIP_SERVER_IMG=api-migration.local/pykmip:fixture
+
+      - name: Migrate a released installation to the nightly candidate
+        env:
+          API_MIGRATION_E2E_BACKUP_IMAGE: >-
+            ${{ needs.build-e2e-images.outputs.backup_executor_ref }}
+          API_MIGRATION_E2E_CASE: ${{ matrix.case }}
+          API_MIGRATION_E2E_SOFTHSM_IMAGE: ${{ matrix.case == 'pkcs11' && 'api-migration.local/softhsm:fixture' || '' }}
+          API_MIGRATION_E2E_KMIP_IMAGE: ${{ matrix.case == 'kmip' && 'api-migration.local/pykmip:fixture' || '' }}
+          API_MIGRATION_E2E_IMAGE: >-
+            ${{ needs.build-e2e-images.outputs.manager_ref }}
+        run: make test-e2e-api-migration
+
+      - name: Upload migration availability observations
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: api-migration-${{ matrix.case }}
+          path: dist/test/api-migration/
+          if-no-files-found: ignore
+          retention-days: 7
+
   docs:
     name: Docs Build
     runs-on: *runner
@@ -565,6 +639,7 @@ jobs:
       - helm
       - e2e
       - operator-upgrade-e2e
+      - api-migration-e2e
     permissions:
       contents: read
       packages: write

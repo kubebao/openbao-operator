@@ -99,6 +99,8 @@ jobs:
           checks = [
               ("channel", data.get("channel"), os.environ["EXPECTED_CHANNEL"]),
               ("sha", data.get("sha"), os.environ["EXPECTED_SHA"]),
+              ("short_sha", data.get("short_sha"), os.environ["EXPECTED_SHA"][:12]),
+              ("version", data.get("version"), "edge-" + os.environ["EXPECTED_SHA"][:12]),
               ("source_ref", data.get("source_ref"), os.environ["EXPECTED_SOURCE_REF"]),
               ("build_run_id", str(data.get("build_run_id", "")), os.environ["EXPECTED_BUILD_RUN_ID"]),
               ("images.manager.ref", images.get("manager", {}).get("ref"), os.environ["EXPECTED_MANAGER_IMAGE"]),
@@ -161,6 +163,7 @@ jobs:
     needs: load-candidate
     outputs:
       chart_digest: ${{ steps.chart.outputs.chart_digest }}
+      artifact_url: ${{ steps.assets.outputs.artifact-url }}
     permissions:
       contents: read
       packages: write
@@ -190,6 +193,17 @@ jobs:
         with:
           name: edge-candidate-bundle
           path: dist
+
+      - name: Verify edge candidate payloads
+        env:
+          CHART_VERSION: ${{ needs.load-candidate.outputs.chart_version }}
+        run: |
+          set -euo pipefail
+          for path in api-migration-linux-amd64 api-migration-linux-arm64 api-migration-darwin-arm64 \
+            "openbao-operator-${CHART_VERSION}.tgz"; do
+            test -f "dist/${path}" || { echo "missing required edge payload: ${path}" >&2; exit 1; }
+          done
+          (cd dist && sha256sum --check checksums.txt)
 
       - name: Verify upstream image attestations
         env:
@@ -330,7 +344,7 @@ jobs:
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             dist/checksums.txt >/dev/null
 
-      - name: Verify edge chart and checksums attestations
+      - name: Verify edge chart, checksums, and CLI attestations
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -341,6 +355,12 @@ jobs:
           VERIFY_CHART: "true"
           CHART_IMAGE: ghcr.io/${{ github.repository_owner }}/charts-edge/openbao-operator
           CHART_DIGEST: ${{ steps.chart.outputs.chart_digest }}
+          EXTRA_FILE_SUBJECTS: >-
+            dist/api-migration-linux-amd64
+            dist/api-migration-linux-arm64
+            dist/api-migration-darwin-arm64
+          EXTRA_FILE_SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/reusable-channel-hardening.yml
+          EXTRA_FILE_SOURCE_DIGEST: ${{ needs.load-candidate.outputs.sha }}
         run: bash .github-workflow-src/hack/ci/verify-release-artifact-attestations.sh
 
       - name: Setup Go (for provenance tooling)
@@ -386,6 +406,7 @@ jobs:
           )
 
       - name: Upload edge publish artifact
+        id: assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: manifests-edge
@@ -395,8 +416,13 @@ jobs:
             dist/checksums.txt
             dist/checksums.txt.bundle
             dist/provenance-index.json
+            dist/metadata.json
+            dist/api-migration-linux-amd64
+            dist/api-migration-linux-arm64
+            dist/api-migration-darwin-arm64
             dist/openbao-operator-${{ needs.load-candidate.outputs.chart_version }}.tgz
-          retention-days: 5
+          if-no-files-found: error
+          retention-days: 7
 
   publish-pages:
     name: Publish Edge Manifests (GitHub Pages)
@@ -414,6 +440,7 @@ jobs:
       CHART_VERSION: ${{ needs.load-candidate.outputs.chart_version }}
       CHART_DIGEST: ${{ needs.promote.outputs.chart_digest }}
       CHART_REF: ghcr.io/${{ github.repository_owner }}/charts-edge/openbao-operator
+      EDGE_ARTIFACT_URL: ${{ needs.promote.outputs.artifact_url }}
       MANAGER_IMAGE: ${{ needs.load-candidate.outputs.manager_image }}
       CONFIG_INIT_IMAGE: ${{ needs.load-candidate.outputs.config_init_image }}
       BACKUP_EXECUTOR_IMAGE: ${{ needs.load-candidate.outputs.backup_executor_image }}
@@ -473,6 +500,14 @@ jobs:
                   "checksums_bundle": "checksums.txt.bundle",
                   "provenance_index": "provenance-index.json",
               },
+              "api_migration": {
+                  "version": os.environ["VERSION"],
+                  "artifact_name": "manifests-edge",
+                  "run_id": os.environ["GITHUB_RUN_ID"],
+                  "artifact_url": os.environ["EDGE_ARTIFACT_URL"],
+                  "retention_days": 7,
+                  "platforms": ["linux-amd64", "linux-arm64", "darwin-arm64"],
+              },
               "images": {
                   "manager": {"ref": os.environ["MANAGER_IMAGE"], "digest": os.environ["MANAGER_DIGEST"]},
                   "config_init": {"ref": os.environ["CONFIG_INIT_IMAGE"], "digest": os.environ["CONFIG_INIT_DIGEST"]},
@@ -520,6 +555,8 @@ jobs:
               </ul>
               <p>Helm charts: <code>oci://ghcr.io/kubebao/charts-edge/openbao-operator</code>.
                 Use the chart version or digest in <a href="latest/metadata.json">metadata.json</a>.</p>
+              <p>The migration CLI is in the verified Actions bundle linked from <a href="latest/metadata.json">metadata.json</a>.
+                The bundle requires GitHub authentication and is retained for seven days. Use one commit's CLI, chart, and images together.</p>
               <p>See the <a href="../next/docs/get-started/install/">edge installation instructions</a>.</p>
               <p>To install the manifest: <code>kubectl apply -f latest/install.yaml</code></p>
             </body>

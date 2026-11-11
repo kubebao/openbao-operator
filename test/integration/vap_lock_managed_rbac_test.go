@@ -286,13 +286,13 @@ func grantClusterMaintenanceAccess(t *testing.T, namespace, clusterName, usernam
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups:     []string{"openbao.org"},
+				APIGroups:     []string{"kubebao.org"},
 				Resources:     []string{"openbaoclusters"},
 				ResourceNames: []string{clusterName},
 				Verbs:         []string{"get", "maintenance"},
 			},
 			{
-				APIGroups:     []string{"openbao.org"},
+				APIGroups:     []string{"kubebao.org"},
 				Resources:     []string{"openbaoclusters/status"},
 				ResourceNames: []string{clusterName},
 				Verbs:         []string{"get"},
@@ -381,7 +381,7 @@ func newOwnedServiceMonitorObject(cluster *openbaov1alpha1.OpenBaoCluster) *unst
 	controller := true
 	obj.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			APIVersion: "openbao.org/v1alpha1",
+			APIVersion: "kubebao.org/v1alpha1",
 			Kind:       "OpenBaoCluster",
 			Name:       cluster.Name,
 			UID:        cluster.UID,

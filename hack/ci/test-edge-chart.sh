@@ -47,7 +47,7 @@ for mode in multi single; do
   done
   grep -q 'name: EXTRA_SETTING' "${work_dir}/render.yaml"
   grep -q 'name: OPERATOR_VERSION' "${work_dir}/render.yaml"
-  grep -q 'name: openbaoclusters.openbao.org' "${work_dir}/render.yaml"
+  grep -q 'name: openbaoclusters.kubebao.org' "${work_dir}/render.yaml"
 done
 # Older releases have no helperImages object in their saved chart defaults.
 helm template openbao-operator charts/openbao-operator --namespace openbao-operator-system \

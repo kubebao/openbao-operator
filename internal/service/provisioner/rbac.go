@@ -54,17 +54,17 @@ type OperatorServiceAccount struct {
 func GenerateTenantRole(namespace string) *rbacv1.Role {
 	rules := []rbacv1.PolicyRule{
 		{
-			APIGroups: []string{"openbao.org"},
+			APIGroups: []string{"kubebao.org"},
 			Resources: []string{"openbaoclusters", "openbaoclusters/status", "openbaoclusters/finalizers"},
 			Verbs:     cloneStrings(verbsManage),
 		},
 		{
-			APIGroups: []string{"openbao.org"},
+			APIGroups: []string{"kubebao.org"},
 			Resources: []string{"openbaoclusters"},
 			Verbs:     cloneStrings(verbsClusterDelegation),
 		},
 		{
-			APIGroups: []string{"openbao.org"},
+			APIGroups: []string{"kubebao.org"},
 			Resources: []string{"openbaorestores", "openbaorestores/status", "openbaorestores/finalizers"},
 			Verbs:     cloneStrings(verbsManage),
 		},

@@ -94,7 +94,7 @@ func TestAPIContractChangeRouting(t *testing.T) {
 		"api/stability/v1alpha1.yaml",
 		"api/stability/v1alpha1-paths.tsv",
 		"api/stability/baselines/0.5.0.json",
-		"config/crd/bases/openbao.org_openbaoclusters.yaml",
+		"config/crd/bases/kubebao.org_openbaoclusters.yaml",
 		"hack/tools/api_inventory/main.go",
 		"hack/tools/crd_compatibility/main.go",
 		"test/manifests/apicontract/gate_test.go",

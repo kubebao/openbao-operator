@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Stops every operator Deployment for the API migration handoff.
+patches:
+  - target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/name=openbao-operator
+    patch: |-
+      - op: add
+        path: /spec/replicas
+        value: 0

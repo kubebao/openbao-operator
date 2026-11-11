@@ -288,7 +288,7 @@ func TestEnsureTenantRBAC_UpdatesRoleWhenRulesChange(t *testing.T) {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{"openbao.org"},
+				APIGroups: []string{"kubebao.org"},
 				Resources: []string{"openbaoclusters"},
 				Verbs:     []string{"get"}, // Different from expected
 			},
@@ -337,7 +337,7 @@ func TestEnsureTenantRBAC_UpdatesRoleWhenRulesChange(t *testing.T) {
 	// Verify at least one rule has the expected OpenBaoCluster permissions
 	hasExpectedRule := false
 	for _, rule := range role.Rules {
-		if slices.Contains(rule.APIGroups, "openbao.org") &&
+		if slices.Contains(rule.APIGroups, "kubebao.org") &&
 			slices.Contains(rule.Resources, "openbaoclusters") &&
 			slices.Contains(rule.Verbs, "get") &&
 			slices.Contains(rule.Verbs, "create") {

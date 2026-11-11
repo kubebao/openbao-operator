@@ -61,13 +61,13 @@ func TestVAP_RestoreTargetUnsealAuthority(t *testing.T) {
 		{name: "service-account", resource: "serviceaccounts", verb: "use", message: "destination ServiceAccount", edit: func(c *api.RestoreClusterTemplate) {
 			c.ServiceAccount = &api.ServiceAccountConfig{Name: "seal-identity"}
 		}},
-		{name: "service-account-identity", group: "openbao.org", resource: "openbaoclusters", verb: "usecloudidentities", message: "cloud identity delegation", edit: func(c *api.RestoreClusterTemplate) {
+		{name: "service-account-identity", group: "kubebao.org", resource: "openbaoclusters", verb: "usecloudidentities", message: "cloud identity delegation", edit: func(c *api.RestoreClusterTemplate) {
 			c.ServiceAccount = &api.ServiceAccountConfig{Annotations: map[string]string{"eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/recovery"}}
 		}},
-		{name: "pod-identity", group: "openbao.org", resource: "openbaoclusters", verb: "usecloudidentities", message: "cloud identity delegation", edit: func(c *api.RestoreClusterTemplate) {
+		{name: "pod-identity", group: "kubebao.org", resource: "openbaoclusters", verb: "usecloudidentities", message: "cloud identity delegation", edit: func(c *api.RestoreClusterTemplate) {
 			c.PodMetadata = &api.PodMetadataConfig{Labels: map[string]string{"azure.workload.identity/use": "true"}}
 		}},
-		{name: "plugin", group: "openbao.org", resource: "openbaoclusters", verb: "usecustomexecutables", message: "executable delegation", edit: func(c *api.RestoreClusterTemplate) {
+		{name: "plugin", group: "kubebao.org", resource: "openbaoclusters", verb: "usecustomexecutables", message: "executable delegation", edit: func(c *api.RestoreClusterTemplate) {
 			c.Unseal = api.UnsealConfig{Type: "kms", KMS: &api.KMSPluginSealConfig{PluginName: "hsm"}}
 			c.Plugins = []api.Plugin{{Type: "kms", Name: "hsm", Command: "hsm-plugin"}}
 		}},
@@ -79,7 +79,7 @@ func TestVAP_RestoreTargetUnsealAuthority(t *testing.T) {
 			username := "seal-author-" + sourceNS
 			grantTenantOpenBaoWriteAccess(t, sourceNS, username)
 			grantTenantOpenBaoWriteAccess(t, destination, username)
-			grantNamespacedResourceVerbs(t, destination, username, "restore", "openbao.org", "openbaoclusters", nil, "restore")
+			grantNamespacedResourceVerbs(t, destination, username, "restore", "kubebao.org", "openbaoclusters", nil, "restore")
 			grantNamespacedResourceVerbs(t, destination, username, "storage-reader", "", "serviceaccounts", []string{"snapshot-reader"}, "use")
 			actor := newImpersonatedClient(t, username)
 			request := newFreshRestoreRequest(destination, "recovery")
@@ -123,10 +123,10 @@ func TestVAP_RestoreTargetAzureKeyVaultWorkloadIdentityAuthority(t *testing.T) {
 	username := "seal-identity-author-" + sourceNS
 	grantTenantOpenBaoWriteAccess(t, sourceNS, username)
 	grantTenantOpenBaoWriteAccess(t, destination, username)
-	grantNamespacedResourceVerbs(t, destination, username, "restore", "openbao.org", "openbaoclusters", nil, "restore")
+	grantNamespacedResourceVerbs(t, destination, username, "restore", "kubebao.org", "openbaoclusters", nil, "restore")
 	grantNamespacedResourceVerbs(t, destination, username, "storage-reader", "", "serviceaccounts",
 		[]string{"snapshot-reader"}, "use")
-	grantNamespacedResourceVerbs(t, destination, username, "plugin-access", "openbao.org", "openbaoclusters",
+	grantNamespacedResourceVerbs(t, destination, username, "plugin-access", "kubebao.org", "openbaoclusters",
 		nil, "usecustomexecutables")
 	actor := newImpersonatedClient(t, username)
 
@@ -145,7 +145,7 @@ func TestVAP_RestoreTargetAzureKeyVaultWorkloadIdentityAuthority(t *testing.T) {
 		require.ErrorContains(t, actor.Create(ctx, object, client.DryRunAll), "cloud identity delegation")
 	}
 
-	grantNamespacedResourceVerbs(t, destination, username, "seal-access", "openbao.org", "openbaoclusters",
+	grantNamespacedResourceVerbs(t, destination, username, "seal-access", "kubebao.org", "openbaoclusters",
 		nil, "usecloudidentities")
 	for _, object := range []client.Object{request, source} {
 		require.NoError(t, actor.Create(ctx, object, client.DryRunAll))

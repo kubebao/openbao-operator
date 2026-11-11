@@ -34,7 +34,7 @@ metadata:
 rules:
   # OpenBaoCluster and OpenBaoRestore management
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
       - openbaoclusters/status
@@ -48,7 +48,7 @@ rules:
       - update
       - watch
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
@@ -58,7 +58,7 @@ rules:
       - usecustomexecutables
       - useimagetrustroots
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaorestores
       - openbaorestores/status

@@ -18,7 +18,7 @@
 # - For internal networks, DNS challenges may be required instead of HTTP challenges
 #
 # See: https://openbao.org/docs/configuration/listener/tcp/#acme-parameters
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:

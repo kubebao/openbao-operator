@@ -155,21 +155,21 @@ annotations:
   artifacthub.io/crds: |
     - kind: OpenBaoCluster
       version: v1alpha1
-      name: openbaoclusters.openbao.org
+      name: openbaoclusters.kubebao.org
       displayName: OpenBaoCluster
       description: Manages OpenBao cluster lifecycle, configuration, upgrades, and backups.
     - kind: OpenBaoTenant
       version: v1alpha1
-      name: openbaotenants.openbao.org
+      name: openbaotenants.kubebao.org
       displayName: OpenBaoTenant
       description: Declares tenant onboarding and target namespace provisioning.
     - kind: OpenBaoRestore
       version: v1alpha1
-      name: openbaorestores.openbao.org
+      name: openbaorestores.kubebao.org
       displayName: OpenBaoRestore
       description: Requests restore operations from snapshot backups.
   artifacthub.io/crdsExamples: |
-    - apiVersion: openbao.org/v1alpha1
+    - apiVersion: kubebao.org/v1alpha1
       kind: OpenBaoCluster
       metadata:
         name: openbaocluster-sample
@@ -182,14 +182,14 @@ annotations:
           rotationPeriod: "720h"
         storage:
           size: "10Gi"
-    - apiVersion: openbao.org/v1alpha1
+    - apiVersion: kubebao.org/v1alpha1
       kind: OpenBaoTenant
       metadata:
         name: openbaocluster-full-tenant
         namespace: openbao-operator-system
       spec:
         targetNamespace: openbaocluster-full
-    - apiVersion: openbao.org/v1alpha1
+    - apiVersion: kubebao.org/v1alpha1
       kind: OpenBaoRestore
       metadata:
         name: openbaorestore-sample

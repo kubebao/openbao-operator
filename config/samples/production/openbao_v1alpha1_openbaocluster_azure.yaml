@@ -11,7 +11,7 @@
 # - Managed Service Identity (MSI) configured OR credentials Secret
 #
 # See: https://openbao.org/docs/configuration/seal/azurekeyvault/
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:

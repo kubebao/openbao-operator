@@ -35,7 +35,7 @@ spec:
 # The Operator creates an HTTPRoute that routes traffic from the Gateway
 # to the OpenBao Service. The Gateway hostname is automatically added to
 # the TLS SANs.
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:

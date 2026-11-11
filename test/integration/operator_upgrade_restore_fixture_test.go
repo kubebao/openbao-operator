@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 )
 
 func TestOperatorUpgradeStaticRestoreFixtureAdmission(t *testing.T) {
@@ -30,6 +32,10 @@ func TestOperatorUpgradeStaticRestoreFixtureAdmission(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
+		// Fixtures keep the released group for the operator upgrade source.
+		if object.GetAPIVersion() == "openbao.org/v1alpha1" {
+			object.SetAPIVersion(openbaov1alpha1.GroupVersion.String())
+		}
 		object.SetNamespace(namespace)
 		require.NoError(t, k8sClient.Create(ctx, object), "admit fixture %s/%s", object.GetKind(), object.GetName())
 		sawRestore = sawRestore || object.GetKind() == "OpenBaoRestore"

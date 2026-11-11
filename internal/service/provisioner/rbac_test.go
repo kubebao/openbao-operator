@@ -82,14 +82,14 @@ func TestGenerateTenantRole(t *testing.T) {
 
 			for _, rule := range role.Rules {
 				// Check for OpenBaoCluster rule (uses commonVerbs, not "*")
-				if slices.Contains(rule.APIGroups, "openbao.org") &&
+				if slices.Contains(rule.APIGroups, "kubebao.org") &&
 					slices.Contains(rule.Resources, "openbaoclusters") &&
 					slices.Contains(rule.Verbs, "get") &&
 					slices.Contains(rule.Verbs, "create") {
 					hasOpenBaoClusterRule = true
 				}
 
-				if slices.Contains(rule.APIGroups, "openbao.org") &&
+				if slices.Contains(rule.APIGroups, "kubebao.org") &&
 					len(rule.Resources) == 1 &&
 					slices.Contains(rule.Resources, "openbaoclusters") &&
 					slices.Contains(rule.Verbs, "publishnetworking") &&

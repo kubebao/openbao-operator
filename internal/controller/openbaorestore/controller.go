@@ -41,6 +41,9 @@ type OpenBaoRestoreReconciler struct {
 	client.Client
 	AdmissionTracker  *admission.Tracker
 	RestoreReconciler appopenbaorestore.RestoreReconciler
+	// APIMigrationHold suppresses the complete restore lifecycle. It does not
+	// drain running operations or perform deletion/recovery cleanup.
+	APIMigrationHold bool
 }
 
 const controllerNameOpenBaoRestore = "openbaorestore"
@@ -85,6 +88,9 @@ func (r *OpenBaoRestoreReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to get OpenBaoRestore before admission dependency check: %w", getErr)
+	}
+	if r.APIMigrationHold {
+		return ctrl.Result{}, nil
 	}
 	if result, blocked := r.pauseForAdmissionDependencyLoss(ctx, logger); blocked {
 		if !appopenbaorestore.CanContinueWithoutAdmission(restoreResource) {

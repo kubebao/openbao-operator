@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Starts the controller with the API migration hold: it reconciles workloads but
+# runs no upgrade, backup, or restore until the migration is committed.
+patches:
+  - target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/name=openbao-operator,app.kubernetes.io/component=controller
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --api-migration-hold=true

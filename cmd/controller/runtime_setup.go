@@ -35,6 +35,7 @@ type controllerProcessRuntime struct {
 	platform                 string
 	restoreRecoveryClientFor restore.RecoveryClientFactory
 	singleTenantMode         bool
+	apiMigrationHold         bool
 	admissionTracker         *admission.Tracker
 	oidcRuntime              appopenbaocluster.RuntimeOIDCConfig
 	openBaoRuntime           appopenbaocluster.RuntimeOpenBaoConfig
@@ -112,6 +113,7 @@ func buildControllerProcessRuntime(
 		platform:                 platform,
 		restoreRecoveryClientFor: restoreRecoveryClientFactory(clientset, clientMgr, tokens),
 		singleTenantMode:         singleTenantMode,
+		apiMigrationHold:         cfg.apiMigrationHold,
 		admissionTracker:         admissionTracker,
 		oidcRuntime: appopenbaocluster.RuntimeOIDCConfig{
 			Issuer:              oidcConfig.IssuerURL,
@@ -157,6 +159,7 @@ func setupControllers(ctx context.Context, mgr ctrl.Manager, runtime controllerP
 			AdmissionTracker: runtime.admissionTracker,
 			Recorder:         mgr.GetEventRecorder(controllerNameOpenBaoCluster),
 			SingleTenantMode: runtime.singleTenantMode,
+			APIMigrationHold: runtime.apiMigrationHold,
 		},
 		Applications: applications,
 	}).SetupWithManager(mgr); err != nil {
@@ -166,6 +169,7 @@ func setupControllers(ctx context.Context, mgr ctrl.Manager, runtime controllerP
 	if err := (&openbaorestorecontroller.OpenBaoRestoreReconciler{
 		Client:           mgr.GetClient(),
 		AdmissionTracker: runtime.admissionTracker,
+		APIMigrationHold: runtime.apiMigrationHold,
 		RestoreReconciler: appopenbaorestore.NewRestoreReconciler(appopenbaorestore.RestoreDependencies{
 			Client:                mgr.GetClient(),
 			APIReader:             mgr.GetAPIReader(),

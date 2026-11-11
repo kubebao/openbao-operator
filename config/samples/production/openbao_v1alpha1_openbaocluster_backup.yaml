@@ -16,7 +16,7 @@
 #   OR a backup token Secret (for static token method)
 #
 # See: website/content/docs/operate/backups.md
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoCluster
 metadata:
   labels:
@@ -138,7 +138,7 @@ spec:
 #   #   -----END CERTIFICATE-----
 ---
 # Example: GCS configuration
-# apiVersion: openbao.org/v1alpha1
+# apiVersion: kubebao.org/v1alpha1
 # kind: OpenBaoCluster
 # metadata:
 #   name: openbaocluster-backup-gcs
@@ -179,7 +179,7 @@ spec:
 # Note: For Workload Identity or GKE, omit credentialsSecretRef to use ADC
 ---
 # Example: Azure configuration
-# apiVersion: openbao.org/v1alpha1
+# apiVersion: kubebao.org/v1alpha1
 # kind: OpenBaoCluster
 # metadata:
 #   name: openbaocluster-backup-azure

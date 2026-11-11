@@ -22,7 +22,7 @@ import (
 
 func TestMutateWithReader_OwnershipPolicy(t *testing.T) {
 	t.Parallel()
-	versionConflict := apierrors.NewConflict(schema.GroupResource{Group: "openbao.org", Resource: "openbaoclusters"}, "ownership", errors.New("stale resource version"))
+	versionConflict := apierrors.NewConflict(schema.GroupResource{Group: "kubebao.org", Resource: "openbaoclusters"}, "ownership", errors.New("stale resource version"))
 	ownershipConflict := apierrors.NewApplyConflict([]metav1.StatusCause{{Type: metav1.CauseTypeFieldManagerConflict, Field: ".status.backup.lastFailureReason"}}, "another manager owns the field")
 	unavailable := errors.New("API unavailable")
 	attempts := retry.DefaultRetry.Steps

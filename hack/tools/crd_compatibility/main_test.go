@@ -19,9 +19,9 @@ func TestSupportedBaselineProtectsReleasedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if baseline.Release != "0.5.2" ||
-		baseline.SourceSHA256 != "d72469358ae4b6dc1264c98b61671226ddcefca1a73952ead877a6910ac2ea69" {
-		t.Fatalf("supported baseline must match the published 0.5.2 CRD bundle: %+v", baseline)
+	if baseline.Release != "0.6.1" ||
+		baseline.SourceSHA256 != "286592e23e18f07e51120bdc55a40ae579c1466c69eb31877be0f5bb13df9732" {
+		t.Fatalf("supported baseline must match the published 0.6.1 CRD bundle: %+v", baseline)
 	}
 	path := "spec.configuration.listener.proxyProtocolAuthorizedAddrs"
 	var retained []schemaNode
@@ -335,7 +335,7 @@ func testSchemaNode(path, schemaType string) schemaNode {
 }
 
 func TestFreshRestoreValidationRequiresExactReviewedRule(t *testing.T) {
-	node := schemaNode{CRD: "openbaorestores.openbao.org", Kind: "OpenBaoRestore", Version: "v1alpha1", Path: "spec"}
+	node := schemaNode{CRD: "openbaorestores.kubebao.org", Kind: "OpenBaoRestore", Version: "v1alpha1", Path: "spec"}
 	rule := celRule{Rule: "has(self.clusterTemplate) || !has(self.targetLifecycle)",
 		Message: "targetLifecycle requires clusterTemplate"}
 	encoded := func(r celRule) []string {
@@ -368,8 +368,8 @@ func TestOptionalS3TargetValidationRequiresExactReviewedRule(t *testing.T) {
 	rule := celRule{Rule: "self.provider == 's3' || !has(self.s3)",
 		Message: "backup target s3 options are only supported when provider is s3"}
 	for _, tc := range []struct{ crd, kind, path string }{
-		{"openbaoclusters.openbao.org", "OpenBaoCluster", "spec.backup.target"},
-		{"openbaorestores.openbao.org", "OpenBaoRestore", "spec.source.target"},
+		{"openbaoclusters.kubebao.org", "OpenBaoCluster", "spec.backup.target"},
+		{"openbaorestores.kubebao.org", "OpenBaoRestore", "spec.source.target"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			before := schemaNode{CRD: tc.crd, Kind: tc.kind, Version: "v1alpha1", Path: tc.path, Type: "object"}
@@ -408,7 +408,7 @@ func TestOptionalS3TargetValidationRequiresExactReviewedRule(t *testing.T) {
 func TestOptionalServiceIPFamilyValidationRequiresExactReviewedRules(t *testing.T) {
 	for _, path := range []string{"spec.service", "spec.readReplicas.service"} {
 		t.Run(path, func(t *testing.T) {
-			before := schemaNode{CRD: "openbaoclusters.openbao.org", Kind: "OpenBaoCluster", Version: "v1alpha1",
+			before := schemaNode{CRD: "openbaoclusters.kubebao.org", Kind: "OpenBaoCluster", Version: "v1alpha1",
 				Path: path, Type: "object",
 			}
 			after := before

@@ -89,3 +89,23 @@ func TestParseRunConfigPlatformEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRunConfigAPIMigrationHold(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{name: "default disabled"},
+		{name: "enabled", args: []string{"--api-migration-hold"}, want: true},
+		{name: "explicitly disabled", args: []string{"--api-migration-hold=false"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := parseRunConfig(tc.args, io.Discard)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, cfg.apiMigrationHold)
+		})
+	}
+	_, err := parseRunConfig([]string{"--api-migration-hold=perhaps"}, io.Discard)
+	require.ErrorContains(t, err, "invalid boolean value")
+}

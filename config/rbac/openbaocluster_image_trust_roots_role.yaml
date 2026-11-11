@@ -16,7 +16,7 @@ metadata:
   name: openbaocluster-image-trust-roots-role
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:

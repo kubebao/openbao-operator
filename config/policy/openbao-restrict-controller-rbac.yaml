@@ -54,9 +54,9 @@ spec:
             (
               variables.component_label in ["backup", "restore"] &&
               (dyn(object).rules.size() == 1 || (variables.component_label == "restore" && dyn(object).rules.size() == 3 &&
-                dyn(object).rules[1].apiGroups == ["openbao.org"] && dyn(object).rules[1].resources == ["openbaorestores"] &&
+                dyn(object).rules[1].apiGroups == ["kubebao.org"] && dyn(object).rules[1].resources == ["openbaorestores"] &&
                 dyn(object).rules[1].verbs == ["get"] && has(dyn(object).rules[1].resourceNames) && dyn(object).rules[1].resourceNames.size() == 1 &&
-                dyn(object).rules[2].apiGroups == ["openbao.org"] && dyn(object).rules[2].resources == ["openbaorestores/status"] &&
+                dyn(object).rules[2].apiGroups == ["kubebao.org"] && dyn(object).rules[2].resources == ["openbaorestores/status"] &&
                 dyn(object).rules[2].verbs == ["patch"] && dyn(object).rules[2].resourceNames == dyn(object).rules[1].resourceNames)) &&
               dyn(object).rules[0].apiGroups == [""] &&
               dyn(object).rules[0].resources == ["pods"] &&
@@ -119,7 +119,7 @@ spec:
              object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-rolebinding" &&
              dyn(object).roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
              has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(owner,
-               owner.apiVersion == "openbao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
+               owner.apiVersion == "kubebao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
                owner.name == object.metadata.labels["openbao.org/cluster"] && owner.uid != "" &&
                has(owner.controller) && owner.controller))
           )

@@ -16,14 +16,14 @@ metadata:
   name: openbaocluster-maintenance-role
 rules:
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters
     verbs:
       - get
       - maintenance
   - apiGroups:
-      - openbao.org
+      - kubebao.org
     resources:
       - openbaoclusters/status
     verbs:

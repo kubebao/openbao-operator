@@ -371,6 +371,22 @@ update-operator-upgrade-baseline: ## Refresh runtime upgrade pins from one publi
 test-e2e-operator-upgrade: ## Upgrade previous-stable Development and Hardened resources to the local candidate in Kind.
 	@bash hack/ci/operator-upgrade-e2e.sh
 
+API_MIGRATION_E2E_IMAGE ?=
+API_MIGRATION_E2E_ARTIFACT_DIR ?= dist/test/api-migration
+API_MIGRATION_E2E_BACKUP_IMAGE ?=
+API_MIGRATION_E2E_SOFTHSM_IMAGE ?=
+API_MIGRATION_E2E_KMIP_IMAGE ?=
+API_MIGRATION_E2E_CASE ?=
+API_MIGRATION_E2E_NODE_IMAGE ?=
+
+.PHONY: test-e2e-api-migration
+test-e2e-api-migration: kustomize ## Migrate released installations to API_MIGRATION_E2E_IMAGE in Kind (one case: API_MIGRATION_E2E_CASE=commit).
+	@test -n "$(API_MIGRATION_E2E_IMAGE)" || { echo "API_MIGRATION_E2E_IMAGE is required" >&2; exit 1; }
+	@GOFLAGS="$(GOFLAGS_VENDOR)" go test -tags apimigration_e2e -count=1 -timeout 120m -v ./cmd/api-migration \
+		-run 'TestAPIMigrationE2E/^$(or $(API_MIGRATION_E2E_CASE),.*)$$' \
+		-args -artifacts-dir "$(abspath $(API_MIGRATION_E2E_ARTIFACT_DIR))" -destination-image "$(API_MIGRATION_E2E_IMAGE)" $(if $(API_MIGRATION_E2E_BACKUP_IMAGE),-destination-backup-image "$(API_MIGRATION_E2E_BACKUP_IMAGE)") $(if $(API_MIGRATION_E2E_NODE_IMAGE),-node-image "$(API_MIGRATION_E2E_NODE_IMAGE)") \
+		$(if $(API_MIGRATION_E2E_SOFTHSM_IMAGE),-softhsm-image "$(API_MIGRATION_E2E_SOFTHSM_IMAGE)") $(if $(API_MIGRATION_E2E_KMIP_IMAGE),-kmip-image "$(API_MIGRATION_E2E_KMIP_IMAGE)")
+
 .PHONY: helm-template
 helm-template: helm-sync ## Template the Helm chart with default values (useful for debugging).
 	@helm template openbao-operator charts/openbao-operator \

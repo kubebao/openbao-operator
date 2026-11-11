@@ -91,7 +91,7 @@ func waitForOpenBaoClusterAdmissionPolicies(t *testing.T, namespace string) {
 	for attempt := 0; attempt < 25; attempt++ {
 		invalid := &unstructured.Unstructured{
 			Object: map[string]any{
-				"apiVersion": "openbao.org/v1alpha1",
+				"apiVersion": "kubebao.org/v1alpha1",
 				"kind":       "OpenBaoCluster",
 				"metadata": map[string]any{
 					"name":      fmt.Sprintf("cluster-policy-probe-%d", attempt),

@@ -74,7 +74,12 @@ tenancy:
 
 # -- Controller deployment configuration
 controller:
-  # -- Number of controller replicas
+  # -- Hold administrative operations and restores during an API migration.
+  # Workload and status reconciliation remain active. Does not drain running
+  # operations. Change this value through an operator rollout to resume.
+  apiMigrationHold: false
+
+  # -- Number of controller replicas. Set to 0 only to stop reconciliation during a controlled maintenance window
   replicas: 1
 
   # -- Resource requests and limits for the controller
@@ -136,7 +141,7 @@ controller:
 
 # -- Provisioner deployment configuration (only used when tenancy.mode=multi)
 provisioner:
-  # -- Number of provisioner replicas
+  # -- Number of provisioner replicas. Set to 0 only to stop reconciliation during a controlled maintenance window
   replicas: 1
 
   # -- Resource requests and limits for the provisioner
@@ -323,7 +328,7 @@ admissionPolicies:
       - azure-
   # -- Deprecated: no longer used.
   # -- Maintenance authorization is now delegated through Kubernetes RBAC using
-  # -- the custom `maintenance` verb on `openbaoclusters.openbao.org`.
+  # -- the custom `maintenance` verb on `openbaoclusters.kubebao.org`.
   maintenanceBreakGlassGroups:
     - system:masters
 

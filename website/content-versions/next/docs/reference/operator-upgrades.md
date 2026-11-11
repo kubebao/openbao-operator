@@ -4,6 +4,7 @@ description: Supported operator upgrade paths, CRD sequencing, verification, and
 eyebrow: Reference
 weight: 3
 verifiedBy:
+  - cmd/api-migration/README.md
   - docs/user-guide/operator/installation.md
   - charts/openbao-operator/README.md
   - internal/service/upgrade/version.go
@@ -21,6 +22,11 @@ operator installation. Changes to the OpenBao workload version use `spec.version
 | Stable minor, `0.Y.Z` to `0.(Y+1).0` | Supported with release-note review | Move sequentially and validate in staging |
 | Skip multiple minor releases | Not recommended | Apply intermediate migrations in order |
 | Routine operator downgrade | Unsupported | Prefer a forward fix; treat any rollback as recovery |
+
+{{< callout type="warning" title="0.6 to 0.7 moves the API group" >}}
+The 0.7 line serves `kubebao.org/v1alpha1` instead of `openbao.org/v1alpha1`. Move a 0.6 installation with
+[the API group migration](../../operate/api-group-migration/), not with the Helm upgrade on this page.
+{{< /callout >}}
 
 {{< callout type="warning" title="Back up before changing the operator" >}}
 Take and verify a current backup for every managed production cluster. An operator rollback is not a data rollback.
@@ -72,7 +78,7 @@ controller from starting against an older schema.
 2. Verify that the stored CRD version is `v1alpha1` and that the CRDs report `Established=True`.
 
    ```bash
-   kubectl get crd openbaoclusters.openbao.org \
+   kubectl get crd openbaoclusters.kubebao.org \
      -o jsonpath='{.status.storedVersions}{"\n"}{.status.conditions}{"\n"}'
    ```
 

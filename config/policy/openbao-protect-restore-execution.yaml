@@ -2,17 +2,17 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8
+    openbao.org/admission-policy-fingerprint: sha256:173754c373a6294c06b91ca6c9d307e1c0d8411020a5b3a6f4426fa3cc916add
   name: openbao-protect-restore-execution
 spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["UPDATE", "DELETE"]
         resources: ["openbaorestores", "openbaorestores/status", "openbaoclusters"]
-      - apiGroups: ["openbao.org"]
+      - apiGroups: ["kubebao.org"]
         apiVersions: ["v1alpha1"]
         operations: ["CREATE"]
         resources: ["openbaoclusters", "openbaorestores"]
@@ -70,12 +70,29 @@ spec:
       expression: >-
         object != null && has(object.metadata.annotations) && 'openbao.org/restore-test-acknowledge' in object.metadata.annotations ?
           object.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''
+    # API group migration re-creates a finished openbao.org record. The import
+    # marker is reserved for principals granted the migrate verb on the record.
+    # Its first status write may carry the controller's recorded recovery evidence.
+    - name: migration_import
+      expression: >-
+        variables.is_restore && (
+          (request.operation == 'CREATE' && has(object.metadata.annotations) &&
+            'migration.kubebao.org/source-uid' in object.metadata.annotations &&
+            object.metadata.annotations['migration.kubebao.org/source-uid'] != '') ||
+          (request.operation == 'UPDATE' && has(oldObject.metadata.annotations) &&
+            'migration.kubebao.org/source-uid' in oldObject.metadata.annotations &&
+            oldObject.metadata.annotations['migration.kubebao.org/source-uid'] != '')) &&
+        authorizer.group('kubebao.org').resource('openbaorestores').namespace(request.namespace).name(object.metadata.name).check('migrate').allowed()
+    - name: migration_status_import
+      expression: >-
+        variables.migration_import && request.operation == 'UPDATE' && request.subResource == 'status' &&
+        (!has(oldObject.status) || size(dyn(oldObject.status)) == 0)
   # Cluster and Restore share metadata but have different spec/status fields.
   # Resource guards select each schema; dynamic access also permits complete-map
   # comparisons that restrict helper writes to the submission claim.
   validations:
     - expression: >-
-        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
+        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' || variables.migration_status_import ||
         (has(object.status) && has(dyn(object.status).restart) ? dyn(object.status).restart : null) ==
         (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart : null)
       message: "Only the controller can record managed restore restarts; use the acknowledgement annotation."
@@ -86,12 +103,12 @@ spec:
          has(dyn(oldObject.status).backup.restoreTest) && has(dyn(oldObject.status).backup.restoreTest.active) &&
          (!has(dyn(oldObject.status).backup.restoreTest.active.uid) || dyn(oldObject.status).backup.restoreTest.active.uid == '') &&
          variables.new_test_acknowledgement == dyn(oldObject.status).backup.restoreTest.active.name + '/Release' &&
-         authorizer.group('openbao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
+         authorizer.group('kubebao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
       message: "Restore test release requires the active unbound run name followed by /Release and restore permission on the source cluster. Inspect the destination and stop the old controller first."
     # Approval is checked only for new requests and new targets. Revocation must
     # not block status updates, administrator handoff, or resource cleanup.
     - expression: >-
-        request.operation != 'CREATE' ||
+        request.operation != 'CREATE' || variables.migration_import ||
         !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') ||
         (namespaceObject != null && has(namespaceObject.metadata.labels) &&
          'openbao.org/restore-target-approved' in namespaceObject.metadata.labels &&
@@ -157,7 +174,7 @@ spec:
         (has(object.metadata.finalizers) && 'openbao.org/openbaorestore-finalizer' in object.metadata.finalizers)
       message: "A committed restore retains its finalizer until administrator acknowledgement."
     - expression: >-
-        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' ||
+        !variables.is_restore || variables.is_controller || request.operation == 'DELETE' || variables.migration_status_import ||
         (has(object.status) && has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition : '') ==
         (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition) ? dyn(oldObject.status).administratorDisposition : '')
       message: "Only the controller can record administrator disposition; use the acknowledgement annotation."

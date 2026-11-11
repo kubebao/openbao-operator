@@ -55,7 +55,7 @@ func TestControllerJWTMode_StorageDefaultingBoundary(t *testing.T) {
 	extensions, err := apiextensionsclient.NewForConfig(config)
 	require.NoError(t, err)
 	crd, err := extensions.ApiextensionsV1().CustomResourceDefinitions().Get(
-		ctx, "openbaoclusters.openbao.org", metav1.GetOptions{})
+		ctx, "openbaoclusters.kubebao.org", metav1.GetOptions{})
 	require.NoError(t, err)
 	for i := range crd.Spec.Versions {
 		schema := crd.Spec.Versions[i].Schema.OpenAPIV3Schema

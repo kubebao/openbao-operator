@@ -237,7 +237,8 @@ func buildReleaseIndex(cfg args) (map[string]any, error) {
 	releaseFiles := make([]string, 0, 4+len(sboms))
 	releaseFiles = append(releaseFiles, cfg.installPath, cfg.crdsPath, cfg.checksumsPath, cfg.checksumsBundlePath)
 	releaseFiles = append(releaseFiles, sboms...)
-	for _, name := range []string{"operator-policy-approval.hcl", "operator-policy-approval-with-backup.hcl"} {
+	for _, name := range []string{"operator-policy-approval.hcl", "operator-policy-approval-with-backup.hcl",
+		"api-migration-darwin-arm64", "api-migration-linux-amd64", "api-migration-linux-arm64"} {
 		releaseFiles = append(releaseFiles, filepath.Join(filepath.Dir(cfg.checksumsPath), name))
 	}
 
@@ -392,8 +393,49 @@ func buildChannelIndex(cfg args) (map[string]any, error) {
 			"signing_identity":            "https://github.com/" + cfg.checksumsSignerWorkflow + "@" + cfg.sourceRef,
 		}
 	}
+	if cfg.channel == "edge" {
+		files, err := edgeMigrationArtifacts(cfg)
+		if err != nil {
+			return nil, err
+		}
+		index["api_migration"] = map[string]any{
+			"version":                     cfg.version,
+			"source_digest":               cfg.commit,
+			"attestation_signer_workflow": cfg.repo + "/.github/workflows/reusable-channel-hardening.yml",
+			"files":                       files,
+		}
+	}
 
 	return index, nil
+}
+
+func edgeMigrationArtifacts(cfg args) ([]map[string]any, error) {
+	source, err := hex.DecodeString(cfg.commit)
+	if err != nil || len(source) != 20 || cfg.version != "edge-"+cfg.commit[:12] {
+		return nil, errors.New("edge migration version must identify the source commit")
+	}
+	checksums, err := parseChecksumsFile(cfg.checksumsPath)
+	if err != nil {
+		return nil, fmt.Errorf("parse edge checksums: %w", err)
+	}
+	var files []map[string]any
+	for _, platform := range []string{"linux-amd64", "linux-arm64", "darwin-arm64"} {
+		name := "api-migration-" + platform
+		digest, err := sha256Hex(filepath.Join(filepath.Dir(cfg.checksumsPath), name))
+		if err != nil {
+			return nil, fmt.Errorf("hash edge migration CLI %s: %w", platform, err)
+		}
+		if checksums[name] != digest {
+			return nil, fmt.Errorf("edge migration CLI %s does not match checksums.txt", platform)
+		}
+		files = append(files, map[string]any{
+			"platform":        platform,
+			"path":            name,
+			"digest":          "sha256:" + digest,
+			"attestation_api": apiAttestationURI(cfg.repo, "sha256:"+digest),
+		})
+	}
+	return files, nil
 }
 
 func buildReleaseImages(cfg args) []map[string]any {
