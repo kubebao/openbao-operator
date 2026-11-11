@@ -271,11 +271,15 @@ when required. If you do not need overrides, create an empty file with `touch op
 {{< command label="inspect" title="Render the local edge chart" >}}
 helm template openbao-operator charts/openbao-operator \
   --namespace openbao-operator-system \
+  --kube-version <kubernetes-version> \
   --values operator-values.yaml \
   --include-crds \
   --set image.tag=edge \
   --set operatorVersion=edge
 {{< /command >}}
+
+Replace `<kubernetes-version>` with the target cluster's version, such as `1.36.0`. Without `--kube-version`,
+`helm template` uses Helm's built-in default, which Helm 3.18 and older set below the chart's 1.34 minimum.
 
 Review the controller and Provisioner ServiceAccounts, RoleBinding subjects, admission-policy identities, projected
 token audience, images, and namespaces before applying the render.
