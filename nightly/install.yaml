@@ -3,9 +3,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: openbaoclusters.openbao.org
+  name: openbaoclusters.kubebao.org
 spec:
-  group: openbao.org
+  group: kubebao.org
   names:
     kind: OpenBaoCluster
     listKind: OpenBaoClusterList
@@ -1997,7 +1997,9 @@ spec:
                   Existing clusters that omit the field retain Shared authentication on reads and updates.
                   Shared preserves the installation-wide
                   projected JWT. Target requests a short-lived JWT whose sole audience is
-                  urn:openbao:controller:<metadata.uid>. Prepare the OpenBao controller role
+                  urn:openbao:controller:<metadata.uid>, or, for a Cluster imported by an API
+                  group migration, the UID named by its migration.kubebao.org/source-uid
+                  marker. Prepare the OpenBao controller role
                   before switching an initialized cluster to Target. Target never falls back
                   to the shared JWT. Target requires self-init and self-init OIDC to be enabled.
                   Executor Job authentication is unchanged.
@@ -7676,9 +7678,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: openbaorestores.openbao.org
+  name: openbaorestores.kubebao.org
 spec:
-  group: openbao.org
+  group: kubebao.org
   names:
     kind: OpenBaoRestore
     listKind: OpenBaoRestoreList
@@ -9436,9 +9438,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: openbaotenants.openbao.org
+  name: openbaotenants.kubebao.org
 spec:
-  group: openbao.org
+  group: kubebao.org
   names:
     kind: OpenBaoTenant
     listKind: OpenBaoTenantList
@@ -9808,7 +9810,7 @@ metadata:
   name: openbao-operator-controller-openbaocluster-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -9846,7 +9848,7 @@ metadata:
   name: openbao-operator-controller-openbaorestore-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaorestores
   verbs:
@@ -9891,13 +9893,13 @@ metadata:
   name: openbao-operator-openbaocluster-admin-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
   - '*'
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters/status
   verbs:
@@ -9912,7 +9914,7 @@ metadata:
   name: openbao-operator-openbaocluster-cloud-identity-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -9928,7 +9930,7 @@ metadata:
   name: openbao-operator-openbaocluster-editor-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -9940,7 +9942,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters/status
   verbs:
@@ -9955,7 +9957,7 @@ metadata:
   name: openbao-operator-openbaocluster-helper-image-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -9972,7 +9974,7 @@ metadata:
   name: openbao-operator-openbaocluster-image-trust-roots-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -9988,14 +9990,14 @@ metadata:
   name: openbao-operator-openbaocluster-maintenance-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
   - get
   - maintenance
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters/status
   verbs:
@@ -10010,7 +10012,7 @@ metadata:
   name: openbao-operator-openbaocluster-network-publication-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -10026,7 +10028,7 @@ metadata:
   name: openbao-operator-openbaocluster-restore-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -10042,7 +10044,7 @@ metadata:
   name: openbao-operator-openbaocluster-viewer-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   verbs:
@@ -10050,7 +10052,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters/status
   verbs:
@@ -10065,7 +10067,7 @@ metadata:
   name: openbao-operator-openbaotenant-editor-role
 rules:
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaotenants
   verbs:
@@ -10077,7 +10079,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaotenants/status
   verbs:
@@ -10101,7 +10103,7 @@ rules:
   - update
   - patch
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaotenants
   - openbaotenants/status
@@ -10113,7 +10115,7 @@ rules:
   - update
   - patch
 - apiGroups:
-  - openbao.org
+  - kubebao.org
   resources:
   - openbaoclusters
   - openbaorestores
@@ -10452,10 +10454,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261110-88ecc2f0007b
+          value: nightly-20261112-587dd16386bc
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:3b528f35fcc6407db40b60e64e6e26dc231042d4c15464e20c0ee921dbcf2317
+        image: ghcr.io/kubebao/openbao-operator@sha256:fd84dfb51b6d2460640b696e7fd48b8587227f1db7a0c0f87b71accf40372766
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10576,8 +10578,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261110-88ecc2f0007b
-        image: ghcr.io/kubebao/openbao-operator@sha256:3b528f35fcc6407db40b60e64e6e26dc231042d4c15464e20c0ee921dbcf2317
+          value: nightly-20261112-587dd16386bc
+        image: ghcr.io/kubebao/openbao-operator@sha256:fd84dfb51b6d2460640b696e7fd48b8587227f1db7a0c0f87b71accf40372766
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10692,7 +10694,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:627820bc18fd51560abba40676513db8ee408314c480a5bc381de5bb86bf9d46
+    openbao.org/admission-policy-fingerprint: sha256:02f9f8c7614b9be65de3855f8f3cb555eacd5fa80192f6a1153045b8b8fd2a26
   name: openbao-operator-openbao-lock-controller-statefulset-mutations
 spec:
   failurePolicy: Fail
@@ -10790,7 +10792,7 @@ spec:
   - expression: |-
       object.metadata.ownerReferences == oldObject.metadata.ownerReferences && oldObject.metadata.ownerReferences.exists(o,
 
-        o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
+        o.apiVersion == 'kubebao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) &&
       oldObject.spec.template.spec.volumes.exists(v,
 
         v.name == 'self-init-inputs' && has(v.projected) &&
@@ -10802,7 +10804,7 @@ spec:
   - expression: object.spec.template.spec.volumes.filter(v, v.name == 'kube-api-access')
     name: api_volumes
   - expression: |-
-      oldObject.spec.replicas == 1 && object.spec.replicas == 1 && object.spec.updateStrategy.type == 'OnDelete' && oldObject.spec.template.spec.enableServiceLinks == false && object.spec.template.spec.automountServiceAccountToken == false && object.spec.template.spec.serviceAccountName == oldObject.spec.template.spec.serviceAccountName && object.metadata.ownerReferences == oldObject.metadata.ownerReferences && oldObject.metadata.ownerReferences.exists(o, o.apiVersion == 'openbao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) && oldObject.spec.template.spec.volumes.all(v, v.name != 'kube-api-access') && variables.api_volumes.size() == 1 && variables.api_volumes.all(v,
+      oldObject.spec.replicas == 1 && object.spec.replicas == 1 && object.spec.updateStrategy.type == 'OnDelete' && oldObject.spec.template.spec.enableServiceLinks == false && object.spec.template.spec.automountServiceAccountToken == false && object.spec.template.spec.serviceAccountName == oldObject.spec.template.spec.serviceAccountName && object.metadata.ownerReferences == oldObject.metadata.ownerReferences && oldObject.metadata.ownerReferences.exists(o, o.apiVersion == 'kubebao.org/v1alpha1' && o.kind == 'OpenBaoCluster' && o.controller) && oldObject.spec.template.spec.volumes.all(v, v.name != 'kube-api-access') && variables.api_volumes.size() == 1 && variables.api_volumes.all(v,
 
         has(v.projected) && v.projected.defaultMode == 288 && v.projected.sources.size() == 3 &&
         has(v.projected.sources[0].serviceAccountToken) &&
@@ -10827,7 +10829,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:56374a99adcf4041536eb619c7bddb62f23afa847f5f417a34c7860fa0ab14e2
+    openbao.org/admission-policy-fingerprint: sha256:66b5891df015eb6070db2b1a160f753d96f946f3f52bd23195cbc9a89eb8100e
   name: openbao-operator-openbao-lock-managed-resource-mutations
 spec:
   failurePolicy: Fail
@@ -11122,7 +11124,7 @@ spec:
   - expression: |-
       object != null && request.namespace != "" && has(object.metadata.labels) && ("app.kubernetes.io/managed-by" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in object.metadata.labels) && object.metadata.labels["openbao.org/cluster"] != "" && object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-api-server" && has(object.metadata.annotations) && ("openbao.org/owner-uid" in object.metadata.annotations) && has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(ref,
 
-        ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+        ref.apiVersion == "kubebao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
         ref.name == object.metadata.labels["openbao.org/cluster"] &&
         ref.uid == object.metadata.annotations["openbao.org/owner-uid"] &&
         has(ref.controller) && ref.controller)
@@ -11130,7 +11132,7 @@ spec:
   - expression: |-
       oldObject != null && request.namespace != "" && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-api-server" && has(oldObject.metadata.annotations) && ("openbao.org/owner-uid" in oldObject.metadata.annotations) && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
 
-        ref.apiVersion == "openbao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
+        ref.apiVersion == "kubebao.org/v1alpha1" && ref.kind == "OpenBaoCluster" &&
         ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
         ref.uid == oldObject.metadata.annotations["openbao.org/owner-uid"] &&
         has(ref.controller) && ref.controller)
@@ -11141,7 +11143,7 @@ spec:
   - expression: |-
       object != null && has(object.metadata) && request.namespace != "" && object.metadata.name.endsWith("-metrics") && has(object.metadata.labels) && ("app.kubernetes.io/managed-by" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("app.kubernetes.io/component" in object.metadata.labels) && object.metadata.labels["app.kubernetes.io/component"] == "metrics" && ("openbao.org/component" in object.metadata.labels) && object.metadata.labels["openbao.org/component"] == "metrics" && ("openbao.org/cluster" in object.metadata.labels) && object.metadata.labels["openbao.org/cluster"] != "" && object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-metrics" && has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(ref,
 
-        ref.apiVersion == "openbao.org/v1alpha1" &&
+        ref.apiVersion == "kubebao.org/v1alpha1" &&
         ref.kind == "OpenBaoCluster" &&
         ref.name == object.metadata.labels["openbao.org/cluster"] &&
         has(ref.controller) &&
@@ -11150,7 +11152,7 @@ spec:
   - expression: |-
       oldObject != null && has(oldObject.metadata) && request.namespace != "" && oldObject.metadata.name.endsWith("-metrics") && has(oldObject.metadata.labels) && ("app.kubernetes.io/managed-by" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "openbao-operator" && ("app.kubernetes.io/component" in oldObject.metadata.labels) && oldObject.metadata.labels["app.kubernetes.io/component"] == "metrics" && ("openbao.org/component" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/component"] == "metrics" && ("openbao.org/cluster" in oldObject.metadata.labels) && oldObject.metadata.labels["openbao.org/cluster"] != "" && oldObject.metadata.name == oldObject.metadata.labels["openbao.org/cluster"] + "-metrics" && has(oldObject.metadata.ownerReferences) && oldObject.metadata.ownerReferences.exists(ref,
 
-        ref.apiVersion == "openbao.org/v1alpha1" &&
+        ref.apiVersion == "kubebao.org/v1alpha1" &&
         ref.kind == "OpenBaoCluster" &&
         ref.name == oldObject.metadata.labels["openbao.org/cluster"] &&
         has(ref.controller) &&
@@ -11454,7 +11456,7 @@ spec:
             variables.maintenance_old_labels["app.kubernetes.io/instance"] : ""))
     name: maintenance_cluster_name
   - expression: |-
-      variables.maintenance_enabled && request.namespace != "" && variables.maintenance_cluster_name != "" && authorizer.group("openbao.org").
+      variables.maintenance_enabled && request.namespace != "" && variables.maintenance_cluster_name != "" && authorizer.group("kubebao.org").
 
         resource("openbaoclusters").
         namespace(request.namespace).
@@ -11485,14 +11487,14 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8
+    openbao.org/admission-policy-fingerprint: sha256:173754c373a6294c06b91ca6c9d307e1c0d8411020a5b3a6f4426fa3cc916add
   name: openbao-operator-openbao-protect-restore-execution
 spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
     - apiGroups:
-      - openbao.org
+      - kubebao.org
       apiVersions:
       - v1alpha1
       operations:
@@ -11503,7 +11505,7 @@ spec:
       - openbaorestores/status
       - openbaoclusters
     - apiGroups:
-      - openbao.org
+      - kubebao.org
       apiVersions:
       - v1alpha1
       operations:
@@ -11513,9 +11515,10 @@ spec:
       - openbaorestores
   validations:
   - expression: '!variables.is_restore || variables.is_controller || request.operation
-      == ''DELETE'' || (has(object.status) && has(dyn(object.status).restart) ? dyn(object.status).restart
-      : null) == (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).restart)
-      ? dyn(oldObject.status).restart : null)'
+      == ''DELETE'' || variables.migration_status_import || (has(object.status) &&
+      has(dyn(object.status).restart) ? dyn(object.status).restart : null) == (oldObject
+      != null && has(oldObject.status) && has(dyn(oldObject.status).restart) ? dyn(oldObject.status).restart
+      : null)'
     message: Only the controller can record managed restore restarts; use the acknowledgement
       annotation.
   - expression: |-
@@ -11524,12 +11527,12 @@ spec:
        has(dyn(oldObject.status).backup.restoreTest) && has(dyn(oldObject.status).backup.restoreTest.active) &&
        (!has(dyn(oldObject.status).backup.restoreTest.active.uid) || dyn(oldObject.status).backup.restoreTest.active.uid == '') &&
        variables.new_test_acknowledgement == dyn(oldObject.status).backup.restoreTest.active.name + '/Release' &&
-       authorizer.group('openbao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
+       authorizer.group('kubebao.org').resource('openbaoclusters').namespace(request.namespace).name(oldObject.metadata.name).check('restore').allowed())
     message: Restore test release requires the active unbound run name followed by
       /Release and restore permission on the source cluster. Inspect the destination
       and stop the old controller first.
   - expression: |-
-      request.operation != 'CREATE' || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null && has(namespaceObject.metadata.labels) &&
+      request.operation != 'CREATE' || variables.migration_import || !(variables.is_restore ? has(dyn(object.spec).clusterTemplate) : variables.new_origin != '') || (namespaceObject != null && has(namespaceObject.metadata.labels) &&
 
        'openbao.org/restore-target-approved' in namespaceObject.metadata.labels &&
        namespaceObject.metadata.labels['openbao.org/restore-target-approved'] == 'true')
@@ -11597,9 +11600,9 @@ spec:
       in object.metadata.finalizers)'
     message: A committed restore retains its finalizer until administrator acknowledgement.
   - expression: '!variables.is_restore || variables.is_controller || request.operation
-      == ''DELETE'' || (has(object.status) && has(dyn(object.status).administratorDisposition)
-      ? dyn(object.status).administratorDisposition : '''') == (oldObject != null
-      && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition)
+      == ''DELETE'' || variables.migration_status_import || (has(object.status) &&
+      has(dyn(object.status).administratorDisposition) ? dyn(object.status).administratorDisposition
+      : '''') == (oldObject != null && has(oldObject.status) && has(dyn(oldObject.status).administratorDisposition)
       ? dyn(oldObject.status).administratorDisposition : '''')'
     message: Only the controller can record administrator disposition; use the acknowledgement
       annotation.
@@ -11688,6 +11691,20 @@ spec:
 
         object.metadata.annotations['openbao.org/restore-test-acknowledge'] : ''
     name: new_test_acknowledgement
+  - expression: |-
+      variables.is_restore && (
+
+        (request.operation == 'CREATE' && has(object.metadata.annotations) &&
+          'migration.kubebao.org/source-uid' in object.metadata.annotations &&
+          object.metadata.annotations['migration.kubebao.org/source-uid'] != '') ||
+        (request.operation == 'UPDATE' && has(oldObject.metadata.annotations) &&
+          'migration.kubebao.org/source-uid' in oldObject.metadata.annotations &&
+          oldObject.metadata.annotations['migration.kubebao.org/source-uid'] != '')) &&
+      authorizer.group('kubebao.org').resource('openbaorestores').namespace(request.namespace).name(object.metadata.name).check('migrate').allowed()
+    name: migration_import
+  - expression: variables.migration_import && request.operation == 'UPDATE' && request.subResource
+      == 'status' && (!has(oldObject.status) || size(dyn(oldObject.status)) == 0)
+    name: migration_status_import
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
@@ -11722,9 +11739,9 @@ spec:
           (
             variables.component_label in ["backup", "restore"] &&
             (dyn(object).rules.size() == 1 || (variables.component_label == "restore" && dyn(object).rules.size() == 3 &&
-              dyn(object).rules[1].apiGroups == ["openbao.org"] && dyn(object).rules[1].resources == ["openbaorestores"] &&
+              dyn(object).rules[1].apiGroups == ["kubebao.org"] && dyn(object).rules[1].resources == ["openbaorestores"] &&
               dyn(object).rules[1].verbs == ["get"] && has(dyn(object).rules[1].resourceNames) && dyn(object).rules[1].resourceNames.size() == 1 &&
-              dyn(object).rules[2].apiGroups == ["openbao.org"] && dyn(object).rules[2].resources == ["openbaorestores/status"] &&
+              dyn(object).rules[2].apiGroups == ["kubebao.org"] && dyn(object).rules[2].resources == ["openbaorestores/status"] &&
               dyn(object).rules[2].verbs == ["patch"] && dyn(object).rules[2].resourceNames == dyn(object).rules[1].resourceNames)) &&
             dyn(object).rules[0].apiGroups == [""] &&
             dyn(object).rules[0].resources == ["pods"] &&
@@ -11783,7 +11800,7 @@ spec:
            object.metadata.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-rolebinding" &&
            dyn(object).roleRef.name == object.metadata.labels["openbao.org/cluster"] + "-restore-serviceaccount-role" &&
            has(object.metadata.ownerReferences) && object.metadata.ownerReferences.exists(owner,
-             owner.apiVersion == "openbao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
+             owner.apiVersion == "kubebao.org/v1alpha1" && owner.kind == "OpenBaoCluster" &&
              owner.name == object.metadata.labels["openbao.org/cluster"] && owner.uid != "" &&
              has(owner.controller) && owner.controller))
         )
@@ -12159,7 +12176,7 @@ spec:
         dyn(object).rules.all(rule,
           (
             rule.apiGroups.size() == 1 &&
-            rule.apiGroups[0] == 'openbao.org' &&
+            rule.apiGroups[0] == 'kubebao.org' &&
             rule.resources != null &&
             (
               (rule.resources.size() == 3 && rule.resources.all(r, r in ['openbaoclusters', 'openbaoclusters/status', 'openbaoclusters/finalizers'])) ||
@@ -12170,7 +12187,7 @@ spec:
           ) ||
           (
             rule.apiGroups.size() == 1 &&
-            rule.apiGroups[0] == 'openbao.org' &&
+            rule.apiGroups[0] == 'kubebao.org' &&
             rule.resources != null &&
             rule.resources.size() == 1 &&
             rule.resources[0] == 'openbaoclusters' &&
@@ -12608,7 +12625,7 @@ spec:
   matchConstraints:
     resourceRules:
     - apiGroups:
-      - openbao.org
+      - kubebao.org
       apiVersions:
       - v1alpha1
       operations:
@@ -12640,7 +12657,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:c1251c37fc34b9d3b5bc8d4250fe608770e227ff416a75ba21ddbd68fef9c469
+    openbao.org/admission-policy-fingerprint: sha256:fe9f23caf1c9bf9c8c75a6eafbe1162720bb7db549a1faf36677f95f5d524b4a
   name: openbao-operator-openbao-validate-openbaocluster
 spec:
   failurePolicy: Fail
@@ -12654,7 +12671,7 @@ spec:
   matchConstraints:
     resourceRules:
     - apiGroups:
-      - openbao.org
+      - kubebao.org
       apiVersions:
       - v1alpha1
       operations:
@@ -12663,12 +12680,16 @@ spec:
       resources:
       - openbaoclusters
   validations:
+  - expression: variables.migration_source_uid == variables.previous_migration_source_uid
+      || (request.operation == "CREATE" && variables.migration_authorized)
+    message: migration.kubebao.org/source-uid is reserved for API migration imports
+      and cannot be changed or removed
   - expression: request.operation != 'UPDATE' || !variables.old_static_unseal || !variables.new_static_unseal
       || variables.old_unseal_secret == variables.new_unseal_secret
     message: spec.unseal.credentialsSecretRef cannot be added, changed, or removed
       on a static-unseal cluster; a different key source would leave OpenBao sealed.
   - expression: '!variables.restore_test_authorization_required || !variables.has_restore_target_cloud_identity_metadata
-      || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()'
+      || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()'
     message: Restore target workload identities require destination cloud identity
       delegation.
   - expression: '!variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.serviceAccount)
@@ -12680,11 +12701,11 @@ spec:
       || !object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef.name.matches("^.*-(unseal-key|root-token|tls-ca|tls-server)$")'
     message: Restore target unseal credentials must not reference operator-managed
       system Secrets; prepare a separate destination Secret.
-  - expression: '!variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaorestores").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()'
+  - expression: '!variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaorestores").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()'
     message: Restore testing requires create authority for destination openbaorestores.
-  - expression: '!variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()'
+  - expression: '!variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("create").allowed()'
     message: Restore testing requires create authority for destination openbaoclusters.
-  - expression: '!variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("restore").allowed()'
+  - expression: '!variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("restore").allowed()'
     message: Restore testing requires restore authority for destination openbaoclusters.
   - expression: |-
       !variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.clusterTemplate.unseal.credentialsSecretRef) ||
@@ -12700,7 +12721,7 @@ spec:
       authorizer.group("").resource("secrets").namespace(object.spec.backup.restoreTest.namespace).name(ref.name).check("get").allowed())'
     message: Restore testing requires access to destination image pull Secrets.
   - expression: |-
-      !variables.restore_test_authorization_required || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecustomexecutables").allowed() || ((!has(object.spec.backup.image) || object.spec.backup.image == '') &&
+      !variables.restore_test_authorization_required || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecustomexecutables").allowed() || ((!has(object.spec.backup.image) || object.spec.backup.image == '') &&
 
         (!has(object.spec.backup.restoreTest.clusterTemplate.image) || object.spec.backup.restoreTest.clusterTemplate.image == '') &&
         (!has(object.spec.backup.restoreTest.clusterTemplate.initContainer) || !has(object.spec.backup.restoreTest.clusterTemplate.initContainer.image) || object.spec.backup.restoreTest.clusterTemplate.initContainer.image == '') &&
@@ -12708,7 +12729,7 @@ spec:
     message: Custom restore test images require destination executable delegation.
   - expression: '!variables.restore_test_authorization_required || ((!has(object.spec.backup.restoreTest.roleArn)
       || object.spec.backup.restoreTest.roleArn == '''') && !has(object.spec.backup.restoreTest.workloadIdentity))
-      || authorizer.group("openbao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()'
+      || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(object.spec.backup.restoreTest.namespace).check("usecloudidentities").allowed()'
     message: Restore test workload identities require destination cloud identity delegation.
   - expression: '!variables.restore_test_authorization_required || !has(object.spec.backup.restoreTest.serviceAccountName)
       || authorizer.group("").resource("serviceaccounts").namespace(object.spec.backup.restoreTest.namespace).name(object.spec.backup.restoreTest.serviceAccountName).check("use").allowed()'
@@ -12719,7 +12740,7 @@ spec:
       == '''' || authorizer.group("storage.k8s.io").resource("storageclasses").name(object.spec.backup.restoreTest.clusterTemplate.storage.storageClassName).check("use").allowed()'
     message: Restore testing requires use authority for the destination StorageClass.
   - expression: request.operation != "CREATE" || (has(object.spec.controllerJWTMode)
-      && object.spec.controllerJWTMode == "Target")
+      && object.spec.controllerJWTMode == "Target") || variables.is_authorized_migration_import
     message: spec.controllerJWTMode is required to be Target when creating a cluster
   - expression: |-
       !has(object.spec.controllerJWTMode) || object.spec.controllerJWTMode != "Target" || (has(object.spec.selfInit) && object.spec.selfInit.enabled &&
@@ -13627,14 +13648,14 @@ spec:
       && (oldObject.status.upgrade.currentPartition < oldObject.spec.replicas || (has(oldObject.status.upgrade.completedPods)
       && size(oldObject.status.upgrade.completedPods) > 0))
     name: rolling_upgrade_progress_started
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecustomexecutables").allowed()
-      || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usehelperimages").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecustomexecutables").allowed()
+      || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usehelperimages").allowed()
     name: custom_executables_authorized
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("useimagetrustroots").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("useimagetrustroots").allowed()
     name: image_trust_roots_authorized
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecloudidentities").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("usecloudidentities").allowed()
     name: cloud_identities_authorized
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("publishnetworking").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("publishnetworking").allowed()
     name: network_publication_authorized
   - expression: |-
       (
@@ -13815,19 +13836,34 @@ spec:
         (has(object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels) && object.spec.backup.restoreTest.clusterTemplate.podMetadata.labels.exists(key,
           key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
     name: has_restore_target_cloud_identity_metadata
+  - expression: |-
+      has(object.metadata.annotations) && "migration.kubebao.org/source-uid" in object.metadata.annotations ?
+
+        object.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    name: migration_source_uid
+  - expression: |-
+      oldObject != null && has(oldObject.metadata.annotations) && "migration.kubebao.org/source-uid" in oldObject.metadata.annotations ?
+
+        oldObject.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    name: previous_migration_source_uid
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.metadata.name).check("migrate").allowed()
+    name: migration_authorized
+  - expression: request.operation == "CREATE" && variables.migration_source_uid !=
+      "" && variables.migration_authorized
+    name: is_authorized_migration_import
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:9293c5d0e32b8d15b89894ca22fc4c129ce6dc5c8f2da0306f90b2158a3ce542
+    openbao.org/admission-policy-fingerprint: sha256:064ae955a11c165715ca193dd210fd6df0870cdda3754dddd9f1f7dfc9a1dc01
   name: openbao-operator-openbao-validate-openbaorestore
 spec:
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
     - apiGroups:
-      - openbao.org
+      - kubebao.org
       apiVersions:
       - v1alpha1
       operations:
@@ -13836,11 +13872,17 @@ spec:
       resources:
       - openbaorestores
   validations:
+  - expression: |-
+      variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == "CREATE" &&
+
+        authorizer.group("kubebao.org").resource("openbaorestores").namespace(request.namespace).name(object.metadata.name).check("migrate").allowed())
+    message: migration.kubebao.org/source-uid is reserved for API migration imports
+      and cannot be changed or removed
   - expression: variables.delegated_authority || !has(object.spec.serviceAccountName)
       || authorizer.group("").resource("serviceaccounts").namespace(request.namespace).name(object.spec.serviceAccountName).check("use").allowed()
     message: Restore executors require use authority for their existing ServiceAccount.
   - expression: variables.delegated_authority || !has(object.spec.clusterTemplate)
-      || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
+      || !variables.has_restore_target_cloud_identity_metadata || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
     message: Restore target workload identities require destination cloud identity
       delegation.
   - expression: variables.delegated_authority || !has(object.spec.clusterTemplate)
@@ -13855,7 +13897,7 @@ spec:
       variables.delegated_authority || (
 
         !has(object.spec.clusterTemplate) ||
-        authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).check("create").allowed()
+        authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).check("create").allowed()
       )
     message: Fresh restore targets require permission to create OpenBaoClusters.
   - expression: |-
@@ -14000,12 +14042,12 @@ spec:
     name: restore_endpoint_host_is_ambiguous_ip
   - expression: variables.restore_endpoint_hostname_normalized.matches("^[a-z0-9]([-a-z0-9]*[a-z0-9])?\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?\\.svc(\\.cluster\\.local)?$")
     name: restore_endpoint_is_in_cluster_service
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecustomexecutables").allowed()
-      || authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usehelperimages").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecustomexecutables").allowed()
+      || authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usehelperimages").allowed()
     name: custom_executables_authorized
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("usecloudidentities").allowed()
     name: cloud_identities_authorized
-  - expression: authorizer.group("openbao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("restore").allowed()
+  - expression: authorizer.group("kubebao.org").resource("openbaoclusters").namespace(request.namespace).name(object.spec.cluster).check("restore").allowed()
     name: restore_authorized
   - expression: |-
       has(object.spec.source.target.s3) && has(object.spec.source.target.s3.roleArn)
@@ -14038,6 +14080,16 @@ spec:
         (has(object.spec.clusterTemplate.podMetadata.labels) && object.spec.clusterTemplate.podMetadata.labels.exists(key,
           key.startsWith("azure.workload.identity/") || key == "aadpodidbinding")))))
     name: has_restore_target_cloud_identity_metadata
+  - expression: |-
+      has(object.metadata.annotations) && "migration.kubebao.org/source-uid" in object.metadata.annotations ?
+
+        object.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    name: migration_source_uid
+  - expression: |-
+      oldObject != null && has(oldObject.metadata.annotations) && "migration.kubebao.org/source-uid" in oldObject.metadata.annotations ?
+
+        oldObject.metadata.annotations["migration.kubebao.org/source-uid"] : ""
+    name: previous_migration_source_uid
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
