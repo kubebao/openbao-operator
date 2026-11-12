@@ -104,7 +104,8 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
 ### Flux HelmRelease checklist
 
 1. Complete [preflight](#before-you-start) and [configuration](#write-the-configuration). Set `release` to the existing
-   Helm release name and preserve its storage and target namespaces.
+   Helm release name and preserve its storage and target namespaces. The command runs the `helm` executable that it
+   finds on `PATH`, and `plan` refuses any version other than Helm 4.
 2. [Suspend sync](#suspend-gitops-sync) for the HelmRelease and its parents. Confirm that parent reconciliation
    cannot clear the suspension before running `plan`.
 3. [Migrate](#migrate-the-installation). The command drives the Helm transitions; leave the HelmRelease suspended.
@@ -141,8 +142,8 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
   no managed restart or target cleanup in progress.
 - No `OpenBaoTenant` is being deleted.
 - Every Cluster has a recent backup with a rehearsed [restore path](../restore/).
-- You have cluster administrator access, `kubectl`, and, for a Helm installation, Helm 4 as the `helm` executable
-  on `PATH`.
+- You have cluster administrator access and `kubectl`. For a Helm CLI or Flux HelmRelease installation, Helm 4 is
+  the `helm` executable on `PATH`: the command runs it for both routes.
 - Every GitOps controller that manages the operator or its resources is suspended. See [Suspend GitOps sync](#suspend-gitops-sync).
 {{< /checklist >}}
 
@@ -284,20 +285,23 @@ wait for the site deployment and retry, or select an earlier edge commit.
 
 Require successful attestation and checksum verification and a printed version matching `version` in the selected
 metadata. `gh attestation verify` exits with status 0 on success and can print nothing when its output is not a
-terminal. Unpack the chart archive in that bundle and set `destinationChart` to the unpacked directory. For Argo CD,
-pin the chart version or digest from the same metadata. Keep this binary and state directory for every command, including
+terminal. Unpack the chart archive in that bundle and set `destinationChart` to the unpacked directory. For Argo CD or a
+Flux chart source, pin the chart version or digest from the same metadata. Keep this binary and state directory for every command, including
 rollback. Resuming with a binary whose destination version differs from the saved plan is refused before cluster
 access. Continue with the preparation and GitOps steps below; edge delivery does not remove migration prerequisites.
 
 ## Suspend GitOps sync
 
-1. Identify the controllers that manage the operator and its OpenBao resources, including their parents. `plan`
-   prints the detected freeze requirements, even when an active controller blocks planning. The report lists
+1. Identify the controllers that manage the operator and its OpenBao resources, including their parents.
+   [Write the configuration](#write-the-configuration) first: `plan` then prints the detected freeze requirements,
+   even when an active controller blocks planning. The report lists
    parents before children and identifies unknown or remotely managed controllers. Review the detected list
    against your actual hierarchy.
 2. Suspend the outermost parents, then their children. Keep them suspended until the command finishes and Git
    describes the surviving installation:
-   - Set `spec.suspend: true` on Flux Kustomizations and HelmReleases.
+   - Set `spec.suspend: true` on Flux Kustomizations and HelmReleases, for example with
+     `flux suspend kustomization <name> -n <namespace>` or `flux suspend helmrelease <name> -n <namespace>`.
+     Flux sources such as GitRepository and OCIRepository only fetch artifacts and stay active.
    - Disable automatic sync on Argo CD Applications, for example with
      `argocd app set <application> --sync-policy none`, or with
      `kubectl -n argocd patch application <application> --type json -p '[{"op":"remove","path":"/spec/syncPolicy/automated"}]'`.
@@ -491,8 +495,10 @@ while preparing these changes:
    that children remain suspended. For Flux, wait for each source to be Ready at its current observed generation
    and to serve the intended `status.artifact.revision`. An old Ready condition alone is insufficient.
 5. Review the child output, then remove child suspension in a separate Git change or resume the child manually.
-   Require reconciliation of the intended revision. A HelmRelease must see the destination chart before it resumes;
-   otherwise it can install the previous chart again.
+   Flux keeps a suspension set with `flux suspend` or `kubectl` after Git drops the field, so also run
+   `flux resume` for each child. Require reconciliation of the intended revision. A HelmRelease must see the
+   destination chart before it resumes; otherwise it can install the previous chart again. Its first
+   reconciliation can add a Helm revision with the same chart.
 
 Before allowing pruning of old CRDs, confirm that no `openbao.org` resource remains in any namespace. If another
 installation still needs those CRDs, keep them protected from pruning. See [Clean up after the migration](#clean-up-after-the-migration).
@@ -526,7 +532,7 @@ prepared destination changes in Git. Use the same staged parent/source/child seq
 If you staged no destination change, Git still describes the source and needs no change. Confirm that each live
 Argo CD Application source matches Git. If a live Application keeps checkpoint values, follow the parent and child
 steps of the hand-back to replace them. Then confirm that each controller's desired state matches the live source
-and restore the recorded sync settings.
+and restore the recorded sync settings. For Flux, run `flux resume` for each object you suspended, parents first.
 
 To migrate again after a rollback, create a new plan in a new state directory. Rollback keeps the `kubebao.org`
 CRDs, which the next migration uses. While both groups are installed, qualify resource names with their group.
