@@ -536,7 +536,9 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 		"   Resume a child only after its own source artifact matches that output.\n" +
 		"   Imported resources lack the old GitOps tracking metadata, so Argo CD reports them OutOfSync until\n" +
 		"   their first sync adds it. Checkpoint values set on a live Application must not remain: confirm that\n" +
-		"   its source matches Git after the parent applies the staged revision.\n")
+		"   its source matches Git after the parent applies the staged revision. Server-side apply can retain\n" +
+		"   checkpoint fields. If needed, use JSON Patch to replace the complete spec.source or spec.sources\n" +
+		"   field from reviewed Git while child automatic sync remains disabled, then compare again.\n")
 	for _, manager := range p.plan.GitOps {
 		fmt.Fprintf(&b, "   - %s (manages %s)\n", manager, strings.Join(manager.Manages, ", "))
 		if manager.Kind == fluxHelmRelease.Kind {

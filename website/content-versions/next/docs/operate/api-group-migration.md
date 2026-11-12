@@ -530,6 +530,8 @@ while preparing these changes:
    that children remain suspended. For Flux, wait for each source to be Ready at its current observed generation
    and to serve the intended `status.artifact.revision`. An old Ready condition alone is insufficient.
 5. Review the child output, then remove child suspension in a separate Git change or resume the child manually.
+   For Argo CD, first confirm that the complete live `spec.source` or `spec.sources` matches the reviewed Git
+   configuration. Replace any retained checkpoint values as described below before enabling child automatic sync.
    Flux keeps a suspension set with `flux suspend` or `kubectl` after Git drops the field, so also run
    `flux resume` for each child. Require reconciliation of the intended revision. A HelmRelease must see the
    destination chart before it resumes; otherwise it can install the previous chart again. Its first
@@ -546,8 +548,24 @@ Imported copies do not inherit their source's GitOps tracking annotation or Flux
 tracks the destination when the reviewed Git state names it. Argo CD reports imported resources as OutOfSync until
 their first sync adds the tracking annotation; that sync does not change their specifications.
 
-Checkpoint values set directly on a live Argo CD Application do not stay: a parent that applies the staged
-revision with server-side apply replaces the Application's source list. Confirm that the live source matches Git.
+Argo CD server-side apply can retain fields added by a live checkpoint patch, including values inside
+`spec.source.helm.valuesObject`. Reapplying Git does not prove that those fields were removed. If the live source
+differs, keep child automatic sync disabled and use JSON Patch to replace the complete source field from reviewed
+Git. A merge patch can retain omitted values too. Compare the complete source again before resuming the child.
+
+For a single-source Application, save its reviewed Git manifest as `operator-application.yaml`. Generate a patch
+that replaces only `spec.source`, then apply it to that Application:
+
+```sh
+kubectl create --dry-run=client -f operator-application.yaml -o json > operator-application.json
+jq -e '.spec.source | select(type == "object") |
+  [{op: "replace", path: "/spec/source", value: .}]' \
+  operator-application.json > application-source-patch.json
+kubectl patch -f operator-application.yaml --type=json --patch-file application-source-patch.json
+```
+
+For a multi-source Application, generate the replacement for `/spec/sources` from the reviewed `.spec.sources`
+array instead. The patch must replace the source field; it must not restore automatic sync before verification.
 
 ## Roll back
 
