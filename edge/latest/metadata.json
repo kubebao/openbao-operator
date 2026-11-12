@@ -1,4 +1,16 @@
 {
+  "api_migration": {
+    "artifact_name": "manifests-edge",
+    "artifact_url": "https://github.com/kubebao/openbao-operator/actions/runs/43125698926/artifacts/13902637951",
+    "platforms": [
+      "linux-amd64",
+      "linux-arm64",
+      "darwin-arm64"
+    ],
+    "retention_days": 7,
+    "run_id": "43125698926",
+    "version": "edge-587dd16386bc"
+  },
   "artifacts": {
     "checksums_bundle": "checksums.txt.bundle",
     "checksums_txt": "checksums.txt",
@@ -8,30 +20,30 @@
   },
   "channel": "edge",
   "chart": {
-    "digest": "sha256:e04b4fb27d12649e4b8f66e26d527223c6dc06ca6bd89eb8c594468b51df9e01",
+    "digest": "sha256:e483bd6762e69f108c6b70da2381f4f6fb5b3b1b0070862909c684e128144260",
     "ref": "ghcr.io/kubebao/charts-edge/openbao-operator",
-    "version": "0.0.0-edge.43044482778.1.gf9242f967d20"
+    "version": "0.0.0-edge.43118921813.1.g587dd16386bc"
   },
-  "generated_at": "2026-11-11T15:51:54Z",
+  "generated_at": "2026-11-12T00:16:48Z",
   "images": {
     "backup_executor": {
-      "digest": "sha256:20a94642796555d337e244d0e94f7518740650bbec0496b33cdde449b2afabd1",
+      "digest": "sha256:b3a9db5680a97279f347ad4fd39521c14a57801f90d80422578fbd15b4d00207",
       "ref": "ghcr.io/kubebao/openbao-backup"
     },
     "config_init": {
-      "digest": "sha256:456f85fefa907128275f45c6c517c9cf30e92677f8ea11d820d6f78905b297e7",
+      "digest": "sha256:31040684e8c51ed35342a21e4b492883382cd7555889e8531b0b5fff9751bfe6",
       "ref": "ghcr.io/kubebao/openbao-init"
     },
     "manager": {
-      "digest": "sha256:e684e38b856b3d0cab81bf6d563b7dd03e2593fc238363557e8643f89944b203",
+      "digest": "sha256:fd84dfb51b6d2460640b696e7fd48b8587227f1db7a0c0f87b71accf40372766",
       "ref": "ghcr.io/kubebao/openbao-operator"
     },
     "upgrade_executor": {
-      "digest": "sha256:86e1a85313bbf994c0221024fa4812b994e5feb79b7a5aaeb5c805d6907fe295",
+      "digest": "sha256:958d42abddcca9151036f9e86d145ae51f67b218277aa59f8e1403d3559dde6a",
       "ref": "ghcr.io/kubebao/openbao-upgrade"
     }
   },
-  "sha": "f9242f967d2012e22e652689a4bbc72fdd5e1a89",
-  "short_sha": "f9242f967d20",
-  "version": "edge-f9242f967d20"
+  "sha": "587dd16386bc5a234520e22eec1bbedb904fa6dd",
+  "short_sha": "587dd16386bc",
+  "version": "edge-587dd16386bc"
 }
