@@ -61,7 +61,10 @@ change only the operator. Applying converted OpenBao resources before import cre
 reapplying old API manifests at the final checkpoint recreates source objects that commit has retired.
 
 Before the maintenance window, prepare and review the destination Git diff, including API versions, image and helper
-pins, and any custom RBAC or client changes. Record the original sync settings. Keep the destination Git changes
+pins, and any custom RBAC or client changes. Search Git for other references to the `openbao.org` group:
+Argo CD AppProject resource allow-lists, `ignoreDifferences` rules, and resource health customizations such as
+`openbao.org_OpenBaoCluster`; RBAC `apiGroups`; and scripts. An AppProject that allows only `openbao.org` refuses
+to sync the converted resources. Record the original sync settings. Keep the destination Git changes
 inactive until the hand-back step. For a manifest installation, also prepare the operator-only checkpoint inputs.
 
 Use the checklist for your route to select the applicable parts of this guide. Each checklist follows the same
@@ -74,7 +77,8 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
 2. [Suspend sync](#suspend-gitops-sync), including parent Applications and ApplicationSet updates. Confirm that
    parents cannot restore child automatic sync before running `plan`.
 3. [Migrate](#migrate-the-installation). At each [manifest checkpoint](#migrate-an-installation-from-manifests),
-   apply the printed operator values and sync only the requested operator resources, without pruning.
+   apply the printed operator values and sync only the requested operator resources, without pruning. If the
+   Application sets `skipCrds: true`, apply the destination CRDs before the `stopped` checkpoint.
 4. Review `status`. Commit only after migration verification passes with operations held.
    [Roll back](#roll-back) while the window is open if you decide to return to the source, including after an
    interrupted migration. The first accepted source deletion during `commit` closes that window.
@@ -173,6 +177,9 @@ The migration keeps data and availability apart:
 - After the destination operator starts, it renders its own release's Pod template. Where that differs from the
   source's, it rolls the data Pods once, as any operator upgrade does. A single-replica Cluster is unavailable while
   its Pod restarts. With three or more voters, the rolling update keeps quorum. Verification waits for the rollout.
+  Clients that reach OpenBao through an ingress or Gateway can receive brief errors while a Pod restarts.
+- `rollback` starts the source operator again. It renders the source Pod template and rolls the data Pods a
+  second time.
 
 To choose when that rollout happens, pause the Cluster before `plan` and resume it in a maintenance window after
 `commit`. A paused Cluster is not re-rendered, and it takes no scheduled backups while paused.
@@ -189,8 +196,8 @@ HA and read replicas, paused Clusters, and forward, rollback, and interruption s
 
 | Configuration | Migration-specific coverage | Qualification boundary |
 | --- | --- | --- |
-| Kubernetes and OpenBao | Full Kind Kubernetes 1.36.1 suite; reduced 1.34/1.35 cases; OpenBao 2.6.5 and 2.7.2 scenarios | Other supported Kubernetes lines, OpenShift, architectures, and OpenBao patches need candidate-specific runs |
-| Hardened | ACME TLS and Transit unseal, including Flux Kustomization, HelmRelease, and Argo CD scenarios | Other cloud KMS, workload identity, HSM, and GitOps combinations need staging qualification |
+| Kubernetes and OpenBao | Full Kind Kubernetes 1.36.1 suite; `commit`, `recovery`, and `restore-lifecycle` on Kind 1.34.3 and 1.35.1; OpenBao 2.6.5 and 2.7.2 scenarios | Other supported Kubernetes lines, OpenShift, architectures, and OpenBao patches need candidate-specific runs |
+| Hardened | ACME TLS and Transit unseal, including Flux Kustomization, HelmRelease, and Argo CD scenarios; a staging run on an Argo CD app-of-apps installation with Transit and PKCS#11 seals | Other cloud KMS, workload identity, HSM, and GitOps combinations need staging qualification |
 | Networking and metrics | API-server ownership transfers with RBAC, admission, and unchanged payloads | These tests do not qualify a live ingress/Gateway/Cilium data plane or metrics scraping |
 | Storage, images, and plugins | PVC/PV identity checks, local storage fixtures, retained ACME cache, and published signed images | Qualify the exact CSI backend, private registries, verification credentials, plugins, and runtime settings |
 | Backups and restores | S3-compatible backups, completed in-place and retained fresh-target records, and a post-migration scheduled restore | Cloud storage credentials and storage/provider combinations need target-environment runs |
@@ -254,6 +261,9 @@ chmod +x ./api-migration
 ./api-migration version
 ```
 
+The documentation site publishes the metadata after the edge build finishes. If `metadata.json` returns 404,
+wait for the site deployment and retry, or select an earlier edge commit.
+
 Require successful attestation and checksum verification and a printed version matching `version` in the selected
 metadata. Use the chart archive in that bundle when preparing the destination configuration. For Argo CD, pin the
 chart version or digest from the same metadata. Keep this binary and state directory for every command, including
@@ -269,7 +279,9 @@ access. Continue with the preparation and GitOps steps below; edge delivery does
 2. Suspend the outermost parents, then their children. Keep them suspended until the command finishes and Git
    describes the surviving installation:
    - Set `spec.suspend: true` on Flux Kustomizations and HelmReleases.
-   - Disable automatic sync on Argo CD Applications.
+   - Disable automatic sync on Argo CD Applications, for example with
+     `argocd app set <application> --sync-policy none`, or with
+     `kubectl -n argocd patch application <application> --type json -p '[{"op":"remove","path":"/spec/syncPolicy/automated"}]'`.
    - For an owning ApplicationSet, preserve the child's sync policy with an `ignoreApplicationDifferences` rule
      for `/spec/syncPolicy` that covers the Application, or an effective `create-only` or `create-delete` policy.
      The ApplicationSet controller's policy takes precedence unless policy override is enabled.
@@ -349,6 +361,9 @@ tracking metadata needs the same confirmation.
    Review the summary, including the Kubernetes context, releases, affected objects, snapshot coverage, and
    skipped checks. The complete private plan remains in `<state>/plan.json`.
 
+   `plan` refuses a source that changes while it inspects the source, including a status write by the operator.
+   Plan outside scheduled backup times, or run `plan` again in a new directory.
+
    Configuration errors detected before state creation can be corrected using the same path. If planning leaves
    state files, keep that directory for its diagnostics or snapshots and use a new, empty directory for the next
    plan.
@@ -398,17 +413,25 @@ to apply into `<state-directory>/checkpoints/<operator-state>.md`. Apply it, the
 
 | State | Reached at | Apply |
 | --- | --- | --- |
-| `stopped` | `migrate`, after it scales the source operator to zero | The destination release with every operator Deployment at zero replicas |
+| `stopped` | `migrate`, after it scales the source operator to zero | The destination release, including its `kubebao.org` CRDs, with every operator Deployment at zero replicas |
 | `held` | `migrate`, before verification | The destination release with the controller's API migration hold |
 | `normal` | `commit` | The destination release as you will run it |
 | `source` | `rollback` | The source release as it was |
 
 - For a chart rendered by Argo CD or `helm template`, set the values in
   `<state-directory>/checkpoints/<operator-state>-values.yaml` on top of your own, with the chart version and image
-  of that release. With Argo CD, set them as Helm values and sync
-  the operator resources manually, without pruning. At the final `normal` checkpoint, a shared Application must
-  selectively sync only the operator Deployments. Use the resource selectors printed by the command; do not sync
-  the whole Application while its OpenBao manifests still name the old API group.
+  of that release. With Argo CD, set them as Helm values and sync the operator resources manually, without
+  pruning. At the final `normal` checkpoint, a shared Application must selectively sync only the operator
+  Deployments. Use the resource selectors printed by the command; do not sync the whole Application while its
+  OpenBao manifests still name the old API group.
+
+  `plan` cannot read values that Argo CD renders. If your values pin the source release's `image` or
+  `helperImages`, override them in every destination checkpoint. The command checks the running operator's release
+  at each checkpoint.
+
+  If the chart's CRDs are not installed with it, for example with Argo CD `skipCrds: true`, apply `crds.yaml` from
+  the destination release with `kubectl apply --server-side -f crds.yaml` before the `stopped` checkpoint. When a
+  rerun still waits at a checkpoint, the command names the unmet conditions.
 - For `install.yaml` or Kustomize, add the `api-migration-stopped` or `api-migration-hold` component from the
   release's `config/components` directory. Copies are in `<state>/checkpoints/components`. If the configuration
   names `destinationManifests` and `sourceManifests`, use operator-only inputs. Planning renders and checks both
@@ -457,7 +480,11 @@ needed for rollback. If a controller changes a source, suspend it again, roll ba
 create a new plan. After source retirement starts, continue with `commit`.
 
 Imported copies do not inherit their source's GitOps tracking annotation or Flux ownership labels. The controller
-tracks the destination when the reviewed Git state names it.
+tracks the destination when the reviewed Git state names it. Argo CD reports imported resources as OutOfSync until
+their first sync adds the tracking annotation; that sync does not change their specifications.
+
+Checkpoint values set directly on a live Argo CD Application do not stay: a parent that applies the staged
+revision with server-side apply replaces the Application's source list. Confirm that the live source matches Git.
 
 ## Roll back
 
@@ -469,9 +496,15 @@ managed, and verifies the source.
 ./api-migration rollback --state ./migration-state
 {{< /command >}}
 
+Rollback waits for the source operator's rollout before it verifies the source.
+
 For a GitOps-managed installation, follow `<state>/after-rollback.md` after a successful rollback. Restore the
 source chart or manifests, source image and helper pins, and `openbao.org/v1alpha1` manifests in Git. Revert any
 prepared destination changes in Git. Use the same staged parent/source/child sequence as the commit hand-back.
+If you staged no destination change, Git still describes the source: confirm that each controller's desired state
+matches the live source, then restore the recorded sync settings.
+
+To migrate again after a rollback, create a new plan in a new state directory.
 
 For every installation, restore the desired controller replica count and any cleared source backup pins before
 resuming paused Clusters.
