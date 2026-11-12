@@ -139,6 +139,9 @@ func TestRecreatedStatefulSetMovesOnlyClaimProvenance(t *testing.T) {
 	destination := primitives.TransferIdentity{APIVersion: primitives.PlanDestinationAPIVersion, Kind: clusterKind,
 		Namespace: "openbao", Name: "bao", UID: "destination-uid"}
 	saved := statefulSetFixture(destination, "source-uid")
+	saved.Annotations[constants.AnnotationClusterGeneration] = "1"
+	saved.Spec.UpdateStrategy = partitionedStrategy(3)
+	original := saved.DeepCopy()
 	require.False(t, claimTemplatesOwnedBy(saved, destination.UID))
 
 	set, err := recreatedStatefulSet(saved, destination)
@@ -149,6 +152,13 @@ func TestRecreatedStatefulSetMovesOnlyClaimProvenance(t *testing.T) {
 	require.Zero(t, set.Generation)
 	require.Equal(t, appsv1.StatefulSetStatus{}, set.Status)
 	require.Equal(t, saved.Spec.Template, set.Spec.Template, "the Pod template must be unchanged to avoid a rollout")
+	require.Equal(t, saved.Spec.UpdateStrategy, set.Spec.UpdateStrategy, "the existing rollout strategy must be preserved")
+	require.NotContains(t, set.Annotations, constants.AnnotationClusterGeneration,
+		"a coincidentally equal imported generation must not impersonate a destination render")
+	require.Equal(t, original, saved, "marker invalidation must not change the saved manifest")
+	set.Annotations["test"] = "annotation-copy"
+	set.Labels["test"] = "label-copy"
+	require.Equal(t, original, saved, "recreation metadata must not alias saved maps")
 	require.Equal(t, saved.OwnerReferences, set.OwnerReferences)
 	require.Equal(t, "destination-uid", set.Spec.VolumeClaimTemplates[0].Annotations[constants.AnnotationOpenBaoOwnerUID])
 	require.Equal(t, "me", set.Spec.VolumeClaimTemplates[0].Annotations["keep"])

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubebao/openbao-operator/cmd/api-migration/primitives"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 )
 
 // Exercise deletion acceptance, RBAC, and the complete admission policy against
@@ -76,12 +78,53 @@ func TestMigrationSafetyRealAPI(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, environment.Stop()) })
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, admissionv1.AddToScheme(scheme))
 	c, err := client.NewWithWatch(config, client.Options{Scheme: scheme})
 	require.NoError(t, err)
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "tenant"}}
 	require.NoError(t, c.Create(t.Context(), namespace))
+	t.Run("recreated-render-marker", func(t *testing.T) {
+		root := apiTestObject(testDestAPI, clusterKind, namespace.Name, "render-check")
+		require.NoError(t, c.Create(t.Context(), root))
+		owner := primitives.TransferIdentity{APIVersion: testDestAPI, Kind: clusterKind,
+			Namespace: namespace.Name, Name: root.GetName(), UID: root.GetUID()}
+		saved := statefulSetFixture(owner, string(testSourceUID))
+		saved.Name, saved.Namespace = owner.Name, owner.Namespace
+		saved.Labels[constants.LabelOpenBaoCluster] = owner.Name
+		saved.Annotations[constants.AnnotationClusterGeneration] = "1"
+		saved.Spec.Replicas = ptr.To(int32(0))
+		saved.Spec.VolumeClaimTemplates = nil
+		saved.Spec.Selector = &metav1.LabelSelector{MatchLabels: saved.Labels}
+		saved.Spec.Template.Labels = saved.Labels
+		saved.Spec.Template.Spec.Containers = []corev1.Container{{Name: "openbao", Image: "openbao:test"}}
+		created, err := recreatedStatefulSet(saved, owner)
+		require.NoError(t, err)
+		require.NoError(t, c.Create(t.Context(), created))
+		p := &Procedure{plan: &Plan{Version: planVersion}, kube: &Kube{client: c}}
+		cluster := ClusterPlan{Namespace: owner.Namespace, Name: owner.Name, DestinationUID: owner.UID}
+		created.Status = appsv1.StatefulSetStatus{ObservedGeneration: created.Generation,
+			CurrentRevision: "source", UpdateRevision: "source"}
+		require.NoError(t, c.Status().Update(t.Context(), created))
+		_, settled, err := p.observeVerifiedWorkload(t.Context(), testDestAPI, cluster)
+		require.NoError(t, err)
+		require.False(t, settled, "adopted workload status cannot replace a fresh render marker")
+		created.Annotations[constants.AnnotationClusterGeneration] = "1"
+		created.Spec.Template.Annotations["renderer"] = "destination-template"
+		beforeGeneration := created.Generation
+		require.NoError(t, c.Update(t.Context(), created))
+		require.Greater(t, created.Generation, beforeGeneration)
+		_, settled, err = p.observeVerifiedWorkload(t.Context(), testDestAPI, cluster)
+		require.NoError(t, err)
+		require.False(t, settled, "the StatefulSet controller must observe the rendered generation")
+		created.Status.ObservedGeneration = created.Generation
+		created.Status.CurrentRevision, created.Status.UpdateRevision = verificationRevision, verificationRevision
+		require.NoError(t, c.Status().Update(t.Context(), created))
+		_, settled, err = p.observeVerifiedWorkload(t.Context(), testDestAPI, cluster)
+		require.NoError(t, err)
+		require.True(t, settled)
+	})
 
 	for _, kind := range []string{clusterKind, restoreKind, tenantKind} {
 		t.Run("accepted-delete-"+kind, func(t *testing.T) {

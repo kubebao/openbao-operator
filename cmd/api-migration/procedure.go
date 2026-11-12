@@ -1091,129 +1091,83 @@ func (p *Procedure) verify(ctx context.Context, apiVersion string) (string, erro
 	if err := p.inventoryMatches(ctx, inactive, true); err != nil {
 		return "", err
 	}
-	if err := p.waitServing(ctx, apiVersion); err != nil {
-		return "", err
+	return p.verifyStableWorkloads(ctx, apiVersion)
+}
+
+func (p *Procedure) verifyCluster(ctx context.Context, apiVersion string, cluster *ClusterPlan) (string, error) {
+	active, other := cluster.source(), cluster.destination()
+	if apiVersion == primitives.PlanDestinationAPIVersion {
+		active, other = other, active
 	}
-	// A rollout replaces Pods between the two discovery passes; verify a settled workload.
-	if err := p.waitWorkloads(ctx); err != nil {
-		return "", err
-	}
-	clusters, err := p.forEachCluster(func(cluster *ClusterPlan) (string, error) {
-		active, other := cluster.source(), cluster.destination()
-		if apiVersion == primitives.PlanDestinationAPIVersion {
-			active, other = other, active
-		}
-		otherExists := other.UID != ""
-		if otherExists {
-			object, err := p.kube.getCluster(ctx, other.APIVersion, cluster.Namespace, cluster.Name)
-			if err != nil {
-				return "", err
-			}
-			otherExists = object != nil && object.GetUID() == other.UID
-		}
-		if otherExists {
-			state, err := p.settledCustody(ctx, *cluster, other, active)
-			if err != nil {
-				return "", err
-			}
-			if len(state.pending) != 0 {
-				return "", fmt.Errorf("%d resources still reference %s", len(state.pending), other.APIVersion)
-			}
-		} else {
-			retired := other.UID
-			other.UID = ""
-			options := p.clusterScope(*cluster).options(active, other)
-			options.RetiredUID = retired
-			preview, err := primitives.DiscoverManagedResources(ctx, p.kube.metadata, options)
-			if err != nil {
-				return "", err
-			}
-			if len(preview.Blockers) != 0 {
-				data, _ := json.Marshal(preview.Blockers)
-				return "", fmt.Errorf("managed resources without provable custody: %s", data)
-			}
-		}
-		if err := verifyClaims(ctx, p.kube, *cluster); err != nil {
-			return "", err
-		}
-		object, err := p.kube.getCluster(ctx, apiVersion, cluster.Namespace, cluster.Name)
-		if err != nil || object == nil {
-			return "", fmt.Errorf("%s Cluster is missing: %w", apiVersion, err)
-		}
-		state, evidence := "available", "controller login unchanged"
-		if cluster.Paused {
-			state = "paused"
-		}
-		if cluster.LoginSkipped != "" {
-			// The audience is still the planned one; there was no login to compare.
-			if _, err := p.controllerAudienceMatches(*cluster, object); err != nil {
-				return "", err
-			}
-			evidence = "controller audience unchanged (no login at plan: " + cluster.LoginSkipped + ")"
-		} else if err := p.verifyLogin(ctx, *cluster, object); err != nil {
-			return "", fmt.Errorf("controller login: %w", err)
-		}
-		if cluster.RaftPeers != nil {
-			bao, err := p.openBao(ctx, *cluster)
-			if err != nil {
-				return "", err
-			}
-			peers, err := bao.RaftPeers(ctx)
-			if err != nil {
-				return "", err
-			}
-			if !slices.Equal(peers, cluster.RaftPeers) {
-				return "", fmt.Errorf("raft membership changed: %v, planned %v", peers, cluster.RaftPeers)
-			}
-			evidence += "; Raft unchanged"
-		}
-		restarted, err := restartedPods(ctx, p.kube, *cluster)
+	otherExists := other.UID != ""
+	if otherExists {
+		object, err := p.kube.getCluster(ctx, other.APIVersion, cluster.Namespace, cluster.Name)
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("%s; storage and %s; %d data Pod(s) replaced", state, evidence, restarted), nil
-	})
-	if err != nil {
-		return "", err
+		otherExists = object != nil && object.GetUID() == other.UID
 	}
-	restores, err := p.verifyRecords(ctx, p.plan.Restores, apiVersion)
-	if err != nil {
-		return "", err
-	}
-	tenants, err := p.verifyRecords(ctx, p.plan.Tenants, apiVersion)
-	return joinDetails(clusters, restores, tenants), err
-}
-
-// waitWorkloads waits until every Cluster StatefulSet has finished rolling out.
-// The destination may roll Pods when its template differs from the source's.
-// A paused Cluster's Pods need not all be ready, only those ready at plan.
-func (p *Procedure) waitWorkloads(ctx context.Context) error {
-	return p.kube.wait(ctx, "StatefulSet rollouts to settle", func(ctx context.Context) (bool, error) {
-		for _, cluster := range p.plan.Clusters {
-			sets := &appsv1.StatefulSetList{}
-			if err := p.kube.client.List(ctx, sets, client.InNamespace(cluster.Namespace),
-				client.MatchingLabels{constants.LabelOpenBaoCluster: cluster.Name}); err != nil {
-				return false, err
-			}
-			for _, set := range sets.Items {
-				if !statefulSetSettled(&set, !cluster.Paused) {
-					return false, nil
-				}
-			}
-			if cluster.Paused {
-				ready, err := readyPods(ctx, p.kube, cluster)
-				if err != nil {
-					return false, err
-				}
-				for _, name := range cluster.ReadyPods {
-					if !slices.Contains(ready, name) {
-						return false, nil
-					}
-				}
-			}
+	if otherExists {
+		state, err := p.settledCustody(ctx, *cluster, other, active)
+		if err != nil {
+			return "", err
 		}
-		return true, nil
-	})
+		if len(state.pending) != 0 {
+			return "", fmt.Errorf("%d resources still reference %s", len(state.pending), other.APIVersion)
+		}
+	} else {
+		retired := other.UID
+		other.UID = ""
+		options := p.clusterScope(*cluster).options(active, other)
+		options.RetiredUID = retired
+		preview, err := primitives.DiscoverManagedResources(ctx, p.kube.metadata, options)
+		if err != nil {
+			return "", err
+		}
+		if len(preview.Blockers) != 0 {
+			data, _ := json.Marshal(preview.Blockers)
+			return "", fmt.Errorf("managed resources without provable custody: %s", data)
+		}
+	}
+	if err := verifyClaims(ctx, p.kube, *cluster); err != nil {
+		return "", err
+	}
+	object, err := p.kube.getCluster(ctx, apiVersion, cluster.Namespace, cluster.Name)
+	if err != nil || object == nil {
+		return "", fmt.Errorf("%s Cluster is missing: %w", apiVersion, err)
+	}
+	state, evidence := "available", "controller login unchanged"
+	if cluster.Paused {
+		state = "paused"
+	}
+	if cluster.LoginSkipped != "" {
+		// The audience is still the planned one; there was no login to compare.
+		if _, err := p.controllerAudienceMatches(*cluster, object); err != nil {
+			return "", err
+		}
+		evidence = "controller audience unchanged (no login at plan: " + cluster.LoginSkipped + ")"
+	} else if err := p.verifyLogin(ctx, *cluster, object); err != nil {
+		return "", fmt.Errorf("controller login: %w", err)
+	}
+	if cluster.RaftPeers != nil {
+		bao, err := p.openBao(ctx, *cluster)
+		if err != nil {
+			return "", err
+		}
+		peers, err := bao.RaftPeers(ctx)
+		if err != nil {
+			return "", err
+		}
+		if !slices.Equal(peers, cluster.RaftPeers) {
+			return "", fmt.Errorf("raft membership changed: %v, planned %v", peers, cluster.RaftPeers)
+		}
+		evidence += "; Raft unchanged"
+	}
+	restarted, err := restartedPods(ctx, p.kube, *cluster)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s; storage and %s; %d data Pod(s) replaced", state, evidence, restarted), nil
 }
 
 func statefulSetSettled(set *appsv1.StatefulSet, requireReady bool) bool {
@@ -2037,11 +1991,11 @@ func (p *Procedure) restoreSourceManifests(ctx context.Context) (string, error) 
 // status
 
 // validateForwardPlan also runs for saved plans before any progress changes.
-// Older development binaries did not record the source backup-helper selection.
-// They can still be rolled back with this binary, but cannot advance safely.
+// Older plans do not establish fresh workload-render provenance. They remain
+// readable and can be rolled back, but cannot advance with this binary.
 func (p *Procedure) validateForwardPlan() error {
 	if p.plan.Version != planVersion {
-		return fmt.Errorf("plan format %d does not record backup-helper selection; roll back and create a new plan with this binary; if commit has already retired a source, finish it with the original binary", p.plan.Version)
+		return fmt.Errorf("plan format %d does not establish workload render barriers required by format %d; resume with the exact original migration binary, or roll back and create a new plan with this binary; if commit has already retired a source, finish it with the original binary", p.plan.Version, planVersion)
 	}
 	if p.plan.Operator.Install == installHelm {
 		return sourceImagePinned(p.plan.Helm.SourceValues, p.plan.Helm.DestinationOverlay)

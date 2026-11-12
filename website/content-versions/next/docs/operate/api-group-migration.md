@@ -195,7 +195,8 @@ The migration keeps data and availability apart:
   source's, it rolls the data Pods once, as any operator upgrade does. A single-replica Cluster is unavailable while
   its Pod restarts. With three or more voters, the rolling update keeps quorum. Verification waits for the rollout.
   Any client can receive errors for several seconds while a Pod restarts and the active node changes, whether it
-  connects through the Service, an ingress, or a Gateway. Use clients that retry failed requests.
+  connects through the Service, an ingress, or a Gateway. Use a client that follows OpenBao redirects and retries
+  operations according to their API semantics.
 - `rollback` starts the source operator again. It renders the source Pod template and rolls the data Pods a
   second time.
 
@@ -291,6 +292,22 @@ Flux chart source, pin the chart version or digest from the same metadata. Keep 
 rollback. Resuming with a binary whose destination version differs from the saved plan is refused before cluster
 access. Continue with the preparation and GitOps steps below; edge delivery does not remove migration prerequisites.
 
+For a Flux GitRepository that fetches this project's operator manifests, pin the full `sha` from the edge metadata.
+For example, use this source-reference fragment for the upstream operator repository:
+
+```yaml
+spec:
+  url: https://github.com/kubebao/openbao-operator
+  ref:
+    branch: main
+    commit: <full-sha-from-edge-metadata>
+```
+
+The [Flux commit reference](https://fluxcd.io/flux/components/source/gitrepositories/#commit-example) selects the exact
+commit from the named branch. If a source reconciliation wait times out, inspect its current conditions and controller
+logs before retrying. Keep children suspended until the current source generation is Ready with the intended artifact
+revision, as described in [Return control to GitOps](#return-control-to-gitops).
+
 ## Suspend GitOps sync
 
 1. Identify the controllers that manage the operator and its OpenBao resources, including their parents.
@@ -350,7 +367,24 @@ tracking metadata needs the same confirmation.
    migration: those changes can uninstall and reinstall the release.
 
 2. For an installation from manifests, which has no Helm release, leave out `release`, `destinationChart`, and
-   `destinationValues`. See [Migrate an installation from manifests](#migrate-an-installation-from-manifests).
+   `destinationValues`. To generate checkpoint Kustomizations, name the operator-only source and destination inputs:
+
+   ```json
+   {
+     "kubeconfig": "/path/to/admin.kubeconfig",
+     "context": "<context>",
+     "operatorNamespace": "openbao-operator-system",
+     "sourceVersion": "0.6.1",
+     "sourceManifests": "/path/to/operator-source",
+     "destinationManifests": "/path/to/operator-destination"
+   }
+   ```
+
+   Each path names a YAML file or a directory with a `kustomization.yaml`. Prepare the source input as it was
+   installed. Prepare the destination input for the selected release, replacing source operator and helper image
+   pins while preserving the installation's namespace, tenancy, and required environment and resource overrides.
+   Keep OpenBao custom resources and GitOps controllers out of both inputs. See
+   [Migrate an installation from manifests](#migrate-an-installation-from-manifests) for applying the checkpoints.
 
 3. Optional: nominate the Clusters, for example to add an OpenBao administrator token as extra evidence. The list
    must then name every Cluster. This is a fragment of the configuration:
