@@ -118,6 +118,8 @@ Keep the same binary and state directory throughout.
    Render the named source or destination chart with your values and `<operator-state>-values.yaml` layered last.
    Review and apply only that operator output without pruning. Keep Flux suspended and preserve destination
    image/helper pins in every destination state. Use the same chart-rendering approach for `normal` and `source`.
+   Include the chart's CRDs, or apply the selected destination's `crds.yaml` with
+   `kubectl apply --server-side -f crds.yaml` before completing `stopped`.
 
 {{< callout type="warning" title="Keep Flux suspended and do not prune" >}}
 Do not reconcile a whole platform bundle at a checkpoint. Apply only operator resources, without pruning.

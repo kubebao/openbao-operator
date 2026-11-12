@@ -90,6 +90,8 @@ Keep the same binary and state directory throughout.
    expecting a generated Kustomization. Render the named source or destination chart with your values and the
    checkpoint's `<operator-state>-values.yaml` layered last. Preserve source settings for rollback and use the
    destination image/helper pins for every destination state. Review and apply only the rendered operator resources.
+   Include the chart's CRDs in that output, or apply the selected destination's `crds.yaml` with
+   `kubectl apply --server-side -f crds.yaml` before completing `stopped`.
 
 {{< callout type="warning" title="Do not prune or apply OpenBao resources at checkpoints" >}}
 Apply only the requested operator input, without `--prune`. The command imports OpenBao resources itself.
