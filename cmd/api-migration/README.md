@@ -3,8 +3,9 @@
 `api-migration` moves an OpenBao Operator installation from `openbao.org/v1alpha1` to `kubebao.org/v1alpha1`.
 It re-creates the custom resources and transfers workload ownership while keeping OpenBao data and storage in place.
 
-**Follow the [migration guide](../../website/content-versions/next/docs/operate/api-group-migration.md) to run it.**
-The guide covers downloads, configuration, preparation, GitOps, checkpoints, rollback, and cleanup.
+**Follow the [migration guide](../../website/content-versions/next/docs/operate/api-group-migration/_index.md) to run it.**
+The overview links to installation guides for Helm CLI, kubectl/Kustomize, Flux HelmRelease, Flux Kustomization,
+and Argo CD. Each guide covers configuration, checkpoints, rollback, and cleanup for that installation method.
 A direct Helm upgrade from 0.6 to 0.7 leaves the old resources unmanaged.
 
 ## Scope
@@ -14,7 +15,7 @@ Supported CLI platforms are Linux amd64, Linux arm64, and macOS arm64. Intel Mac
 
 Edge builds bind the binary to `edge-<12-character-commit>`. Download the verified Actions bundle linked from the
 selected edge metadata and use its matching chart and images; see the guide's
-[edge rehearsal procedure](../../website/content-versions/next/docs/operate/api-group-migration.md#evaluate-a-matching-edge-build).
+[edge rehearsal procedure](../../website/content-versions/next/docs/operate/api-group-migration/_index.md#evaluate-a-matching-edge-build).
 Saved plans require the same destination version when resuming, including rollback and status.
 
 The scope includes Helm and manifest installations, single-tenant and multi-tenant deployments, Development and
@@ -36,7 +37,7 @@ for automated scenarios and remaining environment-specific qualification.
 - Suspend every GitOps controller that manages the installation, including parents and remote controllers.
   Keep them suspended through migration and hand-back preparation.
 
-Use the guide's [preflight instructions](../../website/content-versions/next/docs/operate/api-group-migration.md#before-you-start)
+Use the guide's [preflight instructions](../../website/content-versions/next/docs/operate/api-group-migration/_index.md#before-you-start)
 for the complete checks and the Kubernetes context selection.
 
 ## Command flow
@@ -81,7 +82,7 @@ After `commit`, follow `<state>/after-commit.md`; after rollback, follow `<state
 These files are written for tracked GitOps installations. Update Git while children remain suspended, then resume
 parents and sources before children. A Flux HelmRelease must wait until its chart source serves the destination.
 The tool never edits Git or changes GitOps objects. Remote suspension relies on administrator confirmation.
-See [Return control to GitOps](../../website/content-versions/next/docs/operate/api-group-migration.md#return-control-to-gitops).
+See [Return control to GitOps](../../website/content-versions/next/docs/operate/api-group-migration/_index.md#return-control-to-gitops).
 
 ## State and recovery
 

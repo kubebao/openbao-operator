@@ -67,6 +67,17 @@ primary:
         url: docs/operate/operator-policies/
       - title: Migrate to the kubebao.org API group
         url: docs/operate/api-group-migration/
+        items:
+          - title: Helm CLI
+            url: docs/operate/api-group-migration/helm/
+          - title: kubectl or Kustomize
+            url: docs/operate/api-group-migration/kubectl/
+          - title: Flux HelmRelease
+            url: docs/operate/api-group-migration/flux-helmrelease/
+          - title: Flux Kustomization
+            url: docs/operate/api-group-migration/flux-kustomization/
+          - title: Argo CD
+            url: docs/operate/api-group-migration/argocd/
       - title: Migrate controller JWT authentication
         url: docs/operate/controller-jwt-migration/
       - title: Choose controller JWT authentication
