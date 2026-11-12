@@ -122,8 +122,8 @@ func TestSummaryJSONNeverEncodesPrivatePlanFields(t *testing.T) {
 	output.Reset()
 	require.NoError(t, renderSummary(&output, "text", summary))
 	require.Contains(t, output.String(), "Last successful verification (recorded)")
-	require.Contains(t, output.String(), "Rollback window: unknown")
-	require.Contains(t, output.String(), "operations hold: unknown")
+	require.Contains(t, output.String(), "Live state: not observed; run status")
+	require.NotContains(t, output.String(), "Rollback window", "a recorded summary does not report the unobserved window")
 }
 
 func TestRollbackWindowUsesEverySourceIdentityAndDeletionState(t *testing.T) {
@@ -272,7 +272,7 @@ func TestInterruptedSummaryKeepsProgressAndDoesNotObserveKubernetes(t *testing.T
 	var output bytes.Buffer
 	require.NoError(t, p.recordedSummary(&output))
 	require.Contains(t, output.String(), "Last completed step: verify (reverify)")
-	require.Contains(t, output.String(), "Rollback window: unknown")
+	require.Contains(t, output.String(), "Live state: not observed; run status")
 	require.Contains(t, output.String(), "api-migration commit --state "+state.dir)
 }
 

@@ -1079,3 +1079,61 @@ func TestEdgeBinaryRequiresMatchingDestinationAndSavedPlan(t *testing.T) {
 		})
 	}
 }
+
+func TestRestampRevisionsMovesOnlyTheRetiredOwnersHistory(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	owner := primitives.TransferIdentity{APIVersion: testSourceAPI, Kind: clusterKind, Namespace: "openbao",
+		Name: "bao", UID: "source"}
+	set := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: "bao", Namespace: "openbao", UID: "set",
+		Labels: map[string]string{constants.LabelOpenBaoCluster: "bao"},
+		OwnerReferences: []metav1.OwnerReference{{APIVersion: owner.APIVersion, Kind: owner.Kind, Name: owner.Name,
+			UID: owner.UID, Controller: ptr.To(true)}}}}
+	revision := func(name string, ownerUID string, refs ...metav1.OwnerReference) *appsv1.ControllerRevision {
+		return &appsv1.ControllerRevision{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "openbao",
+			Annotations: map[string]string{constants.AnnotationOpenBaoOwnerUID: ownerUID}, OwnerReferences: refs}}
+	}
+	setRef := metav1.OwnerReference{APIVersion: "apps/v1", Kind: "StatefulSet", Name: "bao", UID: "set",
+		Controller: ptr.To(true)}
+	otherSet := metav1.OwnerReference{APIVersion: "apps/v1", Kind: "StatefulSet", Name: "other", UID: "other",
+		Controller: ptr.To(true)}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(set,
+		revision("destination-history", "destination", setRef),
+		revision("source-history", "source", setRef),
+		revision("foreign-set", "destination", otherSet),
+		revision("unowned", "destination"),
+	).Build()
+	k := &Kube{client: c}
+
+	restamped, err := restampRevisions(t.Context(), k, "destination", owner)
+	require.NoError(t, err)
+	require.Equal(t, 1, restamped)
+	for name, want := range map[string]string{"destination-history": "source", "source-history": "source",
+		"foreign-set": "destination", "unowned": "destination"} {
+		got := &appsv1.ControllerRevision{}
+		require.NoError(t, c.Get(t.Context(), types.NamespacedName{Namespace: "openbao", Name: name}, got))
+		require.Equal(t, want, got.Annotations[constants.AnnotationOpenBaoOwnerUID], name)
+	}
+
+	restamped, err = restampRevisions(t.Context(), k, "destination", owner)
+	require.NoError(t, err)
+	require.Zero(t, restamped, "a rerun finds nothing left to move")
+}
+
+func TestCheckpointNamesUnmetConditions(t *testing.T) {
+	observed := operatorObservation{group: "kubebao.org", stopped: true}
+	require.Equal(t, []string{"the kubebao.org CRDs are not installed"}, observed.unmet(stateStopped))
+	observed.crds = true
+	require.Empty(t, observed.unmet(stateStopped))
+	require.True(t, observed.matches(stateStopped))
+	require.Equal(t, []string{"the admission policies are for kubebao.org, not openbao.org",
+		"an operator Deployment is not ready at its planned replicas"}, observed.unmet(stateSource))
+	require.Equal(t, []string{"no operator admission policies are installed",
+		"the controller does not run with the API migration hold",
+		"an operator Deployment is not ready at its planned replicas"}, operatorObservation{}.unmet(stateHeld))
+
+	failure := &checkpointError{State: "stopped", Instructions: "stopped.md",
+		Unmet: []string{"the kubebao.org CRDs are not installed"}}
+	require.Equal(t, "waiting for the stopped operator state (the kubebao.org CRDs are not installed): "+
+		"apply it as described in stopped.md, then run the command again", failure.Error())
+}

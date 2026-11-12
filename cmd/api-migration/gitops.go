@@ -497,12 +497,16 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 			fmt.Fprintf(&b, "   The saved source Helm revision is %d.\n", p.plan.Helm.SourceRevision)
 		}
 		b.WriteString("   Revert Git changes prepared for kubebao.org; the source objects remain authoritative.\n" +
-			"   Restore source-compatible helper pins and any custom spec.backup.image cleared during preparation.\n")
+			"   Restore source-compatible helper pins and any custom spec.backup.image cleared during preparation.\n" +
+			"   If Git still describes the source installation, steps 1 to 4 change nothing: confirm that each\n" +
+			"   controller's desired state matches the live source, then restore the recorded sync settings.\n")
 	} else {
 		b.WriteString("   Convert every managed Cluster, Restore and Tenant manifest, including shared platform bundles.\n" +
 			"   api-migration convert --write <files> rewrites the API version; review the resulting Git diff.\n" +
 			"   Source objects have been retired. Unconverted Git can recreate them with different UIDs.\n" +
-			"   Keep the prepared destination release helper pins. Restore any cleared custom spec.backup.image with a destination-compatible image before resuming the Cluster.\n")
+			"   Keep the prepared destination release helper pins. Restore any cleared custom spec.backup.image with a destination-compatible image before resuming the Cluster.\n" +
+			"   Update other references to the openbao.org group: Argo CD AppProject resource allow-lists,\n" +
+			"   ignoreDifferences rules and health customizations, RBAC apiGroups, and scripts.\n")
 	}
 	values := p.plan.Helm.SourceValues
 	if !rollback {
@@ -526,7 +530,10 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 		"   For Flux, require a Ready source with current observedGeneration and the intended artifact.revision.\n" +
 		"   A Ready condition or the old source artifact alone does not prove that the new revision is served.\n" +
 		"4. Review the rendered child output: intended release/group, hold disabled, planned replicas and helper pins.\n" +
-		"   Resume a child only after its own source artifact matches that output.\n")
+		"   Resume a child only after its own source artifact matches that output.\n" +
+		"   Imported resources lack the old GitOps tracking metadata, so Argo CD reports them OutOfSync until\n" +
+		"   their first sync adds it. Checkpoint values set on a live Application must not remain: confirm that\n" +
+		"   its source matches Git after the parent applies the staged revision.\n")
 	for _, manager := range p.plan.GitOps {
 		fmt.Fprintf(&b, "   - %s (manages %s)\n", manager, strings.Join(manager.Manages, ", "))
 		if manager.Kind == fluxHelmRelease.Kind {

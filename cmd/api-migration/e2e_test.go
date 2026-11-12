@@ -334,8 +334,13 @@ func TestAPIMigrationE2E(t *testing.T) {
 				f.migrate(state)
 				f.assertData("before")
 				f.writeData("during", e2eDestination)
+				f.rollDestination()
 				f.procedure("rollback", state)
 				f.assertSurvivor(primitivesSourceGroup, "rollback")
+				// The destination's rollout left StatefulSet history; a new plan
+				// must accept it.
+				f.waitSettled()
+				f.plan(f.newState("replan"))
 			case "interrupt":
 				for _, step := range []string{"preflight", "migrator", "stop-operators", "recheck", "apply-crds", "install-destination",
 					"open-handoff", "import", "transfer", "statefulsets", "close-handoff", "start-destination"} {
@@ -1312,6 +1317,26 @@ func (f *e2eFixture) migrateUntilOrphaned(state string) {
 		pod := f.getJSON("get", "pod", f.voterSet+"-0", "-n", e2eDataNS)
 		owners, _, _ := unstructured.NestedSlice(pod, "metadata", "ownerReferences")
 		return len(owners) == 0
+	})
+}
+
+// rollDestination changes the destination's Pod template, as a destination
+// release with new images does, and waits until it has replaced the data Pods.
+// The fixture pins the same images for both releases, so the destination
+// otherwise never rolls them and leaves no StatefulSet history behind.
+func (f *e2eFixture) rollDestination() {
+	f.t.Helper()
+	before := f.kubectl(nil, "get", "statefulset", f.voterSet, "-n", e2eDataNS, "-o", "jsonpath={.status.currentRevision}")
+	patch := `{"spec":{"resources":{"requests":{"cpu":"50m","memory":"128Mi"}}}}`
+	f.kubectl(nil, "patch", "openbaoclusters."+e2eDestinationGroup, e2eCluster, "-n", e2eDataNS, "--type", "merge", "-p", patch)
+	f.eventually("the destination to roll the data Pods", 10*time.Minute, func() bool {
+		out, err := exec.Command("kubectl", "--kubeconfig", f.kubeconfig, "--context", f.context, "get", "statefulset",
+			f.voterSet, "-n", e2eDataNS, "-o", "jsonpath={.metadata.generation} {.status.observedGeneration} "+
+				"{.status.currentRevision} {.status.updateRevision} {.status.updatedReplicas} {.status.readyReplicas} "+
+				"{.spec.replicas}").Output()
+		fields := strings.Fields(string(out))
+		return err == nil && len(fields) == 7 && fields[0] == fields[1] && fields[2] != before && fields[2] == fields[3] &&
+			fields[4] == fields[6] && fields[5] == fields[6] && clusterReady(f.cluster(e2eDestinationGroup))
 	})
 }
 

@@ -288,9 +288,13 @@ func renderSummary(out io.Writer, output string, summary migrationSummary) error
 	if summary.CheckedAt != nil {
 		_, _ = fmt.Fprintf(out, "Live observations: %s (do not repeat migration verification)\n", summary.CheckedAt.Format(time.RFC3339))
 	}
-	if summary.Operator == nil {
+	switch {
+	case summary.CheckedAt == nil:
+		// A stopped command does not read the cluster again; status does.
+		_, _ = fmt.Fprintln(out, "Live state: not observed; run status to observe the operator and the rollback window")
+	case summary.Operator == nil:
 		_, _ = fmt.Fprintln(out, "Operator: unknown; operations hold: unknown")
-	} else {
+	default:
 		held := unknownValue
 		if summary.Operator.Held != nil {
 			held = fmt.Sprint(*summary.Operator.Held)
@@ -308,7 +312,9 @@ func renderSummary(out io.Writer, output string, summary migrationSummary) error
 	} else {
 		_, _ = fmt.Fprintln(out, "Last successful verification: none recorded (older plans might lack this metadata)")
 	}
-	_, _ = fmt.Fprintf(out, "Rollback window: %s — %s\n", summary.RollbackWindow.State, summary.RollbackWindow.Reason)
+	if summary.CheckedAt != nil {
+		_, _ = fmt.Fprintf(out, "Rollback window: %s — %s\n", summary.RollbackWindow.State, summary.RollbackWindow.Reason)
+	}
 	for _, set := range []struct {
 		kind    string
 		entries []objectStatus

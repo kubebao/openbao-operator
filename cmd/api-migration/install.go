@@ -61,11 +61,18 @@ var (
 type checkpointError struct {
 	State        string
 	Instructions string
+	// Unmet lists what the cluster still shows when the administrator ran the
+	// command again after applying the state.
+	Unmet []string
 }
 
 func (e *checkpointError) Error() string {
-	return fmt.Sprintf("waiting for the %s operator state: apply it as described in %s, then run the command again",
-		e.State, e.Instructions)
+	unmet := ""
+	if len(e.Unmet) != 0 {
+		unmet = " (" + strings.Join(e.Unmet, "; ") + ")"
+	}
+	return fmt.Sprintf("waiting for the %s operator state%s: apply it as described in %s, then run the command again",
+		e.State, unmet, e.Instructions)
 }
 
 // operatorObservation is the installation as the cluster shows it.
@@ -89,6 +96,35 @@ func (o operatorObservation) matches(state operatorState) bool {
 		return o.running
 	}
 	return o.stopped && o.crds
+}
+
+// unmet lists the conditions of state that the installation does not meet.
+func (o operatorObservation) unmet(state operatorState) []string {
+	var unmet []string
+	switch o.group {
+	case state.group:
+	case "":
+		unmet = append(unmet, "no operator admission policies are installed")
+	default:
+		unmet = append(unmet, fmt.Sprintf("the admission policies are for %s, not %s", o.group, state.group))
+	}
+	if o.held != state.held {
+		if state.held {
+			unmet = append(unmet, "the controller does not run with the API migration hold")
+		} else {
+			unmet = append(unmet, "the controller still runs with the API migration hold")
+		}
+	}
+	if state.running && !o.running {
+		unmet = append(unmet, "an operator Deployment is not ready at its planned replicas")
+	}
+	if !state.running && !o.stopped {
+		unmet = append(unmet, "an operator Deployment still has replicas or Pods")
+	}
+	if !state.running && !o.crds {
+		unmet = append(unmet, "the kubebao.org CRDs are not installed")
+	}
+	return unmet
 }
 
 func (o operatorObservation) String() string {
@@ -297,7 +333,8 @@ func (p *Procedure) awaitOperator(ctx context.Context, state operatorState) (str
 	if err != nil {
 		return "", err
 	}
-	if !observed.matches(state) && p.plan.Operator.Checkpoint == state.name {
+	rerun := p.plan.Operator.Checkpoint == state.name
+	if !observed.matches(state) && rerun {
 		// The administrator was asked for this state and ran the command again:
 		// give it a short while to settle, for example for a rollout to finish.
 		settle, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -336,7 +373,11 @@ func (p *Procedure) awaitOperator(ctx context.Context, state operatorState) (str
 	if err := p.state.Save(p.plan); err != nil {
 		return "", err
 	}
-	return "", &checkpointError{State: state.name, Instructions: path}
+	failure := &checkpointError{State: state.name, Instructions: path}
+	if rerun {
+		failure.Unmet = observed.unmet(state)
+	}
+	return "", failure
 }
 
 // Kustomize components shipped in config/components; a test keeps these equal.
@@ -392,7 +433,10 @@ func (p *Procedure) writeCheckpoint(state operatorState) (string, error) {
 	fmt.Fprintf(&b, "# Apply the %s operator state\n\n", state.name)
 	switch state.name {
 	case stateStopped.name:
-		b.WriteString("Install the destination release with every operator Deployment scaled to zero.\n")
+		b.WriteString("Install the destination release with every operator Deployment scaled to zero.\n" +
+			"This state includes the destination's kubebao.org CRDs. If your installation does not install the\n" +
+			"chart's CRDs (Argo CD skipCrds, helm --skip-crds, or CRDs managed elsewhere), apply crds.yaml from the\n" +
+			"destination release first: kubectl apply --server-side -f crds.yaml\n")
 	case stateHeld.name:
 		b.WriteString("Start the destination release with the controller's API migration hold.\n")
 	case stateNormal.name:
