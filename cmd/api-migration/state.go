@@ -28,8 +28,10 @@ const (
 )
 
 const (
-	planFile    = "plan.json"
-	planVersion = 2
+	planFile          = "plan.json"
+	afterCommitFile   = "after-commit.md"
+	afterRollbackFile = "after-rollback.md"
+	planVersion       = 3
 )
 
 // Plan is everything the procedure pins before it changes the installation.
@@ -193,6 +195,11 @@ type State struct {
 }
 
 func openState(dir string, create bool) (*State, error) {
+	absolute, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve state directory: %w", err)
+	}
+	dir = absolute
 	if create {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("create state directory: %w", err)

@@ -191,6 +191,10 @@ func (p *Procedure) observeSummary(ctx context.Context) (migrationSummary, error
 			observe(record.Kind, record.Namespace, record.Name, record.SourceUID, record.DestinationUID))
 	}
 	summary.RollbackWindow = observedRollbackWindow(summary.Clusters, summary.Restores, summary.Tenants)
+	if p.plan.Phase == phaseRolledBack {
+		// The source exists again, but this plan cannot migrate a second time.
+		summary.RollbackWindow = rollbackWindow{State: "closed", Reason: "rollback finished; create a new plan to migrate again"}
+	}
 	for _, problem := range problems {
 		summary.ObservationErrors = append(summary.ObservationErrors, problem.Error())
 	}
@@ -241,9 +245,15 @@ func (p *Procedure) nextActions(window rollbackWindow) []nextAction {
 		}
 		return actions
 	case phaseComplete:
-		return []nextAction{{"Follow any GitOps handback instructions in the state directory, then check live status", command(commandStatus)}}
+		if len(p.plan.GitOps) > 0 {
+			return []nextAction{{"Follow the GitOps hand-back file " + p.state.path(afterCommitFile) + ", then check live status", command(commandStatus)}}
+		}
+		return []nextAction{{"Check live status, then delete the openbao.org CRDs as described in the guide", command(commandStatus)}}
 	case phaseRolledBack:
-		return []nextAction{{"Follow any GitOps handback instructions in the state directory, then check the source installation", command(commandStatus)}}
+		if len(p.plan.GitOps) > 0 {
+			return []nextAction{{"Follow the GitOps hand-back file " + p.state.path(afterRollbackFile) + ", then check the source installation", command(commandStatus)}}
+		}
+		return []nextAction{{"Check the source installation; to migrate again, create a new plan in a new state directory", command(commandStatus)}}
 	default:
 		return []nextAction{{"Inspect the saved migration and live objects before continuing", command(commandStatus)}}
 	}
@@ -286,7 +296,7 @@ func renderSummary(out io.Writer, output string, summary migrationSummary) error
 		_, _ = fmt.Fprintf(out, "Helm release: revision %d, %s, %s\n", summary.Release.Revision, summary.Release.Chart, summary.Release.Status)
 	}
 	if summary.CheckedAt != nil {
-		_, _ = fmt.Fprintf(out, "Live observations: %s (do not repeat migration verification)\n", summary.CheckedAt.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(out, "Live observations: %s (status does not rerun migration verification)\n", summary.CheckedAt.Format(time.RFC3339))
 	}
 	switch {
 	case summary.CheckedAt == nil:
@@ -310,7 +320,7 @@ func renderSummary(out io.Writer, output string, summary migrationSummary) error
 	if check := summary.LastVerification; check != nil {
 		_, _ = fmt.Fprintf(out, "Last successful verification (recorded): %s, %s at %s\n", check.Step, check.APIVersion, check.CheckedAt.Format(time.RFC3339))
 	} else {
-		_, _ = fmt.Fprintln(out, "Last successful verification: none recorded (older plans might lack this metadata)")
+		_, _ = fmt.Fprintln(out, "Last successful verification: none recorded")
 	}
 	if summary.CheckedAt != nil {
 		_, _ = fmt.Fprintf(out, "Rollback window: %s — %s\n", summary.RollbackWindow.State, summary.RollbackWindow.Reason)

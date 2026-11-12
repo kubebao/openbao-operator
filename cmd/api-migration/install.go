@@ -161,6 +161,9 @@ func (p *Procedure) planInstall(ctx context.Context) error {
 		if err := p.resolveHelmNamespace(ctx, controller); err != nil {
 			return err
 		}
+		if err := p.checkHelmVersion(ctx); err != nil {
+			return err
+		}
 		latest, err := p.helm.Latest(ctx)
 		if err != nil {
 			return fmt.Errorf("release %s: %w", config.Release, err)
@@ -450,7 +453,7 @@ func (p *Procedure) writeCheckpoint(state operatorState) (string, error) {
 		"The tool imports new-group resources itself. Earlier checkpoints must not create them from Git.\n\n")
 	if state.name == stateNormal.name {
 		b.WriteString("The source CRs have already been retired. A full sync of unconverted Git recreates old-group CRs.\n" +
-			"Change only the operator Deployments to remove the hold and restore their planned replicas.\n\n")
+			"Apply only operator resources to remove the hold and restore the planned Deployment replicas.\n\n")
 	}
 	p.checkpointGitOpsInstructions(&b, state)
 	if p.plan.Operator.Flavour == flavourChart {

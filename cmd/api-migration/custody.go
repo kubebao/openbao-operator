@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -219,11 +220,15 @@ func recreatedStatefulSet(saved *appsv1.StatefulSet, owner primitives.TransferId
 	set := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "StatefulSet"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: saved.Name, Namespace: saved.Namespace, Labels: saved.Labels, Annotations: saved.Annotations,
+			Name: saved.Name, Namespace: saved.Namespace, Labels: maps.Clone(saved.Labels), Annotations: maps.Clone(saved.Annotations),
 			OwnerReferences: saved.OwnerReferences,
 		},
 		Spec: *saved.Spec.DeepCopy(),
 	}
+	// The old marker describes the previous operator's render, even when the
+	// imported Cluster happens to have the same generation. The active renderer
+	// restores it atomically with its template, without changing the Pod template.
+	delete(set.Annotations, constants.AnnotationClusterGeneration)
 	for i := range set.Spec.VolumeClaimTemplates {
 		template := &set.Spec.VolumeClaimTemplates[i]
 		if _, ok := template.Annotations[constants.AnnotationOpenBaoOwnerUID]; ok {
@@ -237,6 +242,10 @@ func recreatedStatefulSet(saved *appsv1.StatefulSet, owner primitives.TransferId
 // orphaning and recreating each StatefulSet. The manifest is saved before the
 // delete, so an interruption between delete and create can be resumed.
 func recreateStatefulSets(ctx context.Context, k *Kube, state *State, cluster ClusterPlan, owner primitives.TransferIdentity) (int, error) {
+	renders, _, err := workloadRenderTargets(ctx, k, owner.APIVersion, cluster)
+	if err != nil {
+		return 0, err
+	}
 	dir := state.path("statefulsets")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return 0, err
@@ -272,7 +281,7 @@ func recreateStatefulSets(ctx context.Context, k *Kube, state *State, cluster Cl
 		}
 	}) {
 		changed, err := recreateStatefulSet(ctx, k, filepath.Join(dir, cluster.Namespace+"_"+name+".json"),
-			cluster.Namespace, name, owner)
+			cluster.Namespace, name, owner, renders[name])
 		if err != nil {
 			return recreated, err
 		}
@@ -284,7 +293,7 @@ func recreateStatefulSets(ctx context.Context, k *Kube, state *State, cluster Cl
 }
 
 func recreateStatefulSet(ctx context.Context, k *Kube, savePath, namespace, name string,
-	owner primitives.TransferIdentity,
+	owner primitives.TransferIdentity, requireRender bool,
 ) (bool, error) {
 	current := &appsv1.StatefulSet{}
 	err := k.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, current)
@@ -295,7 +304,7 @@ func recreateStatefulSet(ctx context.Context, k *Kube, savePath, namespace, name
 	case !current.DeletionTimestamp.IsZero():
 		// An earlier run's orphan delete is still in progress.
 	default:
-		if claimTemplatesOwnedBy(current, owner.UID) {
+		if claimTemplatesOwnedBy(current, owner.UID) && (!requireRender || recordedStatefulSetRecreation(savePath, current)) {
 			ref := metav1.GetControllerOf(current)
 			if ref == nil || ref.UID != owner.UID {
 				return false, fmt.Errorf("statefulset %s is not controlled by %s", name, owner.APIVersion)
@@ -389,12 +398,25 @@ func finishStatefulSets(ctx context.Context, k *Kube, state *State, cluster Clus
 		default:
 			return finished, fmt.Errorf("saved StatefulSet %s has no planned controller", saved.Name)
 		}
-		if _, err := recreateStatefulSet(ctx, k, path, saved.Namespace, saved.Name, owner); err != nil {
+		if _, err := recreateStatefulSet(ctx, k, path, saved.Namespace, saved.Name, owner, false); err != nil {
 			return finished, err
 		}
 		finished++
 	}
 	return finished, nil
+}
+
+// A distinct UID and matching planned owner prove that a resume already passed
+// the marker-clearing CREATE. Missing claim-template annotations alone do not.
+func recordedStatefulSetRecreation(path string, current *appsv1.StatefulSet) bool {
+	saved := &appsv1.StatefulSet{}
+	data, err := os.ReadFile(path)
+	if err != nil || json.Unmarshal(data, saved) != nil || saved.UID == "" || current.UID == "" || saved.UID == current.UID {
+		return false
+	}
+	before, after := metav1.GetControllerOf(saved), metav1.GetControllerOf(current)
+	return before != nil && after != nil && before.UID == after.UID && before.APIVersion == after.APIVersion &&
+		before.Kind == after.Kind && before.Name == after.Name
 }
 
 // savedReady is how many Pods were ready when the StatefulSet was saved. A

@@ -40,6 +40,37 @@ func (h Helm) run(ctx context.Context, args ...string) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
+// Version returns the version of the helm executable on PATH.
+func (h Helm) Version(ctx context.Context) (string, error) {
+	out, err := exec.CommandContext(ctx, "helm", "version", "--template", "{{.Version}}").Output()
+	if err != nil {
+		return "", fmt.Errorf("helm version: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// requireHelm4 rejects other Helm majors: the transitions use Helm 4
+// server-side apply and release metadata.
+func requireHelm4(version string) error {
+	if !strings.HasPrefix(version, "v4.") {
+		return fmt.Errorf("the helm executable on PATH is %s; a Helm installation requires Helm 4", version)
+	}
+	return nil
+}
+
+// checkHelmVersion runs on every invocation that can change a Helm installation.
+// A saved plan does not guarantee that PATH still selects the same executable.
+func (p *Procedure) checkHelmVersion(ctx context.Context) error {
+	if p.plan.Operator.Install != installHelm {
+		return nil
+	}
+	version, err := p.helm.Version(ctx)
+	if err != nil {
+		return err
+	}
+	return requireHelm4(version)
+}
+
 func (h Helm) Latest(ctx context.Context) (HelmRevision, error) {
 	out, err := h.run(ctx, "history", h.Release, "--max", "1", "--output", "json")
 	if err != nil {

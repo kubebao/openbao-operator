@@ -80,23 +80,26 @@ func TestDestinationBackupEnvironmentOverride(t *testing.T) {
 }
 
 func TestForwardValidatesSavedPlansBeforeChangingProgress(t *testing.T) {
-	for _, phase := range []string{phasePlanned, phaseMigrating, phaseVerified, phaseCommitting} {
-		t.Run(phase, func(t *testing.T) {
-			p, _ := retirementFixture(t, clusterKind, "source")
-			p.plan.Version = 1
-			p.plan.Phase = phase
-			before := p.plan.Progress
-			var err error
-			if phase == phaseCommitting {
-				err = p.Commit(t.Context())
-			} else {
-				err = p.Migrate(t.Context())
-			}
-			require.ErrorContains(t, err, "plan format 1")
-			require.Equal(t, phase, p.plan.Phase)
-			require.Equal(t, before, p.plan.Progress)
-			require.NoError(t, p.rollbackPossible(t.Context()))
-		})
+	for _, version := range []int{1, 2} {
+		for _, phase := range []string{phasePlanned, phaseMigrating, phaseVerified, phaseCommitting} {
+			t.Run(fmt.Sprintf("v%d/%s", version, phase), func(t *testing.T) {
+				p, _ := retirementFixture(t, clusterKind, "source")
+				p.plan.Version = version
+				p.plan.Phase = phase
+				before := p.plan.Progress
+				var err error
+				if phase == phaseCommitting {
+					err = p.Commit(t.Context())
+				} else {
+					err = p.Migrate(t.Context())
+				}
+				require.ErrorContains(t, err, fmt.Sprintf("plan format %d", version))
+				require.ErrorContains(t, err, "exact original migration binary")
+				require.Equal(t, phase, p.plan.Phase)
+				require.Equal(t, before, p.plan.Progress)
+				require.NoError(t, p.rollbackPossible(t.Context()))
+			})
+		}
 	}
 	p, _ := retirementFixture(t, clusterKind, "source")
 	p.plan.Version = planVersion

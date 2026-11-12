@@ -501,7 +501,7 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 			"   If Git still describes the source installation, Git needs no change. Confirm that each live\n" +
 			"   Application source matches Git. If a live Application keeps checkpoint values, follow steps 3 and 4\n" +
 			"   to replace them. Then confirm that each controller's desired state matches the live source and\n" +
-			"   restore the recorded sync settings.\n")
+			"   restore the recorded sync settings. For Flux, run flux resume for each suspended object, parents first.\n")
 	} else {
 		b.WriteString("   Convert every managed Cluster, Restore and Tenant manifest, including shared platform bundles.\n" +
 			"   api-migration convert --write <files> rewrites the API version; review the resulting Git diff.\n" +
@@ -525,6 +525,7 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 	b.WriteString("   Review helper pins in the prepared operator manifests or values, including OPERATOR_BACKUP_IMAGE/extraEnv.\n" +
 		"2. Stage a Git change that keeps every child paused while updating parents and sources.\n" +
 		"   Set Flux children spec.suspend=true in Git, even if they normally declare spec.suspend:false.\n" +
+		"   The children are the objects listed under step 4. The freeze requirements below name their parents.\n" +
 		"   Keep Argo child automatic sync disabled and ApplicationSet sync-policy protection in place.\n" +
 		"   Publish the intended chart or manifest artifact before any parent can resume its children.\n" +
 		"3. Resume parents from the outermost level inward, keeping their children paused.\n" +
@@ -535,7 +536,9 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 		"   Resume a child only after its own source artifact matches that output.\n" +
 		"   Imported resources lack the old GitOps tracking metadata, so Argo CD reports them OutOfSync until\n" +
 		"   their first sync adds it. Checkpoint values set on a live Application must not remain: confirm that\n" +
-		"   its source matches Git after the parent applies the staged revision.\n")
+		"   its source matches Git after the parent applies the staged revision. Server-side apply can retain\n" +
+		"   checkpoint fields. If needed, use JSON Patch to replace the complete spec.source or spec.sources\n" +
+		"   field from reviewed Git while child automatic sync remains disabled, then compare again.\n")
 	for _, manager := range p.plan.GitOps {
 		fmt.Fprintf(&b, "   - %s (manages %s)\n", manager, strings.Join(manager.Manages, ", "))
 		if manager.Kind == fluxHelmRelease.Kind {
@@ -547,6 +550,7 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 		}
 	}
 	b.WriteString("5. Remove child suspension in a separate Git change or resume it manually, then verify reconciliation.\n" +
+		"   Flux keeps a suspension set with flux suspend or kubectl after Git drops the field: run flux resume.\n" +
 		"   Restore parent automation and ApplicationSet policy only after the child desired state is safe.\n" +
 		"   Keep pruning disabled until the reviewed source fully matches the completed migration or rollback.\n")
 	return b.String()
@@ -560,9 +564,9 @@ func (p *Procedure) writeGitOpsHandback(ctx context.Context, rollback bool) (str
 		return "", nil
 	}
 	instructions += "\n" + p.gitopsFreezeReport(ctx).String()
-	name := "after-commit.md"
+	name := afterCommitFile
 	if rollback {
-		name = "after-rollback.md"
+		name = afterRollbackFile
 	}
 	path := p.state.path(name)
 	if err := writePrivate(path, []byte(instructions)); err != nil {
