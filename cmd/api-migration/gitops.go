@@ -560,9 +560,9 @@ func (p *Procedure) writeGitOpsHandback(ctx context.Context, rollback bool) (str
 		return "", nil
 	}
 	instructions += "\n" + p.gitopsFreezeReport(ctx).String()
-	name := "after-commit.md"
+	name := afterCommitFile
 	if rollback {
-		name = "after-rollback.md"
+		name = afterRollbackFile
 	}
 	path := p.state.path(name)
 	if err := writePrivate(path, []byte(instructions)); err != nil {

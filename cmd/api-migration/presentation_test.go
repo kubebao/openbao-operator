@@ -332,3 +332,21 @@ func TestSummaryShowsEvidenceWithoutReplacingUnknownChecks(t *testing.T) {
 	require.Contains(t, text.String(), "'/path with spaces/api-migration-0.7.0' migrate --state /private/state")
 	require.Equal(t, unknownValue, summary.RollbackWindow.State, "saved metadata alone cannot establish the rollback window")
 }
+
+func TestFinishedPhasesNameTheirFollowUp(t *testing.T) {
+	plain := &Procedure{state: &State{dir: "/state"}, plan: &Plan{Phase: phaseRolledBack}}
+	actions := plain.nextActions(rollbackWindow{State: "open"})
+	require.Len(t, actions, 1)
+	require.NotContains(t, actions[0].Description, "GitOps")
+	require.Contains(t, actions[0].Description, "new plan in a new state directory")
+
+	managed := &Procedure{state: &State{dir: "/state"}, plan: &Plan{Phase: phaseComplete, GitOps: []GitOpsManager{{}}}}
+	require.Contains(t, managed.nextActions(rollbackWindow{State: "closed"})[0].Description, "/state/after-commit.md")
+}
+
+func TestHelmInstallationsRequireHelm4(t *testing.T) {
+	require.NoError(t, requireHelm4("v4.3.1"))
+	for _, version := range []string{"v3.20.2", "v40.0.0", ""} {
+		require.ErrorContains(t, requireHelm4(version), "requires Helm 4")
+	}
+}

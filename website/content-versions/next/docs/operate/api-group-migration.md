@@ -54,7 +54,7 @@ applies the temporary operator states:
 | [Argo CD renders the chart](#argo-cd-checklist) | Omit `release` | Apply each checkpoint manually, without pruning. Use operator-only syncs for a shared Application. |
 | [Flux Kustomization applies manifests](#flux-kustomization-checklist) | Omit `release`; optionally name operator-only `sourceManifests` and `destinationManifests` | Apply the checkpoint's operator manifests with `kubectl`; keep the Kustomization suspended. |
 | [Flux HelmRelease](#flux-helmrelease-checklist) | Set `release` to the existing Helm release name | The command drives Helm while the HelmRelease and its parents remain suspended. |
-| Helm CLI | Set `release` to the existing Helm release name | The command drives Helm. |
+| [Helm CLI](#helm-cli-checklist) | Set `release` to the existing Helm release name | The command drives Helm. |
 
 A shared Application or Kustomization can manage both the operator and its OpenBao resources. Checkpoints must
 change only the operator. Applying converted OpenBao resources before import creates destination objects too early;
@@ -115,6 +115,19 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
    HelmRelease with `spec.suspend: true` in Git. Resume parents and sources, then require the intended chart artifact
    to serve the destination release before resuming the HelmRelease.
 
+### Helm CLI checklist
+
+1. Complete [preflight](#before-you-start) and [configuration](#write-the-configuration). Set `release` to the existing
+   Helm release name. The command runs the `helm` executable that it finds on `PATH`, and `plan` refuses any version
+   other than Helm 4. Put Helm 4 in a directory with an absolute path on `PATH`.
+2. [Migrate](#migrate-the-installation). The command drives the Helm transitions.
+3. Review `status`. Commit only after migration verification passes with operations held.
+   [Roll back](#roll-back) while the window is open if you decide to return to the source, including after an
+   interrupted migration. The first accepted source deletion during `commit` closes that window.
+4. [Clean up](#clean-up-after-the-migration). The command writes no hand-back file. The release values keep
+   `controller.apiMigrationHold: false` and the planned replica counts. With one controller and one provisioner
+   replica, these equal the chart defaults. Keep them, or remove them in your next upgrade.
+
 ## Before you start
 
 {{< checklist title="Preflight" >}}
@@ -122,12 +135,14 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
   first.
 - The operator controller Deployment runs exactly one replica, and the source admission policies are enabled.
 - Every `OpenBaoCluster` is available at its current generation, or paused with the pause observed by the operator.
-- No upgrade, backup, restore, blue-green, or break-glass operation is in flight, and no backup trigger is pending.
+- No upgrade, backup, restore, blue-green, or break-glass operation is in flight, and no backup trigger is pending:
+  no Cluster has the `openbao.org/trigger-backup` annotation. The controller removes it when it accepts a request.
 - Every `OpenBaoRestore` is finished: `Completed`, `Failed`, or `Unknown` with a `Resume` or `Abandon` decision and
   no managed restart or target cleanup in progress.
 - No `OpenBaoTenant` is being deleted.
-- Every Cluster has a recent backup with a rehearsed restore path.
-- You have cluster administrator access, `kubectl`, and, for a Helm installation, Helm 4.
+- Every Cluster has a recent backup with a rehearsed [restore path](../restore/).
+- You have cluster administrator access, `kubectl`, and, for a Helm installation, Helm 4 as the `helm` executable
+  on `PATH`.
 - Every GitOps controller that manages the operator or its resources is suspended. See [Suspend GitOps sync](#suspend-gitops-sync).
 {{< /checklist >}}
 
@@ -177,7 +192,8 @@ The migration keeps data and availability apart:
 - After the destination operator starts, it renders its own release's Pod template. Where that differs from the
   source's, it rolls the data Pods once, as any operator upgrade does. A single-replica Cluster is unavailable while
   its Pod restarts. With three or more voters, the rolling update keeps quorum. Verification waits for the rollout.
-  Clients that reach OpenBao through an ingress or Gateway can receive brief errors while a Pod restarts.
+  Any client can receive errors for several seconds while a Pod restarts and the active node changes, whether it
+  connects through the Service, an ingress, or a Gateway. Use clients that retry failed requests.
 - `rollback` starts the source operator again. It renders the source Pod template and rolls the data Pods a
   second time.
 
@@ -240,7 +256,9 @@ links to the exact bundle. The CLI version is `edge-<12-character-commit>` and m
 and the operator version. A release or `dev` binary does not exercise this edge version binding.
 
 Replace `<commit>` with the selected 12-character commit and `<platform>` with `linux-amd64`, `linux-arm64`, or
-`darwin-arm64`. Download into a new directory:
+`darwin-arm64`. The newest edge build's commit is the `short_sha` field of
+`https://docs.kubebao.org/edge/latest/metadata.json`. If the migration host has no authenticated GitHub CLI,
+download and verify on another host, then copy the directory. Download into a new directory:
 
 ```sh
 curl --fail --silent --show-error \
@@ -255,7 +273,7 @@ gh attestation verify edge-artifacts/api-migration-<platform> --repo kubebao/ope
   --signer-workflow kubebao/openbao-operator/.github/workflows/reusable-channel-hardening.yml \
   --source-ref refs/heads/main --source-digest "$(jq -er '.sha' edge-metadata.json)" \
   --deny-self-hosted-runners
-(cd edge-artifacts && shasum -a 256 --check checksums.txt)
+(cd edge-artifacts && shasum -a 256 --check checksums.txt)   # on Linux: sha256sum --check checksums.txt
 cp edge-artifacts/api-migration-<platform> ./api-migration
 chmod +x ./api-migration
 ./api-migration version
@@ -265,8 +283,9 @@ The documentation site publishes the metadata after the edge build finishes. If 
 wait for the site deployment and retry, or select an earlier edge commit.
 
 Require successful attestation and checksum verification and a printed version matching `version` in the selected
-metadata. Use the chart archive in that bundle when preparing the destination configuration. For Argo CD, pin the
-chart version or digest from the same metadata. Keep this binary and state directory for every command, including
+metadata. `gh attestation verify` exits with status 0 on success and can print nothing when its output is not a
+terminal. Unpack the chart archive in that bundle and set `destinationChart` to the unpacked directory. For Argo CD,
+pin the chart version or digest from the same metadata. Keep this binary and state directory for every command, including
 rollback. Resuming with a binary whose destination version differs from the saved plan is refused before cluster
 access. Continue with the preparation and GitOps steps below; edge delivery does not remove migration prerequisites.
 
@@ -384,6 +403,7 @@ tracking metadata needs the same confirmation.
    kubectl get openbaoclusters.kubebao.org,openbaotenants.kubebao.org,openbaorestores.kubebao.org -A
    {{< /command >}}
 
+   After a successful `migrate`, `status` reports `Phase: Verified` and `operations hold=true`.
    The text output separates live observations from the last recorded verification. An open rollback window
    confirms that the planned source identities still exist and are not being deleted; rollback checks further
    preconditions. For automation, use `./api-migration status --state ./migration-state --output json`.
@@ -400,7 +420,9 @@ tracking metadata needs the same confirmation.
 
 Keep the state directory until the migration is complete. Only one process can use it at a time. After an
 interrupted `migrate`, `commit`, or `rollback`, run the same command again with the same state directory: it
-continues after the last completed step.
+continues after the last completed step. The directory contains the private plan, including Helm values, and any
+Raft snapshots. After the migration, keep or delete it as you handle backups. If you created OpenBao tokens for
+`plan`, revoke them.
 Exit status 3 means `--stop-after` stopped it, and exit status 4 means a checkpoint waits for you.
 
 ## Migrate an installation from manifests
@@ -460,8 +482,8 @@ while preparing these changes:
    custom `spec.backup.image` with a destination-compatible image before resuming its Cluster.
 2. Change every managed OpenBao manifest to `apiVersion: kubebao.org/v1alpha1`, including shared bundles.
    `./api-migration convert --write <file>...` rewrites top-level OpenBao API versions. Review the Git diff and update
-   custom RBAC rules, API clients, and scripts separately. Existing documented label and annotation keys retain
-   their names.
+   custom RBAC rules, API clients, and scripts separately. Existing documented label, annotation, and finalizer
+   names keep their `openbao.org/` prefix.
 3. Stage the Git update with children still suspended. Set Flux children to `spec.suspend: true` in Git and keep
    Argo child automatic sync disabled, including ApplicationSet protection. Publish the intended chart or manifest
    artifact before a parent can resume its children.
@@ -506,7 +528,8 @@ Argo CD Application source matches Git. If a live Application keeps checkpoint v
 steps of the hand-back to replace them. Then confirm that each controller's desired state matches the live source
 and restore the recorded sync settings.
 
-To migrate again after a rollback, create a new plan in a new state directory.
+To migrate again after a rollback, create a new plan in a new state directory. Rollback keeps the `kubebao.org`
+CRDs, which the next migration uses. While both groups are installed, qualify resource names with their group.
 
 For every installation, restore the desired controller replica count and any cleared source backup pins before
 resuming paused Clusters.

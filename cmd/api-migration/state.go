@@ -28,8 +28,10 @@ const (
 )
 
 const (
-	planFile    = "plan.json"
-	planVersion = 2
+	planFile          = "plan.json"
+	afterCommitFile   = "after-commit.md"
+	afterRollbackFile = "after-rollback.md"
+	planVersion       = 2
 )
 
 // Plan is everything the procedure pins before it changes the installation.

@@ -161,6 +161,13 @@ func (p *Procedure) planInstall(ctx context.Context) error {
 		if err := p.resolveHelmNamespace(ctx, controller); err != nil {
 			return err
 		}
+		version, err := p.helm.Version(ctx)
+		if err != nil {
+			return err
+		}
+		if err := requireHelm4(version); err != nil {
+			return err
+		}
 		latest, err := p.helm.Latest(ctx)
 		if err != nil {
 			return fmt.Errorf("release %s: %w", config.Release, err)
