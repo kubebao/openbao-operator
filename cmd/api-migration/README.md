@@ -188,7 +188,7 @@ The Make target saves probe logs and timing summaries under `dist/test/api-migra
 observations for seven days, including failed observations. They exclude credentials and migration state.
 
 - `commit`: migrate and commit.
-- `rollback`: migrate and roll back.
+- `rollback`: migrate, let the destination roll the data Pods, roll back, and plan again.
 - `interrupt`: stop after every `migrate` step and roll back each time. Then stop between a StatefulSet's orphan
   delete and its recreation, where its Pods have no controller, and roll back; stop there again, resume, and commit.
 - `ha`: three voters, a read replica, and legacy restore history.

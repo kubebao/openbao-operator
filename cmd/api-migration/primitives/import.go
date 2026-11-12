@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -171,6 +172,10 @@ func importKind(kind string) bool {
 	return kind == discoveryClusterKind || kind == discoveryRestoreKind || kind == discoveryTenantKind
 }
 
+// ErrSourceChanged reports a source that was replaced, is deleting, or has a
+// different revision than the request pins. A status write changes the revision.
+var ErrSourceChanged = errors.New("import source identity or revision changed, or source is deleting")
+
 func importReadSource(ctx context.Context, reader client.Reader,
 	request ImportRequest,
 ) (*unstructured.Unstructured, error) {
@@ -191,7 +196,7 @@ func importReadSource(ctx context.Context, reader client.Reader,
 		(request.Source.UID != "" && source.GetUID() != request.Source.UID) ||
 		(request.Source.ResourceVersion != "" && source.GetResourceVersion() != request.Source.ResourceVersion) ||
 		!source.GetDeletionTimestamp().IsZero() {
-		return nil, fmt.Errorf("import source identity or revision changed, or source is deleting")
+		return nil, ErrSourceChanged
 	}
 	if err := inspectRelatedScope(ctx, reader, request); err != nil {
 		return nil, err

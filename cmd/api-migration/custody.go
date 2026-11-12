@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -153,6 +154,47 @@ func ownedStatefulSets(ctx context.Context, k *Kube, owner primitives.TransferId
 		}
 	}
 	return owned, nil
+}
+
+// restampRevisions moves the owner UID on the retired owner's StatefulSet
+// history to owner. A StatefulSet copies its annotations into each
+// ControllerRevision it creates and never rewrites them, so the revisions from
+// the destination's rollout keep its UID after rollback. A later plan does not
+// know that UID and refuses them. Only revisions whose single controller is a
+// StatefulSet that owner controls change.
+func restampRevisions(ctx context.Context, k *Kube, retired types.UID, owner primitives.TransferIdentity) (int, error) {
+	sets, err := ownedStatefulSets(ctx, k, owner)
+	if err != nil {
+		return 0, err
+	}
+	revisions := &appsv1.ControllerRevisionList{}
+	if err := k.client.List(ctx, revisions, client.InNamespace(owner.Namespace)); err != nil {
+		return 0, err
+	}
+	path := "/metadata/annotations/" + strings.NewReplacer("~", "~0", "/", "~1").Replace(constants.AnnotationOpenBaoOwnerUID)
+	restamped := 0
+	for i := range revisions.Items {
+		revision := &revisions.Items[i]
+		ref := metav1.GetControllerOf(revision)
+		if retired == "" || revision.Annotations[constants.AnnotationOpenBaoOwnerUID] != string(retired) ||
+			len(revision.OwnerReferences) != 1 || ref == nil || ref.APIVersion != "apps/v1" || ref.Kind != "StatefulSet" ||
+			!slices.ContainsFunc(sets, func(set appsv1.StatefulSet) bool { return set.UID == ref.UID && set.Name == ref.Name }) {
+			continue
+		}
+		data, err := json.Marshal([]map[string]string{
+			{"op": "test", "path": "/metadata/resourceVersion", "value": revision.ResourceVersion},
+			{"op": "test", "path": path, "value": string(retired)},
+			{"op": "replace", "path": path, "value": string(owner.UID)},
+		})
+		if err != nil {
+			return 0, err
+		}
+		if err := k.client.Patch(ctx, revision, client.RawPatch(types.JSONPatchType, data)); err != nil {
+			return 0, fmt.Errorf("move ControllerRevision %s/%s to the source: %w", revision.Namespace, revision.Name, err)
+		}
+		restamped++
+	}
+	return restamped, nil
 }
 
 func claimTemplatesOwnedBy(set *appsv1.StatefulSet, uid types.UID) bool {

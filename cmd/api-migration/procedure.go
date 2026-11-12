@@ -540,15 +540,25 @@ func (p *Procedure) planClusters(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, source := range sources {
-		destination, err := k.getCluster(ctx, primitives.PlanDestinationAPIVersion, source.GetNamespace(), source.GetName())
+	for _, listed := range sources {
+		destination, err := k.getCluster(ctx, primitives.PlanDestinationAPIVersion, listed.GetNamespace(), listed.GetName())
 		if err != nil {
 			return err
 		}
 		if destination != nil {
-			return fmt.Errorf("destination %s/%s already exists", source.GetNamespace(), source.GetName())
+			return fmt.Errorf("destination %s/%s already exists", listed.GetNamespace(), listed.GetName())
 		}
-		cluster, err := p.planCluster(ctx, &source, operatorNamespace)
+		// Planning an earlier Cluster takes time; status writes, such as a
+		// scheduled backup, change this one's revision meanwhile. Plan the
+		// current revision of the same object.
+		source, err := k.getCluster(ctx, primitives.PlanSourceAPIVersion, listed.GetNamespace(), listed.GetName())
+		if err != nil {
+			return err
+		}
+		if source == nil || source.GetUID() != listed.GetUID() {
+			return fmt.Errorf("source %s/%s was deleted or replaced during planning", listed.GetNamespace(), listed.GetName())
+		}
+		cluster, err := p.planCluster(ctx, source, operatorNamespace)
 		if err != nil {
 			return fmt.Errorf("%s/%s: %w", source.GetNamespace(), source.GetName(), err)
 		}
@@ -578,6 +588,9 @@ func (p *Procedure) planCluster(ctx context.Context, source *unstructured.Unstru
 		RelatedNamespaces: []primitives.NamespaceIdentity{{Name: p.plan.Config.OperatorNamespace, UID: operatorNamespace}},
 	}
 	if _, err := primitives.InspectSource(ctx, k.client, request); err != nil {
+		if errors.Is(err, primitives.ErrSourceChanged) {
+			err = fmt.Errorf("%w; the operator wrote its status during planning, for example for a scheduled backup: run plan again", err)
+		}
 		return ClusterPlan{}, err
 	}
 	typed := &api.OpenBaoCluster{}
@@ -1021,8 +1034,8 @@ func (p *Procedure) destinationIdentity(ctx context.Context, cluster *ClusterPla
 // untilPodsSettle runs a discovery until it reports no blockers. A discovery
 // is not one snapshot: a rollout that starts after the workloads settled can
 // delete or replace a Pod while it runs. While every blocker is such a Pod, it
-// waits and discovers again; any other blocker is reported at once. Only
-// read-only steps use it.
+// waits and discovers again; any other blocker is reported at once. A step
+// that mutates after it rechecks each identity at the mutation.
 func (p *Procedure) untilPodsSettle(ctx context.Context, cluster ClusterPlan,
 	discover func(context.Context) ([]primitives.DiscoveryBlocker, error),
 ) error {
@@ -1810,11 +1823,9 @@ func (p *Procedure) retireSource(ctx context.Context) (string, error) {
 		if err != nil || !intact {
 			return alreadyRetired, err
 		}
-		state, err := discoverCustody(ctx, p.kube, p.clusterScope(*c), c.source(), c.destination())
+		// The destination may still be rolling Pods: discover a settled workload.
+		state, err := p.settledCustody(ctx, *c, c.source(), c.destination())
 		if err != nil {
-			return "", err
-		}
-		if err := state.blockerError(); err != nil {
 			return "", err
 		}
 		if len(state.pending) != 0 {
@@ -1945,17 +1956,21 @@ func (p *Procedure) retireDestination(ctx context.Context) (string, error) {
 			return "destination Cluster deletion finished",
 				p.kube.waitDeleted(ctx, primitives.PlanDestinationAPIVersion, clusterKind, c.Namespace, c.Name)
 		}
-		state, err := discoverCustody(ctx, p.kube, p.clusterScope(*c), c.destination(), c.source())
+		// The restored source operator rolls Pods back to its own template:
+		// discover a settled workload.
+		state, err := p.settledCustody(ctx, *c, c.destination(), c.source())
 		if err != nil {
-			return "", err
-		}
-		if err := state.blockerError(); err != nil {
 			return "", err
 		}
 		if len(state.pending) != 0 {
 			return "", fmt.Errorf("%d resources still reference the destination", len(state.pending))
 		}
-		return "destination Cluster deleted without cascading",
+		restamped, err := restampRevisions(ctx, p.kube, c.DestinationUID, c.source())
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("destination Cluster deleted without cascading; %d StatefulSet revision(s) moved to the source",
+				restamped),
 			p.kube.removeFinalizerAndDelete(ctx, primitives.PlanDestinationAPIVersion, clusterKind, c.Namespace, c.Name, c.DestinationUID)
 	})
 	return joinDetails(append([]string{clusters}, details...)...), err
