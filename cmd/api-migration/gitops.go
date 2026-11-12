@@ -498,8 +498,10 @@ func (p *Procedure) gitopsHandback(rollback bool) string {
 		}
 		b.WriteString("   Revert Git changes prepared for kubebao.org; the source objects remain authoritative.\n" +
 			"   Restore source-compatible helper pins and any custom spec.backup.image cleared during preparation.\n" +
-			"   If Git still describes the source installation, steps 1 to 4 change nothing: confirm that each\n" +
-			"   controller's desired state matches the live source, then restore the recorded sync settings.\n")
+			"   If Git still describes the source installation, Git needs no change. Confirm that each live\n" +
+			"   Application source matches Git. If a live Application keeps checkpoint values, follow steps 3 and 4\n" +
+			"   to replace them. Then confirm that each controller's desired state matches the live source and\n" +
+			"   restore the recorded sync settings.\n")
 	} else {
 		b.WriteString("   Convert every managed Cluster, Restore and Tenant manifest, including shared platform bundles.\n" +
 			"   api-migration convert --write <files> rewrites the API version; review the resulting Git diff.\n" +

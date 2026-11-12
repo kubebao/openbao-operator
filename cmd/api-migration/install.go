@@ -436,7 +436,7 @@ func (p *Procedure) writeCheckpoint(state operatorState) (string, error) {
 		b.WriteString("Install the destination release with every operator Deployment scaled to zero.\n" +
 			"This state includes the destination's kubebao.org CRDs. If your installation does not install the\n" +
 			"chart's CRDs (Argo CD skipCrds, helm --skip-crds, or CRDs managed elsewhere), apply crds.yaml from the\n" +
-			"destination release first: kubectl apply --server-side -f crds.yaml\n")
+			"destination release first: " + p.checkpointKubectl("apply", "--server-side", "-f", "crds.yaml") + "\n")
 	case stateHeld.name:
 		b.WriteString("Start the destination release with the controller's API migration hold.\n")
 	case stateNormal.name:

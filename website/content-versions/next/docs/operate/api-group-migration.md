@@ -501,8 +501,10 @@ Rollback waits for the source operator's rollout before it verifies the source.
 For a GitOps-managed installation, follow `<state>/after-rollback.md` after a successful rollback. Restore the
 source chart or manifests, source image and helper pins, and `openbao.org/v1alpha1` manifests in Git. Revert any
 prepared destination changes in Git. Use the same staged parent/source/child sequence as the commit hand-back.
-If you staged no destination change, Git still describes the source: confirm that each controller's desired state
-matches the live source, then restore the recorded sync settings.
+If you staged no destination change, Git still describes the source and needs no change. Confirm that each live
+Argo CD Application source matches Git. If a live Application keeps checkpoint values, follow the parent and child
+steps of the hand-back to replace them. Then confirm that each controller's desired state matches the live source
+and restore the recorded sync settings.
 
 To migrate again after a rollback, create a new plan in a new state directory.
 
