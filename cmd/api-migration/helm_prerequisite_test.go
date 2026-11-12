@@ -15,6 +15,7 @@ func TestHelmCommandsRecheckTheExecutableBeforeChangingState(t *testing.T) {
 	}{
 		{commandMigrate, phasePlanned},
 		{commandMigrate, phaseMigrating},
+		{commandMigrate, phaseVerified},
 		{commandCommit, phaseVerified},
 		{commandCommit, phaseCommitting},
 		{commandRollback, phasePlanned},

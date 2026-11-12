@@ -1274,13 +1274,7 @@ func restartedPods(ctx context.Context, k *Kube, cluster ClusterPlan) (int, erro
 
 func (p *Procedure) Migrate(ctx context.Context) error {
 	switch p.plan.Phase {
-	case phaseVerified:
-		if err := p.validateForwardPlan(); err != nil {
-			return err
-		}
-		p.plan.Progress = Progress{Command: "reverify"}
-		return p.step(ctx, "verify", func() (string, error) { return p.verifyMigrated(ctx) })
-	case phasePlanned, phaseMigrating:
+	case phasePlanned, phaseMigrating, phaseVerified:
 	default:
 		return fmt.Errorf("migrate is not allowed in phase %s", p.plan.Phase)
 	}
@@ -1289,6 +1283,10 @@ func (p *Procedure) Migrate(ctx context.Context) error {
 	}
 	if err := p.checkHelmVersion(ctx); err != nil {
 		return err
+	}
+	if p.plan.Phase == phaseVerified {
+		p.plan.Progress = Progress{Command: "reverify"}
+		return p.step(ctx, "verify", func() (string, error) { return p.verifyMigrated(ctx) })
 	}
 	p.begin(commandMigrate)
 	if err := p.setPhase(phaseMigrating); err != nil {
