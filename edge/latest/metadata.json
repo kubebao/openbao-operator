@@ -1,15 +1,15 @@
 {
   "api_migration": {
     "artifact_name": "manifests-edge",
-    "artifact_url": "https://github.com/kubebao/openbao-operator/actions/runs/43125698926/artifacts/13902637951",
+    "artifact_url": "https://github.com/kubebao/openbao-operator/actions/runs/43217852982/artifacts/13945005068",
     "platforms": [
       "linux-amd64",
       "linux-arm64",
       "darwin-arm64"
     ],
     "retention_days": 7,
-    "run_id": "43125698926",
-    "version": "edge-587dd16386bc"
+    "run_id": "43217852982",
+    "version": "edge-d98a6e0c6e65"
   },
   "artifacts": {
     "checksums_bundle": "checksums.txt.bundle",
@@ -20,30 +20,30 @@
   },
   "channel": "edge",
   "chart": {
-    "digest": "sha256:e483bd6762e69f108c6b70da2381f4f6fb5b3b1b0070862909c684e128144260",
+    "digest": "sha256:22a85c9583bd54757cadd36013b736b2d5a85a0ae355d1bbfc4fcbee6ccfa7e6",
     "ref": "ghcr.io/kubebao/charts-edge/openbao-operator",
-    "version": "0.0.0-edge.43118921813.1.g587dd16386bc"
+    "version": "0.0.0-edge.43210588129.1.gd98a6e0c6e65"
   },
-  "generated_at": "2026-11-12T00:16:48Z",
+  "generated_at": "2026-11-12T12:29:39Z",
   "images": {
     "backup_executor": {
-      "digest": "sha256:b3a9db5680a97279f347ad4fd39521c14a57801f90d80422578fbd15b4d00207",
+      "digest": "sha256:9b144dd713520728dd3a4943cbc0b5c4400d12c200cfd2b9b081eab57d65a48d",
       "ref": "ghcr.io/kubebao/openbao-backup"
     },
     "config_init": {
-      "digest": "sha256:31040684e8c51ed35342a21e4b492883382cd7555889e8531b0b5fff9751bfe6",
+      "digest": "sha256:073c087011a37d91fd662dff38c11cd2c4fa416494c6e3a3a127d056e169ab3a",
       "ref": "ghcr.io/kubebao/openbao-init"
     },
     "manager": {
-      "digest": "sha256:fd84dfb51b6d2460640b696e7fd48b8587227f1db7a0c0f87b71accf40372766",
+      "digest": "sha256:bbf76602e4ac9b27c91250932cced5a08409ac14aba14d69365ac1f1dd4d29e3",
       "ref": "ghcr.io/kubebao/openbao-operator"
     },
     "upgrade_executor": {
-      "digest": "sha256:958d42abddcca9151036f9e86d145ae51f67b218277aa59f8e1403d3559dde6a",
+      "digest": "sha256:11bf6f633f2cc1f3b83157f8d85ade0d811bccd8b4244fac345358305ab21915",
       "ref": "ghcr.io/kubebao/openbao-upgrade"
     }
   },
-  "sha": "587dd16386bc5a234520e22eec1bbedb904fa6dd",
-  "short_sha": "587dd16386bc",
-  "version": "edge-587dd16386bc"
+  "sha": "d98a6e0c6e65cccd8a14c9a411c25d28e842a1e1",
+  "short_sha": "d98a6e0c6e65",
+  "version": "edge-d98a6e0c6e65"
 }
