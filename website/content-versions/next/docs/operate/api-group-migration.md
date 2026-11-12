@@ -105,7 +105,7 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
 
 1. Complete [preflight](#before-you-start) and [configuration](#write-the-configuration). Set `release` to the existing
    Helm release name and preserve its storage and target namespaces. The command runs the `helm` executable that it
-   finds on `PATH`, and `plan` refuses any version other than Helm 4.
+   finds on `PATH`. Planning and each command that changes the installation require Helm 4, including resumed commands.
 2. [Suspend sync](#suspend-gitops-sync) for the HelmRelease and its parents. Confirm that parent reconciliation
    cannot clear the suspension before running `plan`.
 3. [Migrate](#migrate-the-installation). The command drives the Helm transitions; leave the HelmRelease suspended.
@@ -119,8 +119,9 @@ phases: prepare, suspend, migrate, decide, and return control to GitOps.
 ### Helm CLI checklist
 
 1. Complete [preflight](#before-you-start) and [configuration](#write-the-configuration). Set `release` to the existing
-   Helm release name. The command runs the `helm` executable that it finds on `PATH`, and `plan` refuses any version
-   other than Helm 4. Put Helm 4 in a directory with an absolute path on `PATH`.
+   Helm release name. The command runs the `helm` executable that it finds on `PATH`. Planning and each command that
+   changes the installation require Helm 4, including resumed commands. Put Helm 4 in a directory with an absolute
+   path on `PATH`.
 2. [Migrate](#migrate-the-installation). The command drives the Helm transitions.
 3. Review `status`. Commit only after migration verification passes with operations held.
    [Roll back](#roll-back) while the window is open if you decide to return to the source, including after an

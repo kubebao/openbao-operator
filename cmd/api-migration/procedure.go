@@ -1333,6 +1333,9 @@ func (p *Procedure) Migrate(ctx context.Context) error {
 	if err := p.validateForwardPlan(); err != nil {
 		return err
 	}
+	if err := p.checkHelmVersion(ctx); err != nil {
+		return err
+	}
 	p.begin(commandMigrate)
 	if err := p.setPhase(phaseMigrating); err != nil {
 		return err
@@ -1622,6 +1625,9 @@ func (p *Procedure) Commit(ctx context.Context) error {
 	if err := p.validateForwardPlan(); err != nil {
 		return err
 	}
+	if err := p.checkHelmVersion(ctx); err != nil {
+		return err
+	}
 	p.begin(commandCommit)
 	if err := p.setPhase(phaseCommitting); err != nil {
 		return err
@@ -1669,6 +1675,9 @@ func (p *Procedure) Rollback(ctx context.Context) error {
 		return fmt.Errorf("rollback is not allowed in phase %s", p.plan.Phase)
 	}
 	if err := p.rollbackPossible(ctx); err != nil {
+		return err
+	}
+	if err := p.checkHelmVersion(ctx); err != nil {
 		return err
 	}
 	p.begin(commandRollback)

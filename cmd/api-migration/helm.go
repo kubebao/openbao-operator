@@ -58,6 +58,19 @@ func requireHelm4(version string) error {
 	return nil
 }
 
+// checkHelmVersion runs on every invocation that can change a Helm installation.
+// A saved plan does not guarantee that PATH still selects the same executable.
+func (p *Procedure) checkHelmVersion(ctx context.Context) error {
+	if p.plan.Operator.Install != installHelm {
+		return nil
+	}
+	version, err := p.helm.Version(ctx)
+	if err != nil {
+		return err
+	}
+	return requireHelm4(version)
+}
+
 func (h Helm) Latest(ctx context.Context) (HelmRevision, error) {
 	out, err := h.run(ctx, "history", h.Release, "--max", "1", "--output", "json")
 	if err != nil {
