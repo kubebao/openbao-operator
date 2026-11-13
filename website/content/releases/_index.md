@@ -8,6 +8,11 @@ hideChildren: true
 
 The current manual stays focused on the current contract. Release pages preserve historical changes, migration notes, artifacts, and links to archived documentation when exact older behavior matters.
 
+## Release in preparation
+
+[0.7.0](0.7.0/) prepares the `kubebao.org` API group migration from 0.6.1. The release is not published, and final
+qualification is pending. Follow the preparation page for the migration scope and remaining gates.
+
 ## Latest published release
 
 <div class="link-grid">

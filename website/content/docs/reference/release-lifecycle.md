@@ -34,6 +34,7 @@ Documentation is versioned by minor release, not by patch:
 | --- | --- |
 | Unprefixed | Current stable minor line |
 | `/latest/` | Compatibility redirect to the current stable home |
+| `/0.6.x/` | Published 0.6.x line through 0.6.1 |
 | `/0.5.x/` | Previous stable 0.5.x line through 0.5.3 |
 | `/0.4.x/` | Archived 0.4.x line through 0.4.2 |
 | `/next/` | Unreleased behavior on `main`; evaluation only |
@@ -77,7 +78,7 @@ best-effort support contract.
 
 ## Pre-GA API lifecycle
 
-The operator currently serves one API version, `openbao.org/v1alpha1`.
+The operator currently serves one API version, `kubebao.org/v1alpha1`.
 
 | Change | Current contract |
 | --- | --- |

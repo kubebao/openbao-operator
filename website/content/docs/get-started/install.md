@@ -1,6 +1,6 @@
 ---
 title: Install the operator
-description: Install OpenBao Operator 0.6.0 with the intended tenancy, platform, identity, CRDs, and admission policy contract.
+description: Install OpenBao Operator 0.7.0 with the intended tenancy, platform, identity, CRDs, and admission policy contract.
 eyebrow: Get started · Step 2
 weight: 2
 verifiedBy:
@@ -12,19 +12,24 @@ verifiedBy:
   - charts/openbao-operator/templates/admission
   - internal/service/provisioner/manager_tenant.go
   - config/default/kustomization.yaml
-  - config/manager/kustomization.yaml at 0.6.0
-  - config/manager/controller.yaml at 0.6.0
-  - config/manager/provisioner.yaml at 0.6.0
+  - config/manager/kustomization.yaml at 0.7.0
+  - config/manager/controller.yaml at 0.7.0
+  - config/manager/provisioner.yaml at 0.7.0
   - config/overlays/custom-identity/kustomization.yaml
   - internal/adapter/config/builder.go
   - cmd/bao-backup/restore_flow.go
   - .github/workflows/release.yml
 ---
 
-Install a pinned 0.6.0 release and verify the rendered namespace, identities, controllers, CRDs, and admission policies.
+Install a pinned 0.7.0 release and verify the rendered namespace, identities, controllers, CRDs, and admission policies.
 Complete [artifact verification](../../security/supply-chain/) before installation. The core procedure uses Helm
 in the chart's default multi-tenant mode. The release artifacts use KubeBao coordinates.
 Historical 0.5.1 artifacts retain their `dc-tec` publisher identity.
+
+{{< callout type="warning" title="These installation commands are for a new installation" >}}
+For an existing 0.6 installation, follow the [API group migration](../../operate/api-group-migration/).
+Applying the new chart or manifests directly leaves the old API resources unmanaged.
+{{< /callout >}}
 
 ## Before you begin
 
@@ -77,10 +82,10 @@ Helm values do not configure that manifest.
 
 1. Set the release values.
 
-   {{< command label="configure" title="Set the 0.6.0 release values" >}}
+   {{< command label="configure" title="Set the 0.7.0 release values" >}}
    export OPERATOR_RELEASE=openbao-operator
    export OPERATOR_NAMESPACE=openbao-operator-system
-   export CHART_VERSION=0.6.0
+   export CHART_VERSION=0.7.0
    {{< /command >}}
 
 2. Inspect the chart defaults when the platform needs overrides.
@@ -93,7 +98,7 @@ Helm values do not configure that manifest.
 
    Pin the chart and normally let its `appVersion` select the matching operator image. Set `image.tag` only for a
    controlled prerelease or test. The complete pinned reference is
-   [`values.yaml`](https://github.com/kubebao/openbao-operator/blob/0.6.0/charts/openbao-operator/values.yaml).
+   [`values.yaml`](https://github.com/kubebao/openbao-operator/blob/0.7.0/charts/openbao-operator/values.yaml).
 
 3. Save your overrides in `operator-values.yaml`, including external label ownership when required.
 
@@ -146,9 +151,9 @@ Helm values do not configure that manifest.
 
    {{< command label="verify" title="Verify cluster-scoped resources" >}}
    kubectl get crd \
-     openbaoclusters.openbao.org \
-     openbaotenants.openbao.org \
-     openbaorestores.openbao.org
+     openbaoclusters.kubebao.org \
+     openbaotenants.kubebao.org \
+     openbaorestores.kubebao.org
    kubectl get validatingadmissionpolicies \
      -l app.kubernetes.io/instance="${OPERATOR_RELEASE}"
    {{< /command >}}
@@ -171,9 +176,9 @@ Helm values do not configure that manifest.
 
 Use the release asset when the platform wants the published default resources without a Helm release:
 
-{{< command label="apply" title="Apply the 0.6.0 installer manifest" >}}
+{{< command label="apply" title="Apply the 0.7.0 installer manifest" >}}
 kubectl apply -f \
-  https://github.com/kubebao/openbao-operator/releases/download/0.6.0/install.yaml
+  https://github.com/kubebao/openbao-operator/releases/download/0.7.0/install.yaml
 {{< /command >}}
 
 The manifest uses the repository's default operator namespace and identity. Do not rewrite the rendered YAML by hand
@@ -184,10 +189,10 @@ for a custom identity; maintain a Kustomize overlay instead.
 Use `config/overlays/custom-identity` when the platform owns a different operator namespace or `namePrefix`.
 Obtain the pinned release source before changing the overlay:
 
-{{< command label="configure" title="Clone the 0.6.0 release source" >}}
-git clone --branch 0.6.0 --depth 1 \
-  https://github.com/kubebao/openbao-operator.git openbao-operator-0.6.0
-cd openbao-operator-0.6.0
+{{< command label="configure" title="Clone the 0.7.0 release source" >}}
+git clone --branch 0.7.0 --depth 1 \
+  https://github.com/kubebao/openbao-operator.git openbao-operator-0.7.0
+cd openbao-operator-0.7.0
 {{< /command >}}
 
 In `config/manager/kustomization.yaml`, replace `newName` and `newTag` in the existing `controller` image entry
@@ -197,10 +202,10 @@ with the values in this YAML fragment:
 images:
 - name: controller
   newName: ghcr.io/kubebao/openbao-operator
-  newTag: 0.6.0
+  newTag: 0.7.0
 ```
 
-Set the existing `OPERATOR_VERSION` environment entry to `0.6.0` in both `config/manager/controller.yaml` and
+Set the existing `OPERATOR_VERSION` environment entry to `0.7.0` in both `config/manager/controller.yaml` and
 `config/manager/provisioner.yaml`. This value selects the matching helper images.
 
 The tagged source contains placeholder image and version values until these entries are changed. Render the overlay
@@ -212,8 +217,8 @@ kubectl kustomize config/overlays/custom-identity
 
 Before applying the overlay, confirm:
 
-1. Controller and Provisioner Deployments use `ghcr.io/kubebao/openbao-operator:0.6.0`.
-2. Both Deployments set `OPERATOR_VERSION` to `0.6.0`.
+1. Controller and Provisioner Deployments use `ghcr.io/kubebao/openbao-operator:0.7.0`.
+2. Both Deployments set `OPERATOR_VERSION` to `0.7.0`.
 3. Controller and Provisioner ServiceAccounts have the intended names and namespace.
 4. RoleBinding and ClusterRoleBinding subjects point at those ServiceAccounts.
 5. Admission-policy variables use the same namespace and ServiceAccount names.
@@ -233,7 +238,7 @@ The chart defaults to `platform=auto`. Set `platform=openshift` when the install
 {{< command label="apply" title="Force OpenShift rendering" >}}
 helm upgrade --install openbao-operator \
   oci://ghcr.io/kubebao/charts/openbao-operator \
-  --version 0.6.0 \
+  --version 0.7.0 \
   --namespace openbao-operator-system \
   --create-namespace \
   --set platform=openshift
@@ -253,46 +258,18 @@ make deploy IMG=ghcr.io/kubebao/openbao-operator:dev
 
 ## Upgrade the operator
 
-Start from 0.5.3 and review the [0.6.0 upgrade guidance](../../../releases/0.6.0/). Finish active lifecycle Jobs,
-verify backups and independent administrator access, and update new-cluster templates before changing the operator.
-Existing omitted or Shared authentication modes remain compatible; their optional migration requires administrator
-preparation and is one-way. A Helm upgrade does not migrate OpenBao JWT roles.
-
-For older installations, apply the [0.5.1 migration](../../../releases/0.5.1/),
-[0.5.2 guidance](../../../releases/0.5.2/), and [0.5.3 guidance](../../../releases/0.5.3/) in order.
-A successful Helm upgrade does not replace all existing helper binaries. Follow the release guidance for planned
-Pod replacement and verify every running init image.
-
-Helm does not upgrade installed CRDs. For every release with CRD changes, apply the release CRDs before the controller:
-
-{{< callout type="warning" title="Update 0.4.2 restore policies before the controller" >}}
-OpenBao Operator 0.4.2 generated restore policies with only `update` on
-`sys/storage/raft/snapshot-force`. In 0.5.0 and later, a restore with `force` omitted or set to `false` uses
-`sys/storage/raft/snapshot`. Add `update` on the normal endpoint through an authenticated administration path before
-you upgrade the controller. Self-init does not update an existing policy.
+{{< callout type="warning" title="Migrate existing 0.6 installations" >}}
+The 0.7 operator serves `kubebao.org/v1alpha1` and does not reconcile existing `openbao.org/v1alpha1` resources.
+Do not run a direct Helm upgrade or apply the 0.7 installer to an existing 0.6 installation.
 {{< /callout >}}
 
-{{< command label="upgrade" title="Upgrade to 0.6.0" >}}
-kubectl apply -f \
-  https://github.com/kubebao/openbao-operator/releases/download/0.6.0/crds.yaml
-helm upgrade openbao-operator \
-  oci://ghcr.io/kubebao/charts/openbao-operator \
-  --version 0.6.0 \
-  --namespace openbao-operator-system \
-  --reuse-values \
-  --set-string image.repository=ghcr.io/kubebao/openbao-operator \
-  --set-string image.tag=0.6.0 \
-  --set-string image.digest= \
-  --set-string operatorVersion=0.6.0 \
-  --wait
-{{< /command >}}
+Upgrade older installations to published 0.6.1 first. Then follow the
+[API group migration](../../operate/api-group-migration/) with the destination release's matching `api-migration`
+binary, chart, and images. The guide covers preparation, ownership transfer, verification, rollback, and cleanup
+for Helm, kubectl/Kustomize, Flux, and Argo CD.
 
-The command selects the official 0.6.0 manager image and clears an older digest pin. If you use a private registry,
-replace the repository and tag with your verified mirror. Update any `helperImages`, helper repository environment
-variables, and cluster-level helper image overrides to the matching 0.6.0 images before upgrading.
-
-Re-render custom identities and review OpenBao-side policy changes before upgrading. Self-init does not update existing
-OpenBao policies.
+Finish `commit` before returning control to GitOps. Rollback through the migration command is available only until
+source-resource deletion begins. Routine operator downgrades remain unsupported.
 
 ## Uninstall the operator
 

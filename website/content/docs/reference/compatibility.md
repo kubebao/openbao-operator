@@ -11,11 +11,14 @@ verifiedBy:
   - internal/service/upgrade/bluegreen/version_compatibility.go
 ---
 
-Supported deployments require Kubernetes 1.34 or newer. The published 0.6.x Helm chart also permits Kubernetes 1.33,
-which is outside the supported range. The tables describe configured validation targets and focused checks.
-The [0.6.1 release qualification checks](https://github.com/kubebao/openbao-operator/pull/936/checks) record the exact
-candidate and results. The focused results below retain their stated scope and do not validate every cloud
-authentication method, distribution, seal, storage driver, or topology.
+The operator and Helm chart require Kubernetes 1.34 or newer. The tables describe configured validation targets
+and earlier focused checks. Final 0.7.0 release qualification is pending in the
+[release PR](https://github.com/kubebao/openbao-operator/pull/948/checks).
+
+The [0.6.1 release qualification checks](https://github.com/kubebao/openbao-operator/pull/936/checks) record the
+previous stable candidate and results. Those checks and the focused results below retain their stated scope;
+they do not qualify the final 0.7.0 candidate or every cloud authentication method, distribution, seal, storage
+driver, or topology.
 
 ## Kubernetes versions
 

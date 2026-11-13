@@ -44,8 +44,9 @@ declarative policy and validation instructions live under `redirects/`.
 
 ## Version policy
 
-- The unprefixed route contains the reviewed `0.6.x` contract. Main Pages deployment waits until that exact stable
+- The unprefixed route prepares the `0.7.x` contract. Main Pages deployment waits until that exact stable
   release is published; the existing public site remains in place during release preparation.
+- `/0.6.x/` retains the 0.6 minor-line contract through OpenBao Operator 0.6.1.
 - `/0.5.x/` retains the 0.5 minor-line contract through OpenBao Operator 0.5.3.
 - `/0.4.x/` retains the archived stable 0.4 minor-line contract through 0.4.2.
 - `/next/` tracks unreleased behavior on `main`. It must never be presented as a stable production contract.

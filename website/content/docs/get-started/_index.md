@@ -31,7 +31,7 @@ runtime images and configure registry credentials before installing the operator
 
 | Outcome | Use this route | Exit condition |
 | --- | --- | --- |
-| Evaluate the operator | [Install the pinned release](install/) in multi-tenant mode and create a disposable `Development` cluster | The tenant handoff exists and the cluster reports `Available=True` |
+| Evaluate the operator | [Install the pinned 0.7.0 release](install/) in multi-tenant mode and create a disposable `Development` cluster | The tenant handoff exists and the cluster reports `Available=True` |
 | Prepare production | [Choose the deployment model](deployment-model/), then use stable documentation and a pinned release | Human access, external trust, storage, backup, restore, monitoring, and upgrade ownership are tested |
 | Operate one dedicated namespace | [Render the single-tenant contract](single-tenant/) with the pinned chart or maintained Kustomize overlay | Watched namespace, target RoleBinding, controller identity, and namespace all match |
 
@@ -47,7 +47,7 @@ installation ownership.
 
 For multi-tenant evaluation:
 
-1. [Install the pinned release](install/) and verify the controller, Provisioner, CRDs, policies, and identities.
+1. [Install the pinned 0.7.0 release](install/) and verify the controller, Provisioner, CRDs, policies, and identities.
 2. [Onboard a namespace](onboard-namespace/) through `OpenBaoTenant` and verify the tenant RoleBinding.
 3. [Create the first cluster](create-cluster/).
 4. [Prepare for production operations](prepare-day-2/).

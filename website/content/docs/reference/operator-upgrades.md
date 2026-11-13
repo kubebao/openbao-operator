@@ -4,6 +4,7 @@ description: Supported operator upgrade paths, CRD sequencing, verification, and
 eyebrow: Reference
 weight: 3
 verifiedBy:
+  - cmd/api-migration/README.md
   - docs/user-guide/operator/installation.md
   - charts/openbao-operator/README.md
   - internal/service/upgrade/version.go
@@ -22,19 +23,16 @@ operator installation. Changes to the OpenBao workload version use `spec.version
 | Skip multiple minor releases | Not recommended | Apply intermediate migrations in order |
 | Routine operator downgrade | Unsupported | Prefer a forward fix; treat any rollback as recovery |
 
+{{< callout type="warning" title="0.6 to 0.7 moves the API group" >}}
+The 0.7 line serves `kubebao.org/v1alpha1` instead of `openbao.org/v1alpha1`. Move a 0.6 installation with
+[the API group migration](../../operate/api-group-migration/), not with the Helm upgrade on this page.
+{{< /callout >}}
+
 {{< callout type="warning" title="Back up before changing the operator" >}}
 Take and verify a current backup for every managed production cluster. An operator rollback is not a data rollback.
 {{< /callout >}}
 
-## Prepare new-cluster templates
-
-New Development and Hardened clusters require `controllerJWTMode: Target`, self-init OIDC, and a non-empty self-init
-request list. Update templates and automation before they create objects. Existing omitted or Shared objects retain
-read and ordinary update behavior. An operator upgrade does not migrate their roles or revoke existing bootstrap
-Secrets. Their optional [in-place migration](../../operate/controller-jwt-migration/) requires administrator preparation
-and is one-way. Deleting and recreating a CR uses the new CREATE contract.
-
-## Restore changes in this release
+## Preserve restore recovery requirements
 
 - Finish in-flight restores before upgrading. Requests from older releases do not use the submission claim.
 - A restore into an existing cluster now ends `Unknown` and waits for an administrator acknowledgement. The operator
@@ -80,7 +78,7 @@ controller from starting against an older schema.
 2. Verify that the stored CRD version is `v1alpha1` and that the CRDs report `Established=True`.
 
    ```bash
-   kubectl get crd openbaoclusters.openbao.org \
+   kubectl get crd openbaoclusters.kubebao.org \
      -o jsonpath='{.status.storedVersions}{"\n"}{.status.conditions}{"\n"}'
    ```
 
