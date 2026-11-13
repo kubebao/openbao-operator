@@ -2,6 +2,35 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.7.0](https://github.com/kubebao/openbao-operator/compare/0.6.0...0.7.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** The operator serves only kubebao.org/v1alpha1. Migrate a 0.6.1 installation with api-migration; upgrading it directly leaves its OpenBao workloads unmanaged.
+
+### Features
+
+* **api:** move the API group to kubebao.org with a migration command ([#950](https://github.com/kubebao/openbao-operator/issues/950)) ([587dd16](https://github.com/kubebao/openbao-operator/commit/587dd16386bc5a234520e22eec1bbedb904fa6dd))
+
+
+### Bug Fixes
+
+* **ci:** prepare 0.6.1 release qualification ([#937](https://github.com/kubebao/openbao-operator/issues/937)) ([e5e8e4b](https://github.com/kubebao/openbao-operator/commit/e5e8e4ba652b5c1a394fc436fdb425b47c73056f))
+* **ci:** publish and verify qualification registry bundles ([#927](https://github.com/kubebao/openbao-operator/issues/927)) ([36a964f](https://github.com/kubebao/openbao-operator/commit/36a964f6a79e606b3d3c84980b1fec23aeeab3ad))
+* **ci:** tag releases only after manifest changes ([#914](https://github.com/kubebao/openbao-operator/issues/914)) ([e761cfa](https://github.com/kubebao/openbao-operator/commit/e761cfa72cc55dc994589f1af525bb45cc4e7ad5))
+* **ci:** validate root release manifest in qualification ([#926](https://github.com/kubebao/openbao-operator/issues/926)) ([dab15f3](https://github.com/kubebao/openbao-operator/commit/dab15f3ece031ab399c5c1b59d624a82a502632d))
+* **deps:** patch go-jose RSA JWK denial of service ([#920](https://github.com/kubebao/openbao-operator/issues/920)) ([c5d61dc](https://github.com/kubebao/openbao-operator/commit/c5d61dcc48ec053ff5d685aa30fe680b89edb215))
+* **dev:** exclude local artifacts from Go source checks ([#933](https://github.com/kubebao/openbao-operator/issues/933)) ([495fbf3](https://github.com/kubebao/openbao-operator/commit/495fbf3ee75d599da2d403d0a66582aa4bf96c79))
+* **helm:** preserve admission policies through YAML post-rendering ([#934](https://github.com/kubebao/openbao-operator/issues/934)) ([58e2673](https://github.com/kubebao/openbao-operator/commit/58e2673a70fafc4c73b2dbee56613497f191f588))
+* **helm:** require Kubernetes 1.34 and align support docs ([#949](https://github.com/kubebao/openbao-operator/issues/949)) ([f9242f9](https://github.com/kubebao/openbao-operator/commit/f9242f967d2012e22e652689a4bbc72fdd5e1a89))
+* **migration:** address findings from the Argo CD staging run ([#951](https://github.com/kubebao/openbao-operator/issues/951)) ([d98a6e0](https://github.com/kubebao/openbao-operator/commit/d98a6e0c6e65cccd8a14c9a411c25d28e842a1e1))
+* **migration:** verify workloads and split installation guides ([#952](https://github.com/kubebao/openbao-operator/issues/952)) ([12e842a](https://github.com/kubebao/openbao-operator/commit/12e842aefad251e1c6eb82202536fa852444403e))
+* **raft:** apply Autopilot settings on small clusters ([#932](https://github.com/kubebao/openbao-operator/issues/932)) ([4353096](https://github.com/kubebao/openbao-operator/commit/4353096f3e079fabdb279159e87989a568e257da))
+* **release:** prepare 0.7.0 and guard RC publication ([#953](https://github.com/kubebao/openbao-operator/issues/953)) ([aba2ad3](https://github.com/kubebao/openbao-operator/commit/aba2ad3ef3b6db08f83ba8e774bce37417914546))
+* **release:** preserve latest stable and verification evidence ([#942](https://github.com/kubebao/openbao-operator/issues/942)) ([24965bd](https://github.com/kubebao/openbao-operator/commit/24965bdc52197944b29b37ebe41c6fe8c4281c8a))
+* **restore:** accept stable OpenBao versions from 2.7 ([#935](https://github.com/kubebao/openbao-operator/issues/935)) ([ced35e7](https://github.com/kubebao/openbao-operator/commit/ced35e7ea5e2a5ab0b95cd7adc25082a19d5146e))
+
 ## [0.6.1](https://github.com/kubebao/openbao-operator/compare/0.6.0...0.6.1) (2026-11-07)
 
 
