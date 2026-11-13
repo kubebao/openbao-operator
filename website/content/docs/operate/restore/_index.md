@@ -122,7 +122,7 @@ Reference it as `spec.tokenSecretRef.name`. A configured `jwtAuthRole` takes pre
 ## Create the restore request
 
 {{< command label="configure" title="Restore an S3 snapshot" >}}
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoRestore
 metadata:
   name: prod-restore-001

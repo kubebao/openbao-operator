@@ -29,9 +29,14 @@ not run the Provisioner or use `OpenBaoTenant`.
 Single-tenant mode reduces the shared-platform machinery. It also gives the dedicated controller direct permissions
 in the target namespace, so the platform must own that RoleBinding explicitly.
 
+{{< callout type="warning" title="Migrate an existing installation" >}}
+These commands install a new operator. For an existing 0.6 installation, use the
+[API group migration](../../operate/api-group-migration/) instead of a direct chart upgrade.
+{{< /callout >}}
+
 ## Install with Helm
 
-After publication, use the pinned 0.6.0 chart. Complete [artifact verification](../../security/supply-chain/) before
+After publication, use the pinned 0.7.0 chart. Complete [artifact verification](../../security/supply-chain/) before
 installation.
 
 1. Create the target namespace through the platform's normal workflow. The chart must create a RoleBinding in this
@@ -46,7 +51,7 @@ installation.
    {{< command label="apply" title="Install a single-tenant operator" >}}
    helm upgrade --install openbao-operator \
      oci://ghcr.io/kubebao/charts/openbao-operator \
-     --version 0.6.0 \
+     --version 0.7.0 \
      --namespace openbao-operator-system \
      --create-namespace \
      --set tenancy.mode=single \
@@ -86,10 +91,10 @@ that namespace.
    {{< command label="configure" title="Clone the operator source" >}}
    git clone https://github.com/kubebao/openbao-operator.git
    cd openbao-operator
-   git checkout 0.6.0
+   git checkout 0.7.0
    {{< /command >}}
 
-3. Set the manager image and `OPERATOR_VERSION` to the verified 0.6.0 release, as described in
+3. Set the manager image and `OPERATOR_VERSION` to the verified 0.7.0 release, as described in
    [Install with a custom raw identity](../install/#install-with-a-custom-raw-identity).
 
 4. Set the operator namespace in `config/overlays/single-tenant/kustomization.yaml`.

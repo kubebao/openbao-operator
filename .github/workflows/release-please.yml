@@ -98,7 +98,9 @@ jobs:
 
       - name: Install pinned release-please CLI
         if: ${{ steps.release-artifact-guard.outputs.skip_release_please != 'true' && steps.release-as.outputs.release_as != '' }}
-        run: npm ci --ignore-scripts --no-audit --no-fund --prefix hack/ci/release-please
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix hack/ci/release-please
+          node hack/ci/release-please/test-dependencies.cjs
 
       - name: Mint GitHub App token (openbao-operator-release-pr)
         id: app-token

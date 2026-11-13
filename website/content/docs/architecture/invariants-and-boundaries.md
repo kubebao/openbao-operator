@@ -28,7 +28,7 @@ arbitrary unmanaged OpenBao clusters.
 | Integrations | Gateway, ACME, audit storage, Kubernetes API, backup, and restore dependencies surface through explicit status and readiness contracts. The surrounding platform still owns the external systems. |
 | Lifecycle | A new cluster starts with one pod. Restore remains an explicit destructive request. Backup, restore, and upgrade do not overlap on the same cluster. |
 | Data consistency | OpenBao remains the source of truth for Raft snapshots, membership, and data consistency. The operator coordinates those operations instead of reimplementing the data plane. |
-| Optional modules | Core APIs remain in `openbao.org`. Optional modules use separate API groups, may depend on stable core contracts, and must not become prerequisites of the core build or runtime. |
+| Optional modules | Core APIs live in `kubebao.org`. Optional modules use separate API groups, may depend on stable core contracts, and must not become prerequisites of the core build or runtime. |
 
 `internal/platform/hardenedcontract` assigns stable rule IDs and enforcement ownership to Hardened guardrails. Moving a
 rule between admission and runtime enforcement is a contract change and requires the catalog, policy, runtime, and

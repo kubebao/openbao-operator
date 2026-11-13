@@ -126,7 +126,7 @@ The `usecloudidentities` verb applies to cloud identity annotations and labels i
 2. Test the tenant user's actual binding.
 
    {{< command label="verify" title="Check tenant-user permissions" >}}
-   kubectl auth can-i create openbaoclusters.openbao.org \
+   kubectl auth can-i create openbaoclusters.kubebao.org \
      -n <target-namespace> --as <tenant-user>
    kubectl auth can-i get secrets \
      -n <target-namespace> --as <tenant-user>

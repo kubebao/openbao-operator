@@ -119,9 +119,10 @@ remains an alias to stable and never tracks unreleased code.
 
 The release workflow builds the complete Hugo site from the tagged tree and publishes that validated artifact. There
 is no generated patch-level snapshot command: the reviewed minor-line content must already be in the release change.
-Normal main Pages runs always build and validate, but publish only when the configured stable version has a published,
-non-prerelease GitHub release. Missing or draft releases retain the existing live site; unexpected API or configuration
-errors fail publication. The tagged release deployment remains after artifact promotion.
+Main Pages and tagged release runs always build and validate, but publish only when the configured stable version
+has a published, non-prerelease GitHub release. A release candidate cannot promote a prepared, unpublished stable
+manual. Missing or draft stable releases retain the existing live site; unexpected API or configuration errors fail
+publication. The tagged release deployment remains after artifact promotion.
 
 During preparation, mark unpublished release content and incomplete qualification as pending. Before authorizing
 publication, replace those preparation notices with the reviewed release status, check the final tagged API source,

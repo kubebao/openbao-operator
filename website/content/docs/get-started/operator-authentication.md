@@ -48,6 +48,9 @@ The controller requests a ten-minute Kubernetes ServiceAccount JWT with the sole
 `urn:openbao:controller:<metadata.uid>`. The token is bound to the controller Pod. The controller caches it in memory
 until one minute before the API server's returned expiration. Each cluster UID has a separate credential.
 Self-init binds the `openbao-operator` role to this audience and the controller ServiceAccount subject.
+A Cluster imported by the `openbao.org` to `kubebao.org` API migration keeps the identity of the Cluster it continues:
+its audience uses the UID in its `migration.kubebao.org/source-uid` annotation, so the existing role keeps working.
+Admission reserves that annotation for the migration and rejects any later change or removal.
 Raft maintenance and approved policy reconciliation use the selected credential. Executor Jobs retain their existing
 ServiceAccounts and installation-scoped audiences.
 

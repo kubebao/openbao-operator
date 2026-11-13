@@ -5,9 +5,14 @@
   "description": "Pinned release-please CLI for exact-version release PRs",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "release-please": "17.11.2"
+  },
+  "overrides": {
+    "@google-automations/git-file-utils": {
+      "minimatch": "11.0.1"
+    }
   }
 }

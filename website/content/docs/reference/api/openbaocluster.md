@@ -4,21 +4,21 @@ description: Fields, defaults, and validation for the OpenBaoCluster API.
 eyebrow: Reference · Generated API
 weight: 1
 verifiedBy:
-  - api/v1alpha1 at 0.6.1
-  - website/generated/api-reference.md at 0.6.1
+  - api/v1alpha1 at 0.7.0
+  - website/generated/api-reference.md at 0.7.0
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.6.1` for the `0.6.x` documentation line.
+This page is synchronized from the generated API reference at `0.7.0` for the `0.7.x` documentation line.
 {{< /callout >}}
 
 
 ## Packages
-- [openbao.org/v1alpha1](#openbaoorgv1alpha1)
+- [kubebao.org/v1alpha1](#kubebaoorgv1alpha1)
 
 
-## openbao.org/v1alpha1
+## kubebao.org/v1alpha1
 
 Package v1alpha1 contains API Schema definitions for the openbao v1alpha1 API group.
 
@@ -1301,7 +1301,7 @@ OpenBaoCluster is the Schema for the openbaoclusters API.
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `openbao.org/v1alpha1` | | |
+| `apiVersion` _string_ | `kubebao.org/v1alpha1` | | |
 | `kind` _string_ | `OpenBaoCluster` | | |
 | `spec` _[OpenBaoClusterSpec](#openbaoclusterspec)_ | Spec defines the desired state of OpenBaoCluster. |  |  |
 | `status` _[OpenBaoClusterStatus](#openbaoclusterstatus)_ | Status defines the observed state of OpenBaoCluster. |  | Optional: \{\} <br /> |
@@ -1345,7 +1345,7 @@ _Appears in:_
 | `restore` _[RestoreConfig](#restoreconfig)_ | Restore configures optional restore authentication bootstrap for the cluster. |  | Optional: \{\} <br /> |
 | `deletionPolicy` _[DeletionPolicy](#deletionpolicy)_ | DeletionPolicy controls what happens to underlying resources when the CR is deleted. |  | Enum: [Retain DeletePVCs DeleteAll] <br />Optional: \{\} <br /> |
 | `reconcilePolicies` _boolean_ | ReconcilePolicies restores the built-in operational policies after initialization.<br />Administrator-managed JWT authentication and exact-content approval are required.<br />OpenBao must independently approve their exact contents through the<br />openbao-operator-policy-approval policy. Bootstrap installs the initial approval;<br />existing clusters and later permission changes require administrator approval.<br />Auth methods, roles, and the approval policy are not reconciled. |  | Optional: \{\} <br /> |
-| `controllerJWTMode` _[ControllerJWTMode](#controllerjwtmode)_ | ControllerJWTMode selects the credential used by the controller for OpenBao.<br />Admission requires Target on CREATE for every security profile.<br />Existing clusters that omit the field retain Shared authentication on reads and updates.<br />Shared preserves the installation-wide<br />projected JWT. Target requests a short-lived JWT whose sole audience is<br />urn:openbao:controller:&lt;metadata.uid&gt;. Prepare the OpenBao controller role<br />before switching an initialized cluster to Target. Target never falls back<br />to the shared JWT. Target requires self-init and self-init OIDC to be enabled.<br />Executor Job authentication is unchanged.<br />Enforced admission prevents removal or downgrade after selecting Target. |  | Enum: [Shared Target] <br />Optional: \{\} <br /> |
+| `controllerJWTMode` _[ControllerJWTMode](#controllerjwtmode)_ | ControllerJWTMode selects the credential used by the controller for OpenBao.<br />Admission requires Target on CREATE for every security profile.<br />Existing clusters that omit the field retain Shared authentication on reads and updates.<br />Shared preserves the installation-wide<br />projected JWT. Target requests a short-lived JWT whose sole audience is<br />urn:openbao:controller:&lt;metadata.uid&gt;, or, for a Cluster imported by an API<br />group migration, the UID named by its migration.kubebao.org/source-uid<br />marker. Prepare the OpenBao controller role<br />before switching an initialized cluster to Target. Target never falls back<br />to the shared JWT. Target requires self-init and self-init OIDC to be enabled.<br />Executor Job authentication is unchanged.<br />Enforced admission prevents removal or downgrade after selecting Target. |  | Enum: [Shared Target] <br />Optional: \{\} <br /> |
 | `selfInit` _[SelfInitConfig](#selfinitconfig)_ | SelfInit configures OpenBao's native self-initialization feature.<br />When enabled, OpenBao initializes itself on first start using the configured<br />requests, and the root token is automatically revoked.<br />See: https://openbao.org/docs/configuration/self-init/ |  | Optional: \{\} <br /> |
 | `recoveryKeys` _[RecoveryKeysConfig](#recoverykeysconfig)_ | RecoveryKeys configures Operator-assisted recovery-key bootstrap surfaces.<br />The Operator creates recovery keys only during initial self-initialization;<br />recovery share custody and proof ceremonies remain user-owned processes. |  | Optional: \{\} <br /> |
 | `gateway` _[GatewayConfig](#gatewayconfig)_ | Gateway configures Kubernetes Gateway API access (alternative to Ingress).<br />When enabled, the Operator creates an HTTPRoute that routes traffic through<br />a user-managed Gateway resource. |  | Optional: \{\} <br /> |

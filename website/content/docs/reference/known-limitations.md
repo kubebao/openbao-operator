@@ -16,7 +16,7 @@ Review these limits before you design an upgrade, recovery, storage, or lifecycl
 
 | Area | Current limit | Required response |
 | --- | --- | --- |
-| CRD versioning | Every CRD serves and stores only `openbao.org/v1alpha1`; there is no conversion webhook | Review every minor release for API migrations |
+| CRD versioning | Every CRD serves and stores only `kubebao.org/v1alpha1`; there is no conversion webhook | Review every minor release for API migrations |
 | Cluster adoption | The operator does not import an arbitrary unmanaged OpenBao cluster | Create an operator-managed cluster and use backup and restore to move data |
 | Operator and workload downgrade | Routine downgrades are unsupported; OpenBao version downgrades are blocked | Prefer a forward fix or follow a rehearsed recovery plan |
 | External backup deletion | `DeleteAll` removes operator-owned PVCs but does not delete snapshots from object storage | Delete external backups explicitly during decommissioning |

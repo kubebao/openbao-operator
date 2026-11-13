@@ -50,7 +50,7 @@ Changing the word `Development` to `Hardened` does not complete the production c
 1. Save this manifest as `cluster.yaml`.
 
    {{< command label="configure" title="Declare the evaluation cluster" >}}
-   apiVersion: openbao.org/v1alpha1
+   apiVersion: kubebao.org/v1alpha1
    kind: OpenBaoCluster
    metadata:
      name: dev-cluster

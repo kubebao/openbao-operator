@@ -4,21 +4,21 @@ description: Fields, defaults, and validation for the OpenBaoRestore API.
 eyebrow: Reference · Generated API
 weight: 2
 verifiedBy:
-  - api/v1alpha1 at 0.6.1
-  - website/generated/api-reference.md at 0.6.1
+  - api/v1alpha1 at 0.7.0
+  - website/generated/api-reference.md at 0.7.0
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.6.1` for the `0.6.x` documentation line.
+This page is synchronized from the generated API reference at `0.7.0` for the `0.7.x` documentation line.
 {{< /callout >}}
 
 
 ## Packages
-- [openbao.org/v1alpha1](#openbaoorgv1alpha1)
+- [kubebao.org/v1alpha1](#kubebaoorgv1alpha1)
 
 
-## openbao.org/v1alpha1
+## kubebao.org/v1alpha1
 
 Package v1alpha1 contains API Schema definitions for the openbao v1alpha1 API group.
 
@@ -335,7 +335,7 @@ This resource is immutable after creation - it acts as a "job request".
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `apiVersion` _string_ | `openbao.org/v1alpha1` | | |
+| `apiVersion` _string_ | `kubebao.org/v1alpha1` | | |
 | `kind` _string_ | `OpenBaoRestore` | | |
 | `spec` _[OpenBaoRestoreSpec](#openbaorestorespec)_ |  |  |  |
 | `status` _[OpenBaoRestoreStatus](#openbaorestorestatus)_ |  |  |  |

@@ -46,7 +46,7 @@ The target namespace must already exist. `spec.targetNamespace` is required and 
 2. Save this request as `tenant.yaml`.
 
    {{< command label="configure" title="Declare a self-service tenant" >}}
-   apiVersion: openbao.org/v1alpha1
+   apiVersion: kubebao.org/v1alpha1
    kind: OpenBaoTenant
    metadata:
      name: openbao-demo
@@ -84,7 +84,7 @@ Create the request in the actual rendered operator namespace when a platform adm
 team:
 
 {{< command label="configure" title="Declare a centrally managed tenant" >}}
-apiVersion: openbao.org/v1alpha1
+apiVersion: kubebao.org/v1alpha1
 kind: OpenBaoTenant
 metadata:
   name: team-a

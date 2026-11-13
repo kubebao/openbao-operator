@@ -128,7 +128,7 @@ that the material is no longer required or that a tested recovery copy exists be
       name: retained-openbao-cleanup
       namespace: <namespace>
     rules:
-      - apiGroups: [openbao.org]
+      - apiGroups: [kubebao.org]
         resources: [openbaoclusters]
         resourceNames: [<original-cluster-name>]
         verbs: [maintenance]
