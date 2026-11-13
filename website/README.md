@@ -65,10 +65,10 @@ Hugo content under `content/` and `content-versions/` is the only hand-written d
 source lives under `generated/`; `make api-reference` refreshes it from `api/v1alpha1`. Do not recreate a parallel
 manual or edit generated pages directly.
 
-Normal Pages runs always build and validate. They publish only when the exact release configured for the default
-minor line is a published, non-prerelease GitHub release. Missing and draft releases leave the existing live site
-unchanged; unexpected API and configuration errors fail before publication. The tagged Release workflow publishes
-after artifact promotion and does not depend on the normal Pages eligibility gate.
+Pages and tagged Release runs always build and validate. They publish only when the exact release configured for
+the default minor line is a published, non-prerelease GitHub release. Missing and draft stable releases leave the
+existing live site unchanged; unexpected API and configuration errors fail before publication. The tagged Release
+workflow checks the same eligibility after artifact promotion, so an RC cannot publish a prepared stable manual.
 
 Pages and release workflows publish the validated `website/public/` artifact while preserving the independently
 published `edge/` and `nightly/` channel directories. The executable reference-deployments repository remains a

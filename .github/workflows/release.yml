@@ -808,7 +808,14 @@ jobs:
       - name: Build docs
         uses: ./.github/actions/docs-build
 
+      - name: Check stable documentation publication
+        id: stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash hack/docs/check-published-stable.sh
+
       - name: Publish docs site
+        if: steps.stable.outputs.published == 'true'
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
           COMMIT_MESSAGE: "docs: publish release ${{ needs.prepare.outputs.version }}"

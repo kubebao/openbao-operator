@@ -58,6 +58,20 @@ expect_published false
 printf '%s\n' '{"tag_name":"0.6.0","draft":false,"prerelease":true,"published_at":"2026-10-23T12:00:00Z"}' > "${TEST_RESPONSE}"
 expect_published false
 
+# An RC with prepared 0.7 documentation must retain the published 0.6 site.
+# The checker queries the configured stable 0.7.0 release, not the RC tag.
+TEST_RELEASE=0.7.0
+write_config
+printf '%s\n' '{"status":"404","message":"Not Found"}' > "${TEST_RESPONSE}"
+TEST_EXIT=1
+expect_published false
+TEST_EXIT=0
+printf '%s\n' '{"tag_name":"0.7.0","draft":false,"prerelease":false,"published_at":"2026-11-20T12:00:00Z"}' > "${TEST_RESPONSE}"
+expect_published true
+
+TEST_RELEASE=0.6.0
+write_config
+
 # Unexpected API, authentication, transport, and configuration failures stop publication.
 for response in '{"status":"403"}' '{"status":"503"}' ''; do
   printf '%s\n' "${response}" > "${TEST_RESPONSE}"
