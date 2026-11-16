@@ -70,6 +70,13 @@ cluster remains paused, then resume reconciliation. The operator renders the lon
 Schedule a maintenance window and verify quorum and client behavior during the rollout.
 {{< /callout >}}
 
+For a Pod already in a startup-probe restart loop, the StatefulSet can
+[wait for that Pod to become Ready](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#forced-rollback)
+instead of replacing it. Confirm that the StatefulSet template contains the longer budget before recreating the
+Pod through [authorized direct maintenance](../../operate/maintenance/#authorize-direct-maintenance-only-when-required).
+Retain the Pod's PVC. With a healthy quorum, recreate one affected Pod at a time and wait for it to rejoin. If the
+cluster has no leader, start with [Recover from no leader](../../operate/recover-no-leader/).
+
 When the startup budget is extended, the rolling-upgrade readiness deadline allows the startup budget plus its
 existing readiness margin for each server Pod in sequence, including read replicas. Clusters using the default
 budget retain the existing 10-minute upgrade deadline. A longer deadline does not allow the operator to advance
