@@ -43,6 +43,42 @@ also rejects any requested class that differs from existing PVCs. Moving data to
 migration or restore procedure.
 {{< /callout >}}
 
+## Allow more time for database startup
+
+Large Raft databases and storage with slow random reads can take longer to open than the default startup probe
+budget. The kubelet restarts the container if its startup probe keeps failing. Database size alone does not predict
+startup time; rehearse a cold start with representative storage and data.
+
+To extend the budget, set `spec.probes.startup.failureThreshold`:
+
+```yaml
+spec:
+  probes:
+    startup:
+      failureThreshold: 180
+```
+
+The startup probe runs every 5 seconds after an initial 10-second delay. The default threshold is 60, approximately
+5 minutes. The example allows approximately 15 minutes. Supported thresholds range from 60 to 720; the maximum
+allows approximately 1 hour. This setting applies to voters and read replicas. Readiness and liveness probes do
+not change.
+
+{{< callout type="warning" title="Changing the startup budget can restart Pods" >}}
+This setting changes the Pod template. For an affected existing cluster, pause the cluster and wait for the pause
+to be observed before upgrading the operator. Install the release's CRDs, set the longer startup budget while the
+cluster remains paused, then resume reconciliation. The operator renders the longer budget before replacing Pods.
+Schedule a maintenance window and verify quorum and client behavior during the rollout.
+{{< /callout >}}
+
+When the startup budget is extended, the rolling-upgrade readiness deadline allows the startup budget plus its
+existing readiness margin for each server Pod in sequence, including read replicas. Clusters using the default
+budget retain the existing 10-minute upgrade deadline. A longer deadline does not allow the operator to advance
+past an unhealthy voter.
+
+For a fresh restore or scheduled restore test, configure the same `probes` block in `clusterTemplate`. Fresh-target
+bootstrap and restore-application deadlines also allow the extended startup budget. Configure the migration CLI's
+`--timeout` to cover the complete sequential rollout when migrating a cluster with a longer budget.
+
 ## Understand PVC retention
 
 The voter StatefulSet uses these retention policies:

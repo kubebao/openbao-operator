@@ -45,7 +45,7 @@ func decideTargetRecovery(request *api.OpenBaoRestore, application targetApplica
 			// A matching identity is evidence even after the observation deadline.
 			return targetRecoveryRecordApplication
 		case targetApplicationPending:
-			if now.Before(request.Status.SubmissionClaim.ClaimedAt.Add(targetApplicationTimeout)) {
+			if now.Before(request.Status.SubmissionClaim.ClaimedAt.Add(targetApplicationDeadline(request))) {
 				return targetRecoveryWait
 			}
 		case targetApplicationUnavailable:

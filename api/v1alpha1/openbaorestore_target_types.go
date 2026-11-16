@@ -85,6 +85,10 @@ type RestoreClusterTemplate struct {
 	// +optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// Probes configures health probes for the restored OpenBao container.
+	// +optional
+	Probes *ProbeConfig `json:"probes,omitempty"`
+
 	// +optional
 	InitContainer *InitContainerConfig `json:"initContainer,omitempty"`
 
