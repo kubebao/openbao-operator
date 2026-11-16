@@ -760,7 +760,8 @@
     "generatedId": "cluster-runtime-controls-extends-the-startup-window-for-a-ecb67ee8",
     "caseLabel": "startup-probe-budget",
     "coverage": [
-      "startup-probe"
+      "startup-probe",
+      "pod-rollout"
     ],
     "file": "test/e2e/Cluster_Runtime_Controls_test.go",
     "type": "It",
@@ -775,6 +776,7 @@
       "runtime",
       "case:startup-probe-budget",
       "covers:startup-probe",
+      "covers:pod-rollout",
       "slow"
     ],
     "domainLabels": [
@@ -785,6 +787,7 @@
     ],
     "steps": [
       "rendering the extended startup probe through the operator",
+      "waiting for the startup-budget change to replace the Pod",
       "isolating the kubelet startup timing with a controlled 330-second delay"
     ],
     "focused": false,
@@ -836,8 +839,7 @@
     "caseLabel": "cluster-restart-at-rolls-pod",
     "coverage": [
       "restart-at",
-      "pod-rollout",
-      "startup-probe"
+      "pod-rollout"
     ],
     "file": "test/e2e/Cluster_Runtime_Controls_test.go",
     "type": "It",
@@ -852,8 +854,7 @@
       "runtime",
       "case:cluster-restart-at-rolls-pod",
       "covers:restart-at",
-      "covers:pod-rollout",
-      "covers:startup-probe"
+      "covers:pod-rollout"
     ],
     "domainLabels": [
       "lifecycle",

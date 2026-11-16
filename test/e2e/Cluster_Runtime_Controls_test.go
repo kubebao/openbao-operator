@@ -186,7 +186,6 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 		"case:cluster-restart-at-rolls-pod",
 		"covers:restart-at",
 		"covers:pod-rollout",
-		"covers:startup-probe",
 	), func() {
 		const clusterName = "restart-at-cluster"
 
@@ -207,9 +206,6 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 			g.Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: f.Namespace}, updated)).To(Succeed())
 			original := updated.DeepCopy()
 			updated.Spec.Runtime = &openbaov1alpha1.RuntimeConfig{RestartAt: restartAt}
-			updated.Spec.Probes = &openbaov1alpha1.ProbeConfig{
-				Startup: &openbaov1alpha1.StartupProbeConfig{FailureThreshold: 180},
-			}
 			g.Expect(c.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -218,7 +214,6 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 			sts := &appsv1.StatefulSet{}
 			g.Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: f.Namespace}, sts)).To(Succeed())
 			g.Expect(sts.Spec.Template.Annotations).To(HaveKeyWithValue(constants.AnnotationRestartAt, restartAt))
-			g.Expect(sts.Spec.Template.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 		By("waiting for the original pod to be replaced")
@@ -231,7 +226,7 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 	})
 
 	It("extends the startup window for a slow-starting container", Label(
-		"case:startup-probe-budget", "covers:startup-probe", "slow",
+		"case:startup-probe-budget", "covers:startup-probe", "covers:pod-rollout", "slow",
 	), func() {
 		const clusterName = "startup-budget-cluster"
 		cluster := newDevelopmentCluster(clusterName)
@@ -239,6 +234,7 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 		DeferCleanup(func() { _ = c.Delete(ctx, cluster) })
 		_, err := f.WaitForStatefulSetReady(ctx, clusterName, 1, 10*time.Minute, framework.DefaultPollInterval)
 		Expect(err).NotTo(HaveOccurred())
+		initialPod := waitForClusterPod(clusterName)
 		set := &appsv1.StatefulSet{}
 		Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: f.Namespace}, set)).To(Succeed())
 		originalProbe := set.Spec.Template.Spec.Containers[0].StartupProbe.DeepCopy()
@@ -254,6 +250,15 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 			g.Expect(set.Spec.Template.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
 		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 		extendedProbe := set.Spec.Template.Spec.Containers[0].StartupProbe.DeepCopy()
+
+		By("waiting for the startup-budget change to replace the Pod")
+		Eventually(func(g Gomega) {
+			current := &corev1.Pod{}
+			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(initialPod), current)).To(Succeed())
+			g.Expect(current.UID).NotTo(Equal(initialPod.UID))
+			g.Expect(isPodReady(current)).To(BeTrue())
+			g.Expect(current.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
+		}, 10*time.Minute, framework.DefaultPollInterval).Should(Succeed())
 
 		By("isolating the kubelet startup timing with a controlled 330-second delay")
 		// Keep the rendered timing, but replace the OpenBao health check with a
