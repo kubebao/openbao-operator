@@ -1,0 +1,51 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Configurable startup budgets for slow database opens and matching lifecycle deadlines."><title>OpenBao Operator 0.6.2 · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/releases/0.6.2/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class=is-global><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open primary navigation" aria-controls=primary-navigation aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/docs/>Docs</a>
+<a href=/releases/ aria-current=location>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=global-shell><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/releases/>Releases</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>OpenBao Operator 0.6.2</span></nav><article class=doc-article><header class=article-header><h1>OpenBao Operator 0.6.2</h1><p class=article-lede>Configurable startup budgets for slow database opens and matching lifecycle deadlines.</p><p class=page-meta>Updated 16 November 2026 · 2 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#configure-the-startup-budget>Configure the startup budget</a></li><li><a href=#upgrade-from-061>Upgrade from 0.6.1</a></li><li><a href=#qualification-and-migration>Qualification and migration</a></li></ul></nav></details><div class=article-content><p>OpenBao Operator 0.6.2 adds a configurable startup probe budget for databases that
+need longer to open. Extended budgets also increase rolling-upgrade readiness and
+fresh-restore deadlines. The operator and helper builds use Go 1.27.4.</p><h2 id=configure-the-startup-budget>Configure the startup budget</h2><p>Set <code>spec.probes.startup.failureThreshold</code> to allow more consecutive probe failures.
+The default remains 60, approximately five minutes. A value of 180 allows
+approximately 15 minutes; the maximum is 720, approximately one hour. The setting
+applies to voters and read replicas. Fresh restores and scheduled restore tests
+accept the same setting in their <code>clusterTemplate</code>.</p><p>Read <a href=../../docs/configure/storage/#allow-more-time-for-database-startup>Allow more time for database startup</a>
+before changing the budget. Rehearse a cold start with representative data and
+storage; database size alone does not predict startup time.</p><h2 id=upgrade-from-061>Upgrade from 0.6.1</h2><p>Finish active lifecycle operations. Verify a recent backup, a rehearsed restore
+path, administrator access, and seal recovery material. For affected clusters,
+pause reconciliation and wait for the operator to observe the pause before
+upgrading.</p><p>Apply the 0.6.2 CRDs with server-side apply before upgrading the matching chart,
+admission policies, RBAC, operator, and helper defaults. Configure the longer
+budget while affected clusters remain paused, then resume during a maintenance
+window. Verify quorum, Pod readiness, and client behavior.</p><p>Changing the budget updates the Pod template and can replace Pods. A Pod already
+in a startup-probe restart loop can prevent the StatefulSet from applying the new
+template. The storage guide describes the required checks before authorized
+maintenance. Retain the PVC, and use the no-leader recovery procedure if quorum
+is unavailable.</p><p>Review the complete
+<a href=https://github.com/kubebao/openbao-operator/blob/0.6.2/release-notes/0.6.2.md>0.6.2 release notes</a>.
+After publication, obtain the
+<a href=https://github.com/kubebao/openbao-operator/releases/tag/0.6.2>release assets</a>
+and the chart at <code>oci://ghcr.io/kubebao/charts/openbao-operator</code>, version <code>0.6.2</code>.</p><h2 id=qualification-and-migration>Qualification and migration</h2><p>The <a href=https://github.com/kubebao/openbao-operator/pull/946>release PR</a> tracks
+publication and release-profile qualification, including the operator upgrade
+from published 0.6.1. Qualification must pass before publication. Ordinary PR CI
+does not replace release-profile qualification or an environment-specific
+staging rehearsal.</p><p>The Kubernetes API remains <code>openbao.org/v1alpha1</code>. This patch does not perform
+the API-group migration or automatically upgrade the OpenBao server. Migration
+from published 0.6.2 artifacts to the next 0.7 candidate requires separate
+qualification and updated migration guidance before stable 0.7.0.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#configure-the-startup-budget>Configure the startup budget</a></li><li><a href=#upgrade-from-061>Upgrade from 0.6.1</a></li><li><a href=#qualification-and-migration>Qualification and migration</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content/releases/0.6.2.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>
