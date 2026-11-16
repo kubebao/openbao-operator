@@ -28,6 +28,16 @@ Flux reconciliation remains suspended. A HelmRelease still requires the local `h
    converted OpenBao API versions, and any custom RBAC or scripts that name `openbao.org`.
    Do not apply that Git state during migration.
 
+## Set the wait timeout
+
+Replace `<duration>` with a Go duration, such as `90m`, that covers your rehearsed sequential rollout. Include all
+voters and read replicas, with time for readiness checks. Use the same value for migration, commit, rollback, and
+retries; the CLI does not save it in the plan. See the [timeout guidance](../#before-you-start).
+
+```sh
+export MIGRATION_TIMEOUT="<duration>"
+```
+
 ## Write the configuration
 
 Save the following as `config.json`. Use the existing Helm release name and operator namespace:
@@ -86,7 +96,7 @@ to the configuration when needed.
 2. Start migration; leave Flux suspended while the command runs Helm:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 3. Inspect the held destination:
@@ -111,7 +121,7 @@ finalizers. After that point, resume `commit` if it stops.
 1. Run commit and require `Phase: Complete` and `operations hold=false`:
 
    ```sh
-   ./api-migration commit --state ./migration-state
+   ./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 2. Follow `migration-state/after-commit.md`. In Git, select the destination chart and retain its image/helper pins,
@@ -175,7 +185,7 @@ tokens created for planning when they are no longer needed.
 Keep Flux suspended and run:
 
 ```sh
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 Before source retirement, the command restores source ownership and the saved 0.6.2 Helm release, then verifies it.

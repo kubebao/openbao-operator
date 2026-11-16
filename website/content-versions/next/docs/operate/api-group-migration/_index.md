@@ -66,10 +66,22 @@ Argo CD applies the rendered resources without creating Helm release storage. Ap
 
 ## Before you start
 
+{{< callout type="note" title="Match the guide to the destination release" >}}
+These instructions prepare migration from 0.6.2 to 0.7.0-rc.2 or a subsequent 0.7 release. RC.2 is not published;
+its migration qualification is pending. The published RC.1 binary accepts only source 0.6.1. For RC.1 evaluation,
+use the [RC.1 migration instructions](https://github.com/kubebao/openbao-operator/blob/0.7.0-rc.1/website/content/docs/operate/api-group-migration/_index.md).
+RC.1 does not include configurable startup budgets. If your Cluster needs a longer startup window, defer migration
+until a candidate with this fix is published and qualified.
+{{< /callout >}}
+
 If a source Cluster needs longer than the default startup window, configure its longer budget in 0.6.2 before
 migrating. Follow [Allow more time for database startup](../../configure/storage/#allow-more-time-for-database-startup),
-including the pause and maintenance steps. Set the migration CLI `--timeout` to cover the complete sequential
-rollout; a longer startup budget does not increase the CLI timeout automatically.
+including the pause and maintenance steps.
+
+The CLI's `--timeout` limits each condition wait and defaults to 10 minutes. It is not saved in the plan. Choose a
+value that covers the complete sequential rollout, including the source rollout on rollback. A longer startup budget
+does not increase this timeout automatically. Supply it on every `migrate`, `commit`, and `rollback` invocation,
+including retries and commands resumed after a checkpoint or interruption.
 
 Meet these conditions before running `plan`. Your installation guide includes the configuration and suspension steps.
 

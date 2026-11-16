@@ -37,6 +37,16 @@ The migration command runs Helm for all operator transitions.
 
    For edge, unpack the chart from the verified bundle.
 
+## Set the wait timeout
+
+Replace `<duration>` with a Go duration, such as `90m`, that covers your rehearsed sequential rollout. Include all
+voters and read replicas, with time for readiness checks. Use the same value for migration, commit, rollback, and
+retries; the CLI does not save it in the plan. See the [timeout guidance](../#before-you-start).
+
+```sh
+export MIGRATION_TIMEOUT="<duration>"
+```
+
 ## Write the configuration
 
 Save the following as `config.json`. Replace the kubeconfig, context, release name, namespace, and paths with the
@@ -78,7 +88,7 @@ to the configuration when needed.
    starts the destination with operations held, and waits for verification:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 3. Inspect the held destination:
@@ -103,7 +113,7 @@ finalizers. After that point, resume `commit` if it stops.
 When verification passes and you accept the destination, run:
 
 ```sh
-./api-migration commit --state ./migration-state
+./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 Require `Phase: Complete` and `operations hold=false`. The command writes no GitOps hand-back file for this route.
@@ -134,7 +144,7 @@ tokens created for planning when they are no longer needed.
 Rollback is available only before commit accepts a source deletion. Use the same binary and state directory:
 
 ```sh
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 Require `Phase: RolledBack`, the 0.6.2 source operator running, and successful source verification.

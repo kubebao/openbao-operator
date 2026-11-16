@@ -28,6 +28,16 @@ The migration command requests manual operator checkpoints; it never applies tho
    pins, including any `OPERATOR_VERSION`, `OPERATOR_INIT_IMAGE`, `OPERATOR_BACKUP_IMAGE`, and
    `OPERATOR_UPGRADE_IMAGE` overrides. Review the [source-pin rules](../#replace-source-image-pins).
 
+## Set the wait timeout
+
+Replace `<duration>` with a Go duration, such as `90m`, that covers your rehearsed sequential rollout. Include all
+voters and read replicas, with time for readiness checks. Use the same value for migration, commit, rollback, and
+retries; the CLI does not save it in the plan. See the [timeout guidance](../#before-you-start).
+
+```sh
+export MIGRATION_TIMEOUT="<duration>"
+```
+
 ## Write the configuration
 
 Save the following as `config.json` with your paths and existing namespace. Omit `release`, `destinationChart`, and
@@ -64,7 +74,7 @@ to the configuration when needed.
 2. Start migration:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 The command exits with status 4 when it needs an operator state. Read the named
@@ -76,7 +86,7 @@ Keep the same binary and state directory throughout.
 
    ```sh
    kubectl apply --server-side --force-conflicts -k ./migration-state/checkpoints/<operator-state>
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
    The stopped input includes the destination CRDs and sets operator Deployments to zero. The held input starts
@@ -121,7 +131,7 @@ finalizers. After that point, resume `commit` if it stops.
 1. Run:
 
    ```sh
-   ./api-migration commit --state ./migration-state
+   ./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 2. At exit status 4, read the printed `normal` checkpoint. For a generated Kustomize checkpoint, apply it without
@@ -129,7 +139,7 @@ finalizers. After that point, resume `commit` if it stops.
 
    ```sh
    kubectl apply --server-side --force-conflicts -k ./migration-state/checkpoints/normal
-   ./api-migration commit --state ./migration-state
+   ./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
    For a chart-rendered installation, apply the printed `normal` values instead. Require `Phase: Complete` and
@@ -159,7 +169,7 @@ tokens created for planning when they are no longer needed.
 Rollback is available only before commit accepts a source deletion. Use the same binary and state directory:
 
 ```sh
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 At exit status 4, read the `source` checkpoint. For a generated Kustomize checkpoint, apply the original 0.6.2
@@ -167,7 +177,7 @@ operator inputs without migration components or pruning, then rerun `rollback`:
 
 ```sh
 kubectl apply --server-side --force-conflicts -k ./migration-state/checkpoints/source
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 For a chart-rendered installation, render and apply the original source chart with the printed source values.

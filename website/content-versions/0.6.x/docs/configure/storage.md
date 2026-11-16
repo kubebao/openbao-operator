@@ -77,10 +77,12 @@ Pod through [authorized direct maintenance](../../operate/maintenance/#authorize
 Retain the Pod's PVC. With a healthy quorum, recreate one affected Pod at a time and wait for it to rejoin. If the
 cluster has no leader, start with [Recover from no leader](../../operate/recover-no-leader/).
 
-When the startup budget is extended, the rolling-upgrade readiness deadline allows the startup budget plus its
-existing readiness margin for each server Pod in sequence, including read replicas. Clusters using the default
-budget retain the existing 10-minute upgrade deadline. A longer deadline does not allow the operator to advance
-past an unhealthy voter.
+When the threshold exceeds 60, the rolling-upgrade readiness deadline is one shared bound measured from
+`status.upgrade.startedAt`. Preparation, read-replica waits, and earlier Pod rollouts count toward this bound;
+it does not reset for each Pod. The bound is `(10 minutes + (failureThreshold - 60) × 5 seconds) × server Pods`,
+counting voters and read replicas. For a threshold of 180, this gives 20 minutes per counted server Pod: 80 minutes
+for three voters and one read replica. Clusters using the default budget retain the shared 10-minute deadline.
+A longer deadline does not allow the operator to advance past an unhealthy voter.
 
 For a fresh restore or scheduled restore test, configure the same `probes` block in `clusterTemplate`. Fresh-target
 bootstrap and restore-application deadlines also allow the extended startup budget. Configure the migration CLI's

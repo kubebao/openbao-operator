@@ -29,6 +29,16 @@ Argo CD creates no Helm release storage, so omit `release` from the migration co
    such as `openbao.org_OpenBaoCluster`, and scripts. An AppProject restricted to `openbao.org` refuses the new group.
    Do not let Argo CD apply that destination during migration.
 
+## Set the wait timeout
+
+Replace `<duration>` with a Go duration, such as `90m`, that covers your rehearsed sequential rollout. Include all
+voters and read replicas, with time for readiness checks. Use the same value for migration, commit, rollback, and
+retries; the CLI does not save it in the plan. See the [timeout guidance](../#before-you-start).
+
+```sh
+export MIGRATION_TIMEOUT="<duration>"
+```
+
 ## Write the configuration
 
 Save `config.json` with your existing operator namespace and selected cluster:
@@ -90,7 +100,7 @@ to the configuration when needed.
 2. Start migration while all relevant Applications stay suspended:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 The command exits with status 4 when it needs an operator state. Read the named
@@ -114,7 +124,7 @@ Keep the same binary and state directory throughout.
 5. Rerun the same migration command after each successful manual checkpoint:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
    If it still waits, inspect the named unmet conditions and the Application's actual applied revision and output.
@@ -148,7 +158,7 @@ finalizers. After that point, resume `commit` if it stops.
 1. Run commit:
 
    ```sh
-   ./api-migration commit --state ./migration-state
+   ./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 2. At the `normal` checkpoint, apply its values to the operator Helm source. Run the checkpoint's printed
@@ -156,7 +166,7 @@ finalizers. After that point, resume `commit` if it stops.
    Use those selectors even when the operator has a separate Application. Then rerun commit:
 
    ```sh
-   ./api-migration commit --state ./migration-state
+   ./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
    Require `Phase: Complete` and `operations hold=false`.
@@ -220,7 +230,7 @@ tokens created for planning when they are no longer needed.
 Keep parents, children, and ApplicationSets suspended and run:
 
 ```sh
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 At exit status 4, apply the printed `source` chart values over your original 0.6.2 source chart and image/helper pins.
