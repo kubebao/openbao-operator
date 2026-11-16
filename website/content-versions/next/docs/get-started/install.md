@@ -22,6 +22,8 @@ verifiedBy:
 Next tracks unreleased behavior on `main`. Use the edge channel for an executable evaluation install, or build from
 source when you are developing the operator. Do not treat either path as a stable production contract.
 
+Use server-side apply to avoid the CRD size limit for the `kubectl.kubernetes.io/last-applied-configuration` annotation.
+
 {{< callout type="warning" title="Use stable documentation for production" >}}
 The edge channel advances after successful `main` validation. Each chart version identifies one verified candidate.
 Use the current stable manual and a pinned release for production.
@@ -197,7 +199,7 @@ metadata before applying it so you know the exact commit and image digests under
 2. Apply the generated multi-tenant installer.
 
    {{< command label="apply" title="Install the edge manifest" >}}
-   kubectl apply -f "${EDGE_ROOT}/install.yaml"
+   kubectl apply --server-side -f "${EDGE_ROOT}/install.yaml"
    {{< /command >}}
 
 3. Wait for both multi-tenant controllers.
@@ -306,8 +308,8 @@ The edge channel is mutable. Re-read `metadata.json`, then apply CRDs before the
 commit changes.
 
 {{< command label="upgrade" title="Refresh to the current edge build" >}}
-kubectl apply -f "${EDGE_ROOT}/crds.yaml"
-kubectl apply -f "${EDGE_ROOT}/install.yaml"
+kubectl apply --server-side -f "${EDGE_ROOT}/crds.yaml"
+kubectl apply --server-side -f "${EDGE_ROOT}/install.yaml"
 {{< /command >}}
 
 Re-render custom identities and review OpenBao-side policy changes before refreshing. Self-init does not update
