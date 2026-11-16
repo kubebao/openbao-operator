@@ -590,6 +590,9 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				original := updated.DeepCopy()
 				updated.Spec.Version = targetVersion
 				updated.Spec.Image = targetImage
+				updated.Spec.Probes = &openbaov1alpha1.ProbeConfig{
+					Startup: &openbaov1alpha1.StartupProbeConfig{FailureThreshold: 180},
+				}
 				g.Expect(admin.Patch(ctx, updated, client.MergeFrom(original))).To(Succeed())
 			}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
 
@@ -641,6 +644,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 				g.Expect(readPods.Items).To(HaveLen(1))
 				for _, pod := range readPods.Items {
 					e2ehelpers.ExpectOpenBaoPodVersion(g, pod, targetVersion)
+					g.Expect(pod.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
 				}
 
 				voterPods := &corev1.PodList{}
@@ -781,6 +785,7 @@ var _ = Describe("Upgrade Strategies", Label("upgrade", "upgrades", "cluster", "
 
 				for _, pod := range podList.Items {
 					e2ehelpers.ExpectOpenBaoPodVersion(g, pod, targetVersion)
+					g.Expect(pod.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
 				}
 
 				readSts := &appsv1.StatefulSet{}

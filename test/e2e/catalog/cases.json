@@ -756,6 +756,46 @@
     "suiteTitle": ""
   },
   {
+    "id": "startup-probe-budget",
+    "generatedId": "cluster-runtime-controls-extends-the-startup-window-for-a-ecb67ee8",
+    "caseLabel": "startup-probe-budget",
+    "coverage": [
+      "startup-probe",
+      "pod-rollout"
+    ],
+    "file": "test/e2e/Cluster_Runtime_Controls_test.go",
+    "type": "It",
+    "name": "extends the startup window for a slow-starting container",
+    "path": [
+      "Cluster Runtime Controls",
+      "extends the startup window for a slow-starting container"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "runtime",
+      "case:startup-probe-budget",
+      "covers:startup-probe",
+      "covers:pod-rollout",
+      "slow"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "runtime",
+      "slow"
+    ],
+    "steps": [
+      "rendering the extended startup probe through the operator",
+      "waiting for the startup-budget change to replace the Pod",
+      "isolating the kubelet startup timing with a controlled 330-second delay"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "cluster-oci-plugin-install",
     "generatedId": "cluster-runtime-controls-registers-an-oci-plugin-with-a-b5786be4",
     "caseLabel": "cluster-oci-plugin-install",

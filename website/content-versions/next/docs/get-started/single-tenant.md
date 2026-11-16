@@ -112,10 +112,10 @@ that namespace.
    - the RoleBinding subject names the rendered controller ServiceAccount and operator namespace;
    - no Provisioner Deployment, ServiceAccount, Service, or binding remains.
 
-6. Apply the overlay.
+6. Apply the overlay with server-side apply.
 
    {{< command label="apply" title="Install the single-tenant operator" >}}
-   kubectl apply -k config/overlays/single-tenant
+   kubectl apply --server-side -k config/overlays/single-tenant
    {{< /command >}}
 
 7. Verify the controller and namespace scope.

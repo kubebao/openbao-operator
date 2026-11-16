@@ -223,6 +223,12 @@ resources:
       - path: spec.runtime
         classification: beta-stable
         owner: lifecycle
+      - path: spec.probes
+        classification: beta-stable
+        owner: workload
+        omission: startup probes retain the released five-minute failure budget
+      - path: spec.probes.startup.failureThreshold
+        rationale: Only extends the startup failure budget; lifecycle readiness deadlines retain their existing margin.
       - path: spec.runtime.restartAt
         mutability: request-token
         rationale: A changed non-empty value requests a rolling restart.

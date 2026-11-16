@@ -3,11 +3,13 @@ package rolling
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade/core"
 )
@@ -38,30 +40,54 @@ func failUpgradeIfTimestampTimeout(cluster *openbaov1alpha1.OpenBaoCluster, star
 	return errors.New(timeout.Error)
 }
 
-func podRevisionTimeout(podName string) upgradeTimeoutSpec {
+// The existing deadline is measured from upgrade start, not from each Pod.
+// Opt-in longer budgets must therefore cover the sequential voter rollout.
+func rollingReadinessDeadline(cluster *openbaov1alpha1.OpenBaoCluster) time.Duration {
+	if cluster == nil {
+		return upgrade.DefaultPodReadyTimeout
+	}
+	extension := portworkload.StartupBudgetExtension(cluster.Spec.Probes)
+	if extension <= 0 {
+		return upgrade.DefaultPodReadyTimeout
+	}
+	seconds := int64((upgrade.DefaultPodReadyTimeout + extension) / time.Second)
+	pods := max(int64(1), int64(cluster.Spec.Replicas))
+	if cluster.Spec.ReadReplicas != nil {
+		pods += max(int64(0), int64(cluster.Spec.ReadReplicas.Replicas))
+	}
+	seconds *= pods
+	// Saturate before converting seconds to nanoseconds for an oversized spec.
+	maximumSeconds := int64((time.Duration(math.MaxInt64) - upgrade.DefaultHealthCheckTimeout) / time.Second)
+	return time.Duration(min(seconds, maximumSeconds)) * time.Second
+}
+
+func podRevisionTimeout(podName string, cluster *openbaov1alpha1.OpenBaoCluster) upgradeTimeoutSpec {
+	deadline := rollingReadinessDeadline(cluster)
 	return upgradeTimeoutSpec{
-		Deadline: upgrade.DefaultPodReadyTimeout,
+		Deadline: deadline,
 		Reason:   upgrade.ReasonPodNotReady,
-		Message:  fmt.Sprintf(upgrade.MessagePodNotReady, podName, upgrade.DefaultPodReadyTimeout),
-		Error:    fmt.Sprintf("pod %s did not roll to update revision within %v", podName, upgrade.DefaultPodReadyTimeout),
+		Message:  fmt.Sprintf(upgrade.MessagePodNotReady, podName, deadline),
+		Error:    fmt.Sprintf("pod %s did not roll to update revision within %v", podName, deadline),
 	}
 }
 
-func podReadyTimeout(podName string) upgradeTimeoutSpec {
+func podReadyTimeout(podName string, cluster *openbaov1alpha1.OpenBaoCluster) upgradeTimeoutSpec {
+	deadline := rollingReadinessDeadline(cluster)
 	return upgradeTimeoutSpec{
-		Deadline: upgrade.DefaultPodReadyTimeout,
+		Deadline: deadline,
 		Reason:   upgrade.ReasonPodNotReady,
-		Message:  fmt.Sprintf(upgrade.MessagePodNotReady, podName, upgrade.DefaultPodReadyTimeout),
-		Error:    fmt.Sprintf("pod %s did not become ready within %v", podName, upgrade.DefaultPodReadyTimeout),
+		Message:  fmt.Sprintf(upgrade.MessagePodNotReady, podName, deadline),
+		Error:    fmt.Sprintf("pod %s did not become ready within %v", podName, deadline),
 	}
 }
 
-func podHealthTimeout(podName string) upgradeTimeoutSpec {
+func podHealthTimeout(podName string, cluster *openbaov1alpha1.OpenBaoCluster) upgradeTimeoutSpec {
+	deadline := rollingReadinessDeadline(cluster) + upgrade.DefaultHealthCheckTimeout
 	return upgradeTimeoutSpec{
-		Deadline: upgrade.DefaultPodReadyTimeout + upgrade.DefaultHealthCheckTimeout,
+		Deadline: deadline,
 		Reason:   upgrade.ReasonHealthCheckFailed,
 		Message:  fmt.Sprintf(upgrade.MessageHealthCheckFailed, podName, "timeout"),
-		Error:    fmt.Sprintf("OpenBao health check timeout for pod %s", podName),
+		Error:    fmt.Sprintf("OpenBao health check timeout for pod %s after %v", podName, deadline),
 	}
 }
 

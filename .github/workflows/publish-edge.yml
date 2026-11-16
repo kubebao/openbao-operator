@@ -521,7 +521,7 @@ jobs:
               <p>Helm charts: <code>oci://ghcr.io/kubebao/charts-edge/openbao-operator</code>.
                 Use the chart version or digest in <a href="latest/metadata.json">metadata.json</a>.</p>
               <p>See the <a href="../next/docs/get-started/install/">edge installation instructions</a>.</p>
-              <p>To install the manifest: <code>kubectl apply -f latest/install.yaml</code></p>
+              <p>To install the manifest: <code>kubectl apply --server-side -f latest/install.yaml</code></p>
             </body>
           </html>
           HTML

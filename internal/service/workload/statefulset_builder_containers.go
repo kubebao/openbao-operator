@@ -10,6 +10,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 )
 
 func buildInitContainers(cluster *openbaov1alpha1.OpenBaoCluster, verifiedInitContainerDigest string, disableSelfInit bool) ([]corev1.Container, error) {
@@ -321,10 +322,10 @@ func buildContainers(cluster *openbaov1alpha1.OpenBaoCluster, spec StatefulSetSp
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: probes.startup,
 				},
-				InitialDelaySeconds: 10,
+				InitialDelaySeconds: portworkload.StartupProbeInitialDelaySeconds,
 				TimeoutSeconds:      10,
-				PeriodSeconds:       5,
-				FailureThreshold:    60,
+				PeriodSeconds:       portworkload.StartupProbePeriodSeconds,
+				FailureThreshold:    portworkload.StartupProbeFailureThreshold(cluster.Spec.Probes),
 			},
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{

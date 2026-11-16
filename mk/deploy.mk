@@ -11,7 +11,7 @@ endif
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	@out="$$( "$(KUSTOMIZE)" build config/crd 2>/dev/null || true )"; \
-	if [ -n "$$out" ]; then echo "$$out" | "$(KUBECTL)" apply -f -; else echo "No CRDs to install; skipping."; fi
+	if [ -n "$$out" ]; then echo "$$out" | "$(KUBECTL)" apply --server-side -f -; else echo "No CRDs to install; skipping."; fi
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -27,7 +27,7 @@ deploy: manifests kustomize ## Deploy both provisioner and controller to the K8s
 		python3 -c 'import pathlib,re,sys; p=pathlib.Path(sys.argv[1]); v=sys.argv[2]; q=chr(34); s=p.read_text(encoding="utf-8"); s=re.sub(r"(\n\s*-\s*name:\s*OPERATOR_VERSION\s*\n\s*value:\s*)(\"[^\"]*\"|[^\n#]+)", lambda m: m.group(1)+q+v+q, s, count=1); p.write_text(s, encoding="utf-8")' "$$f" "$(OPERATOR_VERSION)"; \
 	done; \
 	( cd "$$tmp/config/manager" && "$(KUSTOMIZE)" edit set image controller=${IMG} ); \
-	"$(KUSTOMIZE)" build "$$tmp/config/default" | "$(KUBECTL)" apply -f -
+	"$(KUSTOMIZE)" build "$$tmp/config/default" | "$(KUBECTL)" apply --server-side -f -
 
 .PHONY: deploy-dev
 deploy-dev: ## Build, push, and deploy the manager image (avoids stale local tags).

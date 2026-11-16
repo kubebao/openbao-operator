@@ -88,7 +88,7 @@ func (m *Manager) checkPodRevisionUpdated(
 	podName string,
 	repairStalePod bool,
 ) (bool, error) {
-	if err := failUpgradeIfStartedTimeout(cluster, podRevisionTimeout(podName)); err != nil {
+	if err := failUpgradeIfStartedTimeout(cluster, podRevisionTimeout(podName, cluster)); err != nil {
 		return false, err
 	}
 
@@ -170,7 +170,7 @@ func (m *Manager) checkPodRevisionUpdated(
 //   - (false, nil) if pod is not ready yet (caller should requeue)
 //   - (false, error) if timeout exceeded or fatal error
 func (m *Manager) waitForPodReady(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, podName string) (bool, error) {
-	if err := failUpgradeIfStartedTimeout(cluster, podReadyTimeout(podName)); err != nil {
+	if err := failUpgradeIfStartedTimeout(cluster, podReadyTimeout(podName, cluster)); err != nil {
 		return false, err
 	}
 
@@ -203,7 +203,7 @@ func (m *Manager) waitForPodReady(ctx context.Context, logger logr.Logger, clust
 //   - (false, nil) if pod is not healthy yet (caller should requeue)
 //   - (false, error) if timeout exceeded or fatal error
 func (m *Manager) waitForPodHealthy(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, podName string) (bool, error) {
-	if err := failUpgradeIfStartedTimeout(cluster, podHealthTimeout(podName)); err != nil {
+	if err := failUpgradeIfStartedTimeout(cluster, podHealthTimeout(podName, cluster)); err != nil {
 		return false, err
 	}
 

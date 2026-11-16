@@ -12,9 +12,9 @@ Notes:
 ## Summary
 
 - Files: `28`
-- Specs: `104`
-- Explicit case IDs: `104`
-- Coverage tags: `60`
+- Specs: `105`
+- Explicit case IDs: `105`
+- Coverage tags: `61`
 
 ## Suites
 
@@ -24,7 +24,7 @@ Notes:
 | [Cluster Lifecycle](suites/Cluster_Lifecycle_test.md) | 9 | 9 | 0 | `lifecycle`, `cluster`, `profile-development`, `scaling`, `autopilot`, `smoke`, `critical`, `tenant`, `audit` | `test/e2e/Cluster_Lifecycle_test.go` |
 | [Cluster Networking](suites/Cluster_Networking_test.md) | 2 | 2 | 0 | `networking`, `critical`, `e2e-anchor` | `test/e2e/Cluster_Networking_test.go` |
 | [Hardened profile (External TLS + Transit auto-unseal + SelfInit)](suites/Cluster_Profile_Hardened_test.md) | 5 | 5 | 0 | `profile-hardened`, `security`, `cluster`, `upgrade`, `bluegreen`, `hardened`, `rolling` | `test/e2e/Cluster_Profile_Hardened_test.go` |
-| [Cluster Runtime Controls](suites/Cluster_Runtime_Controls_test.md) | 3 | 3 | 0 | `lifecycle`, `cluster`, `runtime` | `test/e2e/Cluster_Runtime_Controls_test.go` |
+| [Cluster Runtime Controls](suites/Cluster_Runtime_Controls_test.md) | 4 | 4 | 0 | `lifecycle`, `cluster`, `runtime`, `slow` | `test/e2e/Cluster_Runtime_Controls_test.go` |
 | [Self-init Secret inputs](suites/Cluster_SelfInit_Secret_Inputs_test.md) | 1 | 1 | 0 | `lifecycle`, `cluster`, `self-init-inputs` | `test/e2e/Cluster_SelfInit_Secret_Inputs_test.go` |
 | [ACME TLS (OpenBao native ACME client)](suites/Cluster_TLS_ACME_test.md) | 2 | 2 | 0 | `tls`, `security`, `slow` | `test/e2e/Cluster_TLS_ACME_test.go` |
 | [Cluster TLS Lifecycle](suites/Cluster_TLS_Lifecycle_test.md) | 1 | 1 | 0 | `tls`, `cluster`, `lifecycle` | `test/e2e/Cluster_TLS_Lifecycle_test.go` |
@@ -61,6 +61,7 @@ Notes:
 | `interrupted-scale-down` | 2 |
 | `network-policy-enforcement` | 2 |
 | `pod-ip-advertisement` | 2 |
+| `pod-rollout` | 2 |
 | `pvc-cleanup` | 2 |
 | `recoverability-secret-cleanup` | 2 |
 | `rolling-upgrade` | 2 |
@@ -89,7 +90,6 @@ Notes:
 | `network-isolation` | 1 |
 | `plugin-auto-download` | 1 |
 | `plugin-directory` | 1 |
-| `pod-rollout` | 1 |
 | `pod-stability` | 1 |
 | `post-failover-reconcile` | 1 |
 | `post-outage-reconcile` | 1 |
@@ -104,6 +104,7 @@ Notes:
 | `self-init-secret-inputs` | 1 |
 | `stable-workload-identity` | 1 |
 | `stale-green-cleanup` | 1 |
+| `startup-probe` | 1 |
 | `statefulset-protection` | 1 |
 | `target-revision-drift` | 1 |
 | `tenant-isolation` | 1 |
