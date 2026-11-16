@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -222,6 +223,81 @@ var _ = Describe("Cluster Runtime Controls", Label("lifecycle", "cluster", "runt
 		}, 10*time.Minute, framework.DefaultPollInterval).Should(Succeed())
 
 		waitForClusterAvailable(clusterName)
+	})
+
+	It("extends the startup window for a slow-starting container", Label(
+		"case:startup-probe-budget", "covers:startup-probe", "covers:pod-rollout", "slow",
+	), func() {
+		const clusterName = "startup-budget-cluster"
+		cluster := newDevelopmentCluster(clusterName)
+		Expect(c.Create(ctx, cluster)).To(Succeed())
+		DeferCleanup(func() { _ = c.Delete(ctx, cluster) })
+		_, err := f.WaitForStatefulSetReady(ctx, clusterName, 1, 10*time.Minute, framework.DefaultPollInterval)
+		Expect(err).NotTo(HaveOccurred())
+		initialPod := waitForClusterPod(clusterName)
+		set := &appsv1.StatefulSet{}
+		Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: f.Namespace}, set)).To(Succeed())
+		originalProbe := set.Spec.Template.Spec.Containers[0].StartupProbe.DeepCopy()
+
+		By("rendering the extended startup probe through the operator")
+		before := cluster.DeepCopy()
+		cluster.Spec.Probes = &openbaov1alpha1.ProbeConfig{
+			Startup: &openbaov1alpha1.StartupProbeConfig{FailureThreshold: 180},
+		}
+		Expect(c.Patch(ctx, cluster, client.MergeFrom(before))).To(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(c.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: f.Namespace}, set)).To(Succeed())
+			g.Expect(set.Spec.Template.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
+		}, framework.DefaultWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+		extendedProbe := set.Spec.Template.Spec.Containers[0].StartupProbe.DeepCopy()
+
+		By("waiting for the startup-budget change to replace the Pod")
+		Eventually(func(g Gomega) {
+			current := &corev1.Pod{}
+			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(initialPod), current)).To(Succeed())
+			g.Expect(current.UID).NotTo(Equal(initialPod.UID))
+			g.Expect(isPodReady(current)).To(BeTrue())
+			g.Expect(current.Spec.Containers[0].StartupProbe.FailureThreshold).To(Equal(int32(180)))
+		}, 10*time.Minute, framework.DefaultPollInterval).Should(Succeed())
+
+		By("isolating the kubelet startup timing with a controlled 330-second delay")
+		// Keep the rendered timing, but replace the OpenBao health check with a
+		// marker. This reproduces startup-budget exhaustion, not storage latency.
+		newDelayedPod := func(name string, probe *corev1.Probe) *corev1.Pod {
+			probe.Exec = &corev1.ExecAction{Command: []string{"test", "-f", "/tmp/started"}}
+			return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: f.Namespace}, Spec: corev1.PodSpec{
+				AutomountServiceAccountToken: ptr.To(false), TerminationGracePeriodSeconds: ptr.To(int64(1)),
+				SecurityContext: &corev1.PodSecurityContext{RunAsNonRoot: ptr.To(true), RunAsUser: ptr.To(int64(65534)), FSGroup: ptr.To(int64(65534)),
+					SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault}},
+				Containers: []corev1.Container{{Name: "delayed", Image: "docker.io/library/busybox:1.37.0",
+					Command:      []string{"sh", "-c", "sleep 330; touch /tmp/started; exec sleep 600"},
+					StartupProbe: probe,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
+						Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("64Mi")},
+					},
+					SecurityContext: &corev1.SecurityContext{AllowPrivilegeEscalation: ptr.To(false), ReadOnlyRootFilesystem: ptr.To(true),
+						Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}}},
+					VolumeMounts: []corev1.VolumeMount{{Name: "tmp", MountPath: "/tmp"}},
+				}},
+				Volumes: []corev1.Volume{{Name: "tmp", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+			}}
+		}
+		baseline := newDelayedPod("startup-default", originalProbe)
+		extended := newDelayedPod("startup-extended", extendedProbe)
+		for _, pod := range []*corev1.Pod{baseline, extended} {
+			Expect(c.Create(ctx, pod)).To(Succeed())
+			DeferCleanup(func() { _ = c.Delete(ctx, pod) })
+		}
+		Eventually(func(g Gomega) {
+			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(baseline), baseline)).To(Succeed())
+			g.Expect(c.Get(ctx, client.ObjectKeyFromObject(extended), extended)).To(Succeed())
+			g.Expect(baseline.Status.ContainerStatuses).To(HaveLen(1))
+			g.Expect(extended.Status.ContainerStatuses).To(HaveLen(1))
+			g.Expect(baseline.Status.ContainerStatuses[0].RestartCount).To(BeNumerically(">=", 1))
+			g.Expect(extended.Status.ContainerStatuses[0].Ready).To(BeTrue())
+			g.Expect(extended.Status.ContainerStatuses[0].RestartCount).To(BeZero())
+		}, 8*time.Minute, 5*time.Second).Should(Succeed())
 	})
 
 	It("creates ingress resources and includes the ingress host in the server certificate", Label(

@@ -195,7 +195,7 @@ func markResumeUpgradeTimeout(cluster *openbaov1alpha1.OpenBaoCluster, podName s
 	if podName == "" {
 		podName = "upgrade-target"
 	}
-	return failUpgradeIfStartedTimeout(cluster, podReadyTimeout(podName))
+	return failUpgradeIfStartedTimeout(cluster, podReadyTimeout(podName, cluster))
 }
 
 func (m *Manager) verifyNonTargetPodsReadyAndHealthy(
@@ -258,7 +258,7 @@ func resumePodReadyBlocker(cluster *openbaov1alpha1.OpenBaoCluster, podName stri
 
 func resumePodHealthBlocker(cluster *openbaov1alpha1.OpenBaoCluster, podName string, format string, args ...any) error {
 	err := fmt.Errorf(format, args...)
-	if timeoutErr := failUpgradeIfStartedTimeout(cluster, podHealthTimeout(podName)); timeoutErr != nil {
+	if timeoutErr := failUpgradeIfStartedTimeout(cluster, podHealthTimeout(podName, cluster)); timeoutErr != nil {
 		return fmt.Errorf("%v: %w", err, timeoutErr)
 	}
 	return transientClusterState(upgrade.ReasonHealthCheckFailed, err)

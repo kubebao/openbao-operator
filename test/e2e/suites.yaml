@@ -686,6 +686,7 @@ suites:
       - lifecycle
       - cluster
       - runtime
+      - slow
     coverage:
       - external-service
       - ingress
@@ -693,10 +694,11 @@ suites:
       - plugin-directory
       - pod-rollout
       - restart-at
+      - startup-probe
       - tls-san
     runtime:
       observed: 1m58.271s
-      budget: 3m
+      budget: 12m
     ci:
       lanes:
         - core
