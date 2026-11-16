@@ -781,7 +781,7 @@ jq -n --arg version "${FROM_VERSION}" --arg manager "${BASELINE_MANAGER_IMAGE}" 
 
 echo "Applying candidate CRDs before the Helm upgrade..." >&2
 make build-crds >/dev/null
-"${KUBECTL_BIN}" apply -f "${ROOT_DIR}/dist/crds.yaml" >/dev/null
+"${KUBECTL_BIN}" apply --server-side -f "${ROOT_DIR}/dist/crds.yaml" >/dev/null
 "${KUBECTL_BIN}" wait \
   --for=condition=Established \
   crd/openbaoclusters.openbao.org \

@@ -171,8 +171,10 @@ Helm values do not configure that manifest.
 
 Use the release asset when the platform wants the published default resources without a Helm release:
 
+Use server-side apply to avoid the CRD size limit for the `kubectl.kubernetes.io/last-applied-configuration` annotation.
+
 {{< command label="apply" title="Apply the 0.6.0 installer manifest" >}}
-kubectl apply -f \
+kubectl apply --server-side -f \
   https://github.com/kubebao/openbao-operator/releases/download/0.6.0/install.yaml
 {{< /command >}}
 
@@ -223,7 +225,7 @@ Before applying the overlay, confirm:
 Apply only after the render is internally consistent:
 
 {{< command label="apply" title="Apply the custom identity overlay" >}}
-kubectl apply -k config/overlays/custom-identity
+kubectl apply --server-side -k config/overlays/custom-identity
 {{< /command >}}
 
 ## Install on OpenShift
@@ -273,7 +275,7 @@ you upgrade the controller. Self-init does not update an existing policy.
 {{< /callout >}}
 
 {{< command label="upgrade" title="Upgrade to 0.6.0" >}}
-kubectl apply -f \
+kubectl apply --server-side -f \
   https://github.com/kubebao/openbao-operator/releases/download/0.6.0/crds.yaml
 helm upgrade openbao-operator \
   oci://ghcr.io/kubebao/charts/openbao-operator \
