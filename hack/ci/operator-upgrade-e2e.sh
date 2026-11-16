@@ -799,7 +799,7 @@ jq -e '
 
 echo "Establishing published operator ${FROM_VERSION} before the candidate handoff..." >&2
 "${HELM_BIN}" show crds "${baseline_chart_archive}" | \
-  "${KUBECTL_BIN}" apply -f - >/dev/null
+  "${KUBECTL_BIN}" apply --server-side -f - >/dev/null
 "${HELM_BIN}" upgrade openbao-operator "${baseline_chart_archive}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --set-string "image.repository=${BASELINE_MANAGER_IMAGE%@*}" \
