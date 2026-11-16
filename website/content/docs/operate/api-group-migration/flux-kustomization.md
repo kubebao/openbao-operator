@@ -19,7 +19,7 @@ Keep Flux suspended while you apply the operator checkpoints manually.
 ## Prepare operator-only inputs and Git
 
 1. Review the [shared preflight and context selection](../#before-you-start) and
-   [availability requirements](../#plan-for-availability). Keep one source controller replica in the saved 0.6.1 inputs.
+   [availability requirements](../#plan-for-availability). Keep one source controller replica in the saved 0.6.2 inputs.
 2. [Download and verify the destination command and manifests](../#download-the-command), or select a
    [matching edge bundle](../#evaluate-a-matching-edge-build) for staging.
 3. Identify every parent and child Kustomization that manages the operator or OpenBao resources. Record their
@@ -55,7 +55,7 @@ Save `config.json` with the existing namespace and prepared input paths. Omit `r
   "kubeconfig": "/path/to/admin.kubeconfig",
   "context": "<context>",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.1",
+  "sourceVersion": "0.6.2",
   "sourceManifests": "/path/to/operator-source",
   "destinationManifests": "/path/to/operator-destination"
 }
@@ -238,7 +238,7 @@ kubectl apply --server-side --force-conflicts -k ./migration-state/checkpoints/s
 ./api-migration rollback --state ./migration-state
 ```
 
-For a chart-values checkpoint, render and apply the original 0.6.1 chart with its source values instead, then rerun
+For a chart-values checkpoint, render and apply the original 0.6.2 chart with its source values instead, then rerun
 rollback.
 Require `Phase: RolledBack` and successful source verification. Follow `migration-state/after-rollback.md`.
 Restore the source operator ref, image/helper pins, and `openbao.org/v1alpha1` manifests in Git if they changed.

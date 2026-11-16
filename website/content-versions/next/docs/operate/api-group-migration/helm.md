@@ -1,6 +1,6 @@
 ---
 title: Migrate a Helm CLI installation
-description: Move an existing Helm-managed 0.6.1 operator to kubebao.org with the migration command.
+description: Move an existing Helm-managed 0.6.2 operator to kubebao.org with the migration command.
 eyebrow: Operate · API group migration
 weight: 10
 verifiedBy:
@@ -18,7 +18,7 @@ The migration command runs Helm for all operator transitions.
 
 1. Review the [shared preflight and context selection](../#before-you-start) and
    [availability requirements](../#plan-for-availability). Reduce the source controller to one replica in its
-   0.6.1 Helm values, not only in the live Deployment. Enable the source admission policies.
+   0.6.2 Helm values, not only in the live Deployment. Enable the source admission policies.
 2. [Download and verify the destination command](../#download-the-command), or select a
    [matching edge bundle](../#evaluate-a-matching-edge-build) for staging. Keep the binary for rollback and resumption.
 3. Put Helm 4 on `PATH` using an absolute directory. `plan`, `migrate`, `commit`, and `rollback` run the `helm`
@@ -48,7 +48,7 @@ existing installation and prepared destination:
   "context": "<context>",
   "release": "openbao-operator",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.1",
+  "sourceVersion": "0.6.2",
   "destinationChart": "./openbao-operator",
   "destinationValues": "./destination-values.yaml"
 }
@@ -137,7 +137,7 @@ Rollback is available only before commit accepts a source deletion. Use the same
 ./api-migration rollback --state ./migration-state
 ```
 
-Require `Phase: RolledBack`, the 0.6.1 source operator running, and successful source verification.
+Require `Phase: RolledBack`, the 0.6.2 source operator running, and successful source verification.
 The command waits for the source rollout. The `kubebao.org` CRDs remain installed; qualify resource names with their
 group while both APIs exist. To migrate again, create a new plan in a new state directory.
 

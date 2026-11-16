@@ -25,7 +25,7 @@ const (
 )
 
 // migrateRestoreLifecycle starts with a completed retained-target handoff on
-// 0.6.1. Both Clusters and the finished restore record must survive rollback
+// 0.6.2. Both Clusters and the finished restore record must survive rollback
 // and commit. The destination then schedules and completes a disposable restore
 // from a new backup, including cleanup of the generated target and its claim.
 func (f *e2eFixture) migrateRestoreLifecycle() {

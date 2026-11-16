@@ -31,6 +31,15 @@ Release notes are generated and maintained via **release-please** based on **Con
 * **release:** preserve latest stable and verification evidence ([#942](https://github.com/kubebao/openbao-operator/issues/942)) ([24965bd](https://github.com/kubebao/openbao-operator/commit/24965bdc52197944b29b37ebe41c6fe8c4281c8a))
 * **restore:** accept stable OpenBao versions from 2.7 ([#935](https://github.com/kubebao/openbao-operator/issues/935)) ([ced35e7](https://github.com/kubebao/openbao-operator/commit/ced35e7ea5e2a5ab0b95cd7adc25082a19d5146e))
 
+## [0.6.2](https://github.com/kubebao/openbao-operator/compare/0.6.1...0.6.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **release:** backport publication hardening to 0.6 ([#945](https://github.com/kubebao/openbao-operator/issues/945)) ([4c78cbd](https://github.com/kubebao/openbao-operator/commit/4c78cbd5bebf55db04244ec35553f9d8c63b67c5))
+* **security:** update Go toolchain to 1.27.4 ([30f659c](https://github.com/kubebao/openbao-operator/commit/30f659c8941bc36fce57fba7fd4bc99dc282120e))
+* **workload:** backport configurable startup budgets to 0.6 ([30f659c](https://github.com/kubebao/openbao-operator/commit/30f659c8941bc36fce57fba7fd4bc99dc282120e))
+
 ## [0.6.1](https://github.com/kubebao/openbao-operator/compare/0.6.0...0.6.1) (2026-11-07)
 
 

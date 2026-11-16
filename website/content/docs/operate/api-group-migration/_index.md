@@ -1,6 +1,6 @@
 ---
 title: Migrate to the kubebao.org API group
-description: Prepare a 0.6.1 API group migration and choose the guide for your installation method.
+description: Prepare a 0.6.2 API group migration and choose the guide for your installation method.
 eyebrow: Operate · API group migration
 weight: 47
 hideChildren: true
@@ -24,7 +24,7 @@ verifiedBy:
 
 Starting with 0.7, the operator serves `OpenBaoCluster`, `OpenBaoTenant`, and `OpenBaoRestore` as
 `kubebao.org/v1alpha1` instead of `openbao.org/v1alpha1`. Use the destination 0.7 release's `api-migration` command
-to move an existing 0.6.1 installation. It re-creates the custom resources and transfers workload ownership while
+to move an existing 0.6.2 installation. It re-creates the custom resources and transfers workload ownership while
 keeping OpenBao data and storage in place. The destination operator can then roll the data Pods to its own template.
 Read [Plan for availability](#plan-for-availability) before scheduling the migration.
 
@@ -66,10 +66,15 @@ Argo CD applies the rendered resources without creating Helm release storage. Ap
 
 ## Before you start
 
+If a source Cluster needs longer than the default startup window, configure its longer budget in 0.6.2 before
+migrating. Follow [Allow more time for database startup](../../configure/storage/#allow-more-time-for-database-startup),
+including the pause and maintenance steps. Set the migration CLI `--timeout` to cover the complete sequential
+rollout; a longer startup budget does not increase the CLI timeout automatically.
+
 Meet these conditions before running `plan`. Your installation guide includes the configuration and suspension steps.
 
 {{< checklist title="Preflight" >}}
-- The operator runs 0.6.1. The command refuses any other source release, so upgrade an older installation to 0.6.1
+- The operator runs 0.6.2. The command refuses any other source release, so upgrade an older installation to 0.6.2
   first.
 - The operator controller Deployment runs exactly one replica, and the source admission policies are enabled.
 - Every `OpenBaoCluster` is available at its current generation, or paused with the pause observed by the operator.
@@ -101,7 +106,7 @@ Before the maintenance window, review destination configuration and any retained
 manifests inactive until commit finishes. The migration command imports the new-group resources itself.
 
 If you normally run multiple controller replicas, reduce the source installation to one before `plan`. For Helm,
-change the source 0.6.1 release's values; scaling only the Deployment leaves a rollback revision with a different
+change the source 0.6.2 release's values; scaling only the Deployment leaves a rollback revision with a different
 replica count. For manifests, update the source manifests. Keep one controller replica until `commit` or `rollback`
 finishes. Then restore the desired count in the surviving release's configuration before resuming GitOps sync.
 The chart's unsafe `admissionPolicies.enabled: false` mode is outside migration support; enable the source release's
@@ -273,7 +278,7 @@ Use your installation guide for the commands and expected results. All routes us
 | `migrate` | Stop the source operator, import resources, transfer ownership, start the destination with operations held, and verify it. |
 | `status` | Report live identities, operator state, the rollback window, recorded verification, and next actions. |
 | `commit` | Retire source resources, release the hold, verify again, and remove the migrator. |
-| `rollback` | Restore source ownership and 0.6.1 while the rollback window is open. |
+| `rollback` | Restore source ownership and 0.6.2 while the rollback window is open. |
 
 `plan` does not change installation resources. It refuses a source that changes during inspection, including a
 status write by the operator. Plan outside scheduled backup times. If planning writes artifacts and then fails,
@@ -318,7 +323,7 @@ the reviewed desired state matches the surviving installation. Before allowing o
 
 Use the hand-back procedure for [Flux HelmRelease](flux-helmrelease/#commit-and-return-control-to-flux),
 [Flux Kustomization](flux-kustomization/#commit-and-return-control-to-flux), or
-[Argo CD](argocd/#commit-and-return-control-to-argo-cd). Their rollback sections also cover returning to 0.6.1.
+[Argo CD](argocd/#commit-and-return-control-to-argo-cd). Their rollback sections also cover returning to 0.6.2.
 
 Do not resume controllers during migration. If one changes a source, suspend it again, roll back while the window
 is open, and create a new plan. After source retirement starts, continue with `commit`.
@@ -326,7 +331,7 @@ is open, and create a new plan. After source retirement starts, continue with `c
 ## Roll back
 
 Each installation guide includes its rollback commands and source hand-back. Rollback restores source ownership,
-the original 0.6.1 installation, and source-compatible helper pins. It waits for the source rollout before verification.
+the original 0.6.2 installation, and source-compatible helper pins. It waits for the source rollout before verification.
 The `kubebao.org` CRDs remain installed. To migrate again, create a new plan in a new state directory.
 
 {{< callout type="warning" title="Commit closes rollback at the first accepted source deletion" >}}
@@ -385,7 +390,7 @@ combination in staging.
 ## Migration tool lifecycle
 
 0.8.0 is the target for removing `api-migration` from `main`. The planned upgrade path for 0.8.0 and later is
-`0.6.1 → latest supported 0.7.x → destination release`. Use the migration binary that matches the 0.7.x destination,
+`0.6.2 → latest supported 0.7.x → destination release`. Use the migration binary that matches the 0.7.x destination,
 finish `commit`, and then follow the destination release's normal upgrade procedure. Removing the tool requires
 qualification and documentation of this upgrade path.
 

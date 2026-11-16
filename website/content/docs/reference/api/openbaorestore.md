@@ -538,6 +538,23 @@ _Appears in:_
 | `annotations` _object (keys:string, values:string)_ | Annotations are merged into the generated OpenBao Pod template annotations.<br />Operator-managed annotations take precedence if the same key is specified here. |  | Optional: \{\} <br /> |
 
 
+#### ProbeConfig
+
+
+
+ProbeConfig configures health probes for voter and read-replica containers.
+
+
+
+_Appears in:_
+- [OpenBaoClusterSpec](../openbaocluster/#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `startup` _[StartupProbeConfig](#startupprobeconfig)_ | Startup extends the time allowed for OpenBao to start. |  | Optional: \{\} <br /> |
+
+
 #### RestoreAdministratorDisposition
 
 _Underlying type:_ _string_
@@ -581,6 +598,7 @@ _Appears in:_
 | `plugins` _[Plugin](#plugin) array_ | Plugins declares KMS seal plugins required by Unseal. OpenBao 2.7 requires<br />plugins for AWS, Azure, GCP, OCI, and PKCS#11 seals. |  | Optional: \{\} <br /> |
 | `configuration` _[RestoreTargetConfiguration](#restoretargetconfiguration)_ | Configuration configures KMS plugin behavior for the target server. |  | Optional: \{\} <br /> |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ |  |  | Optional: \{\} <br /> |
+| `probes` _[ProbeConfig](#probeconfig)_ | Probes configures health probes for the restored OpenBao container. |  | Optional: \{\} <br /> |
 | `initContainer` _[InitContainerConfig](#initcontainerconfig)_ |  |  | Optional: \{\} <br /> |
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ |  |  | MaxItems: 2 <br />Optional: \{\} <br /> |
 
@@ -880,6 +898,22 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name overrides the generated ServiceAccount name.<br />If not specified, defaults to "&lt;cluster-name&gt;-serviceaccount". |  | Optional: \{\} <br /> |
 | `annotations` _object (keys:string, values:string)_ | Annotations to add to the ServiceAccount.<br />Useful for cloud provider Workload Identity (e.g. eks.amazonaws.com/role-arn). |  | Optional: \{\} <br /> |
+
+
+#### StartupProbeConfig
+
+
+
+StartupProbeConfig configures the startup probe failure budget.
+
+
+
+_Appears in:_
+- [ProbeConfig](#probeconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `failureThreshold` _integer_ | FailureThreshold is the number of consecutive failures allowed before the<br />kubelet restarts the container. The probe runs every 5 seconds after an<br />initial 10-second delay. The default is 60 failures, approximately 5 minutes;<br />the maximum is 720 failures, approximately 1 hour. Only longer budgets are<br />supported. Changing this value updates the Pod template and can restart Pods. | 60 | Maximum: 720 <br />Minimum: 60 <br />Optional: \{\} <br /> |
 
 
 #### StaticSealConfig

@@ -10,7 +10,7 @@ A direct Helm upgrade from 0.6 to 0.7 leaves the old resources unmanaged.
 
 ## Scope
 
-The only source release is **0.6.1**. Each 0.7.x release binary accepts only its own destination release.
+The only source release is **0.6.2**. Each 0.7.x release binary accepts only its own destination release.
 Supported CLI platforms are Linux amd64, Linux arm64, and macOS arm64. Intel Macs are unsupported.
 
 Edge builds bind the binary to `edge-<12-character-commit>`. Download the verified Actions bundle linked from the
@@ -25,7 +25,7 @@ for automated scenarios and remaining environment-specific qualification.
 
 ## Prerequisites
 
-- Upgrade the source operator to 0.6.1. Keep its controller at one replica in the source Helm values or manifests
+- Upgrade the source operator to 0.6.2. Keep its controller at one replica in the source Helm values or manifests
   until `commit` or `rollback` finishes. Enable its normal admission policies.
 - Require every Cluster to be healthy and idle, or paused at its observed generation. Finish pending operations
   and restore decisions. Unknown finalizers, unsupported ownership, and admission-disabled installations are excluded.
@@ -48,7 +48,7 @@ for the complete checks and the Kubernetes context selection.
 | `migrate` | Stops the source operator, imports resources, transfers ownership, starts the destination with operations held, and verifies it. |
 | `status` | Reports live identities, operator state, the rollback window, recorded verification, and next commands. |
 | `commit` | Deletes source resources without cascading, releases the hold, verifies again, and removes the migrator. |
-| `rollback` | Restores source ownership and 0.6.1 while the rollback window remains open. |
+| `rollback` | Restores source ownership and 0.6.2 while the rollback window remains open. |
 | `convert` | Rewrites the API version in manifest files. `--write` updates files in place; review the Git diff. |
 | `version`, `help` | Prints the binary's release or command help without cluster access. |
 
@@ -166,7 +166,7 @@ admission-disabled installations are exclusions.
 
 ### Run the scenarios
 
-`e2e_test.go` runs each case on a new Kind cluster against the released 0.6.1 chart and a destination image. The
+`e2e_test.go` runs each case on a new Kind cluster against the released 0.6.2 chart and a destination image. The
 nightly workflow runs every case; the release-candidate workflow runs a core subset:
 
 ```sh
@@ -192,7 +192,8 @@ observations for seven days, including failed observations. They exclude credent
 - `rollback`: migrate, let the destination roll the data Pods, roll back, and plan again.
 - `interrupt`: stop after every `migrate` step and roll back each time. Then stop between a StatefulSet's orphan
   delete and its recreation, where its Pods have no controller, and roll back; stop there again, resume, and commit.
-- `ha`: three voters, a read replica, and legacy restore history.
+- `ha`: three voters, a read replica, and legacy restore history. Configure a startup threshold of 180, then verify
+  it on the Cluster and all server Pods after migration, rollback, and commit.
 - `bluegreen` and `partitioned`: three voters on a revisioned StatefulSet. A source template change leaves healthy
   Pods on their old revision. The first case keeps `OnDelete`; the second changes to RollingUpdate with a partition
   holding all three Pods. Migrate, roll back, migrate, and commit; every voter Pod UID stays unchanged.
@@ -215,7 +216,7 @@ observations for seven days, including failed observations. They exclude credent
   its source revision, migrate again, and commit. Each resulting revision must use server-side apply.
 - `operator-ha`: start with two controller replicas, require preparation in the source Helm values, migrate and
   roll back to one replica, migrate and commit, then restore two replicas in the surviving release.
-- `restore-lifecycle`: create and resume a retained fresh-target restore on 0.6.1 with OpenBao 2.7.2. Migrate both
+- `restore-lifecycle`: create and resume a retained fresh-target restore on 0.6.2 with OpenBao 2.7.2. Migrate both
   Clusters and the completed record, refuse a CR-level source helper pin, roll back, migrate and commit. The source
   and destination use their own release-level backup helpers. Then require an operator-scheduled disposable
   restore to reproduce new data, report success, and remove its request, target, PVC, and executor Job.
@@ -241,7 +242,7 @@ observations for seven days, including failed observations. They exclude credent
   chart. With Flux, a parent Kustomization applies the operator and a Kustomization of the OpenBao resources: in
   `flux-2.9` and `flux-2.10`, a Kustomization of the Kustomize build (`install.yaml`) in multi-tenant mode; in the
   `-helmrelease` cases, a HelmRelease of the chart in single-tenant mode, which the procedure upgrades and rolls back
-  as a Helm release. The 0.6.1 chart includes the admission policy post-rendering fix (#934). `plan` must refuse while
+  as a Helm release. The 0.6.2 chart includes the admission policy post-rendering fix (#934). `plan` must refuse while
   the controllers sync, and while only the children are suspended; Argo CD's parent heals them back. The Argo CD and
   Flux Kustomization cases go through the manifest checkpoints, Argo CD with manual syncs that keep the `openbao.org`
   CRDs. Flux rolls back and resumes sync, taking the source back over. Resuming one child mid-procedure stops
@@ -290,13 +291,13 @@ add a Hardened Cluster with Transit unseal and external TLS, a legacy Developmen
 ## Retirement policy
 
 **0.8.0 is the target for removing `api-migration` from `main`.** The 0.7.x release line remains the migration
-bridge from 0.6.1. After removal, the upgrade path is `0.6.1 → latest supported 0.7.x → destination release`.
+bridge from 0.6.2. After removal, the upgrade path is `0.6.2 → latest supported 0.7.x → destination release`.
 Use the matching 0.7.x migration binary, finish `commit`, and then follow the destination release's normal upgrade
-procedure. A direct migration from 0.6.1 to 0.8.0 or later is outside this policy.
+procedure. A direct migration from 0.6.2 to 0.8.0 or later is outside this policy.
 
 Before removing the command, maintainers must:
 
-1. Qualify and document the normal upgrade from 0.7.x to 0.8.0 using installations migrated from 0.6.1. Verify
+1. Qualify and document the normal upgrade from 0.7.x to 0.8.0 using installations migrated from 0.6.2. Verify
    existing data, workload ownership, and controller authentication after the upgrade.
 2. Retain the published 0.7.x binaries, charts, images, checksums, signatures, attestations, and versioned migration
    guide. Keep each binary matched to its destination release.

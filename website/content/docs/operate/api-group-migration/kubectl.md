@@ -1,6 +1,6 @@
 ---
 title: Migrate a kubectl or Kustomize installation
-description: Move a directly applied 0.6.1 operator through manual manifest checkpoints.
+description: Move a directly applied 0.6.2 operator through manual manifest checkpoints.
 eyebrow: Operate · API group migration
 weight: 20
 verifiedBy:
@@ -18,7 +18,7 @@ The migration command requests manual operator checkpoints; it never applies tho
 ## Prepare operator-only inputs
 
 1. Review the [shared preflight and context selection](../#before-you-start) and
-   [availability requirements](../#plan-for-availability). Keep one source controller replica in the saved 0.6.1 inputs.
+   [availability requirements](../#plan-for-availability). Keep one source controller replica in the saved 0.6.2 inputs.
 2. [Download and verify the destination command and artifacts](../#download-the-command), or use a
    [matching edge bundle](../#evaluate-a-matching-edge-build) for staging.
 3. Save the source operator YAML or Kustomize overlay as it was installed. Prepare separate destination inputs
@@ -38,7 +38,7 @@ Save the following as `config.json` with your paths and existing namespace. Omit
   "kubeconfig": "/path/to/admin.kubeconfig",
   "context": "<context>",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.1",
+  "sourceVersion": "0.6.2",
   "sourceManifests": "/path/to/operator-source",
   "destinationManifests": "/path/to/operator-destination"
 }
@@ -162,7 +162,7 @@ Rollback is available only before commit accepts a source deletion. Use the same
 ./api-migration rollback --state ./migration-state
 ```
 
-At exit status 4, read the `source` checkpoint. For a generated Kustomize checkpoint, apply the original 0.6.1
+At exit status 4, read the `source` checkpoint. For a generated Kustomize checkpoint, apply the original 0.6.2
 operator inputs without migration components or pruning, then rerun `rollback`:
 
 ```sh
@@ -172,7 +172,7 @@ kubectl apply --server-side --force-conflicts -k ./migration-state/checkpoints/s
 
 For a chart-rendered installation, render and apply the original source chart with the printed source values.
 
-Require `Phase: RolledBack`, the 0.6.1 source operator running, and successful source verification.
+Require `Phase: RolledBack`, the 0.6.2 source operator running, and successful source verification.
 The command waits for the source rollout. The `kubebao.org` CRDs remain installed; qualify resource names with their
 group while both APIs exist. To migrate again, create a new plan in a new state directory.
 
