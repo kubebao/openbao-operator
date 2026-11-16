@@ -15,10 +15,22 @@ import (
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 )
 
 const targetBootstrapTimeout = 30 * time.Minute
 const targetApplicationTimeout = 10 * time.Minute
+
+func targetApplicationDeadline(request *api.OpenBaoRestore) time.Duration {
+	if request.Spec.ClusterTemplate == nil {
+		return targetApplicationTimeout
+	}
+	return targetApplicationTimeout + portworkload.StartupBudgetExtension(request.Spec.ClusterTemplate.Probes)
+}
+
+func targetBootstrapDeadline(request *api.OpenBaoRestore) time.Duration {
+	return targetBootstrapTimeout + targetApplicationDeadline(request) - targetApplicationTimeout
+}
 
 func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 	template := request.Spec.ClusterTemplate.DeepCopy()
@@ -58,6 +70,7 @@ func projectRestoreTarget(request *api.OpenBaoRestore) *api.OpenBaoCluster {
 			TLS:               template.TLS,
 			Service:           service,
 			Resources:         template.Resources,
+			Probes:            template.Probes,
 			InitContainer:     template.InitContainer,
 			ImagePullSecrets:  template.ImagePullSecrets,
 			Unseal:            &template.Unseal,
@@ -108,7 +121,7 @@ func (m *Manager) prepareTarget(ctx context.Context, logger logr.Logger, request
 		target.UID = cluster.UID
 		return false, ctrl.Result{RequeueAfter: restoreRequeueImmediately}, m.patchStatus(ctx, request, before)
 	}
-	if time.Now().After(target.ReservedAt.Add(targetBootstrapTimeout)) {
+	if time.Now().After(target.ReservedAt.Add(targetBootstrapDeadline(request))) {
 		result, err := m.failRestore(ctx, logger, request, "Fresh target bootstrap deadline exceeded", ReasonTargetBootstrapTimedOut)
 		return false, result, err
 	}
@@ -150,7 +163,7 @@ func (m *Manager) prepareTarget(ctx context.Context, logger logr.Logger, request
 }
 
 func (m *Manager) createFreshTarget(ctx context.Context, logger logr.Logger, request *api.OpenBaoRestore, targetExists bool) (ctrl.Result, error) {
-	if request.Status.StartTime != nil && time.Now().After(request.Status.StartTime.Add(targetBootstrapTimeout)) {
+	if request.Status.StartTime != nil && time.Now().After(request.Status.StartTime.Add(targetBootstrapDeadline(request))) {
 		result, err := m.failRestore(ctx, logger, request, "Fresh target validation deadline exceeded", ReasonTargetBootstrapTimedOut)
 		return result, err
 	}

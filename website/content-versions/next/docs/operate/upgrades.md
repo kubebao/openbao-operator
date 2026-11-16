@@ -34,6 +34,10 @@ target.
 
 ## Prepare the rollout
 
+If database startup approaches the default probe budget, configure a longer
+[startup budget](../../configure/storage/#allow-more-time-for-database-startup) before the rollout. The setting
+also extends the rolling-upgrade readiness deadline for the sequential voter rollout.
+
 {{< checklist title="Preflight" >}}
 - `Available=True`, `Degraded` is not true, and all declared voter replicas are Ready.
 - `status.currentVersion` matches the current `spec.version`.

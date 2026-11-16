@@ -232,6 +232,9 @@ type OpenBaoClusterSpec struct {
 	// Runtime configures explicit runtime control requests for the OpenBao workload.
 	// +optional
 	Runtime *RuntimeConfig `json:"runtime,omitempty"`
+	// Probes configures health probes for voter and read-replica containers.
+	// +optional
+	Probes *ProbeConfig `json:"probes,omitempty"`
 	// BreakGlassAck is an explicit acknowledgment token used to exit Break Glass / Safe Mode.
 	//
 	// When the operator enters break glass mode, it writes a nonce to status.breakGlass.nonce.

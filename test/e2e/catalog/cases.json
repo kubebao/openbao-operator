@@ -756,6 +756,43 @@
     "suiteTitle": ""
   },
   {
+    "id": "startup-probe-budget",
+    "generatedId": "cluster-runtime-controls-extends-the-startup-window-for-a-ecb67ee8",
+    "caseLabel": "startup-probe-budget",
+    "coverage": [
+      "startup-probe"
+    ],
+    "file": "test/e2e/Cluster_Runtime_Controls_test.go",
+    "type": "It",
+    "name": "extends the startup window for a slow-starting container",
+    "path": [
+      "Cluster Runtime Controls",
+      "extends the startup window for a slow-starting container"
+    ],
+    "labels": [
+      "lifecycle",
+      "cluster",
+      "runtime",
+      "case:startup-probe-budget",
+      "covers:startup-probe",
+      "slow"
+    ],
+    "domainLabels": [
+      "lifecycle",
+      "cluster",
+      "runtime",
+      "slow"
+    ],
+    "steps": [
+      "rendering the extended startup probe through the operator",
+      "isolating the kubelet startup timing with a controlled 330-second delay"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "cluster-oci-plugin-install",
     "generatedId": "cluster-runtime-controls-registers-an-oci-plugin-with-a-b5786be4",
     "caseLabel": "cluster-oci-plugin-install",
@@ -799,7 +836,8 @@
     "caseLabel": "cluster-restart-at-rolls-pod",
     "coverage": [
       "restart-at",
-      "pod-rollout"
+      "pod-rollout",
+      "startup-probe"
     ],
     "file": "test/e2e/Cluster_Runtime_Controls_test.go",
     "type": "It",
@@ -814,7 +852,8 @@
       "runtime",
       "case:cluster-restart-at-rolls-pod",
       "covers:restart-at",
-      "covers:pod-rollout"
+      "covers:pod-rollout",
+      "covers:startup-probe"
     ],
     "domainLabels": [
       "lifecycle",

@@ -170,6 +170,27 @@ type RuntimeConfig struct {
 	RestartAt string `json:"restartAt,omitempty"`
 }
 
+// ProbeConfig configures health probes for voter and read-replica containers.
+type ProbeConfig struct {
+	// Startup extends the time allowed for OpenBao to start.
+	// +optional
+	Startup *StartupProbeConfig `json:"startup,omitempty"`
+}
+
+// StartupProbeConfig configures the startup probe failure budget.
+type StartupProbeConfig struct {
+	// FailureThreshold is the number of consecutive failures allowed before the
+	// kubelet restarts the container. The probe runs every 5 seconds after an
+	// initial 10-second delay. The default is 60 failures, approximately 5 minutes;
+	// the maximum is 720 failures, approximately 1 hour. Only longer budgets are
+	// supported. Changing this value updates the Pod template and can restart Pods.
+	// +kubebuilder:default=60
+	// +kubebuilder:validation:Minimum=60
+	// +kubebuilder:validation:Maximum=720
+	// +optional
+	FailureThreshold int32 `json:"failureThreshold,omitempty"`
+}
+
 // InitContainerConfig configures the init container used to render OpenBao configuration.
 // The init container is responsible for rendering the final config.hcl from a template
 // using environment variables such as HOSTNAME and POD_IP.
