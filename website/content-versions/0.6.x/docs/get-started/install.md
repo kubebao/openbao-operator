@@ -279,9 +279,18 @@ If a Cluster needs a longer startup window, follow the
 Pause reconciliation and wait for the operator to observe the pause before upgrading. After installing 0.6.2,
 configure the longer budget while the Cluster remains paused, then resume during a maintenance window.
 
-{{< command label="upgrade" title="Upgrade to 0.6.2" >}}
-kubectl apply --server-side -f \
+Helm can retain ownership of `spec.versions` on installed CRDs. Review the matching release CRD schema and any
+local changes before transferring schema ownership to `kubectl`. The CRD-only apply command below uses
+`--force-conflicts` for this handoff; it replaces conflicting fields with the reviewed release schema.
+
+{{< command label="upgrade" title="Apply the 0.6.2 CRDs" >}}
+kubectl apply --server-side --force-conflicts -f \
   https://github.com/kubebao/openbao-operator/releases/download/0.6.2/crds.yaml
+{{< /command >}}
+
+Confirm that all three CRDs apply successfully before upgrading the chart.
+
+{{< command label="upgrade" title="Upgrade the chart to 0.6.2" >}}
 helm upgrade openbao-operator \
   oci://ghcr.io/kubebao/charts/openbao-operator \
   --version 0.6.2 \

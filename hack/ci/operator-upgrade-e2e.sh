@@ -798,8 +798,10 @@ jq -e '
 ' <<<"${migration_json}" >/dev/null
 
 echo "Establishing published operator ${FROM_VERSION} before the candidate handoff..." >&2
+# Helm owns the legacy schema but does not upgrade installed CRDs. Transfer
+# schema ownership only for the reviewed baseline CRD bundle.
 "${HELM_BIN}" show crds "${baseline_chart_archive}" | \
-  "${KUBECTL_BIN}" apply --server-side -f - >/dev/null
+  "${KUBECTL_BIN}" apply --server-side --force-conflicts -f - >/dev/null
 "${HELM_BIN}" upgrade openbao-operator "${baseline_chart_archive}" \
   --namespace "${OPERATOR_NAMESPACE}" \
   --set-string "image.repository=${BASELINE_MANAGER_IMAGE%@*}" \
