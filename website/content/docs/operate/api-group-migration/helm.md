@@ -1,6 +1,6 @@
 ---
 title: Migrate a Helm CLI installation
-description: Move an existing Helm-managed 0.6.1 operator to kubebao.org with the migration command.
+description: Move an existing Helm-managed 0.6.2 operator to kubebao.org with the migration command.
 eyebrow: Operate · API group migration
 weight: 10
 verifiedBy:
@@ -18,7 +18,7 @@ The migration command runs Helm for all operator transitions.
 
 1. Review the [shared preflight and context selection](../#before-you-start) and
    [availability requirements](../#plan-for-availability). Reduce the source controller to one replica in its
-   0.6.1 Helm values, not only in the live Deployment. Enable the source admission policies.
+   0.6.2 Helm values, not only in the live Deployment. Enable the source admission policies.
 2. [Download and verify the destination command](../#download-the-command), or select a
    [matching edge bundle](../#evaluate-a-matching-edge-build) for staging. Keep the binary for rollback and resumption.
 3. Put Helm 4 on `PATH` using an absolute directory. `plan`, `migrate`, `commit`, and `rollback` run the `helm`
@@ -37,6 +37,16 @@ The migration command runs Helm for all operator transitions.
 
    For edge, unpack the chart from the verified bundle.
 
+## Set the wait timeout
+
+Replace `<duration>` with a Go duration, such as `90m`, that covers your rehearsed sequential rollout. Include all
+voters and read replicas, with time for readiness checks. Use the same value for migration, commit, rollback, and
+retries; the CLI does not save it in the plan. See the [timeout guidance](../#before-you-start).
+
+```sh
+export MIGRATION_TIMEOUT="<duration>"
+```
+
 ## Write the configuration
 
 Save the following as `config.json`. Replace the kubeconfig, context, release name, namespace, and paths with the
@@ -48,7 +58,7 @@ existing installation and prepared destination:
   "context": "<context>",
   "release": "openbao-operator",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.1",
+  "sourceVersion": "0.6.2",
   "destinationChart": "./openbao-operator",
   "destinationValues": "./destination-values.yaml"
 }
@@ -78,7 +88,7 @@ to the configuration when needed.
    starts the destination with operations held, and waits for verification:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 3. Inspect the held destination:
@@ -103,7 +113,7 @@ finalizers. After that point, resume `commit` if it stops.
 When verification passes and you accept the destination, run:
 
 ```sh
-./api-migration commit --state ./migration-state
+./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
 Require `Phase: Complete` and `operations hold=false`. The command writes no GitOps hand-back file for this route.
@@ -134,10 +144,10 @@ tokens created for planning when they are no longer needed.
 Rollback is available only before commit accepts a source deletion. Use the same binary and state directory:
 
 ```sh
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
-Require `Phase: RolledBack`, the 0.6.1 source operator running, and successful source verification.
+Require `Phase: RolledBack`, the 0.6.2 source operator running, and successful source verification.
 The command waits for the source rollout. The `kubebao.org` CRDs remain installed; qualify resource names with their
 group while both APIs exist. To migrate again, create a new plan in a new state directory.
 

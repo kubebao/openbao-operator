@@ -3,7 +3,7 @@
 package main
 
 // End-to-end qualification on a disposable Kind cluster. It installs the
-// released 0.6.1 chart, creates an initialized Target-mode Cluster, and runs
+// released 0.6.2 chart, creates an initialized Target-mode Cluster, and runs
 // the procedure in-process against a destination operator image:
 //
 //	make test-e2e-api-migration API_MIGRATION_E2E_IMAGE=api-migration.local/operator:dev API_MIGRATION_E2E_CASE=commit
@@ -59,11 +59,11 @@ var (
 
 const (
 	e2eNodeImage          = "kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5"
-	e2eSourceImage        = "ghcr.io/kubebao/openbao-operator@sha256:8a73e5a7c0f13d6786e7ca6d65af20cb36620d4464dc07a6e8210e59d17bcb97"
-	e2eInitImage          = "ghcr.io/kubebao/openbao-init@sha256:190fde3ba6c4b8e48ed39f82fde61273953f30c4fd79784e0f59802f06314ed9"
+	e2eSourceImage        = "ghcr.io/kubebao/openbao-operator@sha256:0d2a4c61d8ba741da71dfb09c98ad9975d57828238a0eb66a4265375e2543a4e"
+	e2eInitImage          = "ghcr.io/kubebao/openbao-init@sha256:db2152670a772d765c1173122961a8cf9fff13546037e2f4bcd0a7e461c9f543"
 	e2eOpenBaoImage       = "openbao/openbao:2.6.5"
 	e2eOpenBaoVer         = "2.6.5"
-	e2eSourceRelease      = "0.6.1"
+	e2eSourceRelease      = "0.6.2"
 	e2eDestinationRelease = "0.7.0"
 	// The Kustomize base pins its policies to the default operator namespace.
 	e2eOperatorNS  = "openbao-operator-system"
@@ -79,12 +79,13 @@ const (
 
 // e2eShape selects the source installation a case starts from.
 type e2eShape struct {
-	replicas       int
-	readReplicas   int
-	legacyRestore  bool
-	backups        bool
-	openBaoVersion string
-	blueGreen      bool
+	replicas                int
+	readReplicas            int
+	startupFailureThreshold int64
+	legacyRestore           bool
+	backups                 bool
+	openBaoVersion          string
+	blueGreen               bool
 	// restores runs an in-place restore, resumed by the administrator, before
 	// the migration, so a finished restore record and its Job must move.
 	restores         bool
@@ -127,7 +128,7 @@ const (
 	e2eLegacyRelease   = "0.5.3"
 	e2eLegacyImage     = "ghcr.io/kubebao/openbao-operator:0.5.3"
 	e2eLegacyInitImage = "ghcr.io/kubebao/openbao-init@sha256:9298ef4eceaec7ae79de2d7429261b5d60c1488319033f76bbdb48995bdf10c7"
-	e2eBackupImage     = "ghcr.io/kubebao/openbao-backup@sha256:2f7bae8d727e8049f0aa3ed923174aaa8a43294f5db80bab1198c0cc2a73e906"
+	e2eBackupImage     = "ghcr.io/kubebao/openbao-backup@sha256:a3ceb1ad884784b300292975f239bd6290a99bce49a13f11257443af57356456"
 	e2eStorageNS       = "api-migration-storage"
 	e2eStorageBucket   = "openbao-backups"
 	e2eStorageKey      = "rustfsadmin"
@@ -161,7 +162,7 @@ func TestAPIMigrationE2E(t *testing.T) {
 		t.Skip("-destination-image is required")
 	}
 	shapes := map[string]e2eShape{
-		"ha":             {replicas: 3, readReplicas: 1, legacyRestore: true},
+		"ha":             {replicas: 3, readReplicas: 1, legacyRestore: true, startupFailureThreshold: 180},
 		"backups":        {replicas: 1, backups: true},
 		"restores":       {replicas: 1, backups: true, restores: true},
 		"tenants":        {replicas: 1, tenants: true},
@@ -235,9 +236,9 @@ func TestAPIMigrationE2E(t *testing.T) {
 			}
 			f := newE2EFixture(t, name, shape)
 			switch name {
-			case "commit", "ha", "legacy":
+			case "commit", "legacy":
 				f.migrateAndCommit(f.newState("migrate"))
-			case "chart", "kustomize", "openbao-2.7":
+			case "ha", "chart", "kustomize", "openbao-2.7":
 				// Every operator state is a checkpoint: stopped, held, and normal
 				// forward, and the source state on rollback.
 				state := f.newState("rollback")
@@ -801,6 +802,11 @@ func (f *e2eFixture) sourceCluster() map[string]any {
 	if f.shape.readReplicas > 0 {
 		cluster["spec"].(map[string]any)["readReplicas"] = map[string]any{"replicas": f.shape.readReplicas}
 	}
+	if f.shape.startupFailureThreshold > 0 {
+		cluster["spec"].(map[string]any)["probes"] = map[string]any{
+			"startup": map[string]any{"failureThreshold": f.shape.startupFailureThreshold},
+		}
+	}
 	if f.shape.backups {
 		// A schedule far in the future: the test takes manual backups only.
 		later := time.Now().UTC().Add(12 * time.Hour)
@@ -834,6 +840,7 @@ func (f *e2eFixture) createSourceCluster() {
 			"-p", `{"status":{"restore":{"name":"restore-before-0-6","uid":"6f1c1f0e-legacy-restore"}}}`)
 	}
 	f.waitSettled()
+	f.assertStartupBudget(primitivesSourceGroup)
 }
 
 func e2eStorageTarget() map[string]any {
@@ -1287,6 +1294,7 @@ func (f *e2eFixture) migrate(state string) {
 	} else {
 		f.t.Logf("data Pod %s survived the migration without a restart", before)
 	}
+	f.assertStartupBudget(e2eDestinationGroup)
 }
 
 // procedure runs a command to completion. At a checkpoint it applies the
@@ -1365,6 +1373,41 @@ func (f *e2eFixture) assertSurvivor(group, proof string) {
 	f.writeData("after-"+proof, group)
 	claim := f.getJSON("get", "pvc", "data-"+f.voterSet+"-0", "-n", e2eDataNS)
 	require.Equal(f.t, "Bound", claim["status"].(map[string]any)["phase"])
+	f.assertStartupBudget(group)
+}
+
+func (f *e2eFixture) assertStartupBudget(group string) {
+	f.t.Helper()
+	if f.shape.startupFailureThreshold == 0 {
+		return
+	}
+	cluster := f.cluster(group)
+	require.NotNil(f.t, cluster, "the surviving Cluster must exist")
+	budget, found, err := unstructured.NestedInt64(cluster.Object,
+		"spec", "probes", "startup", "failureThreshold")
+	require.NoError(f.t, err)
+	require.True(f.t, found, "the surviving Cluster must retain its startup budget")
+	require.Equal(f.t, f.shape.startupFailureThreshold, budget)
+	pods := f.getJSON("get", "pods", "-n", e2eDataNS, "-l", "openbao.org/cluster="+e2eCluster)
+	servers := 0
+	for _, item := range pods["items"].([]any) {
+		pod := item.(map[string]any)
+		if pod["metadata"].(map[string]any)["deletionTimestamp"] != nil {
+			continue
+		}
+		for _, item := range pod["spec"].(map[string]any)["containers"].([]any) {
+			container := item.(map[string]any)
+			if container["name"] != "openbao" {
+				continue
+			}
+			probe, ok := container["startupProbe"].(map[string]any)
+			require.True(f.t, ok, "every server Pod must have a startup probe")
+			require.EqualValues(f.t, f.shape.startupFailureThreshold, probe["failureThreshold"])
+			servers++
+		}
+	}
+	require.Equal(f.t, f.shape.replicas+f.shape.readReplicas, servers,
+		"verify startup budgets on every voter and read replica")
 }
 
 // assertControllerLogin changes an autopilot setting and waits until OpenBao

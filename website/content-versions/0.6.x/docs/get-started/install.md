@@ -1,6 +1,6 @@
 ---
 title: Install the operator
-description: Install OpenBao Operator 0.6.0 with the intended tenancy, platform, identity, CRDs, and admission policy contract.
+description: Install OpenBao Operator 0.6.2 with the intended tenancy, platform, identity, CRDs, and admission policy contract.
 eyebrow: Get started · Step 2
 weight: 2
 verifiedBy:
@@ -12,24 +12,24 @@ verifiedBy:
   - charts/openbao-operator/templates/admission
   - internal/service/provisioner/manager_tenant.go
   - config/default/kustomization.yaml
-  - config/manager/kustomization.yaml at 0.6.0
-  - config/manager/controller.yaml at 0.6.0
-  - config/manager/provisioner.yaml at 0.6.0
+  - config/manager/kustomization.yaml at 0.6.2
+  - config/manager/controller.yaml at 0.6.2
+  - config/manager/provisioner.yaml at 0.6.2
   - config/overlays/custom-identity/kustomization.yaml
   - internal/adapter/config/builder.go
   - cmd/bao-backup/restore_flow.go
   - .github/workflows/release.yml
 ---
 
-Install a pinned 0.6.0 release and verify the rendered namespace, identities, controllers, CRDs, and admission policies.
+Install a pinned 0.6.2 release and verify the rendered namespace, identities, controllers, CRDs, and admission policies.
 Complete [artifact verification](../../security/supply-chain/) before installation. The core procedure uses Helm
 in the chart's default multi-tenant mode. The release artifacts use KubeBao coordinates.
 Historical 0.5.1 artifacts retain their `dc-tec` publisher identity.
 
 ## Before you begin
 
-- Use Kubernetes 1.34 or newer and check the [compatibility requirements](../../reference/compatibility/).
-  Release qualification covers selected scenarios on Kubernetes 1.34, 1.35, and 1.36.
+- Confirm that the cluster meets the [compatibility requirements](../../reference/compatibility/). Kubernetes 1.33
+  satisfies the chart constraint; release qualification covers selected scenarios on Kubernetes 1.34, 1.35, and 1.36.
 - Use an identity that can create cluster-scoped CRDs, RBAC, and ValidatingAdmissionPolicies.
 - Decide whether Helm, a release manifest, or a maintained Kustomize overlay owns future upgrades.
 - Decide the tenancy model. Use the separate [single-tenant procedure](../single-tenant/) for one watched namespace.
@@ -77,10 +77,10 @@ Helm values do not configure that manifest.
 
 1. Set the release values.
 
-   {{< command label="configure" title="Set the 0.6.0 release values" >}}
+   {{< command label="configure" title="Set the 0.6.2 release values" >}}
    export OPERATOR_RELEASE=openbao-operator
    export OPERATOR_NAMESPACE=openbao-operator-system
-   export CHART_VERSION=0.6.0
+   export CHART_VERSION=0.6.2
    {{< /command >}}
 
 2. Inspect the chart defaults when the platform needs overrides.
@@ -93,7 +93,7 @@ Helm values do not configure that manifest.
 
    Pin the chart and normally let its `appVersion` select the matching operator image. Set `image.tag` only for a
    controlled prerelease or test. The complete pinned reference is
-   [`values.yaml`](https://github.com/kubebao/openbao-operator/blob/0.6.0/charts/openbao-operator/values.yaml).
+   [`values.yaml`](https://github.com/kubebao/openbao-operator/blob/0.6.2/charts/openbao-operator/values.yaml).
 
 3. Save your overrides in `operator-values.yaml`, including external label ownership when required.
 
@@ -171,9 +171,11 @@ Helm values do not configure that manifest.
 
 Use the release asset when the platform wants the published default resources without a Helm release:
 
-{{< command label="apply" title="Apply the 0.6.0 installer manifest" >}}
-kubectl apply -f \
-  https://github.com/kubebao/openbao-operator/releases/download/0.6.0/install.yaml
+Use server-side apply to avoid the CRD size limit for the `kubectl.kubernetes.io/last-applied-configuration` annotation.
+
+{{< command label="apply" title="Apply the 0.6.2 installer manifest" >}}
+kubectl apply --server-side -f \
+  https://github.com/kubebao/openbao-operator/releases/download/0.6.2/install.yaml
 {{< /command >}}
 
 The manifest uses the repository's default operator namespace and identity. Do not rewrite the rendered YAML by hand
@@ -184,10 +186,10 @@ for a custom identity; maintain a Kustomize overlay instead.
 Use `config/overlays/custom-identity` when the platform owns a different operator namespace or `namePrefix`.
 Obtain the pinned release source before changing the overlay:
 
-{{< command label="configure" title="Clone the 0.6.0 release source" >}}
-git clone --branch 0.6.0 --depth 1 \
-  https://github.com/kubebao/openbao-operator.git openbao-operator-0.6.0
-cd openbao-operator-0.6.0
+{{< command label="configure" title="Clone the 0.6.2 release source" >}}
+git clone --branch 0.6.2 --depth 1 \
+  https://github.com/kubebao/openbao-operator.git openbao-operator-0.6.2
+cd openbao-operator-0.6.2
 {{< /command >}}
 
 In `config/manager/kustomization.yaml`, replace `newName` and `newTag` in the existing `controller` image entry
@@ -197,10 +199,10 @@ with the values in this YAML fragment:
 images:
 - name: controller
   newName: ghcr.io/kubebao/openbao-operator
-  newTag: 0.6.0
+  newTag: 0.6.2
 ```
 
-Set the existing `OPERATOR_VERSION` environment entry to `0.6.0` in both `config/manager/controller.yaml` and
+Set the existing `OPERATOR_VERSION` environment entry to `0.6.2` in both `config/manager/controller.yaml` and
 `config/manager/provisioner.yaml`. This value selects the matching helper images.
 
 The tagged source contains placeholder image and version values until these entries are changed. Render the overlay
@@ -212,8 +214,8 @@ kubectl kustomize config/overlays/custom-identity
 
 Before applying the overlay, confirm:
 
-1. Controller and Provisioner Deployments use `ghcr.io/kubebao/openbao-operator:0.6.0`.
-2. Both Deployments set `OPERATOR_VERSION` to `0.6.0`.
+1. Controller and Provisioner Deployments use `ghcr.io/kubebao/openbao-operator:0.6.2`.
+2. Both Deployments set `OPERATOR_VERSION` to `0.6.2`.
 3. Controller and Provisioner ServiceAccounts have the intended names and namespace.
 4. RoleBinding and ClusterRoleBinding subjects point at those ServiceAccounts.
 5. Admission-policy variables use the same namespace and ServiceAccount names.
@@ -223,7 +225,7 @@ Before applying the overlay, confirm:
 Apply only after the render is internally consistent:
 
 {{< command label="apply" title="Apply the custom identity overlay" >}}
-kubectl apply -k config/overlays/custom-identity
+kubectl apply --server-side -k config/overlays/custom-identity
 {{< /command >}}
 
 ## Install on OpenShift
@@ -233,7 +235,7 @@ The chart defaults to `platform=auto`. Set `platform=openshift` when the install
 {{< command label="apply" title="Force OpenShift rendering" >}}
 helm upgrade --install openbao-operator \
   oci://ghcr.io/kubebao/charts/openbao-operator \
-  --version 0.6.0 \
+  --version 0.6.2 \
   --namespace openbao-operator-system \
   --create-namespace \
   --set platform=openshift
@@ -272,24 +274,38 @@ OpenBao Operator 0.4.2 generated restore policies with only `update` on
 you upgrade the controller. Self-init does not update an existing policy.
 {{< /callout >}}
 
-{{< command label="upgrade" title="Upgrade to 0.6.0" >}}
-kubectl apply -f \
-  https://github.com/kubebao/openbao-operator/releases/download/0.6.0/crds.yaml
+If a Cluster needs a longer startup window, follow the
+[startup-budget procedure](../../configure/storage/#allow-more-time-for-database-startup).
+Pause reconciliation and wait for the operator to observe the pause before upgrading. After installing 0.6.2,
+configure the longer budget while the Cluster remains paused, then resume during a maintenance window.
+
+Helm can retain ownership of `spec.versions` on installed CRDs. Review the matching release CRD schema and any
+local changes before transferring schema ownership to `kubectl`. The CRD-only apply command below uses
+`--force-conflicts` for this handoff; it replaces conflicting fields with the reviewed release schema.
+
+{{< command label="upgrade" title="Apply the 0.6.2 CRDs" >}}
+kubectl apply --server-side --force-conflicts -f \
+  https://github.com/kubebao/openbao-operator/releases/download/0.6.2/crds.yaml
+{{< /command >}}
+
+Confirm that all three CRDs apply successfully before upgrading the chart.
+
+{{< command label="upgrade" title="Upgrade the chart to 0.6.2" >}}
 helm upgrade openbao-operator \
   oci://ghcr.io/kubebao/charts/openbao-operator \
-  --version 0.6.0 \
+  --version 0.6.2 \
   --namespace openbao-operator-system \
   --reuse-values \
   --set-string image.repository=ghcr.io/kubebao/openbao-operator \
-  --set-string image.tag=0.6.0 \
+  --set-string image.tag=0.6.2 \
   --set-string image.digest= \
-  --set-string operatorVersion=0.6.0 \
+  --set-string operatorVersion=0.6.2 \
   --wait
 {{< /command >}}
 
-The command selects the official 0.6.0 manager image and clears an older digest pin. If you use a private registry,
+The command selects the official 0.6.2 manager image and clears an older digest pin. If you use a private registry,
 replace the repository and tag with your verified mirror. Update any `helperImages`, helper repository environment
-variables, and cluster-level helper image overrides to the matching 0.6.0 images before upgrading.
+variables, and cluster-level helper image overrides to the matching 0.6.2 images before upgrading.
 
 Re-render custom identities and review OpenBao-side policy changes before upgrading. Self-init does not update existing
 OpenBao policies.

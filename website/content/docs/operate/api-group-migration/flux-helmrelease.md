@@ -17,7 +17,7 @@ Flux reconciliation remains suspended. A HelmRelease still requires the local `h
 ## Prepare the installation
 
 1. Review the [shared preflight and context selection](../#before-you-start) and
-   [availability requirements](../#plan-for-availability). Keep one source controller replica in the 0.6.1 release values.
+   [availability requirements](../#plan-for-availability). Keep one source controller replica in the 0.6.2 release values.
 2. [Download and verify the destination command and chart](../#download-the-command), or use a
    [matching edge bundle](../#evaluate-a-matching-edge-build) for staging. Put Helm 4 on `PATH` using an absolute
    directory and require `helm version --template '{{.Version}}'` to print a `v4.` version.
@@ -27,6 +27,16 @@ Flux reconciliation remains suspended. A HelmRelease still requires the local `h
 4. Prepare an inactive destination Git diff: the selected chart version or digest, destination image/helper pins,
    converted OpenBao API versions, and any custom RBAC or scripts that name `openbao.org`.
    Do not apply that Git state during migration.
+
+## Set the wait timeout
+
+Replace `<duration>` with a Go duration, such as `90m`, that covers your rehearsed sequential rollout. Include all
+voters and read replicas, with time for readiness checks. Use the same value for migration, commit, rollback, and
+retries; the CLI does not save it in the plan. See the [timeout guidance](../#before-you-start).
+
+```sh
+export MIGRATION_TIMEOUT="<duration>"
+```
 
 ## Write the configuration
 
@@ -38,7 +48,7 @@ Save the following as `config.json`. Use the existing Helm release name and oper
   "context": "<context>",
   "release": "openbao-operator",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.1",
+  "sourceVersion": "0.6.2",
   "destinationChart": "./openbao-operator",
   "destinationValues": "./destination-values.yaml"
 }
@@ -86,7 +96,7 @@ to the configuration when needed.
 2. Start migration; leave Flux suspended while the command runs Helm:
 
    ```sh
-   ./api-migration migrate --state ./migration-state
+   ./api-migration migrate --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 3. Inspect the held destination:
@@ -111,7 +121,7 @@ finalizers. After that point, resume `commit` if it stops.
 1. Run commit and require `Phase: Complete` and `operations hold=false`:
 
    ```sh
-   ./api-migration commit --state ./migration-state
+   ./api-migration commit --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
    ```
 
 2. Follow `migration-state/after-commit.md`. In Git, select the destination chart and retain its image/helper pins,
@@ -175,15 +185,15 @@ tokens created for planning when they are no longer needed.
 Keep Flux suspended and run:
 
 ```sh
-./api-migration rollback --state ./migration-state
+./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
-Before source retirement, the command restores source ownership and the saved 0.6.1 Helm release, then verifies it.
+Before source retirement, the command restores source ownership and the saved 0.6.2 Helm release, then verifies it.
 Require `Phase: RolledBack` and follow `migration-state/after-rollback.md`.
 
 If Git still describes the source, it needs no change. Otherwise restore the source chart, values, helper pins,
 and `openbao.org/v1alpha1` manifests. Resume parents first, confirming that children remain suspended and sources
-serve the intended source artifacts. Resume the HelmRelease only after its chart source serves 0.6.1, then resume
+serve the intended source artifacts. Resume the HelmRelease only after its chart source serves 0.6.2, then resume
 OpenBao-resource children. Run `flux resume` for every suspended object even if Git removes `spec.suspend`.
 
 Verify source application access, storage, Flux revisions, and readiness. Restore cleared source backup pins and

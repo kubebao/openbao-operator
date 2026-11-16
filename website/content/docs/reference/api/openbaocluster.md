@@ -1335,6 +1335,7 @@ _Appears in:_
 | `paused` _boolean_ | Paused, when true, pauses reconciliation for this OpenBaoCluster (except delete and finalizers). |  | Optional: \{\} <br /> |
 | `maintenance` _[MaintenanceConfig](#maintenanceconfig)_ | Maintenance configures supported maintenance workflows. |  | Optional: \{\} <br /> |
 | `runtime` _[RuntimeConfig](#runtimeconfig)_ | Runtime configures explicit runtime control requests for the OpenBao workload. |  | Optional: \{\} <br /> |
+| `probes` _[ProbeConfig](#probeconfig)_ | Probes configures health probes for voter and read-replica containers. |  | Optional: \{\} <br /> |
 | `breakGlassAck` _string_ | BreakGlassAck is an explicit acknowledgment token used to exit Break Glass / Safe Mode.<br />When the operator enters break glass mode, it writes a nonce to status.breakGlass.nonce.<br />To acknowledge and allow the operator to resume quorum-risk automation, set this field<br />to match that nonce.<br />Example:<br />  kubectl -n &lt;ns&gt; patch openbaocluster &lt;name&gt; --type merge -p '\{"spec":\{"breakGlassAck":"&lt;nonce&gt;"\}\}' |  | Optional: \{\} <br /> |
 | `tls` _[TLSConfig](#tlsconfig)_ | TLS configures TLS for the cluster. |  |  |
 | `storage` _[StorageConfig](#storageconfig)_ | Storage configures persistent storage for the cluster. |  |  |
@@ -1616,6 +1617,23 @@ _Appears in:_
 | `lastError` _[ControllerErrorStatus](#controllererrorstatus)_ | LastError reports policy failures independently of infrastructure and Autopilot errors. |  | Optional: \{\} <br /> |
 
 
+#### ProbeConfig
+
+
+
+ProbeConfig configures health probes for voter and read-replica containers.
+
+
+
+_Appears in:_
+- [OpenBaoClusterSpec](#openbaoclusterspec)
+- [RestoreClusterTemplate](#restoreclustertemplate)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `startup` _[StartupProbeConfig](#startupprobeconfig)_ | Startup extends the time allowed for OpenBao to start. |  | Optional: \{\} <br /> |
+
+
 #### Profile
 
 _Underlying type:_ _string_
@@ -1873,6 +1891,7 @@ _Appears in:_
 | `plugins` _[Plugin](#plugin) array_ | Plugins declares KMS seal plugins required by Unseal. OpenBao 2.7 requires<br />plugins for AWS, Azure, GCP, OCI, and PKCS#11 seals. |  | Optional: \{\} <br /> |
 | `configuration` _[RestoreTargetConfiguration](#restoretargetconfiguration)_ | Configuration configures KMS plugin behavior for the target server. |  | Optional: \{\} <br /> |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ |  |  | Optional: \{\} <br /> |
+| `probes` _[ProbeConfig](#probeconfig)_ | Probes configures health probes for the restored OpenBao container. |  | Optional: \{\} <br /> |
 | `initContainer` _[InitContainerConfig](#initcontainerconfig)_ |  |  | Optional: \{\} <br /> |
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ |  |  | MaxItems: 2 <br />Optional: \{\} <br /> |
 
@@ -2428,6 +2447,22 @@ _Appears in:_
 | `address` _string_ | Address is the socket server address to use.<br />Example: "127.0.0.1:9090" or "/tmp/audit.sock". |  | Optional: \{\} <br /> |
 | `socketType` _string_ | SocketType is the socket type to use, any type compatible with net.Dial is acceptable.<br />Defaults to "tcp" if not specified. |  | Optional: \{\} <br /> |
 | `writeTimeout` _string_ | WriteTimeout is the (deadline) time in seconds to allow writes to be completed over the socket.<br />A zero value means that write attempts will not time out.<br />Defaults to "2s" if not specified. |  | Optional: \{\} <br /> |
+
+
+#### StartupProbeConfig
+
+
+
+StartupProbeConfig configures the startup probe failure budget.
+
+
+
+_Appears in:_
+- [ProbeConfig](#probeconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `failureThreshold` _integer_ | FailureThreshold is the number of consecutive failures allowed before the<br />kubelet restarts the container. The probe runs every 5 seconds after an<br />initial 10-second delay. The default is 60 failures, approximately 5 minutes;<br />the maximum is 720 failures, approximately 1 hour. Only longer budgets are<br />supported. Changing this value updates the Pod template and can restart Pods. | 60 | Maximum: 720 <br />Minimum: 60 <br />Optional: \{\} <br /> |
 
 
 #### StaticSealConfig

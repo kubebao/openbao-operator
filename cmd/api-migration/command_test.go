@@ -40,7 +40,7 @@ import (
 
 func validConfig() Config {
 	return Config{Kubeconfig: "/kubeconfig", Context: "kind", Release: "openbao-operator",
-		OperatorNamespace: "openbao-operator-system", SourceVersion: "0.6.1", DestinationChart: "./chart",
+		OperatorNamespace: "openbao-operator-system", SourceVersion: "0.6.2", DestinationChart: "./chart",
 		Migrator: "system:serviceaccount:openbao-operator-system:api-migrator",
 		Clusters: []ClusterConfig{{Namespace: "openbao", Name: "bao", OpenBao: &OpenBaoConfig{TokenFile: "token"}}}}
 }
@@ -75,15 +75,16 @@ func TestConfigValidation(t *testing.T) {
 	acme.Clusters[0].OpenBao = &OpenBaoConfig{CAFile: "./acme-ca.crt", TLSServerName: "bao-acme.openbao.svc"}
 	require.NoError(t, acme.validate(), "an ACME Cluster needs its CA and server name, not a token")
 	for name, edit := range map[string]func(*Config){
-		"group principal":      func(c *Config) { c.Migrator = "system:serviceaccounts:openbao-operator-system" },
-		"user principal":       func(c *Config) { c.Migrator = "admin" },
-		"duplicate cluster":    func(c *Config) { c.Clusters = append(c.Clusters, c.Clusters[0]) },
-		"empty openbao block":  func(c *Config) { c.Clusters[0].OpenBao = &OpenBaoConfig{} },
-		"no source version":    func(c *Config) { c.SourceVersion = "" },
-		"older source version": func(c *Config) { c.SourceVersion = "0.6.0" },
-		"helm without chart":   func(c *Config) { c.DestinationChart = "" },
-		"manifests with chart": func(c *Config) { c.Release = "" },
-		"helm with manifests":  func(c *Config) { c.DestinationManifests = "./install.yaml" },
+		"group principal":         func(c *Config) { c.Migrator = "system:serviceaccounts:openbao-operator-system" },
+		"user principal":          func(c *Config) { c.Migrator = "admin" },
+		"duplicate cluster":       func(c *Config) { c.Clusters = append(c.Clusters, c.Clusters[0]) },
+		"empty openbao block":     func(c *Config) { c.Clusters[0].OpenBao = &OpenBaoConfig{} },
+		"no source version":       func(c *Config) { c.SourceVersion = "" },
+		"older source version":    func(c *Config) { c.SourceVersion = "0.6.0" },
+		"previous source version": func(c *Config) { c.SourceVersion = "0.6.1" },
+		"helm without chart":      func(c *Config) { c.DestinationChart = "" },
+		"manifests with chart":    func(c *Config) { c.Release = "" },
+		"helm with manifests":     func(c *Config) { c.DestinationManifests = "./install.yaml" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			config := validConfig()

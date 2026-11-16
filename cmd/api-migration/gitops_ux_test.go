@@ -102,8 +102,8 @@ func checkpointUXProcedure(t *testing.T, kind string) *Procedure {
 	t.Helper()
 	return &Procedure{state: &State{dir: t.TempDir()}, plan: &Plan{
 		Config: Config{Kubeconfig: "/private/kube config", Context: "migration context", OperatorNamespace: "operator-system",
-			SourceVersion: "0.6.1"}, DestinationVersion: "0.7.0",
-		Operator: OperatorPlan{Install: installHelm, Flavour: flavourChart, Version: "0.6.1"},
+			SourceVersion: "0.6.2"}, DestinationVersion: "0.7.0",
+		Operator: OperatorPlan{Install: installHelm, Flavour: flavourChart, Version: "0.6.2"},
 		Deployments: []DeploymentPlan{{Name: "operator-controller", Controller: true, Replicas: 1},
 			{Name: "operator-provisioner", Replicas: 1}},
 		GitOps: []GitOpsManager{{Kind: kind, Namespace: "gitops", Name: "shared",
