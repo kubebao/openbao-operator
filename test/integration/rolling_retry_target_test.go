@@ -72,14 +72,17 @@ func TestRollingRetryRequiresObservedRenderedTarget(t *testing.T) {
 			sts := &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: cluster.Name, Namespace: namespace,
+					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(cluster, openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"))},
 					Annotations: map[string]string{
 						constants.AnnotationClusterGeneration: strconv.FormatInt(sourceGeneration, 10),
 						constants.AnnotationResolvedMainImage: resolvedImage,
+						constants.AnnotationVoterRetryHold:    "true",
 					},
 				},
 				Spec: appsv1.StatefulSetSpec{
 					ServiceName: cluster.Name, Replicas: ptr.To(int32(3)),
-					Selector: &metav1.LabelSelector{MatchLabels: labels},
+					UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType},
+					Selector:       &metav1.LabelSelector{MatchLabels: labels},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{Labels: labels},
 						Spec: corev1.PodSpec{Containers: []corev1.Container{{
@@ -106,8 +109,9 @@ func TestRollingRetryRequiresObservedRenderedTarget(t *testing.T) {
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: cluster.Name + "-2", Namespace: namespace,
-					Labels:     map[string]string{appsv1.StatefulSetRevisionLabel: "old"},
-					Finalizers: []string{"test.openbao.org/retain"},
+					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(sts, appsv1.SchemeGroupVersion.WithKind("StatefulSet"))},
+					Labels:          map[string]string{appsv1.StatefulSetRevisionLabel: "old"},
+					Finalizers:      []string{"test.openbao.org/retain"},
 				},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: constants.ContainerBao, Image: "openbao/openbao:old"}}},
 			}
@@ -127,15 +131,14 @@ func TestRollingRetryRequiresObservedRenderedTarget(t *testing.T) {
 				require.True(t, upgrade.RetryRequestPending(stored))
 				return
 			}
-			// EnvTest has no StatefulSet or kubelet controller. The subsequent
-			// quorum gate waits after the retry checkpoint and Pod deletion succeed.
-			require.ErrorIs(t, err, operatorerrors.ErrTransientClusterState)
-			require.NotNil(t, pod.DeletionTimestamp)
-			require.Nil(t, stored.Status.Upgrade.Failure)
-			require.NotEmpty(t, stored.Status.Upgrade.ExecutionID)
-			require.NotEqual(t, "initial-execution", stored.Status.Upgrade.ExecutionID)
-			require.NotNil(t, stored.Status.UpgradeRequests)
-			require.Equal(t, "retry-now", stored.Status.UpgradeRequests.LastHandledRetry)
+			// A current rendered target reaches the Raft gate. Without its
+			// authenticated reader, retry preserves both the Pod and failure.
+			require.ErrorIs(t, err, operatorerrors.ErrTransientKubernetesAPI)
+			require.ErrorContains(t, err, "authenticated Raft voter rollout guard is unavailable")
+			require.Nil(t, pod.DeletionTimestamp)
+			require.NotNil(t, stored.Status.Upgrade.Failure)
+			require.Equal(t, "initial-execution", stored.Status.Upgrade.ExecutionID)
+			require.True(t, upgrade.RetryRequestPending(stored))
 		})
 	}
 }
