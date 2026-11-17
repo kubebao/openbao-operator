@@ -127,7 +127,15 @@ type RestoreExecutionStatus struct {
 }
 
 // RestoreSource defines where the snapshot comes from.
+// +kubebuilder:validation:XValidation:rule="!has(self.expectedSize) || self.expectedSize <= (has(self.maxSnapshotSizeBytes) ? self.maxSnapshotSizeBytes : 8589934592)",message="expectedSize exceeds maxSnapshotSizeBytes"
 type RestoreSource struct {
+	// MaxSnapshotSizeBytes bounds the downloaded snapshot and reserves matching
+	// disk-backed scratch storage for the restore Job. The default is 8 GiB.
+	// +kubebuilder:default=8589934592
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MaxSnapshotSizeBytes int64 `json:"maxSnapshotSizeBytes,omitempty"`
+
 	// ExpectedClusterID is the native ID observed on the snapshot source.
 	// Required for a fresh target; supplied metadata is an administrator assertion.
 	// +kubebuilder:validation:MaxLength=128
@@ -142,7 +150,6 @@ type RestoreSource struct {
 	// +optional
 	ExpectedDigest string `json:"expectedDigest,omitempty"`
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=8589934592
 	// +optional
 	ExpectedSize int64 `json:"expectedSize,omitempty"`
 
@@ -272,7 +279,6 @@ type RestoreSubmissionClaim struct {
 	Digest string `json:"digest"`
 	// Size is the staged snapshot size in bytes.
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=8589934592
 	Size int64 `json:"size"`
 	// ClaimedAt records when submission was reserved.
 	ClaimedAt metav1.Time `json:"claimedAt"`

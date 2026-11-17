@@ -39,6 +39,33 @@ func TestSupportedBaselineProtectsReleasedFields(t *testing.T) {
 	assertChange(t, compareSnapshots(baseline.Nodes, retained), impactBreaking, "field-removed", path)
 }
 
+func TestSnapshotBudgetValidationRequiresExactReviewedRule(t *testing.T) {
+	node := schemaNode{CRD: "openbaorestores.openbao.org", Kind: openBaoRestoreKind,
+		Version: currentAPIVersion, Path: "spec.source"}
+	rule := celRule{Rule: "!has(self.expectedSize) || self.expectedSize <= " +
+		"(has(self.maxSnapshotSizeBytes) ? self.maxSnapshotSizeBytes : 8589934592)",
+		Message: "expectedSize exceeds maxSnapshotSizeBytes"}
+	encoded := func(r celRule) []string {
+		for key := range celRuleSet([]celRule{r}) {
+			return []string{key}
+		}
+		return nil
+	}
+	if !isRestoreSnapshotBudgetValidation(node, encoded(rule), nil) {
+		t.Fatal("reviewed budget rule must be compatible")
+	}
+	changed := rule
+	changed.Rule = strings.Replace(rule.Rule, "8589934592", "1", 1)
+	if isRestoreSnapshotBudgetValidation(node, encoded(changed), nil) ||
+		isRestoreSnapshotBudgetValidation(node, encoded(rule), encoded(rule)) {
+		t.Fatal("different defaults or removed rules must require review")
+	}
+	node.Kind = "OpenBaoCluster"
+	if isRestoreSnapshotBudgetValidation(node, encoded(rule), nil) {
+		t.Fatal("other resources must require review")
+	}
+}
+
 func TestCompareSnapshotsClassifiesChanges(t *testing.T) {
 	t.Parallel()
 

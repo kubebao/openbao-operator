@@ -31,7 +31,7 @@ func (m *Manager) snapshotSummary(ctx context.Context, job *batchv1.Job) (*api.B
 				continue
 			}
 			var report api.BackupSnapshotSummary
-			if json.Unmarshal([]byte(term.Message), &report) != nil || !snapshotDigestPattern.MatchString(report.Digest) || report.Size <= 0 || report.Size > 8*1024*1024*1024 ||
+			if json.Unmarshal([]byte(term.Message), &report) != nil || !snapshotDigestPattern.MatchString(report.Digest) || report.Size <= 0 ||
 				report.ClusterID == "" || len(report.ClusterID) > 128 || report.Version == "" || len(report.Version) > 64 {
 				continue
 			}

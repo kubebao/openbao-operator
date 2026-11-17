@@ -3,7 +3,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:0f02bf5f11789189efb6a9f6401d6f5043946f69092194e7eaf6bc8dc7c292b8
+    openbao.org/admission-policy-fingerprint: sha256:aa80cfbc400292b4a702b9429612ea5e3c14ace15336198b0fc7a3e51f4dcfa3
   name: {{ include "openbao-operator.fullname" . }}-openbao-protect-restore-execution
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
@@ -104,6 +104,10 @@ spec:
         variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (variables.new_origin == variables.old_origin && (variables.old_origin == '' || object.spec == oldObject.spec))
       message: "Only the controller can create or change restricted restore targets."
 
+    - expression: |-
+        !variables.is_restore || request.operation == 'DELETE' || !has(object.status) || !has(dyn(object.status).submissionClaim) || dyn(object.status).submissionClaim.size <=
+          (has(dyn(object.spec).source.maxSnapshotSizeBytes) ? dyn(object.spec).source.maxSnapshotSizeBytes : 8589934592)
+      message: "The staged snapshot size exceeds maxSnapshotSizeBytes."
     - expression: |-
         !variables.old_claim || request.operation == 'DELETE' ||
           (has(dyn(object.status).submissionClaim) && dyn(object.status).submissionClaim == dyn(oldObject.status).submissionClaim)
