@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -162,6 +163,7 @@ func TestRollingExecutionCheckpointFailurePreventsExecutorEffects(t *testing.T) 
 			cluster.Status.Initialized = true
 			cluster.Spec.Upgrade = &openbaov1alpha1.UpgradeConfig{Image: "executor:test", JWTAuthRole: "upgrade"}
 			sts := objects[0].(*appsv1.StatefulSet)
+			sts.Spec.Replicas = ptr.To(cluster.Spec.Replicas)
 			sts.Status.ReadyReplicas = 3
 			sts.Spec.Template.Spec.Containers = []corev1.Container{{Name: constants.ContainerBao, Image: "target"}}
 			sts.Status.UpdateRevision = "target"
@@ -250,6 +252,7 @@ func rollingLifecycleObjects(completing bool) (*openbaov1alpha1.OpenBaoCluster, 
 	}
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AnnotationClusterGeneration: "0"}, Name: cluster.Name},
+		Spec:       appsv1.StatefulSetSpec{Replicas: ptr.To(cluster.Spec.Replicas)},
 		Status:     appsv1.StatefulSetStatus{ReadyReplicas: 1, UpdatedReplicas: 1, CurrentRevision: "updated", UpdateRevision: "updated"},
 	}
 	pod := &corev1.Pod{

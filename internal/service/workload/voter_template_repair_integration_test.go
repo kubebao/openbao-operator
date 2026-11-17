@@ -3,6 +3,7 @@
 package workload
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -12,8 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -22,7 +25,7 @@ import (
 )
 
 func TestVoterTemplateCorrectionRealAPI(t *testing.T) {
-	for _, name := range []string{"failed", "deferred"} {
+	for _, name := range []string{"failed", "deferred", "reverted"} {
 		t.Run(name, func(t *testing.T) {
 			environment := &envtest.Environment{}
 			config, err := environment.Start()
@@ -71,7 +74,7 @@ func TestVoterTemplateCorrectionRealAPI(t *testing.T) {
 					Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: constants.ContainerBao, Image: cluster.Spec.Image}}}}
 				require.NoError(t, live.Create(ctx, pod))
 				ready := corev1.ConditionTrue
-				if ordinal == 2 && name == "failed" {
+				if ordinal == 2 && name != "deferred" {
 					ready = corev1.ConditionFalse
 				}
 				pod.Status.Conditions = []corev1.PodCondition{{Type: corev1.PodReady, Status: ready, LastTransitionTime: metav1.Now()}}
@@ -80,6 +83,44 @@ func TestVoterTemplateCorrectionRealAPI(t *testing.T) {
 			}
 			cluster.Spec.Probes.Startup.FailureThreshold = 62
 			cluster.Generation++
+			if name == "reverted" {
+				published := sts.Annotations[constants.AnnotationVoterRolloutTemplate]
+				blocked := interceptor.NewClient(live, interceptor.Funcs{Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+					if object, ok := obj.(client.Object); ok && object.GetObjectKind().GroupVersionKind().Kind == "ConfigMap" {
+						return apierrors.NewServiceUnavailable("injected configuration publication failure")
+					}
+					return c.Apply(ctx, obj, opts...)
+				}})
+				err = NewManager(blocked, testScheme, "").WithReader(live).EnsureStatefulSet(ctx, logger, cluster, "unpublished", spec)
+				require.True(t, apierrors.IsServiceUnavailable(err), "publication must fail after installing the repair hold: %v", err)
+				require.NoError(t, live.Get(ctx, key, sts))
+				require.EqualValues(t, 61, sts.Spec.Template.Spec.Containers[0].StartupProbe.FailureThreshold)
+				require.NotEmpty(t, sts.Annotations[constants.AnnotationVoterTemplateRepair])
+				require.NotEqual(t, published, sts.Annotations[constants.AnnotationVoterTemplateRepair])
+				sts.Status.ObservedGeneration = sts.Generation
+				require.NoError(t, live.Status().Update(ctx, sts))
+				pods["bao-2"].Status.Conditions[0].Status = corev1.ConditionTrue
+				require.NoError(t, live.Status().Update(ctx, pods["bao-2"]))
+				cluster.Spec.Probes.Startup.FailureThreshold = 61
+				cluster.Generation++
+				require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "first-template", spec))
+				require.NoError(t, live.Get(ctx, key, sts))
+				require.Equal(t, published, sts.Annotations[constants.AnnotationVoterRolloutTemplate])
+				require.Equal(t, published, sts.Annotations[constants.AnnotationVoterTemplateRepair])
+				require.Equal(t, appsv1.OnDeleteStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type)
+				sts.Status.ObservedGeneration = sts.Generation
+				require.NoError(t, live.Status().Update(ctx, sts))
+				_, err = m.ReconcileVoterRollout(ctx, logger, cluster)
+				require.NoError(t, err)
+				peer := observer.state.Servers["bao-2"]
+				peer.LastContact = freshVoterContact
+				observer.state.Servers["bao-2"] = peer
+				_, err = m.ReconcileVoterRollout(ctx, logger, cluster)
+				require.NoError(t, err)
+				require.True(t, apierrors.IsNotFound(live.Get(ctx, client.ObjectKeyFromObject(pods["bao-1"]), &corev1.Pod{})))
+				require.NoError(t, live.Get(ctx, client.ObjectKeyFromObject(pods["bao-2"]), &corev1.Pod{}))
+				return
+			}
 			require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "corrected-template", spec))
 			require.NoError(t, live.Get(ctx, key, sts))
 			require.Equal(t, appsv1.OnDeleteStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type)

@@ -46,7 +46,11 @@ type voterPodObservation struct {
 // must show that every remaining voter reached that observation's leader index.
 // This prevents cached pre-restart health from immediately releasing another Pod.
 func checkVoterRollout(ctx context.Context, logger logr.Logger, c client.Client, reader client.Reader, membership portopenbao.RaftMembershipReader, cluster *openbaov1alpha1.OpenBaoCluster, sts *appsv1.StatefulSet, target string, replacing bool) error {
-	if cluster.Spec.Replicas <= 1 {
+	replicas, err := portworkload.VoterReplicaCount(sts)
+	if err != nil {
+		return err
+	}
+	if replicas == 1 {
 		return nil // A single voter already requires an outage for replacement.
 	}
 	if reader == nil {

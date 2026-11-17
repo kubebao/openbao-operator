@@ -127,7 +127,11 @@ func (m *Manager) ensureTargetPodLeadershipTransferred(
 	target rolloutTargetPod,
 	metrics *upgrade.Metrics,
 ) (bool, error) {
-	if cluster.Spec.Replicas <= 1 {
+	_, replicas, err := m.getVoterRolloutStatefulSet(ctx, cluster)
+	if err != nil {
+		return false, err
+	}
+	if replicas == 1 {
 		logger.Info("Skipping leader step-down for single-replica rolling upgrade", "pod", target.Name)
 		return true, nil
 	}

@@ -91,6 +91,7 @@ func TestReconcileUpgradeExecutionPartitionErrorPolicy(t *testing.T) {
 					Annotations: map[string]string{constants.AnnotationClusterGeneration: tc.sourceGeneration},
 				},
 				Spec: appsv1.StatefulSetSpec{
+					Replicas: ptr.To(cluster.Spec.Replicas),
 					UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 						Type:          appsv1.RollingUpdateStatefulSetStrategyType,
 						RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{Partition: ptr.To(int32(1))},
