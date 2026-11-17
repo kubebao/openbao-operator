@@ -55,8 +55,9 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	// Raising a partition during replacement can recreate an already-upgraded
 	// Pod from currentRevision, implicitly downgrading it. Keep the old rollout
 	// and its config intact until it finishes before publishing a new template.
-	if cluster.Status.Upgrade != nil || (existing.Status.CurrentRevision != "" && existing.Status.UpdateRevision != "" &&
-		existing.Status.CurrentRevision != existing.Status.UpdateRevision) {
+	if cluster.Status.Upgrade != nil || (previous != "" && existing.Status.ObservedGeneration < existing.Generation) ||
+		(existing.Status.CurrentRevision != "" && existing.Status.UpdateRevision != "" &&
+			existing.Status.CurrentRevision != existing.Status.UpdateRevision) {
 		return portworkload.ErrVoterTemplateRolloutPending
 	}
 	live := &appsv1.StatefulSet{}
@@ -71,10 +72,11 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	}
 	partition := max(cluster.Spec.Replicas, *existing.Spec.Replicas)
 	locked := live.DeepCopy()
-	locked.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{
-		Type:          appsv1.RollingUpdateStatefulSetStrategyType,
-		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{Partition: &partition},
+	locked.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
+	if locked.Spec.UpdateStrategy.RollingUpdate == nil {
+		locked.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateStatefulSetStrategy{}
 	}
+	locked.Spec.UpdateStrategy.RollingUpdate.Partition = &partition
 	delete(locked.Annotations, constants.AnnotationVoterRolloutObservation)
 	if !apiequality.Semantic.DeepEqual(live.Spec.UpdateStrategy, locked.Spec.UpdateStrategy) || live.Annotations[constants.AnnotationVoterRolloutObservation] != "" {
 		if err := m.client.Patch(ctx, locked, client.MergeFromWithOptions(live, client.MergeFromWithOptimisticLock{}), client.FieldOwner(constants.FieldOwnerVoterRollout)); err != nil {

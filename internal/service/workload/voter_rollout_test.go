@@ -144,6 +144,21 @@ func TestConcurrentVoterTemplateKeepsCurrentPartitionAndConfig(t *testing.T) {
 	require.Equal(t, "current", config.Data["config.hcl"], "restarting Pods must retain the current rollout's config")
 }
 
+func TestPrepareVoterTemplateWaitsForControllerToObservePreviousTemplate(t *testing.T) {
+	m, cluster, sts, _ := voterTemplateFixture(t)
+	// Revision counters can still look converged before the StatefulSet
+	// controller observes the template that was just published.
+	sts.Status.CurrentRevision = sts.Status.UpdateRevision
+	sts.Status.ObservedGeneration = 0
+	require.NoError(t, m.client.Status().Update(t.Context(), sts))
+	desired := sts.DeepCopy()
+	desired.Spec.Template.Spec.Containers[0].Image = rolloutNewRevision
+	err := m.prepareVoterTemplateRollout(t.Context(), cluster, StatefulSetSpec{Pool: constants.LabelValueOpenBaoWorkloadPoolVoter}, sts, desired)
+	require.ErrorIs(t, err, portworkload.ErrVoterTemplateRolloutPending)
+	require.NoError(t, m.client.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+	require.EqualValues(t, 2, *sts.Spec.UpdateStrategy.RollingUpdate.Partition)
+}
+
 func TestPrepareVoterTemplateDetectsRemovedFields(t *testing.T) {
 	m, cluster, sts, _ := voterTemplateFixture(t)
 	sts.Status.CurrentRevision = sts.Status.UpdateRevision
