@@ -124,4 +124,22 @@ func TestVoterTemplateRolloutRealAPI(t *testing.T) {
 	require.True(t, apierrors.IsConflict(err), "lock conflicts must remain retryable: %v", err)
 	require.NoError(t, live.Get(ctx, key, sts))
 	require.EqualValues(t, 61, sts.Spec.Template.Spec.Containers[0].StartupProbe.FailureThreshold)
+
+	cluster.Status.Upgrade = &openbaov1alpha1.UpgradeProgress{CurrentPartition: 2, TargetVersion: cluster.Spec.Version,
+		Failure: &openbaov1alpha1.ControllerErrorStatus{Reason: "failed-upgrade"}}
+	require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "corrected-config", spec))
+	require.NoError(t, live.Get(ctx, key, sts))
+	require.Equal(t, appsv1.OnDeleteStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type)
+	require.Nil(t, sts.Spec.UpdateStrategy.RollingUpdate)
+	require.NotEmpty(t, sts.Annotations[constants.AnnotationVoterRetryHold])
+	require.EqualValues(t, 62, sts.Spec.Template.Spec.Containers[0].StartupProbe.FailureThreshold)
+	beforeCheckpoint := sts.DeepCopy()
+	const checkpoint = `{"version":1,"pods":[]}`
+	sts.Annotations[constants.AnnotationVoterRetryReset] = checkpoint
+	require.NoError(t, live.Patch(ctx, sts, client.MergeFrom(beforeCheckpoint), client.FieldOwner(constants.FieldOwnerVoterRollout)))
+	require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "corrected-config", spec))
+	require.NoError(t, live.Get(ctx, key, sts))
+	require.Equal(t, appsv1.OnDeleteStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type, "SSA must not release a held retry")
+	require.Equal(t, checkpoint, sts.Annotations[constants.AnnotationVoterRetryReset])
+	require.NotEmpty(t, sts.Annotations[constants.AnnotationVoterRetryHold])
 }

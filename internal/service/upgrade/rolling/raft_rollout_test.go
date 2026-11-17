@@ -25,6 +25,12 @@ import (
 	workloadsvc "github.com/kubebao/openbao-operator/internal/service/workload"
 )
 
+const (
+	oldRaftRevision      = "old"
+	updatedRaftRevision  = "new"
+	refreshedRaftContact = "2ms"
+)
+
 type rollingMembershipStub struct {
 	configuration *portopenbao.RaftConfigurationResponse
 	state         *portopenbao.RaftAutopilotStateResponse
@@ -52,13 +58,13 @@ func rollingRaftFixture(t *testing.T, partition int32) (*Manager, *openbaov1alph
 		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(cluster, openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"))}},
 		Spec: appsv1.StatefulSetSpec{Replicas: ptr.To(int32(3)), UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType, RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{Partition: &partition}},
 			Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: constants.ContainerBao, Image: cluster.Spec.Image}}}}},
-		Status: appsv1.StatefulSetStatus{ObservedGeneration: 1, CurrentRevision: "new", UpdateRevision: "new", ReadyReplicas: 3, UpdatedReplicas: 3}}
+		Status: appsv1.StatefulSetStatus{ObservedGeneration: 1, CurrentRevision: updatedRaftRevision, UpdateRevision: updatedRaftRevision, ReadyReplicas: 3, UpdatedReplicas: 3}}
 	objects := []client.Object{cluster, sts, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + constants.SuffixTLSCA, Namespace: testNamespace}, Data: map[string][]byte{"ca.crt": []byte("test-ca")}}}
 	observer := &rollingMembershipStub{configuration: &portopenbao.RaftConfigurationResponse{Config: portopenbao.RaftConfiguration{Index: 7}}, state: &portopenbao.RaftAutopilotStateResponse{Leader: "bao-0", Servers: map[string]portopenbao.RaftAutopilotServerState{}}}
 	for ordinal := 0; ordinal < 3; ordinal++ {
 		name := fmt.Sprintf("bao-%d", ordinal)
 		labels := resourceidentity.VoterPodSelectorLabels(cluster)
-		labels[appsv1.StatefulSetRevisionLabel] = "new"
+		labels[appsv1.StatefulSetRevisionLabel] = updatedRaftRevision
 		objects = append(objects, &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace, UID: types.UID(name), Labels: labels,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(sts, appsv1.SchemeGroupVersion.WithKind("StatefulSet"))}},
 			Spec:   corev1.PodSpec{Containers: []corev1.Container{{Name: constants.ContainerBao, Image: cluster.Spec.Image}}},
@@ -82,7 +88,7 @@ func TestRollingPartitionDoesNotReleaseNextVoterWhilePreviousVoterLags(t *testin
 	for _, name := range []string{"bao-0", "bao-1"} {
 		pod := &corev1.Pod{}
 		require.NoError(t, m.client.Get(t.Context(), client.ObjectKey{Namespace: testNamespace, Name: name}, pod))
-		pod.Labels[appsv1.StatefulSetRevisionLabel] = "old"
+		pod.Labels[appsv1.StatefulSetRevisionLabel] = oldRaftRevision
 		require.NoError(t, m.client.Update(t.Context(), pod))
 	}
 	peer := observer.state.Servers["bao-2"]
