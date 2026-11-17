@@ -2,6 +2,7 @@ package workload
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -94,6 +95,34 @@ func TestVoterRolloutRequiresFreshProgressAfterReady(t *testing.T) {
 	peer.LastIndex = 2000
 	observer.state.Servers["bao-2"] = peer
 	require.NoError(t, check(), "the persisted observation remains usable after constructing another reconciler")
+}
+
+func TestVoterFreshnessAcceptsHeartbeatAfterContactAgeGrows(t *testing.T) {
+	c, cluster, sts, observer := rolloutGateFixture(t)
+	check := func() error {
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+		return checkVoterRollout(t.Context(), logr.Discard(), c, c, observer, cluster, sts, "bao-1", true)
+	}
+	require.ErrorIs(t, check(), portworkload.ErrVoterRolloutWaiting)
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+	var first voterRolloutObservation
+	require.NoError(t, json.Unmarshal([]byte(sts.Annotations[constants.AnnotationVoterRolloutObservation]), &first))
+	peer := observer.state.Servers["bao-2"]
+	peer.LastContact = "4ms"
+	observer.state.Servers["bao-2"] = peer
+	leader := observer.state.Servers["bao-0"]
+	leader.LastIndex++
+	observer.state.Servers["bao-0"] = leader
+	require.ErrorContains(t, check(), "has not refreshed", "a growing age does not prove a heartbeat")
+	require.ErrorContains(t, check(), "has not refreshed", "an unchanged cached sample remains insufficient")
+	peer.LastContact = "2ms"
+	observer.state.Servers["bao-2"] = peer
+	require.NoError(t, check(), "a reset from 4ms to 2ms proves a heartbeat even though the first sample was 1ms")
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+	var recorded voterRolloutObservation
+	require.NoError(t, json.Unmarshal([]byte(sts.Annotations[constants.AnnotationVoterRolloutObservation]), &recorded))
+	require.Equal(t, first.ObservedAt, recorded.ObservedAt, "contact observations cannot extend the receipt lifetime")
+	require.Equal(t, first.LeaderIndex, recorded.LeaderIndex, "catch-up stays bound to the original leader index")
 }
 
 func TestVoterRolloutRejectsChangedPodIdentity(t *testing.T) {
