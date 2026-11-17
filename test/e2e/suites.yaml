@@ -392,13 +392,22 @@ nightly:
             - security
             - backup-restore
             - restore-tests
-            - upgrade-rolling
             - upgrade-bluegreen-core
             - upgrade-bluegreen-verification
             - upgrade-bluegreen-recovery
             - upgrade-gateway
             - hardened
             - networking
+
+        # Serial operation-lock tests follow the parallel recovery and
+        # consecutive-upgrade cases in the full release rolling lane.
+        - coverage: release-gate
+          kubernetes:
+            - "@releaseGate"
+          lanes:
+            - upgrade-rolling
+          timeoutMinutes: 65
+          e2eTimeout: 60m
 
       rows:
         - lane: upgrade-rolling
