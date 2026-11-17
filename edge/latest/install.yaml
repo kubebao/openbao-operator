@@ -1384,6 +1384,14 @@ spec:
                         maximum: 10000
                         minimum: 1
                         type: integer
+                      maxSnapshotSizeBytes:
+                        default: 8589934592
+                        description: |-
+                          MaxSnapshotSizeBytes sets the snapshot and scratch-storage budget on each
+                          generated restore request. The default is 8 GiB.
+                        format: int64
+                        minimum: 1
+                        type: integer
                       namespace:
                         maxLength: 63
                         minLength: 1
@@ -6762,7 +6770,6 @@ spec:
                       size:
                         description: Size is the snapshot size in bytes.
                         format: int64
-                        maximum: 8589934592
                         minimum: 1
                         type: integer
                       version:
@@ -8920,7 +8927,6 @@ spec:
                     type: string
                   expectedSize:
                     format: int64
-                    maximum: 8589934592
                     minimum: 1
                     type: integer
                   expectedVersion:
@@ -8934,6 +8940,14 @@ spec:
                       For example, "clusters/prod/2025-10-14-120000.snap".
                     minLength: 1
                     type: string
+                  maxSnapshotSizeBytes:
+                    default: 8589934592
+                    description: |-
+                      MaxSnapshotSizeBytes bounds the downloaded snapshot and reserves matching
+                      disk-backed scratch storage for the restore Job. The default is 8 GiB.
+                    format: int64
+                    minimum: 1
+                    type: integer
                   target:
                     description: |-
                       Target reuses BackupTarget for storage connection details.
@@ -9149,6 +9163,10 @@ spec:
                 - key
                 - target
                 type: object
+                x-kubernetes-validations:
+                - message: expectedSize exceeds maxSnapshotSizeBytes
+                  rule: '!has(self.expectedSize) || self.expectedSize <= (has(self.maxSnapshotSizeBytes)
+                    ? self.maxSnapshotSizeBytes : 8589934592)'
               targetLifecycle:
                 description: TargetLifecycle retains recovery targets or deletes disposable
                   test resources.
@@ -9424,7 +9442,6 @@ spec:
                   size:
                     description: Size is the staged snapshot size in bytes.
                     format: int64
-                    maximum: 8589934592
                     minimum: 1
                     type: integer
                   targetContainerID:
@@ -10519,10 +10536,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-11a16603ef2a
+          value: edge-4a0975c04ee6
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:7a9b18e78ea6fa38bd0f39241ef451ad087291c7414545baf8c549e7ceac112d
+        image: ghcr.io/kubebao/openbao-operator@sha256:cab891085eb7b088aa9f2a3583ff2784000fce7cd46598af5c326124e77530ef
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10643,8 +10660,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-11a16603ef2a
-        image: ghcr.io/kubebao/openbao-operator@sha256:7a9b18e78ea6fa38bd0f39241ef451ad087291c7414545baf8c549e7ceac112d
+          value: edge-4a0975c04ee6
+        image: ghcr.io/kubebao/openbao-operator@sha256:cab891085eb7b088aa9f2a3583ff2784000fce7cd46598af5c326124e77530ef
         livenessProbe:
           httpGet:
             path: /healthz
@@ -11552,7 +11569,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:173754c373a6294c06b91ca6c9d307e1c0d8411020a5b3a6f4426fa3cc916add
+    openbao.org/admission-policy-fingerprint: sha256:32757599498b99d53ca868f87cfe2b359ee7324b148cd3906a2f90379cc3c8e7
   name: openbao-operator-openbao-protect-restore-execution
 spec:
   failurePolicy: Fail
@@ -11623,6 +11640,11 @@ spec:
       == 'DELETE' || (variables.new_origin == variables.old_origin && (variables.old_origin
       == '' || object.spec == oldObject.spec))
     message: Only the controller can create or change restricted restore targets.
+  - expression: |-
+      !variables.is_restore || request.operation == 'DELETE' || !has(object.status) || !has(dyn(object.status).submissionClaim) || dyn(object.status).submissionClaim.size <=
+
+        (has(dyn(object.spec).source.maxSnapshotSizeBytes) ? dyn(object.spec).source.maxSnapshotSizeBytes : 8589934592)
+    message: The staged snapshot size exceeds maxSnapshotSizeBytes.
   - expression: |-
       !variables.old_claim || request.operation == 'DELETE' ||
 
