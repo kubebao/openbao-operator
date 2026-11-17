@@ -111,7 +111,8 @@ still be catching up with the leader.
 
 The operator holds the StatefulSet partition until the remaining voters are Ready, have the expected voting
 membership, and meet the configured Autopilot health, contact, term, and log-lag thresholds. It then requires a fresh
-observation from each remaining follower and verifies that those voters reached the previously observed leader
+observation from each remaining follower: its replication index must advance or its contact age must decrease.
+An increasing contact age does not prove a new heartbeat. The voters must also reach the previously observed leader
 index. The check excludes read replicas from voting quorum. A controller restart preserves the hold and its
 observation. Single-voter and two-voter clusters still require a write outage during replacement.
 
@@ -126,9 +127,15 @@ progress stops. Restore authentication or peer health before continuing. Do not 
 bypass the check. A managed upgrade retains its overall readiness deadline and requires a retry if that deadline
 expires.
 
-Finish the active rollout before requesting another template change or upgrading the operator. A new template
-waits without changing the current rollout's partition or ConfigMap. Install the fix on a settled cluster; it does
-not retroactively protect a rollout already started by an older operator.
+A healthy active rollout finishes before the operator applies another template, replica count, or version. The
+active rollout uses its published voter count while a scale request waits. If an ordinary template leaves a voter
+unready, a correction with the same version and replica count is staged under `OnDelete`. The operator repairs an
+unavailable voter first, then replaces other outdated voters under the Raft gate. This also permits a later
+template to replace a deferred BlueGreen-to-RollingUpdate template without recreating Pods from the old current
+revision. It restores `RollingUpdate` only after all voters have the correction and fresh Raft health.
+
+Install the fix on a settled cluster; it does not retroactively protect a rollout already started by an older
+operator.
 
 ## Control a blue-green promotion
 

@@ -123,3 +123,29 @@ func TestVoterRolloutClearsObservationOnLostRaftAccess(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
 	require.Empty(t, sts.Annotations[constants.AnnotationVoterRolloutObservation])
 }
+
+func TestVoterRolloutRejectsAgingContactWithoutNewHeartbeat(t *testing.T) {
+	c, cluster, sts, observer := rolloutGateFixture(t)
+	check := func() error {
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+		return checkVoterRollout(t.Context(), logr.Discard(), c, c, observer, cluster, sts, "bao-1", true)
+	}
+	require.ErrorIs(t, check(), portworkload.ErrVoterRolloutWaiting)
+	peer := observer.state.Servers["bao-2"]
+	peer.LastContact = "2s"
+	observer.state.Servers["bao-2"] = peer
+	require.ErrorIs(t, check(), portworkload.ErrVoterRolloutWaiting, "an older retained heartbeat is not fresh contact")
+	peer.LastContact = "500us"
+	observer.state.Servers["bao-2"] = peer
+	require.NoError(t, check(), "a newer heartbeat permits an idle caught-up voter to proceed")
+}
+
+func TestVoterRolloutAcceptsAdvancedFollowerIndex(t *testing.T) {
+	c, cluster, sts, observer := rolloutGateFixture(t)
+	require.ErrorIs(t, checkVoterRollout(t.Context(), logr.Discard(), c, c, observer, cluster, sts, "bao-1", true), portworkload.ErrVoterRolloutWaiting)
+	peer := observer.state.Servers["bao-2"]
+	peer.LastIndex++
+	observer.state.Servers["bao-2"] = peer
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+	require.NoError(t, checkVoterRollout(t.Context(), logr.Discard(), c, c, observer, cluster, sts, "bao-1", true))
+}

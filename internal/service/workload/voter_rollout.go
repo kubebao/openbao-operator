@@ -29,7 +29,7 @@ const deferredVoterTemplate = "deferred:"
 // changed template. The template digest uses the rendered input, avoiding API
 // defaults and detecting field removals as well as additions.
 func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, spec StatefulSetSpec, existing, desired *appsv1.StatefulSet) error {
-	if spec.Pool != constants.LabelValueOpenBaoWorkloadPoolVoter || !cluster.Status.Initialized || cluster.Spec.Replicas <= 1 ||
+	if spec.Pool != constants.LabelValueOpenBaoWorkloadPoolVoter || !cluster.Status.Initialized ||
 		portworkload.EffectiveStrategy(cluster) != openbaov1alpha1.UpdateStrategyRollingUpdate ||
 		existing.Spec.Replicas == nil || *existing.Spec.Replicas <= 1 {
 		return nil
@@ -45,7 +45,7 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 		return nil
 	}
 	if cluster.Status.Upgrade != nil && cluster.Status.Upgrade.Failure != nil {
-		if err := m.holdFailedVoterTemplate(ctx, cluster, existing); err != nil {
+		if err := m.holdVoterTemplate(ctx, cluster, existing, constants.AnnotationVoterRetryHold, "true"); err != nil {
 			return err
 		}
 		desired.Annotations[constants.AnnotationVoterRolloutTemplate] = fingerprint
@@ -53,19 +53,19 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	}
 	// An idle BlueGreen -> RollingUpdate switch must retain the promoted Pods
 	// when their OnDelete template already differed before the switch.
-	if existing.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType &&
-		existing.Status.CurrentRevision != existing.Status.UpdateRevision &&
-		apiequality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template) {
+	if isIdlePromotedVoterTemplate(cluster, existing, desired) {
 		desired.Annotations[constants.AnnotationVoterRolloutTemplate] = deferredVoterTemplate + fingerprint
 		return nil
 	}
 	// Raising a partition during replacement can recreate an already-upgraded
 	// Pod from currentRevision, implicitly downgrading it. Keep the old rollout
 	// and its config intact until it finishes before publishing a new template.
-	if cluster.Status.Upgrade != nil || (previous != "" && existing.Status.ObservedGeneration < existing.Generation) ||
-		(existing.Status.CurrentRevision != "" && existing.Status.UpdateRevision != "" &&
-			existing.Status.CurrentRevision != existing.Status.UpdateRevision) {
+	if cluster.Status.Upgrade != nil || (previous != "" && existing.Status.ObservedGeneration < existing.Generation) {
 		return portworkload.ErrVoterTemplateRolloutPending
+	}
+	if existing.Annotations[constants.AnnotationVoterTemplateRepair] != "" ||
+		(existing.Status.CurrentRevision != "" && existing.Status.UpdateRevision != "" && existing.Status.CurrentRevision != existing.Status.UpdateRevision) {
+		return m.prepareVoterTemplateCorrection(ctx, cluster, existing, desired, fingerprint)
 	}
 	live := &appsv1.StatefulSet{}
 	if err := m.reader.Get(ctx, client.ObjectKeyFromObject(existing), live); err != nil {
@@ -95,19 +95,26 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	return nil
 }
 
-// A corrected failed template must be published without raising an in-flight
-// partition or allowing Kubernetes to advance on readiness alone. Retry repair
-// owns the resulting OnDelete replacements and returns to RollingUpdate only
-// after every voter has the new template and fresh Raft health.
-func (m *Manager) holdFailedVoterTemplate(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, existing *appsv1.StatefulSet) error {
+func isIdlePromotedVoterTemplate(cluster *openbaov1alpha1.OpenBaoCluster, existing, desired *appsv1.StatefulSet) bool {
+	return cluster.Status.Upgrade == nil && existing.Annotations[constants.AnnotationVoterTemplateRepair] == "" &&
+		!strings.HasPrefix(existing.Annotations[constants.AnnotationVoterRolloutTemplate], deferredVoterTemplate) &&
+		existing.Annotations[constants.AnnotationVoterRetryHold] == "" && existing.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType &&
+		existing.Status.CurrentRevision != existing.Status.UpdateRevision &&
+		apiequality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template)
+}
+
+// Stage a corrected template without raising an in-flight partition or allowing
+// Kubernetes to advance on readiness alone. Guarded repairs own replacements
+// until every voter has the requested template and fresh Raft health.
+func (m *Manager) holdVoterTemplate(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, existing *appsv1.StatefulSet, annotation, value string) error {
 	live := &appsv1.StatefulSet{}
 	if err := m.reader.Get(ctx, client.ObjectKeyFromObject(existing), live); err != nil {
 		return err
 	}
 	if live.UID != existing.UID || live.ResourceVersion != existing.ResourceVersion {
-		return apierrors.NewConflict(appsv1.Resource("statefulsets"), live.Name, fmt.Errorf("StatefulSet changed before holding failed template"))
+		return apierrors.NewConflict(appsv1.Resource("statefulsets"), live.Name, fmt.Errorf("StatefulSet changed before holding template repair"))
 	}
-	if err := resourceownership.RequireOwnerProof("hold failed voter template", live, cluster); err != nil {
+	if err := resourceownership.RequireOwnerProof("hold voter template repair", live, cluster); err != nil {
 		return err
 	}
 	held := live.DeepCopy()
@@ -115,7 +122,12 @@ func (m *Manager) holdFailedVoterTemplate(ctx context.Context, cluster *openbaov
 	if held.Annotations == nil {
 		held.Annotations = map[string]string{}
 	}
-	held.Annotations[constants.AnnotationVoterRetryHold] = "true"
+	held.Annotations[annotation] = value
+	if annotation == constants.AnnotationVoterTemplateRepair && held.Annotations[constants.AnnotationVoterRolloutTemplate] == deferredVoterTemplate+value {
+		// Activate the published template while a requested version or replica
+		// count waits. OnDelete avoids recreating promoted Pods at currentRevision.
+		held.Annotations[constants.AnnotationVoterRolloutTemplate] = value
+	}
 	delete(held.Annotations, constants.AnnotationVoterRolloutObservation)
 	if !apiequality.Semantic.DeepEqual(live.Spec.UpdateStrategy, held.Spec.UpdateStrategy) || !apiequality.Semantic.DeepEqual(live.Annotations, held.Annotations) {
 		if err := m.client.Patch(ctx, held, client.MergeFromWithOptions(live, client.MergeFromWithOptimisticLock{}), client.FieldOwner(constants.FieldOwnerVoterRollout)); err != nil {
@@ -140,7 +152,7 @@ func (m *Manager) ReconcileVoterRollout(ctx context.Context, logger logr.Logger,
 		return recon.Result{}, err
 	}
 	marker := sts.Annotations[constants.AnnotationVoterRolloutTemplate]
-	if marker == "" || strings.HasPrefix(marker, deferredVoterTemplate) {
+	if marker == "" || (strings.HasPrefix(marker, deferredVoterTemplate) && sts.Annotations[constants.AnnotationVoterTemplateRepair] == "") {
 		return recon.Result{}, nil
 	}
 	if cluster.Status.CurrentVersion != "" && cluster.Status.CurrentVersion != cluster.Spec.Version &&
@@ -150,8 +162,21 @@ func (m *Manager) ReconcileVoterRollout(ctx context.Context, logger logr.Logger,
 	if err := resourceownership.RequireOwnerProof("advance voter template rollout", sts, cluster); err != nil {
 		return recon.Result{}, err
 	}
-	if sts.Spec.Replicas == nil || *sts.Spec.Replicas != cluster.Spec.Replicas || sts.Status.ObservedGeneration < sts.Generation || sts.Status.UpdateRevision == "" {
+	if sts.Spec.Replicas == nil || sts.Status.ObservedGeneration < sts.Generation || sts.Status.UpdateRevision == "" {
 		return recon.Result{RequeueAfter: constants.RequeueShort}, nil
+	}
+	if *sts.Spec.Replicas <= 1 {
+		return recon.Result{}, nil
+	}
+	// A pending template can include a scale request. Continue the published
+	// rollout with its actual voter count, without applying the deferred spec.
+	cluster = cluster.DeepCopy()
+	cluster.Spec.Replicas = *sts.Spec.Replicas
+	if sts.Annotations[constants.AnnotationVoterTemplateRepair] != "" {
+		if sts.Annotations[constants.AnnotationVoterTemplateRepair] != marker {
+			return recon.Result{RequeueAfter: constants.RequeueShort}, nil
+		}
+		return m.reconcileVoterTemplateRepair(ctx, logger, cluster, sts)
 	}
 	partition := int32(0)
 	if sts.Spec.UpdateStrategy.RollingUpdate != nil && sts.Spec.UpdateStrategy.RollingUpdate.Partition != nil {
@@ -182,15 +207,7 @@ func (m *Manager) ReconcileVoterRollout(ctx context.Context, logger logr.Logger,
 		}
 		target := fmt.Sprintf("%s-%d", sts.Name, next)
 		if err := m.CheckVoterRollout(ctx, logger, cluster, sts, target, true); err != nil {
-			if errors.Is(err, portworkload.ErrVoterRolloutWaiting) {
-				logger.Info("Holding voter template rollout", "target", target, "reason", err.Error())
-				if m.recorder != nil {
-					m.recorder.Eventf(cluster, nil, corev1.EventTypeNormal, constants.ReasonVoterRolloutWaiting,
-						"ReconcileVoterRollout", "Holding replacement of %s: %s", target, err.Error())
-				}
-				return recon.Result{RequeueAfter: constants.RequeueShort}, nil
-			}
-			return recon.Result{}, err
+			return m.voterRolloutHeld(logger, cluster, target, err)
 		}
 		partition = next
 	} else {
@@ -209,6 +226,18 @@ func (m *Manager) ReconcileVoterRollout(ctx context.Context, logger logr.Logger,
 func skipVoterRollout(cluster *openbaov1alpha1.OpenBaoCluster) bool {
 	return cluster.Spec.Paused || cluster.DeletionTimestamp != nil ||
 		(cluster.Status.BreakGlass != nil && cluster.Status.BreakGlass.Active && cluster.Spec.BreakGlassAck != cluster.Status.BreakGlass.Nonce) ||
-		!cluster.Status.Initialized || cluster.Spec.Replicas <= 1 || cluster.Status.Upgrade != nil ||
+		!cluster.Status.Initialized || cluster.Status.Upgrade != nil ||
 		portworkload.EffectiveStrategy(cluster) != openbaov1alpha1.UpdateStrategyRollingUpdate
+}
+
+func (m *Manager) voterRolloutHeld(logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, target string, err error) (recon.Result, error) {
+	if !errors.Is(err, portworkload.ErrVoterRolloutWaiting) {
+		return recon.Result{}, err
+	}
+	logger.Info("Holding voter template rollout", "target", target, "reason", err.Error())
+	if m.recorder != nil {
+		m.recorder.Eventf(cluster, nil, corev1.EventTypeNormal, constants.ReasonVoterRolloutWaiting,
+			"ReconcileVoterRollout", "Holding replacement of %s: %s", target, err.Error())
+	}
+	return recon.Result{RequeueAfter: constants.RequeueShort}, nil
 }

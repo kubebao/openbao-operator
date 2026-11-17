@@ -23,10 +23,15 @@ import (
 const voterObservationLifetime = time.Minute
 
 type voterRolloutObservation struct {
-	Context     string            `json:"context"`
-	Followers   map[string]string `json:"followers"`
-	LeaderIndex uint64            `json:"leaderIndex"`
-	ObservedAt  time.Time         `json:"observedAt"`
+	Context     string                              `json:"context"`
+	Followers   map[string]voterFollowerObservation `json:"followers"`
+	LeaderIndex uint64                              `json:"leaderIndex"`
+	ObservedAt  time.Time                           `json:"observedAt"`
+}
+
+type voterFollowerObservation struct {
+	Index       uint64 `json:"index"`
+	LastContact string `json:"lastContact"`
 }
 
 type voterPodObservation struct {
@@ -98,9 +103,9 @@ func checkVoterRollout(ctx context.Context, logger logr.Logger, c client.Client,
 		return resetVoterObservation(ctx, c, live, fmt.Errorf("voter Pod identities or readiness changed during Raft observation"))
 	}
 	now := time.Now().UTC()
-	current := voterRolloutObservation{Context: contextKey, Followers: make(map[string]string, len(health.Followers)), LeaderIndex: health.LeaderIndex, ObservedAt: now}
+	current := voterRolloutObservation{Context: contextKey, Followers: make(map[string]voterFollowerObservation, len(health.Followers)), LeaderIndex: health.LeaderIndex, ObservedAt: now}
 	for pod, peer := range health.Followers {
-		current.Followers[pod] = rolloutDigest(peer)
+		current.Followers[pod] = voterFollowerObservation{Index: peer.LastIndex, LastContact: peer.LastContact}
 	}
 	var previous voterRolloutObservation
 	decodeErr := json.Unmarshal([]byte(live.Annotations[constants.AnnotationVoterRolloutObservation]), &previous)
@@ -111,7 +116,8 @@ func checkVoterRollout(ctx context.Context, logger logr.Logger, c client.Client,
 		return fmt.Errorf("%w: awaiting a fresh Autopilot observation for the current Pods", portworkload.ErrVoterRolloutWaiting)
 	}
 	for pod, sample := range current.Followers {
-		if previous.Followers[pod] == sample {
+		before, found := previous.Followers[pod]
+		if !found || !hasFreshVoterContact(before, sample) {
 			return fmt.Errorf("%w: Autopilot has not refreshed voter %s observation", portworkload.ErrVoterRolloutWaiting, pod)
 		}
 	}
@@ -159,12 +165,25 @@ func observeVoterPods(ctx context.Context, reader client.Reader, sts *appsv1.Sta
 				return nil, fmt.Errorf("waiting for voter Pod %s readiness", name)
 			}
 		}
-		if (target == "" || ordinal > targetOrdinal) && pod.Labels[appsv1.StatefulSetRevisionLabel] != sts.Status.UpdateRevision {
+		ordered := sts.Annotations[constants.AnnotationVoterTemplateRepair] == ""
+		if (target == "" || (ordered && ordinal > targetOrdinal)) && pod.Labels[appsv1.StatefulSetRevisionLabel] != sts.Status.UpdateRevision {
 			return nil, fmt.Errorf("waiting for the updated revision on voter Pod %s", name)
 		}
 		pods = append(pods, observation)
 	}
 	return pods, nil
+}
+
+// Contact age grows without a heartbeat. Only an advanced replication index or
+// a reduced age establishes a newer follower observation. Other changed fields,
+// including a growing LastContact duration, do not establish fresh contact.
+func hasFreshVoterContact(before, current voterFollowerObservation) bool {
+	if current.Index > before.Index {
+		return true
+	}
+	oldAge, oldErr := time.ParseDuration(before.LastContact)
+	newAge, newErr := time.ParseDuration(current.LastContact)
+	return oldErr == nil && newErr == nil && newAge >= 0 && newAge < oldAge
 }
 
 func rolloutDigest(value any) string {
