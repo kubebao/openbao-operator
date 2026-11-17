@@ -94,12 +94,14 @@ func (m *Manager) startUpgradeExecutionIfNeeded(
 	}
 	fromVersion, toVersion, replicas := cluster.Status.CurrentVersion, cluster.Spec.Version, cluster.Spec.Replicas
 	logger.Info("Initializing upgrade", "from", fromVersion, "to", toVersion, "replicas", replicas)
-	core.SetUpgradeStarted(&cluster.Status, fromVersion, toVersion, replicas)
-	executionID := string(uuid.NewUUID())
-	cluster.Status.Upgrade.ExecutionID = executionID
 	if err := m.setStatefulSetPartition(ctx, cluster, replicas); err != nil {
 		return fmt.Errorf("failed to lock StatefulSet partition: %w", err)
 	}
+	// Do not let the outer status writer publish an upgrade checkpoint while
+	// infra is still deferring this template behind an ordinary voter rollout.
+	core.SetUpgradeStarted(&cluster.Status, fromVersion, toVersion, replicas)
+	executionID := string(uuid.NewUUID())
+	cluster.Status.Upgrade.ExecutionID = executionID
 	if err := m.patchUpgradeStatus(ctx, cluster); err != nil {
 		return fmt.Errorf("failed to update status after initializing upgrade: %w", err)
 	}

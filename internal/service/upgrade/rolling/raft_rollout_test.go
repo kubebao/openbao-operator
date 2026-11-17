@@ -95,6 +95,17 @@ func TestRollingPartitionDoesNotReleaseNextVoterWhilePreviousVoterLags(t *testin
 	require.Empty(t, cluster.Status.Upgrade.CompletedPods[1:])
 }
 
+func TestRollingStartKeepsExistingTemplateRolloutUnownedUntilNewTemplateIsPublished(t *testing.T) {
+	m, cluster, sts, _ := rollingRaftFixture(t, 2)
+	cluster.Status.Upgrade = nil
+	cluster.Generation++
+	err := m.startUpgradeExecutionIfNeeded(t.Context(), logr.Discard(), cluster, nil, "rolling")
+	require.ErrorIs(t, err, errPartitionRetry)
+	require.Nil(t, cluster.Status.Upgrade, "the outer AdminOps status writer must not persist an unstarted upgrade and stop the existing template rollout")
+	require.NoError(t, m.client.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+	require.EqualValues(t, 2, *sts.Spec.UpdateStrategy.RollingUpdate.Partition)
+}
+
 func TestRollingResumeRequiresRaftCatchupEvenWhenTargetIsAlreadyReady(t *testing.T) {
 	m, cluster, sts, observer := rollingRaftFixture(t, 1)
 	peer := observer.state.Servers["bao-2"]
