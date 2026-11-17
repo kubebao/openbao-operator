@@ -5,6 +5,8 @@ const (
 	ReasonPolicyReconciliationFailed = "PolicyReconciliationFailed"
 	// ReasonPoliciesNotReady indicates an operation's required policy is not verified.
 	ReasonPoliciesNotReady = "PoliciesNotReady"
+	// ReasonVoterRolloutWaiting reports a partition held for Raft catch-up or observation.
+	ReasonVoterRolloutWaiting = "VoterRolloutWaiting"
 )
 
 // Shared condition reasons used across app, service, and controller layers for

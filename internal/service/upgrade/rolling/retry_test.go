@@ -308,6 +308,7 @@ func TestPrepareFailedUpgradeRetry_WaitsForStatefulSetTemplateToMatchRetryTarget
 		},
 	}
 
+	adoptRetryResetObjects(cluster, sts, staleJob, staleTargetPod)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&openbaov1alpha1.OpenBaoCluster{}).
@@ -483,6 +484,7 @@ func TestPrepareFailedUpgradeRetry_DeletesStaleCompletedPod(t *testing.T) {
 	currentTargetPod := retryPodForResetTest(cluster.Namespace, "retry-cluster-1", "rev-good", "openbao/openbao:2.5.0", true)
 	staleCompletedPod := retryPodForResetTest(cluster.Namespace, "retry-cluster-2", "rev-bad", "openbao/openbao:retry-image-does-not-exist", false)
 
+	adoptRetryResetObjects(cluster, sts, currentTargetPod, staleCompletedPod)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithStatusSubresource(&openbaov1alpha1.OpenBaoCluster{}).
@@ -490,10 +492,11 @@ func TestPrepareFailedUpgradeRetry_DeletesStaleCompletedPod(t *testing.T) {
 		Build()
 	seedUpgradeStatus(t, k8sClient, cluster)
 	manager := &Manager{
-		client:          k8sClient,
-		reader:          k8sClient,
-		scheme:          scheme,
-		adminOpsMutator: testAdminOpsMutator(k8sClient),
+		client:            k8sClient,
+		reader:            k8sClient,
+		scheme:            scheme,
+		adminOpsMutator:   testAdminOpsMutator(k8sClient),
+		voterRolloutGuard: renderingRetryGuard{},
 	}
 
 	err := manager.prepareFailedUpgradeRetry(context.Background(), logr.Discard(), cluster, upgrade.RetryRequestValue(cluster))
@@ -666,6 +669,7 @@ func TestPrepareFailedUpgradeRetry_SuccessClearsFailureAndRemovesRetrySignal(t *
 				},
 			}
 
+			adoptRetryResetObjects(cluster, sts, staleJob, staleTargetPod)
 			builder := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithStatusSubresource(&openbaov1alpha1.OpenBaoCluster{}).
@@ -677,10 +681,11 @@ func TestPrepareFailedUpgradeRetry_SuccessClearsFailureAndRemovesRetrySignal(t *
 			seedUpgradeStatus(t, k8sClient, cluster)
 
 			mgr := &Manager{
-				client:          k8sClient,
-				reader:          k8sClient,
-				scheme:          scheme,
-				adminOpsMutator: testAdminOpsMutator(k8sClient),
+				client:            k8sClient,
+				reader:            k8sClient,
+				scheme:            scheme,
+				adminOpsMutator:   testAdminOpsMutator(k8sClient),
+				voterRolloutGuard: renderingRetryGuard{},
 			}
 
 			err := mgr.prepareFailedUpgradeRetry(context.Background(), logr.Discard(), cluster, upgrade.RetryRequestValue(cluster))

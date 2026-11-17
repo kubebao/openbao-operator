@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -86,6 +87,7 @@ func TestInitializeUpgrade_EmitsUpgradeStartedEvent(t *testing.T) {
 			Name:      cluster.Name,
 			Namespace: cluster.Namespace,
 		},
+		Spec: appsv1.StatefulSetSpec{Replicas: ptr.To(cluster.Spec.Replicas)},
 	}
 
 	recorder := events.NewFakeRecorder(10)
@@ -195,6 +197,7 @@ func TestPrepareFailedUpgradeRetry_EmitsRetryEvents(t *testing.T) {
 		},
 	}
 
+	adoptRetryResetObjects(cluster, sts, staleJob, staleTargetPod)
 	recorder := events.NewFakeRecorder(10)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -204,11 +207,12 @@ func TestPrepareFailedUpgradeRetry_EmitsRetryEvents(t *testing.T) {
 		Build()
 	seedUpgradeStatus(t, k8sClient, cluster)
 	manager := &Manager{
-		client:          k8sClient,
-		reader:          k8sClient,
-		scheme:          scheme,
-		recorder:        recorder,
-		adminOpsMutator: testAdminOpsMutator(k8sClient),
+		client:            k8sClient,
+		reader:            k8sClient,
+		scheme:            scheme,
+		recorder:          recorder,
+		adminOpsMutator:   testAdminOpsMutator(k8sClient),
+		voterRolloutGuard: renderingRetryGuard{},
 	}
 
 	err := manager.prepareFailedUpgradeRetry(context.Background(), logr.Discard(), cluster, upgrade.RetryRequestValue(cluster))

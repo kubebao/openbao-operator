@@ -7,4 +7,5 @@ const (
 	FieldOwnerWorkloadStatus      = "openbao-workload-controller"
 	FieldOwnerAdminOpsStatus      = "openbao-adminops-controller"
 	FieldOwnerOperationLockStatus = "openbao-operationlock-controller"
+	FieldOwnerVoterRollout        = "openbao-voter-rollout"
 )

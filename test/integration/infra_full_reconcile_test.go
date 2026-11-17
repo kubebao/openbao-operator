@@ -85,7 +85,7 @@ func TestInfraFullReconcile_StatefulSet_SSAAndIdempotency(t *testing.T) {
 
 	// Simulate drift/other-actor writes:
 	// - Add an external annotation (should be preserved by SSA).
-	// - Set a RollingUpdate partition (UpgradeManager-managed; infra must not reset it).
+	// - Set a RollingUpdate partition (the new template must first lock all voters).
 	// - Change the main container image (infra should reconcile it back).
 	drifted := sts.DeepCopy()
 	original := sts.DeepCopy()
@@ -138,8 +138,9 @@ func TestInfraFullReconcile_StatefulSet_SSAAndIdempotency(t *testing.T) {
 	}
 
 	rollingUpdate := updated.Spec.UpdateStrategy.RollingUpdate
-	if rollingUpdate == nil || rollingUpdate.Partition == nil || *rollingUpdate.Partition != 1 {
-		t.Fatalf("expected RollingUpdate partition to be preserved, got %#v", updated.Spec.UpdateStrategy.RollingUpdate)
+	if rollingUpdate == nil || rollingUpdate.Partition == nil ||
+		*rollingUpdate.Partition != cluster.Spec.Replicas {
+		t.Fatalf("expected the changed template to lock all voters, got %#v", rollingUpdate)
 	}
 
 	foundMain = false
@@ -164,9 +165,20 @@ func TestInfraFullReconcile_StatefulSet_SSAAndIdempotency(t *testing.T) {
 		t.Fatalf("expected StatefulSet to remain SSA-managed by fieldManager openbao-operator")
 	}
 
-	// One more pass should be safe/idempotent.
+	// Once the desired template is published, SSA must preserve rollout progress.
+	progress := updated.DeepCopy()
+	progress.Spec.UpdateStrategy.RollingUpdate.Partition = ptr.To(int32(1))
+	if err := controllerClient.Patch(ctx, progress, client.MergeFrom(updated)); err != nil {
+		t.Fatalf("advance partition: %v", err)
+	}
 	if err := reconcileClusterResources(ctx, logr.Discard(), controllerClient, k8sScheme, cluster, spec); err != nil {
 		t.Fatalf("Reconcile() third call error = %v", err)
+	}
+	if err := k8sClient.Get(ctx, stsKey, updated); err != nil {
+		t.Fatal(err)
+	}
+	if *updated.Spec.UpdateStrategy.RollingUpdate.Partition != 1 {
+		t.Fatal("unchanged template reset rollout progress")
 	}
 }
 
