@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -189,7 +190,7 @@ func TestRestoreTestDue(t *testing.T) {
 func TestSnapshotSummaryRequiresOwnedSuccessfulExecutor(t *testing.T) {
 	cluster := newTestClusterWithBackup("source", "test")
 	job := newBackupJobForCluster(cluster, "backup", time.Now())
-	good := api.BackupSnapshotSummary{ClusterID: "source-id", Version: "2.7.0", Size: 123, Digest: "sha256:" + strings.Repeat("a", 64)}
+	good := api.BackupSnapshotSummary{ClusterID: "source-id", Version: "2.7.0", Size: 9 * 1024 * 1024 * 1024, Digest: "sha256:" + strings.Repeat("a", 64)}
 	for _, tc := range []string{"valid", "foreign owner", "failed container", "malformed", "oversized"} {
 		t.Run(tc, func(t *testing.T) {
 			data, err := json.Marshal(good)
@@ -215,6 +216,33 @@ func TestSnapshotSummaryRequiresOwnedSuccessfulExecutor(t *testing.T) {
 			} else {
 				require.Nil(t, got)
 			}
+		})
+	}
+}
+
+func TestRestoreTestSelectedSnapshotBudget(t *testing.T) {
+	for _, budget := range []int64{0, 16 * 1024 * 1024 * 1024} {
+		t.Run(fmt.Sprint(budget), func(t *testing.T) {
+			cluster := newRestoreTestSource("source")
+			cluster.Status.Backup.LatestSnapshot.Size = 9 * 1024 * 1024 * 1024
+			cluster.Spec.Backup.RestoreTest.MaxSnapshotSizeBytes = budget
+			c := newTestClient(t, cluster)
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+			require.NoError(t, newBackupManager(c).reconcileRestoreTest(t.Context(), logr.Discard(), cluster, time.Now()))
+			children := &api.OpenBaoRestoreList{}
+			require.NoError(t, c.List(t.Context(), children))
+			if budget == 0 {
+				require.Empty(t, children.Items)
+				require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), cluster))
+				condition := meta.FindStatusCondition(cluster.Status.Backup.RestoreTest.Conditions, "Passed")
+				require.NotNil(t, condition)
+				require.Equal(t, "SnapshotTooLarge", condition.Reason)
+				require.Nil(t, cluster.Status.Backup.RestoreTest.Active)
+				return
+			}
+			require.Len(t, children.Items, 1)
+			require.Equal(t, budget, children.Items[0].Spec.Source.MaxSnapshotSizeBytes)
+			require.Equal(t, int64(9*1024*1024*1024), children.Items[0].Spec.Source.ExpectedSize)
 		})
 	}
 }

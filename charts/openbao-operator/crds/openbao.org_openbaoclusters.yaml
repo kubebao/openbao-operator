@@ -1386,6 +1386,14 @@ spec:
                         maximum: 10000
                         minimum: 1
                         type: integer
+                      maxSnapshotSizeBytes:
+                        default: 8589934592
+                        description: |-
+                          MaxSnapshotSizeBytes sets the snapshot and scratch-storage budget on each
+                          generated restore request. The default is 8 GiB.
+                        format: int64
+                        minimum: 1
+                        type: integer
                       namespace:
                         maxLength: 63
                         minLength: 1
@@ -6762,7 +6770,6 @@ spec:
                       size:
                         description: Size is the snapshot size in bytes.
                         format: int64
-                        maximum: 8589934592
                         minimum: 1
                         type: integer
                       version:

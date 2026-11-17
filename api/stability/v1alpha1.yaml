@@ -46,6 +46,8 @@ resources:
       - path: spec.backup.restoreTest
         classification: additive-unfrozen
         owner: backup
+      - path: spec.backup.restoreTest.maxSnapshotSizeBytes
+        omission: use the 8 GiB restore snapshot budget
       - path: status.backup.restoreTest
         classification: stable-automation
         owner: backup
@@ -500,6 +502,10 @@ resources:
         classification: additive-unfrozen
       - path: spec.source.expectedSize
         classification: additive-unfrozen
+      - path: spec.source.maxSnapshotSizeBytes
+        classification: additive-unfrozen
+        owner: restore
+        omission: use the 8 GiB restore snapshot budget
       - path: status.target
         classification: stable-automation
         owner: restore-status

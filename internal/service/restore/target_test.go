@@ -3,6 +3,7 @@ package restore
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +30,24 @@ import (
 
 const existingTarget = "preexisting"
 const existingDataPVC = "preexisting PVC"
+
+func TestInvalidSnapshotBudgetDoesNotProvisionTarget(t *testing.T) {
+	for _, budget := range []int64{-1, math.MaxInt64} {
+		c, request := freshTargetFixture(t)
+		request.Spec.Source.MaxSnapshotSizeBytes = budget
+		request.Status.Phase = api.RestorePhaseValidating
+		require.NoError(t, c.Update(t.Context(), request))
+		require.NoError(t, c.Status().Update(t.Context(), request))
+		_, err := (&Manager{client: c, reader: c}).handleValidating(t.Context(), logr.Discard(), request)
+		require.NoError(t, err)
+		stored := &api.OpenBaoRestore{}
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(request), stored))
+		require.Equal(t, api.RestorePhaseFailed, stored.Status.Phase)
+		require.Contains(t, stored.Status.Message, "Invalid restore snapshot budget")
+		target := &api.OpenBaoCluster{}
+		require.True(t, apierrors.IsNotFound(c.Get(t.Context(), client.ObjectKey{Namespace: request.Namespace, Name: request.Spec.Cluster}, target)))
+	}
+}
 
 func TestFreshTargetServiceIPFamilies(t *testing.T) {
 	for _, policy := range []corev1.IPFamilyPolicy{"", corev1.IPFamilyPolicySingleStack, corev1.IPFamilyPolicyRequireDualStack} {

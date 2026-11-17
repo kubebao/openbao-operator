@@ -18,6 +18,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/observability"
 	platformsemver "github.com/kubebao/openbao-operator/internal/platform/semver"
 	"github.com/kubebao/openbao-operator/internal/port/adminops"
+	portrestore "github.com/kubebao/openbao-operator/internal/port/restore"
 )
 
 const restoreTestPoll = 30 * time.Second
@@ -77,6 +78,10 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 	if backup.LastBackupName == "" || snapshot == nil || snapshot.ClusterID == "" {
 		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "NoCompatibleSnapshot", "Waiting for a successful backup with a compatible source identity and version observation")
 	}
+	budget, reason, err := restoreTestSnapshotBudget(config.MaxSnapshotSizeBytes, snapshot.Size)
+	if err != nil {
+		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, reason, err.Error())
+	}
 	template, err := restoreTestTemplate(config.ClusterTemplate, snapshot.Version)
 	if err != nil {
 		return m.restoreTestCondition(ctx, cluster, expected, metav1.ConditionFalse, "NoCompatibleSnapshot", err.Error())
@@ -98,12 +103,13 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 			CleanupAfterSeconds: config.CleanupAfterSeconds,
 			ServiceAccountName:  config.ServiceAccountName,
 			Source: api.RestoreSource{
-				Key:               backup.LastBackupName,
-				Target:            *cluster.Spec.Backup.Target.DeepCopy(),
-				ExpectedClusterID: snapshot.ClusterID,
-				ExpectedVersion:   snapshot.Version,
-				ExpectedSize:      snapshot.Size,
-				ExpectedDigest:    snapshot.Digest,
+				MaxSnapshotSizeBytes: budget.MaxBytes,
+				Key:                  backup.LastBackupName,
+				Target:               *cluster.Spec.Backup.Target.DeepCopy(),
+				ExpectedClusterID:    snapshot.ClusterID,
+				ExpectedVersion:      snapshot.Version,
+				ExpectedSize:         snapshot.Size,
+				ExpectedDigest:       snapshot.Digest,
 			},
 		},
 	}
@@ -139,6 +145,17 @@ func (m *Manager) reconcileRestoreTest(ctx context.Context, logger logr.Logger, 
 	}
 	logger.Info("Created disposable restore test", "namespace", child.Namespace, "restore", child.Name)
 	return nil
+}
+
+func restoreTestSnapshotBudget(maxBytes, snapshotSize int64) (portrestore.SnapshotBudget, string, error) {
+	budget, err := portrestore.ResolveSnapshotBudget(maxBytes)
+	if err != nil {
+		return budget, "InvalidSnapshotBudget", err
+	}
+	if snapshotSize > budget.MaxBytes {
+		return budget, "SnapshotTooLarge", fmt.Errorf("the latest snapshot exceeds the configured restore-test size budget")
+	}
+	return budget, "", nil
 }
 
 func restoreTestTemplate(config api.RestoreClusterTemplate, sourceVersion string) (*api.RestoreClusterTemplate, error) {
