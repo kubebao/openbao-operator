@@ -18,6 +18,7 @@ import (
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 )
 
 func TestVoterTemplateCorrectionRealAPI(t *testing.T) {
@@ -87,6 +88,11 @@ func TestVoterTemplateCorrectionRealAPI(t *testing.T) {
 			require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "corrected-template", spec))
 			require.NoError(t, live.Get(ctx, key, sts))
 			require.Equal(t, appsv1.OnDeleteStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type, "SSA preserves the independent repair hold")
+			cluster.Spec.Replicas, spec.Replicas = 5, 5
+			cluster.Generation++
+			require.ErrorIs(t, m.EnsureStatefulSet(ctx, logger, cluster, "corrected-template", spec), portworkload.ErrVoterTemplateRolloutPending)
+			require.NoError(t, live.Get(ctx, key, sts))
+			require.EqualValues(t, 3, *sts.Spec.Replicas, "a scale-only request waits while repair advances with the published count")
 			sts.Status.ObservedGeneration, sts.Status.UpdateRevision = sts.Generation, correctedVoterRevision
 			require.NoError(t, live.Status().Update(ctx, sts))
 			_, err = m.ReconcileVoterRollout(ctx, logger, cluster)
