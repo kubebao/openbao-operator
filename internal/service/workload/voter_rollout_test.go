@@ -185,8 +185,8 @@ func TestPrepareVoterTemplatePreservesIdleBlueGreenTransition(t *testing.T) {
 	require.NoError(t, m.client.Update(t.Context(), sts))
 	desired := sts.DeepCopy()
 	spec := StatefulSetSpec{Pool: constants.LabelValueOpenBaoWorkloadPoolVoter}
-	require.NoError(t, m.reconcileStatefulSetUpdateStrategy(t.Context(), logr.Discard(), cluster, spec.Pool, sts))
 	require.NoError(t, m.prepareVoterTemplateRollout(t.Context(), cluster, spec, sts, desired))
+	require.NoError(t, m.reconcileStatefulSetUpdateStrategy(t.Context(), logr.Discard(), cluster, spec.Pool, sts))
 	require.Contains(t, desired.Annotations[constants.AnnotationVoterRolloutTemplate], deferredVoterTemplate)
 	require.NoError(t, m.client.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
 	sts.Annotations[constants.AnnotationVoterRolloutTemplate] = desired.Annotations[constants.AnnotationVoterRolloutTemplate]

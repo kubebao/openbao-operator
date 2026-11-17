@@ -119,11 +119,15 @@ func checkVoterRollout(ctx context.Context, logger logr.Logger, c client.Client,
 		}
 		return fmt.Errorf("%w: awaiting a fresh Autopilot observation for the current Pods", portworkload.ErrVoterRolloutWaiting)
 	}
-	for pod, sample := range current.Followers {
-		before, found := previous.Followers[pod]
-		if !found || !hasFreshVoterContact(before, sample) {
-			return fmt.Errorf("%w: Autopilot has not refreshed voter %s observation", portworkload.ErrVoterRolloutWaiting, pod)
+	contactBoundsChanged, waiting := updateVoterContactBounds(&previous, current.Followers)
+	if waiting != nil {
+		if contactBoundsChanged {
+			// Keep the original lifetime, leader index and Pod identities.
+			if err := writeVoterObservation(ctx, c, live, previous); err != nil {
+				return err
+			}
 		}
+		return waiting
 	}
 	for pod, index := range health.Indices {
 		if index < previous.LeaderIndex {
@@ -188,6 +192,30 @@ func hasFreshVoterContact(before, current voterFollowerObservation) bool {
 	oldAge, oldErr := time.ParseDuration(before.LastContact)
 	newAge, newErr := time.ParseDuration(current.LastContact)
 	return oldErr == nil && newErr == nil && newAge >= 0 && newAge < oldAge
+}
+
+// Keep the greatest observed contact age so a later decrease proves a heartbeat.
+func updateVoterContactBounds(previous *voterRolloutObservation, current map[string]voterFollowerObservation) (bool, error) {
+	var waiting error
+	contactBoundsChanged := false
+	for pod, sample := range current {
+		before, found := previous.Followers[pod]
+		if !found || !hasFreshVoterContact(before, sample) {
+			if waiting == nil {
+				waiting = fmt.Errorf("%w: Autopilot has not refreshed voter %s observation", portworkload.ErrVoterRolloutWaiting, pod)
+			}
+			if found {
+				oldAge, oldErr := time.ParseDuration(before.LastContact)
+				age, ageErr := time.ParseDuration(sample.LastContact)
+				if oldErr == nil && ageErr == nil && oldAge >= 0 && age > oldAge {
+					before.LastContact = sample.LastContact
+					previous.Followers[pod] = before
+					contactBoundsChanged = true
+				}
+			}
+		}
+	}
+	return contactBoundsChanged, waiting
 }
 
 func rolloutDigest(value any) string {
