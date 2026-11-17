@@ -99,7 +99,17 @@ func TestVoterTemplateRolloutRealAPI(t *testing.T) {
 	require.NoError(t, live.Get(ctx, key, sts))
 	require.Equal(t, observation, sts.Annotations[constants.AnnotationVoterRolloutObservation], "SSA must retain the independent health observation")
 	require.EqualValues(t, 2, *sts.Spec.UpdateStrategy.RollingUpdate.Partition, "SSA must retain an in-flight partition")
-	peer.LastContact = freshVoterContact
+	peer.LastContact = "4ms"
+	observer.state.Servers["bao-2"] = peer
+	_, err = m.ReconcileVoterRollout(ctx, logger, cluster)
+	require.NoError(t, err)
+	require.NoError(t, live.Get(ctx, key, sts))
+	require.EqualValues(t, 2, *sts.Spec.UpdateStrategy.RollingUpdate.Partition, "aging alone must retain the partition")
+	observation = sts.Annotations[constants.AnnotationVoterRolloutObservation]
+	require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "fixture", spec))
+	require.NoError(t, live.Get(ctx, key, sts))
+	require.Equal(t, observation, sts.Annotations[constants.AnnotationVoterRolloutObservation], "SSA retains the amended contact observation")
+	peer.LastContact = "2ms"
 	observer.state.Servers["bao-2"] = peer
 	_, err = NewManager(live, testScheme, "").WithRaftMembershipReader(observer).ReconcileVoterRollout(ctx, logger, cluster)
 	require.NoError(t, err)
