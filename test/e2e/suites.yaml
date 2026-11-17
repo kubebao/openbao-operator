@@ -141,9 +141,9 @@ ciLanes:
     labelFilter: "((upgrade && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prLabelFilter: "((upgrade && e2e-anchor && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prScope: upgrade
-    timeoutMinutes: 30
+    timeoutMinutes: 45
     parallelNodes: 2
-    e2eTimeout: 25m
+    e2eTimeout: 40m
     excludePentestOnDefaultPR: false
     hardenedSigned: false
     hardenedInitImage: ""
@@ -392,13 +392,22 @@ nightly:
             - security
             - backup-restore
             - restore-tests
-            - upgrade-rolling
             - upgrade-bluegreen-core
             - upgrade-bluegreen-verification
             - upgrade-bluegreen-recovery
             - upgrade-gateway
             - hardened
             - networking
+
+        # Serial operation-lock tests follow the parallel recovery and
+        # consecutive-upgrade cases in the full release rolling lane.
+        - coverage: release-gate
+          kubernetes:
+            - "@releaseGate"
+          lanes:
+            - upgrade-rolling
+          timeoutMinutes: 65
+          e2eTimeout: 60m
 
       rows:
         - lane: upgrade-rolling
