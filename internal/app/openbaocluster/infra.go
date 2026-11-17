@@ -17,11 +17,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
 	recon "github.com/kubebao/openbao-operator/internal/platform/reconcile"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	"github.com/kubebao/openbao-operator/internal/port/imageverify"
 	initmanagerport "github.com/kubebao/openbao-operator/internal/port/initmanager"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 	bootstrapmanager "github.com/kubebao/openbao-operator/internal/service/bootstrap"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 	workloadsvc "github.com/kubebao/openbao-operator/internal/service/workload"
@@ -215,7 +217,7 @@ func (r *infraReconciler) Reconcile(ctx context.Context, logger logr.Logger, clu
 		return recon.Result{}, r.mapManagerReconcileError(err)
 	}
 	if err := r.newWorkloadManager().Reconcile(ctx, logger, cluster, configContent, spec); err != nil {
-		return recon.Result{}, r.mapManagerReconcileError(err)
+		return r.handleVoterWorkloadError(logger, cluster, err)
 	}
 	if readSpec.SkipReconciliation {
 		shouldRequeue, err := r.reconcileDisabledReadReplicas(ctx, logger, cluster, readSpec, readCurrentSTS, readCurrentSTSFound)
@@ -320,4 +322,16 @@ func selectorString(labels map[string]string) string {
 		parts = append(parts, fmt.Sprintf("%s=%s", key, labels[key]))
 	}
 	return strings.Join(parts, ",")
+}
+
+func (r *infraReconciler) handleVoterWorkloadError(logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, err error) (recon.Result, error) {
+	if errors.Is(err, portworkload.ErrVoterTemplateRolloutPending) {
+		logger.Info("Deferring the new voter template until the current rollout finishes")
+		if r.deps.Events.Recorder != nil {
+			r.deps.Events.Recorder.Eventf(cluster, nil, "Normal", constants.ReasonVoterRolloutWaiting,
+				"ReconcileInfrastructure", "%s", err.Error())
+		}
+		return recon.Result{}, nil // Continue init, unseal and the existing rollout.
+	}
+	return recon.Result{}, r.mapManagerReconcileError(err)
 }

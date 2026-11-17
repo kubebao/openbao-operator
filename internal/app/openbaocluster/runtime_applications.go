@@ -15,6 +15,7 @@ import (
 	initmanagerport "github.com/kubebao/openbao-operator/internal/port/initmanager"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	"github.com/kubebao/openbao-operator/internal/service/configuration"
+	workloadsvc "github.com/kubebao/openbao-operator/internal/service/workload"
 )
 
 // RuntimeKubernetesConfig groups Kubernetes collaborators used to construct
@@ -154,6 +155,10 @@ func NewRuntimeApplications(config RuntimeApplicationsConfig) *Applications {
 		config.Kubernetes.Recorder,
 		constants.RequeueShort,
 	)
+	workloadReconcilers = append(workloadReconcilers, &voterRolloutReconciler{
+		manager: workloadsvc.NewManager(config.Kubernetes.Client, config.Kubernetes.Scheme, config.Kubernetes.Platform).
+			WithReader(config.Kubernetes.APIReader).WithRaftMembershipReader(config.OpenBao.Raft).WithRecorder(config.Kubernetes.Recorder),
+	})
 
 	return NewApplications(ApplicationsConfig{
 		Client:              config.Kubernetes.Client,
@@ -166,6 +171,7 @@ func NewRuntimeApplications(config RuntimeApplicationsConfig) *Applications {
 			Scheme:                config.Kubernetes.Scheme,
 			Recorder:              config.Kubernetes.Recorder,
 			SmartClientConfig:     config.OpenBao.SmartClientConfig,
+			RaftMembership:        config.OpenBao.Raft,
 			ImageVerifier:         config.ImageVerification.ImageVerifier,
 			OperatorImageVerifier: config.ImageVerification.OperatorImageVerifier,
 			RequeueShort:          constants.RequeueShort,

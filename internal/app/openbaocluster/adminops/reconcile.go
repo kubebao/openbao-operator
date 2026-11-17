@@ -34,6 +34,7 @@ type Dependencies struct {
 	Scheme                *runtime.Scheme
 	Recorder              events.EventRecorder
 	SmartClientConfig     portopenbao.ClientConfig
+	RaftMembership        portopenbao.RaftMembershipReader
 	ImageVerifier         imageverify.Verifier
 	OperatorImageVerifier imageverify.Verifier
 	RequeueShort          time.Duration
@@ -240,7 +241,7 @@ func ensureAdminOpsStatus(cluster *openbaov1alpha1.OpenBaoCluster) {
 }
 
 func buildReconcilers(deps Dependencies) reconcilerPlan {
-	workloadMgr := workloadmanager.NewManager(deps.Client, deps.Scheme, deps.Platform).WithReader(deps.APIReader)
+	workloadMgr := workloadmanager.NewManager(deps.Client, deps.Scheme, deps.Platform).WithReader(deps.APIReader).WithRaftMembershipReader(deps.RaftMembership)
 	backupRuntime := backupmanager.NewUpgradeStrategyRuntime(deps.Client, deps.Scheme)
 	strategyReader := deps.APIReader
 	if strategyReader == nil {
@@ -270,7 +271,7 @@ func buildReconcilers(deps Dependencies) reconcilerPlan {
 				deps.OperatorImageVerifier,
 				deps.Platform,
 				deps.Recorder,
-			).WithReader(deps.APIReader).WithAdminOpsStatusMutator(adminOpsMutator),
+			).WithReader(deps.APIReader).WithAdminOpsStatusMutator(adminOpsMutator).WithVoterRolloutGuard(workloadMgr),
 		},
 		backupReconciler: reconcilerWithoutRequests{inner: backupmanager.NewManager(
 			deps.Client,

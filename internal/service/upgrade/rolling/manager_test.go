@@ -1663,10 +1663,7 @@ func rollingTestClientFactory() raftops.OpenBaoClientFactory {
 }
 
 func readyRollingTestPod(cluster *openbaov1alpha1.OpenBaoCluster, ordinal int, leader bool) *corev1.Pod {
-	active := "false"
-	if leader {
-		active = "true"
-	}
+	active := strconv.FormatBool(leader)
 
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

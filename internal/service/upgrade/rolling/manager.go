@@ -16,6 +16,7 @@ import (
 	portbackup "github.com/kubebao/openbao-operator/internal/port/backup"
 	"github.com/kubebao/openbao-operator/internal/port/imageverify"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade/raftops"
 )
@@ -36,6 +37,7 @@ type Manager struct {
 	clientConfig          portopenbao.ClientConfig
 	operatorImageVerifier imageverify.Verifier
 	adminOpsMutator       adminops.StatusMutator
+	voterRolloutGuard     portworkload.VoterRolloutGuard
 	Platform              string
 }
 
@@ -71,6 +73,12 @@ func (m *Manager) WithReader(reader client.Reader) *Manager {
 	if reader != nil {
 		m.reader = reader
 	}
+	return m
+}
+
+// WithVoterRolloutGuard configures the shared Raft catch-up guard.
+func (m *Manager) WithVoterRolloutGuard(guard portworkload.VoterRolloutGuard) *Manager {
+	m.voterRolloutGuard = guard
 	return m
 }
 

@@ -42,7 +42,7 @@ func TestTargetPodAlreadyRolledOutRequiresObservedTemplate(t *testing.T) {
 			require.NoError(t, corev1.AddToScheme(scheme))
 			cluster := &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "ns", Generation: 2}, Spec: openbaov1alpha1.OpenBaoClusterSpec{Image: "openbao:new"}}
 			sts := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name, Namespace: cluster.Namespace, Generation: 7, Annotations: map[string]string{constants.AnnotationClusterGeneration: tc.sourceGeneration}},
-				Spec:   appsv1.StatefulSetSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: constants.ContainerBao, Image: "openbao:new"}}}}},
+				Spec:   appsv1.StatefulSetSpec{Replicas: ptr.To(int32(3)), Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: constants.ContainerBao, Image: "openbao:new"}}}}},
 				Status: appsv1.StatefulSetStatus{ObservedGeneration: tc.observed, UpdateRevision: "same-revision"}}
 			if tc.templateImage != "" {
 				sts.Spec.Template.Spec.Containers[0].Image = tc.templateImage
@@ -57,7 +57,7 @@ func TestTargetPodAlreadyRolledOutRequiresObservedTemplate(t *testing.T) {
 				pod.Finalizers = []string{"test.example/hold"}
 			}
 			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sts, pod).Build()
-			m := &Manager{client: c, reader: c}
+			m := &Manager{client: c, reader: c, voterRolloutGuard: renderingRetryGuard{}}
 			done, err := m.targetPodAlreadyRolledOut(t.Context(), logr.Discard(), cluster, rolloutTargetPod{Name: pod.Name})
 			require.NoError(t, err)
 			require.Equal(t, tc.want, done)
@@ -81,9 +81,10 @@ func TestSetStatefulSetPartitionWaitsForDesiredTemplate(t *testing.T) {
 			scheme := runtime.NewScheme()
 			require.NoError(t, appsv1.AddToScheme(scheme))
 			cluster := &openbaov1alpha1.OpenBaoCluster{ObjectMeta: metav1.ObjectMeta{Name: "example", Namespace: "ns", Generation: 2}}
-			sts := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name, Namespace: cluster.Namespace, Generation: 7, Annotations: map[string]string{constants.AnnotationClusterGeneration: tc.generation}}, Spec: appsv1.StatefulSetSpec{UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType, RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{Partition: ptr.To(int32(3))}}}, Status: appsv1.StatefulSetStatus{ObservedGeneration: tc.observed}}
+			sts := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name, Namespace: cluster.Namespace, Generation: 7, Annotations: map[string]string{constants.AnnotationClusterGeneration: tc.generation}}, Spec: appsv1.StatefulSetSpec{Replicas: ptr.To(int32(3)), UpdateStrategy: appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType, RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{Partition: ptr.To(int32(3))}}}, Status: appsv1.StatefulSetStatus{ObservedGeneration: tc.observed}}
+			require.NoError(t, corev1.AddToScheme(scheme))
 			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sts).Build()
-			m := &Manager{client: c, reader: c}
+			m := &Manager{client: c, reader: c, voterRolloutGuard: renderingRetryGuard{}}
 			err := m.setStatefulSetPartition(t.Context(), cluster, 2)
 			if tc.ready {
 				require.NoError(t, err)

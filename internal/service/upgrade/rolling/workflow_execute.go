@@ -26,8 +26,8 @@ func (m *Manager) reconcileUpgradeExecution(
 	completed, err := m.performPodByPodUpgrade(ctx, logger, cluster, metrics)
 	if err != nil {
 		if errors.Is(err, errPartitionRetry) {
-			logger.Info("Retrying rolling upgrade after StatefulSet partition conflict or unobserved template", "error", err, "retryAfter", constants.RequeueShort)
-			m.emitWarningEvent(cluster, upgrade.ReasonRollingPartitionRetry, "Rolling upgrade partition update will retry in %s", constants.RequeueShort)
+			logger.Info("Holding rolling upgrade until partition and Raft checks pass", "reason", err.Error(), "retryAfter", constants.RequeueShort)
+			m.emitWarningEvent(cluster, upgrade.ReasonRollingPartitionRetry, "Holding rolling upgrade: %s", err.Error())
 			return recon.Result{RequeueAfter: constants.RequeueShort}, nil
 		}
 		return m.handleUpgradeExecutionFailure(ctx, logger, cluster, metrics, strategy, err)
