@@ -40,7 +40,7 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	}
 	fingerprint := fmt.Sprintf("%x", sha256.Sum256(data))
 	previous := existing.Annotations[constants.AnnotationVoterRolloutTemplate]
-	if previous == fingerprint || previous == deferredVoterTemplate+fingerprint {
+	if (previous == fingerprint || previous == deferredVoterTemplate+fingerprint) && voterTemplateScaleAllowed(existing, cluster.Spec.Replicas) {
 		desired.Annotations[constants.AnnotationVoterRolloutTemplate] = previous
 		return nil
 	}
@@ -93,6 +93,13 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	}
 	desired.Annotations[constants.AnnotationVoterRolloutTemplate] = fingerprint
 	return nil
+}
+
+// A matching template does not release a replica change during an active
+// rollout or repair. A settled workload can scale without locking a new template.
+func voterTemplateScaleAllowed(existing *appsv1.StatefulSet, replicas int32) bool {
+	return *existing.Spec.Replicas == replicas ||
+		(existing.Annotations[constants.AnnotationVoterTemplateRepair] == "" && existing.Status.CurrentRevision == existing.Status.UpdateRevision)
 }
 
 func isIdlePromotedVoterTemplate(cluster *openbaov1alpha1.OpenBaoCluster, existing, desired *appsv1.StatefulSet) bool {
