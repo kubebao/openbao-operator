@@ -40,6 +40,18 @@ func (m *Manager) setStatefulSetPartition(ctx context.Context, cluster *openbaov
 		return fmt.Errorf("%w: %w", errPartitionRetry, operatorerrors.WrapTransientKubernetesAPI(
 			fmt.Errorf("StatefulSet template has not observed cluster generation %d", cluster.Generation)))
 	}
+	if partition < cluster.Spec.Replicas && cluster.Spec.Replicas > 1 {
+		target := fmt.Sprintf("%s-%d", sts.Name, partition)
+		pod := &corev1.Pod{}
+		getErr := m.jobReader().Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: target}, pod)
+		alreadyUpdated := getErr == nil && pod.DeletionTimestamp == nil && isPodReady(pod) &&
+			sts.Status.UpdateRevision != "" && pod.Labels[appsv1.StatefulSetRevisionLabel] == sts.Status.UpdateRevision
+		if !alreadyUpdated {
+			if err := m.checkRaftVoterRollout(ctx, logr.FromContextOrDiscard(ctx), cluster, target, true); err != nil {
+				return err
+			}
+		}
+	}
 	newSts := sts.DeepCopy()
 	newSts.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
 	newSts.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateStatefulSetStrategy{

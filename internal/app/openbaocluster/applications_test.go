@@ -118,7 +118,7 @@ func TestNewRuntimeApplicationsWiresExplicitRaftRuntime(t *testing.T) {
 		},
 	})
 
-	require.Len(t, applications.config.WorkloadReconcilers, 7)
+	require.Len(t, applications.config.WorkloadReconcilers, 8)
 	_, cleanupFirst := applications.config.WorkloadReconcilers[0].(*terminalPodCleanupReconciler)
 	require.True(t, cleanupFirst)
 	infra, ok := applications.config.WorkloadReconcilers[2].(*infraReconciler)
@@ -128,6 +128,9 @@ func TestNewRuntimeApplicationsWiresExplicitRaftRuntime(t *testing.T) {
 	autopilot, ok := applications.config.WorkloadReconcilers[6].(*autopilotConfigReconciler)
 	require.True(t, ok)
 	assert.Same(t, raftRuntime, autopilot.autopilotRuntime)
+	rollout, ok := applications.config.WorkloadReconcilers[7].(*voterRolloutReconciler)
+	require.True(t, ok, "voter advancement must run after initialization and Autopilot repair")
+	assert.NotNil(t, rollout.manager)
 	assert.Same(t, raftRuntime, applications.config.StatusDependencies.MembershipRuntime)
 	assert.True(t, applications.InitializationConfigured())
 }

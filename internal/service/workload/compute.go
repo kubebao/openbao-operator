@@ -129,7 +129,7 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 
 	existingSTS := &appsv1.StatefulSet{}
 	existingFound := true
-	if err := m.client.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: name}, existingSTS); err != nil {
+	if err := m.reader.Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: name}, existingSTS); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get StatefulSet %s/%s: %w", cluster.Namespace, name, err)
 		}
@@ -142,16 +142,6 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 		if err := m.GuardAzureWorkloadIdentityStatefulSet(ctx, logger, cluster, existingSTS, spec); err != nil {
 			return err
 		}
-	}
-
-	if err := m.ensureConfigMapWithName(ctx, cluster, configMapNameForSpec(cluster, spec), configContent); err != nil {
-		return fmt.Errorf("failed to ensure config ConfigMap for StatefulSet %s/%s: %w", cluster.Namespace, name, err)
-	}
-
-	// Before creating/updating the StatefulSet, verify all prerequisites exist
-	// This is important for External TLS mode where secrets might be deleted/recreated
-	if err := m.checkStatefulSetPrerequisites(ctx, cluster, spec); err != nil {
-		return err
 	}
 
 	staticUnsealSecret, err := m.staticUnsealSecretName(ctx, logger, cluster)
@@ -198,9 +188,18 @@ func (m *Manager) EnsureStatefulSet(ctx context.Context, logger logr.Logger, clu
 
 		// Apply the workload-owned strategy change before the template. A failed
 		// partition lock must leave the existing template in place.
+		if err := m.prepareVoterTemplateRollout(ctx, cluster, spec, existingSTS, desired); err != nil {
+			return err
+		}
 		if err := m.reconcileStatefulSetUpdateStrategy(ctx, logger, cluster, spec.Pool, existingSTS); err != nil {
 			return err
 		}
+	}
+	if err := m.ensureConfigMapWithName(ctx, cluster, configMapNameForSpec(cluster, spec), configContent); err != nil {
+		return fmt.Errorf("failed to ensure config ConfigMap for StatefulSet %s/%s: %w", cluster.Namespace, name, err)
+	}
+	if err := m.checkStatefulSetPrerequisites(ctx, cluster, spec); err != nil {
+		return err
 	}
 
 	// Set the desired replica count (SSA will handle create/update)
