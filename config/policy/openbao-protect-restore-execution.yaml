@@ -2,7 +2,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:173754c373a6294c06b91ca6c9d307e1c0d8411020a5b3a6f4426fa3cc916add
+    openbao.org/admission-policy-fingerprint: sha256:32757599498b99d53ca868f87cfe2b359ee7324b148cd3906a2f90379cc3c8e7
   name: openbao-protect-restore-execution
 spec:
   failurePolicy: Fail
