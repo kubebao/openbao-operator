@@ -460,6 +460,28 @@ spec:
                                   Operator-managed labels take precedence if the same key is specified here.
                                 type: object
                             type: object
+                          probes:
+                            description: Probes configures health probes for the restored
+                              OpenBao container.
+                            properties:
+                              startup:
+                                description: Startup extends the time allowed for
+                                  OpenBao to start.
+                                properties:
+                                  failureThreshold:
+                                    default: 60
+                                    description: |-
+                                      FailureThreshold is the number of consecutive failures allowed before the
+                                      kubelet restarts the container. The probe runs every 5 seconds after an
+                                      initial 10-second delay. The default is 60 failures, approximately 5 minutes;
+                                      the maximum is 720 failures, approximately 1 hour. Only longer budgets are
+                                      supported. Changing this value updates the Pod template and can restart Pods.
+                                    format: int32
+                                    maximum: 720
+                                    minimum: 60
+                                    type: integer
+                                type: object
+                            type: object
                           resources:
                             description: ResourceRequirements describes the compute
                               resource requirements.
@@ -3285,6 +3307,27 @@ spec:
                     description: |-
                       Labels are merged into the generated OpenBao Pod template labels.
                       Operator-managed labels take precedence if the same key is specified here.
+                    type: object
+                type: object
+              probes:
+                description: Probes configures health probes for voter and read-replica
+                  containers.
+                properties:
+                  startup:
+                    description: Startup extends the time allowed for OpenBao to start.
+                    properties:
+                      failureThreshold:
+                        default: 60
+                        description: |-
+                          FailureThreshold is the number of consecutive failures allowed before the
+                          kubelet restarts the container. The probe runs every 5 seconds after an
+                          initial 10-second delay. The default is 60 failures, approximately 5 minutes;
+                          the maximum is 720 failures, approximately 1 hour. Only longer budgets are
+                          supported. Changing this value updates the Pod template and can restart Pods.
+                        format: int32
+                        maximum: 720
+                        minimum: 60
+                        type: integer
                     type: object
                 type: object
               profile:
@@ -7926,6 +7969,28 @@ spec:
                           Operator-managed labels take precedence if the same key is specified here.
                         type: object
                     type: object
+                  probes:
+                    description: Probes configures health probes for the restored
+                      OpenBao container.
+                    properties:
+                      startup:
+                        description: Startup extends the time allowed for OpenBao
+                          to start.
+                        properties:
+                          failureThreshold:
+                            default: 60
+                            description: |-
+                              FailureThreshold is the number of consecutive failures allowed before the
+                              kubelet restarts the container. The probe runs every 5 seconds after an
+                              initial 10-second delay. The default is 60 failures, approximately 5 minutes;
+                              the maximum is 720 failures, approximately 1 hour. Only longer budgets are
+                              supported. Changing this value updates the Pod template and can restart Pods.
+                            format: int32
+                            maximum: 720
+                            minimum: 60
+                            type: integer
+                        type: object
+                    type: object
                   resources:
                     description: ResourceRequirements describes the compute resource
                       requirements.
@@ -10454,10 +10519,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261116-7b9bbf8b1a2a
+          value: nightly-20261117-11a16603ef2a
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:f0477e8a610c1ba298a95ff7f1400b219d7e83225c4527b556f6b3ebbea2ebb9
+        image: ghcr.io/kubebao/openbao-operator@sha256:7a9b18e78ea6fa38bd0f39241ef451ad087291c7414545baf8c549e7ceac112d
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10578,8 +10643,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261116-7b9bbf8b1a2a
-        image: ghcr.io/kubebao/openbao-operator@sha256:f0477e8a610c1ba298a95ff7f1400b219d7e83225c4527b556f6b3ebbea2ebb9
+          value: nightly-20261117-11a16603ef2a
+        image: ghcr.io/kubebao/openbao-operator@sha256:7a9b18e78ea6fa38bd0f39241ef451ad087291c7414545baf8c549e7ceac112d
         livenessProbe:
           httpGet:
             path: /healthz
