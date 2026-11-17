@@ -58,10 +58,13 @@ Before upgrading a custom controller identity, grant authenticated read access t
 self-init OIDC controller policy already provides these reads. The operator holds
 voter rollouts if authenticated Raft observations are unavailable.
 
-Upgrade the matching chart, admission policies, RBAC, operator, and helper defaults
-during a maintenance window. Verify quorum, Pod readiness, and client behavior.
-The fix does not change the CRD schema or the separate OpenBao server image. Keep
-the startup budget configured for databases that need longer to open.
+Apply the 0.6.3 CRDs with server-side apply before upgrading the matching chart,
+admission policies, RBAC, operator, and helper defaults during a maintenance window.
+The CRDs add snapshot size budgets for restore requests and scheduled restore tests.
+The default remains 8 GiB; see [Restore larger snapshots](../../operate/restore/#restore-larger-snapshots)
+before selecting a larger budget. Verify quorum, Pod readiness, and client behavior.
+Keep the startup budget configured for databases that need longer to open.
+Upgrade the separate OpenBao server image only when you intend to change its version.
 
 See [OpenBao Operator 0.6.3](../../../releases/0.6.3/) for release status and
 [Raft catch-up checks](../../operate/upgrades/#wait-for-raft-catch-up-between-voter-replacements)
