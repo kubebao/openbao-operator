@@ -108,6 +108,7 @@ func TestVoterTemplateRolloutRealAPI(t *testing.T) {
 
 	// Finish the current rollout before testing another desired template.
 	sts.Status.CurrentRevision = sts.Status.UpdateRevision
+	sts.Status.ObservedGeneration = sts.Generation
 	require.NoError(t, live.Status().Update(ctx, sts))
 
 	// A failed lock must prevent the new template from reaching the API server.
