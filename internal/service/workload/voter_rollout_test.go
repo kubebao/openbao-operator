@@ -24,7 +24,7 @@ import (
 
 const (
 	rolloutNewRevision = "new"
-	freshVoterContact  = "2ms"
+	freshVoterContact  = "500us"
 )
 
 type voterMembershipStub struct {

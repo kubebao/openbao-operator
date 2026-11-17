@@ -504,7 +504,7 @@ func TestPerformPodByPodUpgrade_ResumesWhenTargetAlreadyRolledOut(t *testing.T) 
 	}
 	for _, name := range []string{"bao-1", "bao-2"} {
 		peer := observer.state.Servers[name]
-		peer.LastContact = "2ms"
+		peer.LastContact = "500us"
 		observer.state.Servers[name] = peer
 	}
 	completed, err = m.performPodByPodUpgrade(t.Context(), logr.Discard(), cluster, metrics)

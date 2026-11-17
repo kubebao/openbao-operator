@@ -14,6 +14,8 @@ const (
 	AnnotationVoterRolloutTemplate = "openbao.org/voter-rollout-template"
 	// AnnotationVoterRolloutObservation binds a Raft catch-up observation to the current Pods.
 	AnnotationVoterRolloutObservation = "openbao.org/voter-rollout-observation"
+	// AnnotationVoterTemplateRepair holds an ordinary template correction under OnDelete.
+	AnnotationVoterTemplateRepair = "openbao.org/voter-template-repair"
 	// AnnotationVoterRetryHold freezes automatic replacement while rolling retry repairs voters.
 	AnnotationVoterRetryHold = "openbao.org/voter-retry-hold"
 	// AnnotationVoterRetryReset records the Pod identities selected for one retry.

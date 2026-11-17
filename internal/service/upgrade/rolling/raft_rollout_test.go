@@ -28,7 +28,7 @@ import (
 const (
 	oldRaftRevision      = "old"
 	updatedRaftRevision  = "new"
-	refreshedRaftContact = "2ms"
+	refreshedRaftContact = "500us"
 )
 
 type rollingMembershipStub struct {

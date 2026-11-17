@@ -137,7 +137,7 @@ func TestWaitForFinalizationConverged_SucceedsWhenStatefulSetPodsAndHealthConver
 	}
 	for _, name := range []string{"bao-1", "bao-2"} {
 		peer := observer.state.Servers[name]
-		peer.LastContact = "2ms"
+		peer.LastContact = "500us"
 		observer.state.Servers[name] = peer
 	}
 	converged, err = m.waitForFinalizationConverged(t.Context(), logr.Discard(), cluster)

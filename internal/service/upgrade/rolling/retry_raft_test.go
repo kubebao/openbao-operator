@@ -78,7 +78,7 @@ func TestRaftRetryDoesNotResetReplacementAfterLostAcknowledgement(t *testing.T) 
 	require.Error(t, restarted.resetRolloutPodsForRetry(t.Context(), logr.Discard(), cluster))
 	for _, name := range []string{"bao-1", "bao-2"} {
 		peer := observer.state.Servers[name]
-		peer.LastContact = "3ms"
+		peer.LastContact = "250us"
 		observer.state.Servers[name] = peer
 	}
 	require.NoError(t, restarted.resetRolloutPodsForRetry(t.Context(), logr.Discard(), cluster))
@@ -126,7 +126,7 @@ func TestRaftRetryRepairsFailedTemplateOneVoterAtATime(t *testing.T) {
 	peer.Healthy, peer.LastIndex, peer.LastContact = true, 2000, "3ms"
 	observer.state.Servers["bao-2"] = peer
 	require.Error(t, check())
-	peer.LastContact = "4ms"
+	peer.LastContact = "2ms"
 	observer.state.Servers["bao-2"] = peer
 	require.Error(t, check(), "the last remaining repair still needs another reconcile")
 	require.True(t, apierrors.IsNotFound(m.client.Get(t.Context(), client.ObjectKeyFromObject(old["bao-1"]), &corev1.Pod{})))
