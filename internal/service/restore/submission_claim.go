@@ -8,6 +8,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/platform/statuspatch"
+	portrestore "github.com/kubebao/openbao-operator/internal/port/restore"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,13 @@ func ClaimRestore(ctx context.Context, c client.Client, key types.NamespacedName
 		return fmt.Errorf("restore cannot accept a submission claim")
 	}
 
+	budget, err := portrestore.ResolveSnapshotBudget(request.Spec.Source.MaxSnapshotSizeBytes)
+	if err != nil {
+		return fmt.Errorf("invalid restore snapshot budget: %w", err)
+	}
+	if claim.Size > budget.MaxBytes {
+		return fmt.Errorf("staged snapshot size %d exceeds restore budget %d", claim.Size, budget.MaxBytes)
+	}
 	before := request.DeepCopy()
 	if source := request.Spec.Source; (source.ExpectedDigest != "" && source.ExpectedDigest != claim.Digest) ||
 		(source.ExpectedSize != 0 && source.ExpectedSize != claim.Size) {

@@ -30,6 +30,13 @@ type RestoreTest struct {
 	Namespace       string                 `json:"namespace"`
 	ClusterTemplate RestoreClusterTemplate `json:"clusterTemplate"`
 
+	// MaxSnapshotSizeBytes sets the snapshot and scratch-storage budget on each
+	// generated restore request. The default is 8 GiB.
+	// +kubebuilder:default=8589934592
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MaxSnapshotSizeBytes int64 `json:"maxSnapshotSizeBytes,omitempty"`
+
 	// CredentialsSecretRef is the existing destination storage credential Secret.
 	// Storage connection settings are inherited from the source backup target.
 	// +optional
@@ -75,7 +82,6 @@ type BackupSnapshotSummary struct {
 	Version string `json:"version"`
 	// Size is the snapshot size in bytes.
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=8589934592
 	Size int64 `json:"size"`
 }
 

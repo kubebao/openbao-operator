@@ -441,7 +441,7 @@ _Appears in:_
 | `digest` _string_ | Digest is sha256: followed by the lowercase digest of the uploaded snapshot. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br /> |
 | `clusterID` _string_ | ClusterID is the source native cluster ID observed during the backup. |  | MaxLength: 128 <br /> |
 | `version` _string_ | Version is the source OpenBao version observed during the backup. |  | MaxLength: 64 <br /> |
-| `size` _integer_ | Size is the snapshot size in bytes. |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br /> |
+| `size` _integer_ | Size is the snapshot size in bytes. |  | Minimum: 1 <br /> |
 
 
 #### BackupStatus
@@ -1960,6 +1960,7 @@ _Appears in:_
 | `everySuccessfulBackups` _integer_ |  |  | Maximum: 10000 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `namespace` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br /> |
 | `clusterTemplate` _[RestoreClusterTemplate](#restoreclustertemplate)_ |  |  |  |
+| `maxSnapshotSizeBytes` _integer_ | MaxSnapshotSizeBytes sets the snapshot and scratch-storage budget on each<br />generated restore request. The default is 8 GiB. | 8589934592 | Minimum: 1 <br />Optional: \{\} <br /> |
 | `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef is the existing destination storage credential Secret.<br />Storage connection settings are inherited from the source backup target. |  | Optional: \{\} <br /> |
 | `serviceAccountName` _string_ | ServiceAccountName selects an existing executor ServiceAccount in Namespace.<br />The operator does not create, modify, or delete this account. It must have<br />its own storage-reader identity; backup writer identities are not inherited. |  | MaxLength: 253 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
 | `roleArn` _string_ | RoleARN selects the S3 reader role independently of the backup writer role. |  | MinLength: 1 <br />Optional: \{\} <br /> |
@@ -3610,10 +3611,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `maxSnapshotSizeBytes` _integer_ | MaxSnapshotSizeBytes bounds the downloaded snapshot and reserves matching<br />disk-backed scratch storage for the restore Job. The default is 8 GiB. | 8589934592 | Minimum: 1 <br />Optional: \{\} <br /> |
 | `expectedClusterID` _string_ | ExpectedClusterID is the native ID observed on the snapshot source.<br />Required for a fresh target; supplied metadata is an administrator assertion. |  | MaxLength: 128 <br />Optional: \{\} <br /> |
 | `expectedVersion` _string_ | ExpectedVersion is the source version observed when taking the snapshot. |  | MaxLength: 64 <br />Optional: \{\} <br /> |
 | `expectedDigest` _string_ | ExpectedDigest pins the staged bytes before submission. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br />Optional: \{\} <br /> |
-| `expectedSize` _integer_ |  |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `expectedSize` _integer_ |  |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `target` _[BackupTarget](#backuptarget)_ | Target reuses BackupTarget for storage connection details.<br />This includes endpoint, bucket, region, credentials, etc. |  |  |
 | `key` _string_ | Key is the full path to the snapshot object in the bucket.<br />For example, "clusters/prod/2025-10-14-120000.snap". |  | MinLength: 1 <br /> |
 
@@ -3638,7 +3640,7 @@ _Appears in:_
 | `targetPodIP` _string_ | TargetPodIP is the address the executor connected to. |  |  |
 | `targetContainerID` _string_ | TargetContainerID identifies the OpenBao container that received the snapshot. |  |  |
 | `digest` _string_ | Digest is sha256: followed by the lowercase digest of the staged snapshot bytes. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br /> |
-| `size` _integer_ | Size is the staged snapshot size in bytes. |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br /> |
+| `size` _integer_ | Size is the staged snapshot size in bytes. |  | Minimum: 1 <br /> |
 | `claimedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | ClaimedAt records when submission was reserved. |  |  |
 
 

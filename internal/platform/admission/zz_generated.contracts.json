@@ -1325,6 +1325,10 @@
           "message": "Only the controller can create or change restricted restore targets."
         },
         {
+          "expression": "!variables.is_restore || request.operation == 'DELETE' || !has(object.status) || !has(dyn(object.status).submissionClaim) || dyn(object.status).submissionClaim.size \u003c=\n  (has(dyn(object.spec).source.maxSnapshotSizeBytes) ? dyn(object.spec).source.maxSnapshotSizeBytes : 8589934592)",
+          "message": "The staged snapshot size exceeds maxSnapshotSizeBytes."
+        },
+        {
           "expression": "!variables.old_claim || request.operation == 'DELETE' ||\n  (has(dyn(object.status).submissionClaim) \u0026\u0026 dyn(object.status).submissionClaim == dyn(oldObject.status).submissionClaim)",
           "message": "A submission claim cannot be changed or removed."
         },
@@ -1497,6 +1501,10 @@
           {
             "expression": "variables.is_restore || variables.is_controller || request.operation == 'DELETE' || (variables.new_origin == variables.old_origin \u0026\u0026 (variables.old_origin == '' || object.spec == oldObject.spec))",
             "message": "Only the controller can create or change restricted restore targets."
+          },
+          {
+            "expression": "!variables.is_restore || request.operation == 'DELETE' || !has(object.status) || !has(dyn(object.status).submissionClaim) || dyn(object.status).submissionClaim.size \u003c=\n\n  (has(dyn(object.spec).source.maxSnapshotSizeBytes) ? dyn(object.spec).source.maxSnapshotSizeBytes : 8589934592)",
+            "message": "The staged snapshot size exceeds maxSnapshotSizeBytes."
           },
           {
             "expression": "!variables.old_claim || request.operation == 'DELETE' ||\n\n  (has(dyn(object.status).submissionClaim) \u0026\u0026 dyn(object.status).submissionClaim == dyn(oldObject.status).submissionClaim)",
