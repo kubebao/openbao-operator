@@ -15,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -447,6 +448,7 @@ func TestStepDownLeader_PassesStableRevisionToExecutorJob(t *testing.T) {
 
 func TestEnsureTargetPodLeadershipTransferred_SkipsSingleReplicaStepDown(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	_ = batchv1.AddToScheme(scheme)
 	_ = openbaov1alpha1.AddToScheme(scheme)
@@ -466,7 +468,8 @@ func TestEnsureTargetPodLeadershipTransferred_SkipsSingleReplicaStepDown(t *test
 		},
 	}
 
-	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	sts := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}, Spec: appsv1.StatefulSetSpec{Replicas: ptr.To(int32(1))}}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sts).Build()
 	mgr := newManagerWithClientFactory(c, scheme, backup.NewUpgradeStrategyRuntime(c, scheme), func(config portopenbao.ClientConfig) (portopenbao.ClusterActions, error) {
 		t.Fatalf("client factory should not be called for single-replica step-down skip")
 		return nil, nil

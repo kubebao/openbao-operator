@@ -92,9 +92,13 @@ func (m *Manager) startUpgradeExecutionIfNeeded(
 	if cluster.Status.Upgrade != nil {
 		return nil
 	}
-	fromVersion, toVersion, replicas := cluster.Status.CurrentVersion, cluster.Spec.Version, cluster.Spec.Replicas
+	sts, replicas, err := m.getVoterRolloutStatefulSet(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	fromVersion, toVersion := cluster.Status.CurrentVersion, cluster.Spec.Version
 	logger.Info("Initializing upgrade", "from", fromVersion, "to", toVersion, "replicas", replicas)
-	if err := m.setStatefulSetPartition(ctx, cluster, replicas); err != nil {
+	if err := m.updateStatefulSetPartition(ctx, cluster, sts, replicas); err != nil {
 		return fmt.Errorf("failed to lock StatefulSet partition: %w", err)
 	}
 	// Do not let the outer status writer publish an upgrade checkpoint while

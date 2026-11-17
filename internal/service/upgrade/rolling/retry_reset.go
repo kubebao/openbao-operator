@@ -54,8 +54,8 @@ func (m *Manager) resetRolloutPodsForRetry(ctx context.Context, logger logr.Logg
 	if cluster == nil || cluster.Status.Upgrade == nil {
 		return nil
 	}
-	sts := &appsv1.StatefulSet{}
-	if err := m.jobReader().Get(ctx, client.ObjectKey{Namespace: cluster.Namespace, Name: upgrade.StableVoterStatefulSetName(cluster)}, sts); err != nil {
+	sts, replicas, err := m.getVoterRolloutStatefulSet(ctx, cluster)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
@@ -78,7 +78,7 @@ func (m *Manager) resetRolloutPodsForRetry(ctx context.Context, logger logr.Logg
 		}
 		return nil // Retry acknowledgement was lost; do not repeat completed repairs.
 	}
-	if cluster.Spec.Replicas > 1 {
+	if replicas > 1 {
 		if err := m.holdVotersForRetry(ctx, sts); err != nil {
 			return err
 		}

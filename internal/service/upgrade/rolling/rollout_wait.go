@@ -17,6 +17,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
+	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 	"github.com/kubebao/openbao-operator/internal/service/upgrade/raftops"
 )
@@ -26,21 +27,24 @@ var errPartitionRetry = errors.New("StatefulSet partition update requires retry"
 // setStatefulSetPartition updates only the StatefulSet rolling-update partition.
 // MergeFrom avoids the full-object validation burden of SSA for StatefulSets.
 func (m *Manager) setStatefulSetPartition(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, partition int32) error {
-	sts := &appsv1.StatefulSet{}
-	stsName := types.NamespacedName{
-		Namespace: cluster.Namespace,
-		Name:      upgrade.StableVoterStatefulSetName(cluster),
+	sts, _, err := m.getVoterRolloutStatefulSet(ctx, cluster)
+	if err != nil {
+		return err
 	}
+	return m.updateStatefulSetPartition(ctx, cluster, sts, partition)
+}
 
-	if err := m.client.Get(ctx, stsName, sts); err != nil {
-		return fmt.Errorf("failed to get StatefulSet: %w", err)
+// Use the same live snapshot for the voter count and optimistic partition patch.
+func (m *Manager) updateStatefulSetPartition(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, sts *appsv1.StatefulSet, partition int32) error {
+	replicas, err := portworkload.VoterReplicaCount(sts)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errPartitionRetry, err)
 	}
-
 	if !statefulSetTemplateCurrent(sts, cluster) {
 		return fmt.Errorf("%w: %w", errPartitionRetry, operatorerrors.WrapTransientKubernetesAPI(
 			fmt.Errorf("StatefulSet template has not observed cluster generation %d", cluster.Generation)))
 	}
-	if partition < cluster.Spec.Replicas && cluster.Spec.Replicas > 1 {
+	if partition < replicas && replicas > 1 {
 		target := fmt.Sprintf("%s-%d", sts.Name, partition)
 		pod := &corev1.Pod{}
 		getErr := m.jobReader().Get(ctx, types.NamespacedName{Namespace: cluster.Namespace, Name: target}, pod)

@@ -39,11 +39,10 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 		return err
 	}
 	fingerprint := fmt.Sprintf("%x", sha256.Sum256(data))
-	previous := existing.Annotations[constants.AnnotationVoterRolloutTemplate]
-	if (previous == fingerprint || previous == deferredVoterTemplate+fingerprint) && voterTemplateScaleAllowed(existing, cluster.Spec.Replicas) {
-		desired.Annotations[constants.AnnotationVoterRolloutTemplate] = previous
-		return nil
+	if accepted, err := m.prepareMatchingVoterTemplate(ctx, cluster, existing, desired, fingerprint); err != nil || accepted {
+		return err
 	}
+	previous := existing.Annotations[constants.AnnotationVoterRolloutTemplate]
 	if cluster.Status.Upgrade != nil && cluster.Status.Upgrade.Failure != nil {
 		if err := m.holdVoterTemplate(ctx, cluster, existing, constants.AnnotationVoterRetryHold, "true"); err != nil {
 			return err
@@ -93,6 +92,26 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 	}
 	desired.Annotations[constants.AnnotationVoterRolloutTemplate] = fingerprint
 	return nil
+}
+
+func (m *Manager) prepareMatchingVoterTemplate(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, existing, desired *appsv1.StatefulSet, fingerprint string) (bool, error) {
+	previous := existing.Annotations[constants.AnnotationVoterRolloutTemplate]
+	if previous != fingerprint && previous != deferredVoterTemplate+fingerprint {
+		return false, nil
+	}
+	// A publication failure can leave a hold for a template that never reached
+	// the StatefulSet. Rebind it on revert, keeping OnDelete so guarded repair
+	// can finish the published template before any pending scale.
+	if repair := existing.Annotations[constants.AnnotationVoterTemplateRepair]; repair != "" && repair != fingerprint {
+		if err := m.holdVoterTemplate(ctx, cluster, existing, constants.AnnotationVoterTemplateRepair, fingerprint); err != nil {
+			return false, err
+		}
+	}
+	if !voterTemplateScaleAllowed(existing, cluster.Spec.Replicas) {
+		return false, nil
+	}
+	desired.Annotations[constants.AnnotationVoterRolloutTemplate] = existing.Annotations[constants.AnnotationVoterRolloutTemplate]
+	return true, nil
 }
 
 // A matching template does not release a replica change during an active
