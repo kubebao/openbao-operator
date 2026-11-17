@@ -29,6 +29,10 @@ const strategySwitchUpgradeRole = "strategy-switch-upgrade"
 // retires Blue. Successful M3 execution exceeds the generic five-minute wait.
 const strategySwitchBlueGreenUpgradeTimeout = 15 * time.Minute
 
+// A version request can first finish the deferred promotion template. Allow
+// time for that rollout and the managed upgrade.
+const strategySwitchRollingUpgradeTimeout = 20 * time.Minute
+
 const strategySwitchUpgradePolicy = `path "sys/health" { capabilities = ["read"] }
 path "sys/step-down" { capabilities = ["sudo", "update"] }
 path "sys/storage/raft/snapshot" { capabilities = ["read"] }
@@ -298,7 +302,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			for _, pod := range pods.Items {
 				e2ehelpers.ExpectOpenBaoPodVersion(g, pod, versions[2])
 			}
-		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+		}, strategySwitchRollingUpgradeTimeout, framework.DefaultPollInterval).Should(Succeed())
 	})
 })
 
