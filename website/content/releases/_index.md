@@ -15,6 +15,12 @@ The current manual stays focused on the current contract. Release pages preserve
   <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
 
+## Release preparation
+
+[0.6.3](0.6.3/) adds Raft catch-up checks between voter replacements and guarded
+recovery for stalled rollouts. It is not published; release-profile qualification
+is pending.
+
 ## Archive
 
 | Release | Published | Context |

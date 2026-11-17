@@ -47,13 +47,34 @@ and is one-way. Deleting and recreating a CR uses the new CREATE contract.
   changing it later. Earlier releases ignored this field for static clusters. A cluster that already has an
   operator-generated `<cluster>-unseal-key` keeps using that key, so an existing reference stays ignored.
 
+## Upgrade from 0.6.2 to 0.6.3
+
+Finish active lifecycle operations and install the fix on a settled cluster. It
+cannot protect a rollout already started by an older operator. Verify a current
+backup, a rehearsed restore path, administrator access, and seal recovery material.
+
+Before upgrading a custom controller identity, grant authenticated read access to
+`sys/storage/raft/configuration` and `sys/storage/raft/autopilot/state`. The default
+self-init OIDC controller policy already provides these reads. The operator holds
+voter rollouts if authenticated Raft observations are unavailable.
+
+Upgrade the matching chart, admission policies, RBAC, operator, and helper defaults
+during a maintenance window. Verify quorum, Pod readiness, and client behavior.
+The fix does not change the CRD schema or the separate OpenBao server image. Keep
+the startup budget configured for databases that need longer to open.
+
+See [OpenBao Operator 0.6.3](../../../releases/0.6.3/) for release status and
+[Raft catch-up checks](../../operate/upgrades/#wait-for-raft-catch-up-between-voter-replacements)
+for progress events and held-rollout diagnostics. Do not lower the StatefulSet
+partition manually to bypass the check.
+
 ## Upgrade a Helm installation
 
 1. Replace `X.Y.Z` with the exact target release.
 2. Apply the release CRDs.
 
    ```bash
-   kubectl apply -f \
+   kubectl apply --server-side -f \
      https://github.com/kubebao/openbao-operator/releases/download/X.Y.Z/crds.yaml
    ```
 
