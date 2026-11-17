@@ -11,6 +11,7 @@ import (
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/platform/logging"
 	observability "github.com/kubebao/openbao-operator/internal/platform/observability"
+	portrestore "github.com/kubebao/openbao-operator/internal/port/restore"
 	"github.com/kubebao/openbao-operator/internal/service/opslifecycle"
 )
 
@@ -98,6 +99,13 @@ func (m *Manager) handlePending(ctx context.Context, logger logr.Logger, restore
 
 // handleValidating validates preconditions and transitions to Running.
 func (m *Manager) handleValidating(ctx context.Context, logger logr.Logger, restore *openbaov1alpha1.OpenBaoRestore) (ctrl.Result, error) {
+	budget, err := portrestore.ResolveSnapshotBudget(restore.Spec.Source.MaxSnapshotSizeBytes)
+	if err != nil {
+		return m.failRestore(ctx, logger, restore, fmt.Sprintf("Invalid restore snapshot budget: %v", err))
+	}
+	if restore.Spec.Source.ExpectedSize > budget.MaxBytes {
+		return m.failRestore(ctx, logger, restore, "Expected snapshot size exceeds maxSnapshotSizeBytes")
+	}
 	if ready, result, err := m.prepareTarget(ctx, logger, restore); !ready || err != nil {
 		return result, err
 	}

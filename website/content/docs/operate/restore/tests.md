@@ -62,6 +62,12 @@ Kubernetes and cloud principal. Submission claims still require a Pod-bound toke
 
 Add `restoreTest` beneath `spec.backup`. Use either `everySuccessfulBackups` or a five-field UTC cron `schedule`.
 
+Each test uses an 8 GiB snapshot limit by default. Set `restoreTest.maxSnapshotSizeBytes` to allow a larger object;
+the operator copies the limit into each generated restore request and reserves matching scratch storage.
+For example, `17179869184` permits up to 16 GiB and requests 18151 MiB of ephemeral storage. If the latest snapshot
+exceeds the selected limit, the operator reports `SnapshotTooLarge` and does not create a test request. Increasing
+this limit does not extend preparation deadlines. Rehearse the selected size and check destination capacity and quotas.
+
 The backup must come from a stable OpenBao release from 2.7.0 onward. For an older source, upgrade it and create a
 new backup before enabling restore tests.
 

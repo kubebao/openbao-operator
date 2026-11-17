@@ -68,6 +68,7 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 			key.ObjectMeta = metav1.ObjectMeta{Name: "static-restore-key", Namespace: destinationFW.Namespace}
 			Expect(c.Create(ctx, key)).To(Succeed())
 			request := newRequest("static-recovery", api.RestoreTargetLifecycleDisposable)
+			request.Spec.Source.MaxSnapshotSizeBytes = 16 * 1024 * 1024 * 1024
 			request.Spec.ClusterTemplate.Unseal = api.UnsealConfig{
 				Type:                 "static",
 				CredentialsSecretRef: &corev1.LocalObjectReference{Name: key.Name},
@@ -120,6 +121,7 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 			source.Spec.Backup.RestoreTest = &api.RestoreTest{
 				EverySuccessfulBackups: 1,
 				Namespace:              destinationFW.Namespace,
+				MaxSnapshotSizeBytes:   16 * 1024 * 1024 * 1024,
 
 				ClusterTemplate:      *template.DeepCopy(),
 				CredentialsSecretRef: &corev1.LocalObjectReference{Name: "storage-reader"},
@@ -150,6 +152,7 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name}, child)).To(Succeed())
 				g.Expect(child.Spec.ClusterTemplate.Version).To(Equal(child.Spec.Source.ExpectedVersion))
 				g.Expect(child.Spec.ClusterTemplate.Version).To(Equal(snapshot.ExpectedVersion))
+				g.Expect(child.Spec.Source.MaxSnapshotSizeBytes).To(Equal(int64(16 * 1024 * 1024 * 1024)))
 				g.Expect(child.Spec.ClusterTemplate.Service).To(Equal(template.Service))
 				target := &api.OpenBaoCluster{}
 				g.Expect(c.Get(ctx, client.ObjectKey{Namespace: destinationFW.Namespace, Name: name}, target)).To(Succeed())
@@ -172,6 +175,10 @@ var _ = Describe("Minimal fresh restore and scheduled restore tests", Label("res
 				g.Expect(jobs.Items).NotTo(BeEmpty())
 				job := &jobs.Items[0]
 				g.Expect(job.Spec.Template.Spec.ServiceAccountName).To(Equal(readerAccount.Name))
+				container := job.Spec.Template.Spec.Containers[0]
+				g.Expect(container.Env).To(ContainElement(corev1.EnvVar{Name: constants.EnvRestoreMaxSnapshotSizeBytes, Value: "17179869184"}))
+				g.Expect(container.Resources.Requests.StorageEphemeral().Value()).To(Equal(int64(18151 * 1024 * 1024)))
+				g.Expect(container.Resources.Limits.StorageEphemeral().Value()).To(Equal(int64(18151 * 1024 * 1024)))
 				g.Expect(job.Spec.Template.Labels).NotTo(HaveKey("e2e.identity/writer"))
 				credentialSecrets := []string{}
 				for _, volume := range job.Spec.Template.Spec.Volumes {

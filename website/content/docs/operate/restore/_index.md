@@ -82,10 +82,25 @@ For Hardened targets, configure explicit, port-scoped `spec.network.egressRules`
 
 | Requirement | Value |
 | --- | --- |
-| Snapshot size | Up to 8 GiB |
-| Restore Pod ephemeral storage | About 9 GiB requested and limited; check node capacity and namespace quotas |
+| Snapshot size | Up to 8 GiB by default; set `spec.source.maxSnapshotSizeBytes` for a different limit |
+| Restore Pod ephemeral storage | Snapshot budget plus 10%, rounded up to MiB, plus 128 MiB; requested and limited |
 | Preparation (scheduling, download, leader discovery) | About 30 minutes |
 | Restore Job deadline | About 40 minutes, including image pulls |
+
+### Restore larger snapshots
+
+Set `spec.source.maxSnapshotSizeBytes` on each restore request. For example, `17179869184` permits a snapshot
+object up to 16 GiB. This setting applies to existing and fresh targets. An omitted setting retains the 8 GiB limit.
+The request is immutable, so choose the budget before you create it.
+
+The limit measures the downloaded snapshot object, not the original database or the target's required PVC capacity.
+The executor rejects objects above the limit before downloading them. It stages the complete object on disk and
+verifies its size before submission. With a 16 GiB budget, the Job reserves 18023 MiB of scratch space and requests
+and limits 18151 MiB of ephemeral storage. Check node capacity and namespace quotas before applying the request.
+
+A larger size budget does not extend the 30-minute preparation deadline or the Job deadline. Rehearse the restore
+with representative storage throughput, target capacity, and data. For scheduled tests, configure the separate
+[`spec.backup.restoreTest.maxSnapshotSizeBytes`](tests/) setting on the source cluster.
 
 ## Prepare a cross-cluster restore
 
