@@ -10,6 +10,10 @@ const (
 	AnnotationClusterGeneration = "openbao.org/cluster-generation"
 	// AnnotationResolvedMainImage records the main image published with the StatefulSet template.
 	AnnotationResolvedMainImage = "openbao.org/resolved-main-image"
+	// AnnotationVoterRolloutTemplate identifies the rendered template protected by a partition.
+	AnnotationVoterRolloutTemplate = "openbao.org/voter-rollout-template"
+	// AnnotationVoterRolloutObservation binds a Raft catch-up observation to the current Pods.
+	AnnotationVoterRolloutObservation = "openbao.org/voter-rollout-observation"
 	// AnnotationMaintenance is the annotation key used to put a cluster into maintenance mode.
 	AnnotationMaintenance = "openbao.org/maintenance"
 	// AnnotationMaintenanceAllowed is the annotation key used to check if maintenance is allowed.

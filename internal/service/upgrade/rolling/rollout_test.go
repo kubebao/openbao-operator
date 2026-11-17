@@ -2,6 +2,7 @@ package rolling
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -495,133 +496,36 @@ func TestEnsureTargetPodLeadershipTransferred_SkipsSingleReplicaStepDown(t *test
 }
 
 func TestPerformPodByPodUpgrade_ResumesWhenTargetAlreadyRolledOut(t *testing.T) {
-	scheme := runtime.NewScheme()
-	_ = appsv1.AddToScheme(scheme)
-	_ = batchv1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-	_ = openbaov1alpha1.AddToScheme(scheme)
-
-	ns := testNamespace
-	name := "c1"
-	podName := name + "-0"
-	startedAt := metav1.Now()
-
-	cluster := &openbaov1alpha1.OpenBaoCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
-		Spec: openbaov1alpha1.OpenBaoClusterSpec{
-			Replicas: 3,
-			TLS: openbaov1alpha1.TLSConfig{
-				Enabled: true,
-			},
-		},
-		Status: openbaov1alpha1.OpenBaoClusterStatus{
-			Upgrade: &openbaov1alpha1.UpgradeProgress{
-				StartedAt:        &startedAt,
-				TargetVersion:    "2.5.2",
-				FromVersion:      "2.5.1",
-				CurrentPartition: 1,
-				CompletedPods:    []int32{2, 1},
-			},
-		},
+	m, cluster, sts, observer := rollingRaftFixture(t, 1)
+	metrics := upgrade.NewMetrics(cluster.Namespace, cluster.Name)
+	completed, err := m.performPodByPodUpgrade(t.Context(), logr.Discard(), cluster, metrics)
+	if completed || !errors.Is(err, errPartitionRetry) {
+		t.Fatalf("first observation: completed=%v err=%v", completed, err)
 	}
-
-	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AnnotationClusterGeneration: "0"},
-			Name:      name,
-			Namespace: ns,
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  constants.ContainerBao,
-							Image: "openbao/openbao:2.5.2",
-						},
-					},
-				},
-			},
-		},
-		Status: appsv1.StatefulSetStatus{
-			UpdateRevision: "rev-new",
-		},
+	for _, name := range []string{"bao-1", "bao-2"} {
+		peer := observer.state.Servers[name]
+		peer.LastContact = "2ms"
+		observer.state.Servers[name] = peer
 	}
-
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: ns,
-			Labels: map[string]string{
-				appsv1.StatefulSetRevisionLabel: "rev-new",
-			},
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  constants.ContainerBao,
-					Image: "openbao/openbao:2.5.2",
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		},
+	completed, err = m.performPodByPodUpgrade(t.Context(), logr.Discard(), cluster, metrics)
+	if err != nil || !completed {
+		t.Fatalf("fresh caught-up observation: completed=%v err=%v", completed, err)
 	}
-
-	caSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name + constants.SuffixTLSCA,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			"ca.crt": []byte("fake-ca"),
-		},
+	if cluster.Status.Upgrade.CurrentPartition != 0 || len(cluster.Status.Upgrade.CompletedPods) != 3 {
+		t.Fatalf("unexpected progress: %+v", cluster.Status.Upgrade)
 	}
-
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sts, pod, caSecret).Build()
-	mgr := newManagerWithClientFactory(c, scheme, backup.NewUpgradeStrategyRuntime(c, scheme), func(config portopenbao.ClientConfig) (portopenbao.ClusterActions, error) {
-		return &openbaoapi.MockClusterActions{
-			IsHealthyFunc: func(ctx context.Context) (bool, error) {
-				return true, nil
-			},
-		}, nil
-	}, nil)
-
-	completed, err := mgr.performPodByPodUpgrade(context.Background(), testr.New(t), cluster, upgrade.NewMetrics(ns, name))
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+	if err := m.client.Get(t.Context(), client.ObjectKeyFromObject(sts), sts); err != nil {
+		t.Fatal(err)
 	}
-	if !completed {
-		t.Fatalf("expected upgrade to be treated as completed")
+	if *sts.Spec.UpdateStrategy.RollingUpdate.Partition != 0 {
+		t.Fatalf("partition=%d", *sts.Spec.UpdateStrategy.RollingUpdate.Partition)
 	}
-	if cluster.Status.Upgrade.CurrentPartition != 0 {
-		t.Fatalf("CurrentPartition=%d, want 0", cluster.Status.Upgrade.CurrentPartition)
+	jobs := &batchv1.JobList{}
+	if err := m.client.List(t.Context(), jobs); err != nil {
+		t.Fatal(err)
 	}
-	if len(cluster.Status.Upgrade.CompletedPods) != 3 || cluster.Status.Upgrade.CompletedPods[2] != 0 {
-		t.Fatalf("CompletedPods=%v, want [2 1 0]", cluster.Status.Upgrade.CompletedPods)
-	}
-	updatedSTS := &appsv1.StatefulSet{}
-	if err := c.Get(context.Background(), client.ObjectKeyFromObject(sts), updatedSTS); err != nil {
-		t.Fatalf("expected to reload StatefulSet, got %v", err)
-	}
-	if updatedSTS.Spec.UpdateStrategy.RollingUpdate == nil || updatedSTS.Spec.UpdateStrategy.RollingUpdate.Partition == nil {
-		t.Fatalf("expected StatefulSet partition to be set")
-	}
-	if *updatedSTS.Spec.UpdateStrategy.RollingUpdate.Partition != 0 {
-		t.Fatalf("partition=%d, want 0", *updatedSTS.Spec.UpdateStrategy.RollingUpdate.Partition)
-	}
-
-	jobList := &batchv1.JobList{}
-	if err := c.List(context.Background(), jobList); err != nil {
-		t.Fatalf("expected listing jobs to succeed, got %v", err)
-	}
-	if len(jobList.Items) != 0 {
-		t.Fatalf("expected no step-down jobs to be created, got %d", len(jobList.Items))
+	if len(jobs.Items) != 0 {
+		t.Fatalf("unexpected step-down Jobs: %d", len(jobs.Items))
 	}
 }
 

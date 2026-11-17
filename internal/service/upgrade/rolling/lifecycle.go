@@ -2,6 +2,7 @@ package rolling
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -84,6 +85,9 @@ func (m *Manager) failUnpersistedExecution(ctx context.Context, cluster *openbao
 }
 
 func (m *Manager) waitForFinalizationConverged(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (bool, error) {
+	if err := failUpgradeIfStartedTimeout(cluster, podHealthTimeout("voter rollout", cluster)); err != nil {
+		return false, err
+	}
 	sts := &appsv1.StatefulSet{}
 	stsKey := types.NamespacedName{
 		Namespace: cluster.Namespace,
@@ -158,6 +162,13 @@ func (m *Manager) waitForFinalizationConverged(ctx context.Context, logger logr.
 		}
 	}
 
+	if err := m.checkRaftVoterRollout(ctx, logger, cluster, "", false); err != nil {
+		if errors.Is(err, errPartitionRetry) {
+			logger.Info("Waiting for Raft catch-up before finalizing rolling upgrade", "reason", err.Error())
+			return false, nil
+		}
+		return false, err
+	}
 	return true, nil
 }
 

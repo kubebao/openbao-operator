@@ -103,6 +103,33 @@ The version must be semantic version syntax. The operator blocks downgrades belo
 `spec.image`, keep a semantic tag aligned with `spec.version`; digest-pinned images still use `spec.version` as the
 upgrade intent.
 
+## Wait for Raft catch-up between voter replacements
+
+For `RollingUpdate`, the operator checks Raft health before releasing each voter replacement. This check covers
+ordinary Pod-template changes, such as startup budgets and resources, and managed version upgrades. A Ready Pod can
+still be catching up with the leader.
+
+The operator holds the StatefulSet partition until the remaining voters are Ready, have the expected voting
+membership, and meet the configured Autopilot health, contact, term, and log-lag thresholds. It then requires a fresh
+observation from each remaining follower and verifies that those voters reached the previously observed leader
+index. The check excludes read replicas from voting quorum. A controller restart preserves the hold and its
+observation. Single-voter and two-voter clusters still require a write outage during replacement.
+
+The controller needs authenticated read access to `sys/storage/raft/configuration` and
+`sys/storage/raft/autopilot/state`. The default self-init OIDC controller policy provides this access. If you manage
+a custom controller identity or policy, grant these reads before requesting a rollout. The upgrade helper's JWT
+role does not replace the controller identity.
+
+A `VoterRolloutWaiting` event records why an ordinary rollout is held. Managed upgrades record the reason in
+`RollingPartitionRetry` events. Check these events, operator logs, Raft health, and the StatefulSet partition when
+progress stops. Restore authentication or peer health before continuing. Do not lower the partition manually to
+bypass the check. A managed upgrade retains its overall readiness deadline and requires a retry if that deadline
+expires.
+
+Finish the active rollout before requesting another template change or upgrading the operator. A new template
+waits without changing the current rollout's partition or ConfigMap. Install the fix on a settled cluster; it does
+not retroactively protect a rollout already started by an older operator.
+
 ## Control a blue-green promotion
 
 Set `spec.upgrade.blueGreen.autoPromote: false` before the upgrade begins to hold a healthy Green revision in
