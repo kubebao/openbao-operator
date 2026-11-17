@@ -100,6 +100,21 @@ func TestVoterTemplateRolloutHoldsLaggingReadyPodAcrossControllerRestart(t *test
 	require.EqualValues(t, 1, *sts.Spec.UpdateStrategy.RollingUpdate.Partition)
 }
 
+func TestVoterTemplateRolloutFinishesBeforePublishingRequestedVersion(t *testing.T) {
+	m, cluster, sts, observer := voterTemplateFixture(t)
+	cluster.Spec.Version = "2.7.2"
+	cluster.Generation++
+	_, err := m.ReconcileVoterRollout(t.Context(), logr.Discard(), cluster)
+	require.NoError(t, err)
+	peer := observer.state.Servers["bao-2"]
+	peer.LastContact = freshVoterContact
+	observer.state.Servers["bao-2"] = peer
+	_, err = m.ReconcileVoterRollout(t.Context(), logr.Discard(), cluster)
+	require.NoError(t, err)
+	require.NoError(t, m.client.Get(t.Context(), client.ObjectKeyFromObject(sts), sts))
+	require.EqualValues(t, 1, *sts.Spec.UpdateStrategy.RollingUpdate.Partition, "a pending version request must let the previous template finish")
+}
+
 func TestPrepareVoterTemplateLocksBeforeChangingTemplate(t *testing.T) {
 	m, cluster, sts, _ := voterTemplateFixture(t)
 	sts.Status.CurrentRevision = sts.Status.UpdateRevision
