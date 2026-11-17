@@ -3,6 +3,7 @@
 package workload
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -10,9 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -24,7 +28,7 @@ func TestPromotedVoterHandoffWithConfigDriftRealAPI(t *testing.T) {
 	config, err := environment.Start()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, environment.Stop()) })
-	live, err := client.New(config, client.Options{Scheme: testScheme})
+	live, err := client.NewWithWatch(config, client.Options{Scheme: testScheme})
 	require.NoError(t, err)
 	ctx, logger := t.Context(), logr.Discard()
 	const namespace = "promoted-handoff"
@@ -62,6 +66,23 @@ func TestPromotedVoterHandoffWithConfigDriftRealAPI(t *testing.T) {
 	cluster.Spec.Upgrade.Strategy = api.UpdateStrategyRollingUpdate
 	cluster.Status.AcceptedUpgradeStrategy = api.UpdateStrategyRollingUpdate
 	cluster.Generation++
+	publishedTemplate := sts.Spec.Template.DeepCopy()
+	for _, kind := range []string{"ConfigMap", "StatefulSet"} {
+		blocked := interceptor.NewClient(live, interceptor.Funcs{Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+			if object, ok := obj.(client.Object); ok && object.GetObjectKind().GroupVersionKind().Kind == kind {
+				return apierrors.NewServiceUnavailable("injected handoff publication failure")
+			}
+			return c.Apply(ctx, obj, opts...)
+		}})
+		err = NewManager(blocked, testScheme, "").WithReader(live).EnsureStatefulSet(ctx, logger, cluster, "after-strategy-handoff", spec)
+		require.True(t, apierrors.IsServiceUnavailable(err), "publication of %s must fail after locking the strategy: %v", kind, err)
+		require.NoError(t, live.Get(ctx, key, sts))
+		require.Equal(t, uid, sts.UID)
+		require.Equal(t, appsv1.RollingUpdateStatefulSetStrategyType, sts.Spec.UpdateStrategy.Type)
+		require.EqualValues(t, 3, *sts.Spec.UpdateStrategy.RollingUpdate.Partition)
+		require.Contains(t, sts.Annotations[constants.AnnotationVoterRolloutTemplate], deferredVoterTemplate)
+		require.Equal(t, publishedTemplate, &sts.Spec.Template, "failed publication retains the existing Pod template")
+	}
 	require.NoError(t, m.EnsureStatefulSet(ctx, logger, cluster, "after-strategy-handoff", spec))
 	require.NoError(t, live.Get(ctx, key, sts))
 	require.Equal(t, uid, sts.UID)
