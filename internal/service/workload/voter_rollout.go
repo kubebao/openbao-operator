@@ -122,11 +122,20 @@ func voterTemplateScaleAllowed(existing *appsv1.StatefulSet, replicas int32) boo
 }
 
 func isIdlePromotedVoterTemplate(cluster *openbaov1alpha1.OpenBaoCluster, existing, desired *appsv1.StatefulSet) bool {
+	// Strategy-only rendering can change the configuration hash. A settled
+	// promoted workload can still be frozen at its published voter count;
+	// every Pod is at currentRevision, so the full partition preserves it.
+	promoted := cluster.Status.BlueGreen
+	settledPromotion := promoted != nil && promoted.Phase == openbaov1alpha1.PhaseIdle && promoted.BlueRevision != "" &&
+		existing.Name == cluster.Name+"-"+promoted.BlueRevision && cluster.Status.CurrentVersion == cluster.Spec.Version &&
+		*existing.Spec.Replicas == cluster.Spec.Replicas && existing.Status.ObservedGeneration >= existing.Generation &&
+		existing.Status.Replicas == *existing.Spec.Replicas && existing.Status.CurrentReplicas == *existing.Spec.Replicas &&
+		existing.Status.ReadyReplicas == *existing.Spec.Replicas
 	return cluster.Status.Upgrade == nil && existing.Annotations[constants.AnnotationVoterTemplateRepair] == "" &&
 		!strings.HasPrefix(existing.Annotations[constants.AnnotationVoterRolloutTemplate], deferredVoterTemplate) &&
 		existing.Annotations[constants.AnnotationVoterRetryHold] == "" && existing.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType &&
 		existing.Status.CurrentRevision != existing.Status.UpdateRevision &&
-		apiequality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template)
+		(apiequality.Semantic.DeepDerivative(desired.Spec.Template, existing.Spec.Template) || settledPromotion)
 }
 
 // Stage a corrected template without raising an in-flight partition or allowing

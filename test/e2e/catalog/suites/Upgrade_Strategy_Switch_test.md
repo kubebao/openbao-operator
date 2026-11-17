@@ -27,4 +27,5 @@ Recorded checkpoints:
 - switching only the idle strategy from RollingUpdate to BlueGreen
 - performing a blue-green upgrade to the intermediate version
 - switching only the idle strategy from BlueGreen to RollingUpdate
+- keeping the promoted Pods intact after the strategy handoff
 - performing a rolling upgrade to the final version against the same StatefulSet
