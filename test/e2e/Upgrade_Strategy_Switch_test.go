@@ -29,6 +29,10 @@ const strategySwitchUpgradeRole = "strategy-switch-upgrade"
 // retires Blue. Successful M3 execution exceeds the generic five-minute wait.
 const strategySwitchBlueGreenUpgradeTimeout = 15 * time.Minute
 
+// A version request can first finish the deferred promotion template. Allow
+// time for that rollout and the managed upgrade.
+const strategySwitchRollingUpgradeTimeout = 20 * time.Minute
+
 const strategySwitchUpgradePolicy = `path "sys/health" { capabilities = ["read"] }
 path "sys/step-down" { capabilities = ["sudo", "update"] }
 path "sys/storage/raft/snapshot" { capabilities = ["read"] }
@@ -223,6 +227,15 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 		}, strategySwitchBlueGreenUpgradeTimeout, framework.DefaultPollInterval).Should(Succeed())
 
 		AddReportEntry("blue-green-upgrade-elapsed-seconds", time.Since(blueGreenStarted).Seconds())
+		promotedPods := &corev1.PodList{}
+		Expect(admin.List(ctx, promotedPods, client.InNamespace(tenantNamespace), client.MatchingLabels{
+			constants.LabelOpenBaoCluster: cluster.Name, constants.LabelOpenBaoWorkloadPool: constants.LabelValueOpenBaoWorkloadPoolVoter,
+		})).To(Succeed())
+		Expect(promotedPods.Items).To(HaveLen(int(cluster.Spec.Replicas)))
+		promotedPodUIDs := make(map[string]types.UID, len(promotedPods.Items))
+		for _, pod := range promotedPods.Items {
+			promotedPodUIDs[pod.Name] = pod.UID
+		}
 
 		By("switching only the idle strategy from BlueGreen to RollingUpdate")
 		Eventually(func(g Gomega) {
@@ -243,6 +256,19 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			g.Expect(stable.UID).To(Equal(promotedStatefulSetUID))
 			g.Expect(stable.Spec.UpdateStrategy.Type).To(Equal(appsv1.RollingUpdateStatefulSetStrategyType))
 		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+
+		By("keeping the promoted Pods intact after the strategy handoff")
+		Consistently(func(g Gomega) {
+			pods := &corev1.PodList{}
+			g.Expect(admin.List(ctx, pods, client.InNamespace(tenantNamespace), client.MatchingLabels{
+				constants.LabelOpenBaoCluster: cluster.Name, constants.LabelOpenBaoWorkloadPool: constants.LabelValueOpenBaoWorkloadPoolVoter,
+			})).To(Succeed())
+			g.Expect(pods.Items).To(HaveLen(len(promotedPodUIDs)))
+			for _, pod := range pods.Items {
+				g.Expect(pod.UID).To(Equal(promotedPodUIDs[pod.Name]))
+				g.Expect(pod.DeletionTimestamp).To(BeNil())
+			}
+		}, 20*time.Second, framework.DefaultPollInterval).Should(Succeed())
 
 		By("performing a rolling upgrade to the final version against the same StatefulSet")
 		Eventually(func(g Gomega) {
@@ -276,7 +302,7 @@ var _ = Describe("Upgrade Strategy Switching", Label("upgrade", "rolling", "blue
 			for _, pod := range pods.Items {
 				e2ehelpers.ExpectOpenBaoPodVersion(g, pod, versions[2])
 			}
-		}, framework.DefaultLongWaitTimeout, framework.DefaultPollInterval).Should(Succeed())
+		}, strategySwitchRollingUpgradeTimeout, framework.DefaultPollInterval).Should(Succeed())
 	})
 })
 
