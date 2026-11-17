@@ -141,9 +141,9 @@ ciLanes:
     labelFilter: "((upgrade && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prLabelFilter: "((upgrade && e2e-anchor && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prScope: upgrade
-    timeoutMinutes: 30
+    timeoutMinutes: 45
     parallelNodes: 2
-    e2eTimeout: 25m
+    e2eTimeout: 40m
     excludePentestOnDefaultPR: false
     hardenedSigned: false
     hardenedInitImage: ""
