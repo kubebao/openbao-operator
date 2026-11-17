@@ -44,6 +44,13 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 		desired.Annotations[constants.AnnotationVoterRolloutTemplate] = previous
 		return nil
 	}
+	if cluster.Status.Upgrade != nil && cluster.Status.Upgrade.Failure != nil {
+		if err := m.holdFailedVoterTemplate(ctx, cluster, existing); err != nil {
+			return err
+		}
+		desired.Annotations[constants.AnnotationVoterRolloutTemplate] = fingerprint
+		return nil
+	}
 	// An idle BlueGreen -> RollingUpdate switch must retain the promoted Pods
 	// when their OnDelete template already differed before the switch.
 	if existing.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType &&
@@ -85,6 +92,37 @@ func (m *Manager) prepareVoterTemplateRollout(ctx context.Context, cluster *open
 		*existing = *locked.DeepCopy()
 	}
 	desired.Annotations[constants.AnnotationVoterRolloutTemplate] = fingerprint
+	return nil
+}
+
+// A corrected failed template must be published without raising an in-flight
+// partition or allowing Kubernetes to advance on readiness alone. Retry repair
+// owns the resulting OnDelete replacements and returns to RollingUpdate only
+// after every voter has the new template and fresh Raft health.
+func (m *Manager) holdFailedVoterTemplate(ctx context.Context, cluster *openbaov1alpha1.OpenBaoCluster, existing *appsv1.StatefulSet) error {
+	live := &appsv1.StatefulSet{}
+	if err := m.reader.Get(ctx, client.ObjectKeyFromObject(existing), live); err != nil {
+		return err
+	}
+	if live.UID != existing.UID || live.ResourceVersion != existing.ResourceVersion {
+		return apierrors.NewConflict(appsv1.Resource("statefulsets"), live.Name, fmt.Errorf("StatefulSet changed before holding failed template"))
+	}
+	if err := resourceownership.RequireOwnerProof("hold failed voter template", live, cluster); err != nil {
+		return err
+	}
+	held := live.DeepCopy()
+	held.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
+	if held.Annotations == nil {
+		held.Annotations = map[string]string{}
+	}
+	held.Annotations[constants.AnnotationVoterRetryHold] = "true"
+	delete(held.Annotations, constants.AnnotationVoterRolloutObservation)
+	if !apiequality.Semantic.DeepEqual(live.Spec.UpdateStrategy, held.Spec.UpdateStrategy) || !apiequality.Semantic.DeepEqual(live.Annotations, held.Annotations) {
+		if err := m.client.Patch(ctx, held, client.MergeFromWithOptions(live, client.MergeFromWithOptimisticLock{}), client.FieldOwner(constants.FieldOwnerVoterRollout)); err != nil {
+			return err
+		}
+		*existing = *held.DeepCopy()
+	}
 	return nil
 }
 

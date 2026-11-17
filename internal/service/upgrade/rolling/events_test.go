@@ -195,6 +195,7 @@ func TestPrepareFailedUpgradeRetry_EmitsRetryEvents(t *testing.T) {
 		},
 	}
 
+	adoptRetryResetObjects(cluster, sts, staleJob, staleTargetPod)
 	recorder := events.NewFakeRecorder(10)
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -204,11 +205,12 @@ func TestPrepareFailedUpgradeRetry_EmitsRetryEvents(t *testing.T) {
 		Build()
 	seedUpgradeStatus(t, k8sClient, cluster)
 	manager := &Manager{
-		client:          k8sClient,
-		reader:          k8sClient,
-		scheme:          scheme,
-		recorder:        recorder,
-		adminOpsMutator: testAdminOpsMutator(k8sClient),
+		client:            k8sClient,
+		reader:            k8sClient,
+		scheme:            scheme,
+		recorder:          recorder,
+		adminOpsMutator:   testAdminOpsMutator(k8sClient),
+		voterRolloutGuard: renderingRetryGuard{},
 	}
 
 	err := manager.prepareFailedUpgradeRetry(context.Background(), logr.Discard(), cluster, upgrade.RetryRequestValue(cluster))

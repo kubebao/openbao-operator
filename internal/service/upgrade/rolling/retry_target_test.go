@@ -81,10 +81,11 @@ func TestResetRolloutPodsForRetryUsesCurrentRenderedTarget(t *testing.T) {
 			}
 			pod := retryPodForResetTest(cluster.Namespace, "retry-2", "target", tc.podImage, true)
 			if tc.staleRevision {
-				pod.Labels[appsv1.StatefulSetRevisionLabel] = "old"
+				pod.Labels[appsv1.StatefulSetRevisionLabel] = oldRaftRevision
 			}
+			adoptRetryResetObjects(cluster, sts, pod)
 			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sts, pod).Build()
-			manager := &Manager{client: c, reader: c}
+			manager := &Manager{client: c, reader: c, voterRolloutGuard: renderingRetryGuard{}}
 			err := manager.resetRolloutPodsForRetry(t.Context(), logr.Discard(), cluster)
 			if tc.wait {
 				require.ErrorIs(t, err, operatorerrors.ErrTransientKubernetesAPI)

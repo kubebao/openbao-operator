@@ -172,6 +172,13 @@ kubectl -n <namespace> patch openbaocluster <name> --type merge -p "{
 }"
 {{< /command >}}
 
+During retry preparation, the operator holds the voter StatefulSet under `OnDelete`. This also allows a corrected
+Pod template to be staged after a failed upgrade. The retry repairs voters one at a time and waits for Raft catch-up
+between replacements. Controller restarts preserve the reset progress. A Pod that recovers without a reset is kept.
+After all voters have the requested template and fresh Raft health, the operator restores `RollingUpdate` and
+acknowledges the retry request. A repair can replace the leader; clients must retry through a brief leadership
+change. Check `status.adminOps.lastError` when retry preparation waits.
+
 Before resetting failed Pods, the operator waits for the StatefulSet to reflect the current cluster generation
 and for the StatefulSet controller to observe that template. The Bao container image must match the resolved
 image recorded by workload reconciliation, including a verified digest when image verification succeeds.
