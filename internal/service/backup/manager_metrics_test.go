@@ -75,6 +75,7 @@ func TestReconcileOwnedActiveBackupRestoresMetrics(t *testing.T) {
 		Holder:    backupOperationLockHolder,
 	}
 	job := newBackupJobForCluster(cluster, "owner-recovery-metrics-active", time.Unix(1700000300, 0))
+	cluster.Status.OperationLock.Message = backupJobLockMessage(job.Name)
 	job.Status.Active = 1
 
 	metrics := NewMetrics(cluster.Namespace, cluster.Name)

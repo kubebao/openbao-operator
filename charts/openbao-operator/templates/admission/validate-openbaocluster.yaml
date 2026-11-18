@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "openbao-operator.labels" . | nindent 4 }}
   annotations:
-    openbao.org/admission-policy-fingerprint: sha256:fe9f23caf1c9bf9c8c75a6eafbe1162720bb7db549a1faf36677f95f5d524b4a
+    openbao.org/admission-policy-fingerprint: sha256:c1020a486391a5778a4414ed186850ff3d76224bfca5cfdec93cf062a394cba0
 spec:
   failurePolicy: Fail
   matchConstraints:
@@ -465,6 +465,14 @@ spec:
       expression: |-
         request.operation == "CREATE" && variables.migration_source_uid != "" && variables.migration_authorized
   validations:
+    # Preserve unchanged legacy values and migration imports. The controller
+    # rejects oversized pending requests without blocking scheduled backups.
+    - expression: |-
+        !has(object.metadata.annotations) || !("openbao.org/trigger-backup" in object.metadata.annotations) || size(bytes(object.metadata.annotations["openbao.org/trigger-backup"])) <= 1024 || (oldObject != null && has(oldObject.metadata.annotations) &&
+         "openbao.org/trigger-backup" in oldObject.metadata.annotations &&
+         object.metadata.annotations["openbao.org/trigger-backup"] == oldObject.metadata.annotations["openbao.org/trigger-backup"]) ||
+        variables.is_authorized_migration_import
+      message: "openbao.org/trigger-backup must be at most 1024 UTF-8 bytes"
     - expression: |-
         variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == "CREATE" && variables.migration_authorized)
       message: "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"

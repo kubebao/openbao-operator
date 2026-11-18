@@ -315,7 +315,7 @@ func TestAlreadyRecordedSnapshotStillStartsRetentionAfterRestart(t *testing.T) {
 	c := newTestClient(t, cluster, source)
 	m := newBackupManager(c)
 	observation := backupObservation{ownsLock: true, now: time.Now().UTC(),
-		jobs: backupJobObservation{mostRecentTerminal: source}}
+		jobs: backupJobObservation{operationJob: source, mostRecentTerminal: source}}
 	_, err := m.applyFinalizeBackup(t.Context(), logr.Discard(), cluster, observation)
 	require.NoError(t, err)
 	require.NotNil(t, cluster.Status.Backup.Retention.Active.SubmittedAt)

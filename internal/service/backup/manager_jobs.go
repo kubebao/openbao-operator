@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -55,7 +56,11 @@ func (m *Manager) hasPreUpgradeBackupJob(ctx context.Context, cluster *openbaov1
 
 type backupJobObservation struct {
 	hasActive          bool
+	activeJob          *batchv1.Job
+	operationJob       *batchv1.Job
+	operationActive    bool
 	mostRecentTerminal *batchv1.Job
+	pendingTerminal    *batchv1.Job
 }
 
 // observeBackupJobs reads active and terminal Job state from one live API snapshot.
@@ -87,13 +92,59 @@ func (m *Manager) observeBackupJobs(ctx context.Context, cluster *openbaov1alpha
 		); err != nil {
 			return backupJobObservation{}, err
 		}
+		if backupLockNamesJob(cluster.Status.OperationLock, job.Name) {
+			observation.operationJob = job.DeepCopy()
+			observation.operationActive = !kube.JobSucceeded(job) && !kube.JobFailed(job)
+		}
 		if !kube.JobSucceeded(job) && !kube.JobFailed(job) {
 			observation.hasActive = true
+			if observation.activeJob == nil || job.CreationTimestamp.Before(&observation.activeJob.CreationTimestamp) ||
+				(job.CreationTimestamp.Equal(&observation.activeJob.CreationTimestamp) && job.Name < observation.activeJob.Name) {
+				observation.activeJob = job.DeepCopy()
+			}
 			continue
+		}
+		if backupTerminalNeedsProcessing(cluster, job) &&
+			(observation.pendingTerminal == nil || job.CreationTimestamp.After(observation.pendingTerminal.CreationTimestamp.Time)) {
+			observation.pendingTerminal = job.DeepCopy()
 		}
 		if observation.mostRecentTerminal == nil || job.CreationTimestamp.After(observation.mostRecentTerminal.CreationTimestamp.Time) {
 			observation.mostRecentTerminal = job.DeepCopy()
 		}
 	}
 	return observation, nil
+}
+
+// A pending request must recover its retained terminal receipt even when a
+// newer completed backup makes that Job's snapshot outcome stale.
+func backupTerminalNeedsProcessing(cluster *openbaov1alpha1.OpenBaoCluster, job *batchv1.Job) bool {
+	if token := manualTriggerToken(cluster); token != "" {
+		var receipt backupAttemptReceipt
+		if err := json.Unmarshal([]byte(job.Annotations[backupAttemptAnnotation]), &receipt); err == nil &&
+			receipt.ManualTrigger == token {
+			return true
+		}
+	}
+	return backupSuccessNeedsProcessing(cluster, job)
+}
+
+func backupSuccessNeedsProcessing(cluster *openbaov1alpha1.OpenBaoCluster, job *batchv1.Job) bool {
+	if job == nil || !kube.JobSucceeded(job) {
+		return false
+	}
+	status := cluster.Status.Backup
+	if status == nil {
+		return true
+	}
+	if status.LastBackupName != job.Annotations["openbao.org/backup-key"] {
+		return status.LastBackupTime == nil || !job.CreationTimestamp.Before(status.LastBackupTime)
+	}
+	if cluster.Spec.Backup == nil || cluster.Spec.Backup.Retention == nil || job.UID == "" {
+		return false
+	}
+	policy := cluster.Spec.Backup.Retention
+	if policy.MaxCount == 0 && policy.MaxAge == "" {
+		return false
+	}
+	return status.Retention == nil || status.Retention.Last == nil || status.Retention.Last.SourceJobUID != job.UID
 }

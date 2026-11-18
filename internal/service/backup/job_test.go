@@ -699,7 +699,7 @@ func TestEnsureBackupJob_CreatesJob(t *testing.T) {
 	scheduled := time.Date(2025, 1, 15, 3, 0, 0, 0, time.UTC)
 	jobName := backupJobName(cluster, scheduled)
 
-	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, scheduled)
+	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, testBackupAttempt(scheduled))
 	if err != nil {
 		t.Fatalf("ensureBackupJob() error = %v", err)
 	}
@@ -748,7 +748,7 @@ func TestEnsureBackupJob_CreateAlreadyExists(t *testing.T) {
 		k8sClient,
 	)
 
-	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, scheduled)
+	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, testBackupAttempt(scheduled))
 	if err != nil {
 		t.Fatalf("ensureBackupJob() error = %v", err)
 	}
@@ -795,7 +795,7 @@ func TestEnsureBackupJob_CreateAlreadyExistsRejectsForeignJob(t *testing.T) {
 		"",
 	)
 
-	created, err := manager.ensureBackupJob(ctx, logr.Discard(), cluster, jobName, scheduled)
+	created, err := manager.ensureBackupJob(ctx, logr.Discard(), cluster, jobName, testBackupAttempt(scheduled))
 	assert.False(t, created)
 	assert.ErrorContains(t, err, "collided with an untrusted existing Job")
 	assert.ErrorContains(t, err, "requires managed controller owner OpenBaoCluster")
@@ -827,7 +827,7 @@ func TestEnsureBackupJob_JobAlreadyRunning(t *testing.T) {
 		k8sClient,
 	)
 
-	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, scheduled)
+	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, testBackupAttempt(scheduled))
 	if err != nil {
 		t.Fatalf("ensureBackupJob() error = %v", err)
 	}
@@ -860,7 +860,7 @@ func TestEnsureBackupJob_JobCompleted(t *testing.T) {
 		k8sClient,
 	)
 
-	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, scheduled)
+	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, testBackupAttempt(scheduled))
 	if err != nil {
 		t.Fatalf("ensureBackupJob() error = %v", err)
 	}
@@ -900,7 +900,7 @@ func TestEnsureBackupJob_JobFailed(t *testing.T) {
 		k8sClient,
 	)
 
-	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, scheduled)
+	created, err := manager.ensureBackupJob(ctx, logger, cluster, jobName, testBackupAttempt(scheduled))
 	if err != nil {
 		t.Fatalf("ensureBackupJob() error = %v", err)
 	}

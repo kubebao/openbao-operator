@@ -28,7 +28,11 @@ import (
 func newIntegrationBackupManager(t *testing.T) *backup.Manager {
 	t.Helper()
 
-	controllerClient := newControllerClient(t)
+	return newIntegrationBackupManagerWithClient(t, newControllerClient(t))
+}
+
+func newIntegrationBackupManagerWithClient(t *testing.T, controllerClient client.Client) *backup.Manager {
+	t.Helper()
 	return backup.NewManager(
 		controllerClient,
 		k8sScheme,
