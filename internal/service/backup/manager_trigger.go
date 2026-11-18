@@ -2,9 +2,12 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -47,23 +50,30 @@ func (m *Manager) skipManualTriggerForActiveJob(
 		"reason":            "active_job_in_progress",
 	})
 	m.emitNormalEvent(cluster, ReasonBackupSkipped, "Skipping manual backup because a backup Job is already in progress")
-	return m.clearManualTriggerAnnotation(ctx, logger, cluster)
+	return m.clearManualTriggerAnnotation(ctx, logger, cluster, token)
 }
 
 // clearManualTriggerAnnotation removes the manual backup trigger annotation from the cluster.
-func (m *Manager) clearManualTriggerAnnotation(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) error {
+func (m *Manager) clearManualTriggerAnnotation(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, expectedToken string) error {
 	const annotation = constants.AnnotationTriggerBackup
 	if cluster.Annotations == nil {
 		return nil
 	}
-	if _, found := cluster.Annotations[annotation]; !found {
+	if token, found := cluster.Annotations[annotation]; !found || token != expectedToken {
 		return nil
 	}
 
-	// We use MergeFrom for annotation deletion to avoid claiming ownership of all annotations.
-	original := cluster.DeepCopy()
-	delete(cluster.Annotations, annotation)
-	if err := m.client.Patch(ctx, cluster, client.MergeFrom(original)); err != nil {
+	// Do not remove a replacement Cluster's annotation or a concurrent request.
+	path := "/metadata/annotations/" + strings.ReplaceAll(annotation, "/", "~1")
+	patch, err := json.Marshal([]map[string]any{
+		{"op": "test", "path": "/metadata/uid", "value": cluster.UID},
+		{"op": "test", "path": path, "value": expectedToken},
+		{"op": "remove", "path": path},
+	})
+	if err != nil {
+		return fmt.Errorf("encode manual backup trigger patch: %w", err)
+	}
+	if err := m.client.Patch(ctx, cluster, client.RawPatch(types.JSONPatchType, patch)); err != nil {
 		return fmt.Errorf("failed to clear manual backup trigger annotation: %w", err)
 	}
 	logger.Info("Cleared manual backup trigger annotation")

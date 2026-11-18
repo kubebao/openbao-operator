@@ -55,6 +55,7 @@ func (m *Manager) hasPreUpgradeBackupJob(ctx context.Context, cluster *openbaov1
 
 type backupJobObservation struct {
 	hasActive          bool
+	activeJob          *batchv1.Job
 	mostRecentTerminal *batchv1.Job
 }
 
@@ -89,6 +90,7 @@ func (m *Manager) observeBackupJobs(ctx context.Context, cluster *openbaov1alpha
 		}
 		if !kube.JobSucceeded(job) && !kube.JobFailed(job) {
 			observation.hasActive = true
+			observation.activeJob = job.DeepCopy()
 			continue
 		}
 		if observation.mostRecentTerminal == nil || job.CreationTimestamp.After(observation.mostRecentTerminal.CreationTimestamp.Time) {

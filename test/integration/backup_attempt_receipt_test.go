@@ -1,0 +1,118 @@
+//go:build integration
+
+package integration
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+
+	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/require"
+	batchv1 "k8s.io/api/batch/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/kubebao/openbao-operator/api/v1alpha1"
+	"github.com/kubebao/openbao-operator/internal/app/openbaocluster/adminopsstatus"
+	"github.com/kubebao/openbao-operator/internal/platform/constants"
+	"github.com/kubebao/openbao-operator/internal/port/adminops"
+)
+
+func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
+	cases := []struct {
+		name      string
+		completed bool
+		applied   bool
+	}{
+		{name: "running-before-apply"},
+		{name: "completed-before-apply", completed: true},
+		{name: "running-after-apply", applied: true},
+		{name: "completed-after-apply", completed: true, applied: true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			cluster := newMinimalClusterObj(newTestNamespace(t), "backup-receipt")
+			cluster.Annotations = map[string]string{constants.AnnotationTriggerBackup: "receipt-request"}
+			cluster.Spec.Backup = &api.BackupSchedule{
+				Schedule: "0 0 * * *",
+				Target: api.BackupTarget{
+					Endpoint: "https://minio.example", Bucket: testBackupBucket,
+				},
+				JWTAuthRole: "backup", Image: "openbao-backup:dev",
+			}
+			require.NoError(t, k8sClient.Create(ctx, cluster))
+			updateClusterStatus(t, cluster, func(status *api.OpenBaoClusterStatus) {
+				status.Initialized = true
+				status.Phase = api.ClusterPhaseRunning
+				status.CurrentVersion = cluster.Spec.Version
+				status.UpgradeRequests = &api.UpgradeRequestStatus{LastHandledRetry: "preserve-sibling"}
+			})
+			key := client.ObjectKeyFromObject(cluster)
+			require.NoError(t, k8sClient.Get(ctx, key, cluster))
+			interrupted := errors.New("controller stopped before attempt acknowledgement")
+			persist := adminopsstatus.NewMutator(k8sClient, k8sClient)
+			manager := newIntegrationBackupManager(t).WithAdminOpsStatusMutator(func(
+				callCtx context.Context, target *api.OpenBaoCluster,
+				mutate func(*api.OpenBaoCluster) error, ownership adminops.OwnershipPolicy,
+			) error {
+				probe := target.DeepCopy()
+				if err := mutate(probe); err != nil {
+					return err
+				}
+				if probe.Status.Backup != nil && probe.Status.Backup.LastHandledManualTrigger == "receipt-request" {
+					if testCase.applied {
+						// The API accepted the write, but the controller lost its
+						// response or read-back before it could clear the request.
+						if err := persist(callCtx, target.DeepCopy(), mutate, ownership); err != nil {
+							return err
+						}
+					}
+					return interrupted
+				}
+				return persist(callCtx, target, mutate, ownership)
+			})
+			_, err := manager.Reconcile(ctx, logr.Discard(), cluster)
+			require.ErrorIs(t, err, interrupted)
+
+			var stored api.OpenBaoCluster
+			require.NoError(t, k8sClient.Get(ctx, key, &stored))
+			require.Equal(t, "receipt-request", stored.Annotations[constants.AnnotationTriggerBackup])
+			if testCase.applied {
+				require.Equal(t, "receipt-request", stored.Status.Backup.LastHandledManualTrigger)
+			} else {
+				require.Empty(t, stored.Status.Backup.LastHandledManualTrigger)
+			}
+			require.NotNil(t, stored.Status.OperationLock)
+			var jobs batchv1.JobList
+			require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+			require.Len(t, jobs.Items, 1)
+			job := jobs.Items[0].DeepCopy()
+			require.NotEmpty(t, job.UID)
+			var receipt map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal([]byte(job.Annotations["kubebao.org/backup-attempt"]), &receipt))
+			require.JSONEq(t, `"receipt-request"`, string(receipt["manualTrigger"]))
+			if testCase.completed {
+				job.Status.Succeeded = 1
+				require.NoError(t, newControllerClient(t).Status().Update(ctx, job))
+			}
+
+			// A new manager has no memory of the interrupted request.
+			manager = newIntegrationBackupManager(t)
+			_, err = manager.Reconcile(ctx, logr.Discard(), &stored)
+			require.NoError(t, err)
+			require.NoError(t, k8sClient.Get(ctx, key, &stored))
+			require.Equal(t, "receipt-request", stored.Status.Backup.LastHandledManualTrigger)
+			require.Empty(t, stored.Annotations[constants.AnnotationTriggerBackup])
+			require.NotNil(t, stored.Status.Backup.LastAttemptTime)
+			require.Equal(t, "preserve-sibling", stored.Status.UpgradeRequests.LastHandledRetry)
+			require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+			require.Len(t, jobs.Items, 1)
+			require.Equal(t, job.UID, jobs.Items[0].UID)
+			if testCase.completed {
+				require.Equal(t, job.Annotations["openbao.org/backup-key"], stored.Status.Backup.LastBackupName)
+				require.EqualValues(t, 1, stored.Status.Backup.SuccessfulBackups)
+			}
+		})
+	}
+}

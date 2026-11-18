@@ -38,19 +38,32 @@ func (m *Manager) recordBackupAttempt(
 	nextScheduled time.Time,
 	manualTriggerToken string,
 ) error {
-	if cluster.Status.Backup == nil {
-		cluster.Status.Backup = &openbaov1alpha1.BackupStatus{}
+	if m.adminOpsMutator == nil {
+		return fmt.Errorf("adminops status mutator is required")
 	}
-
-	nowMeta := metav1.NewTime(now)
-	cluster.Status.Backup.LastAttemptTime = &nowMeta
-
-	scheduledMeta := metav1.NewTime(scheduledTime)
-	cluster.Status.Backup.LastAttemptScheduledTime = &scheduledMeta
-	cluster.Status.Backup.LastHandledManualTrigger = manualTriggerToken
-
-	nextScheduledMeta := metav1.NewTime(nextScheduled)
-	cluster.Status.Backup.NextScheduledBackup = &nextScheduledMeta
-
-	return m.patchStatusSSA(ctx, cluster)
+	uid := cluster.UID
+	jobName := backupJobName(cluster, scheduledTime)
+	// metav1.Time persists whole seconds. Keep recovered receipts canonical so
+	// repeated observations do not rewrite an already recorded attempt.
+	nowMeta := metav1.NewTime(now.UTC().Truncate(time.Second))
+	scheduledMeta := metav1.NewTime(scheduledTime.UTC().Truncate(time.Second))
+	nextMeta := metav1.NewTime(nextScheduled.UTC().Truncate(time.Second))
+	return m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.UID != uid {
+			return fmt.Errorf("cluster identity changed while recording backup attempt")
+		}
+		if !backupOperationLock.IsHeldBy(obj.Status.OperationLock) ||
+			obj.Status.OperationLock.Message != backupJobLockMessage(jobName) {
+			return fmt.Errorf("backup operation changed while recording attempt for Job %s", jobName)
+		}
+		if obj.Status.Backup == nil {
+			obj.Status.Backup = &openbaov1alpha1.BackupStatus{}
+		}
+		status := obj.Status.Backup
+		status.LastAttemptTime = &nowMeta
+		status.LastAttemptScheduledTime = &scheduledMeta
+		status.LastHandledManualTrigger = manualTriggerToken
+		status.NextScheduledBackup = &nextMeta
+		return nil
+	}, adminops.ForceOwnershipOnConflict)
 }

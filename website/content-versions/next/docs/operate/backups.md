@@ -160,8 +160,9 @@ kubectl -n <namespace> annotate openbaocluster <name> \
   openbao.org/trigger-backup="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --overwrite
 {{< /command >}}
 
-The controller clears the annotation after accepting the request. It skips a duplicate request while another backup
-Job is active.
+For a new backup Job, the controller records the request value in `status.backup.lastHandledManualTrigger`
+before clearing the annotation. It recovers this receipt from the Job after a controller restart. The controller skips
+a duplicate request while another backup Job is active.
 
 {{< command label="verify" title="Inspect backup readiness and outcome" >}}
 kubectl -n <namespace> get openbaocluster <name> \

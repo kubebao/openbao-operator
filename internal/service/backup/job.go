@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -105,10 +106,10 @@ func clearBackupFailure(status *openbaov1alpha1.BackupStatus) {
 
 // ensureBackupJob creates or updates a Kubernetes Job for executing the backup.
 // Returns true if a Job was created or is already running, false if backup should not proceed.
-// keyTime timestamps the backup object key. It must be the Job creation time, not the
+// attempt.Time timestamps the backup object key. It must be the Job creation time, not the
 // scheduled time: retention ages backups by key timestamp, and a stale scheduled time
 // after a blocked period would make a fresh snapshot look old enough to delete.
-func (m *Manager) ensureBackupJob(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, jobName string, keyTime time.Time) (bool, error) {
+func (m *Manager) ensureBackupJob(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, jobName string, attempt backupAttemptReceipt) (bool, error) {
 	job := &batchv1.Job{}
 
 	err := m.reader.Get(ctx, types.NamespacedName{
@@ -131,7 +132,7 @@ func (m *Manager) ensureBackupJob(ctx context.Context, logger logr.Logger, clust
 			cluster.Namespace,
 			cluster.Name,
 			"", // filenamePrefix (empty default)
-			keyTime,
+			attempt.Time,
 		)
 		if err != nil {
 			return false, fmt.Errorf("failed to generate backup key: %w", err)
@@ -198,6 +199,11 @@ func (m *Manager) ensureBackupJob(ctx context.Context, logger logr.Logger, clust
 		if buildErr != nil {
 			return false, fmt.Errorf("failed to build backup Job %s/%s: %w", cluster.Namespace, jobName, buildErr)
 		}
+		receipt, err := json.Marshal(attempt)
+		if err != nil {
+			return false, fmt.Errorf("encode backup attempt receipt: %w", err)
+		}
+		job.Annotations[backupAttemptAnnotation] = string(receipt)
 
 		// Set OwnerReference for garbage collection
 		if err := opslifecycle.PrepareManagedJobOwner(job, cluster, m.scheme); err != nil {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -174,7 +175,11 @@ func (m *Manager) applyCreateBackup(
 		m.emitNormalEvent(cluster, ReasonBackupStarted, "Backup started for schedule %s", observation.scheduledTime.UTC().Format(time.RFC3339))
 	}
 
-	if _, err := m.ensureBackupJob(ctx, logger, cluster, jobName, observation.now); err != nil {
+	attempt := backupAttemptReceipt{
+		Time: observation.now, ScheduledTime: observation.scheduledTime,
+		NextScheduled: observation.nextSchedule, ManualTrigger: observation.manualTriggerToken,
+	}
+	if _, err := m.ensureBackupJob(ctx, logger, cluster, jobName, attempt); err != nil {
 		ensureErr := fmt.Errorf("failed to ensure backup Job: %w", err)
 		if releaseErr := m.releaseBackupLock(ctx, logger, cluster, "after job ensure failure"); releaseErr != nil {
 			return recon.Result{}, errors.Join(ensureErr, releaseErr)
@@ -182,20 +187,14 @@ func (m *Manager) applyCreateBackup(
 		return recon.Result{}, ensureErr
 	}
 
+	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: jobName, Namespace: cluster.Namespace}}
+	if err := m.recoverBackupAttempt(ctx, cluster, job); err != nil {
+		return recon.Result{}, err
+	}
 	if manualTrigger {
-		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster); err != nil {
+		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
 			return recon.Result{}, err
 		}
-	}
-	if err := m.recordBackupAttempt(
-		ctx,
-		cluster,
-		observation.now,
-		observation.scheduledTime,
-		observation.nextSchedule,
-		observation.manualTriggerToken,
-	); err != nil {
-		logger.Error(err, "Failed to record backup attempt")
 	}
 
 	return recon.Result{RequeueAfter: constants.RequeueShort}, nil
@@ -209,8 +208,11 @@ func (m *Manager) applyObserveBackup(
 	observation backupObservation,
 ) (recon.Result, error) {
 	if observation.ownsLock {
+		if err := m.recoverBackupAttempt(ctx, cluster, observation.jobs.activeJob); err != nil {
+			return recon.Result{}, err
+		}
 		if observation.manualTriggerToken != "" {
-			if err := m.clearManualTriggerAnnotation(ctx, logger, cluster); err != nil {
+			if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
 				return recon.Result{}, fmt.Errorf("failed to clear manual backup trigger while finishing owned operation: %w", err)
 			}
 		}
@@ -234,8 +236,13 @@ func (m *Manager) applyFinalizeBackup(
 	cluster *openbaov1alpha1.OpenBaoCluster,
 	observation backupObservation,
 ) (recon.Result, error) {
+	if observation.ownsLock {
+		if err := m.recoverBackupAttempt(ctx, cluster, observation.jobs.mostRecentTerminal); err != nil {
+			return recon.Result{}, err
+		}
+	}
 	if observation.ownsLock && observation.manualTriggerToken != "" && observation.jobs.mostRecentTerminal != nil {
-		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster); err != nil {
+		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
 			return recon.Result{}, fmt.Errorf("failed to clear manual backup trigger while finishing owned operation: %w", err)
 		}
 	}
@@ -283,7 +290,7 @@ func (m *Manager) acquireBackupLock(
 	jobName string,
 ) (*recon.Result, error) {
 	if err := opslifecycle.AcquireWithReader(ctx, retentionGuardReader{Reader: m.reader, uid: cluster.UID}, m.client, cluster, backupOperationLock, opslifecycle.AcquireOptions{
-		Message: fmt.Sprintf("backup job %s", jobName),
+		Message: backupJobLockMessage(jobName),
 	}); err != nil {
 		if opslifecycle.IsLockHeld(err) {
 			fields := map[string]string{
