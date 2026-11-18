@@ -26,6 +26,7 @@ import (
 )
 
 func TestScheduledBackupPreservesManualAcknowledgement(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	for _, legacy := range []bool{false, true} {
 		t.Run(map[bool]string{false: "new-receipt", true: "legacy-job"}[legacy], func(t *testing.T) {
 			cluster := newMinimalClusterObj(newTestNamespace(t), "scheduled-receipt")
@@ -69,7 +70,7 @@ func TestScheduledBackupPreservesManualAcknowledgement(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.NoError(t, opslifecycle.PrepareManagedJobOwner(job, cluster, k8sScheme))
-				require.NoError(t, k8sClient.Create(ctx, job))
+				require.NoError(t, newControllerClient(t).Create(ctx, job))
 				job.Status.Succeeded = 1
 				require.NoError(t, newControllerClient(t).Status().Update(ctx, job))
 			}
@@ -90,6 +91,7 @@ func TestScheduledBackupPreservesManualAcknowledgement(t *testing.T) {
 }
 
 func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	cases := []struct {
 		name       string
 		completed  bool
@@ -175,7 +177,7 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 			if testCase.legacyJob {
 				require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(job), job))
 				delete(job.Annotations, "kubebao.org/backup-attempt")
-				require.NoError(t, k8sClient.Update(ctx, job))
+				require.NoError(t, newControllerClient(t).Update(ctx, job))
 			}
 			if testCase.newRequest {
 				require.NoError(t, k8sClient.Get(ctx, key, &stored))
@@ -254,6 +256,7 @@ func (c *lostBackupCreateResponseClient) Create(callCtx context.Context, obj cli
 }
 
 func TestBackupRecoversCommittedJobAfterLostCreateResponse(t *testing.T) {
+	ensureDefaultAdmissionPoliciesApplied(t)
 	cluster := newMinimalClusterObj(newTestNamespace(t), "lost-create-response")
 	cluster.Annotations = map[string]string{constants.AnnotationTriggerBackup: "lost-response-request"}
 	cluster.Spec.Backup = &api.BackupSchedule{
