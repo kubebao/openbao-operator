@@ -61,7 +61,9 @@ func (m *Manager) recordBackupAttempt(
 		}
 		status := obj.Status.Backup
 		older := status.LastAttemptTime != nil && nowMeta.Before(status.LastAttemptTime)
-		if !older {
+		recorded := status.LastAttemptTime != nil && nowMeta.Equal(status.LastAttemptTime) &&
+			status.LastAttemptScheduledTime != nil && scheduledMeta.Equal(status.LastAttemptScheduledTime)
+		if !older && !recorded {
 			status.LastAttemptTime = &nowMeta
 			status.LastAttemptScheduledTime = &scheduledMeta
 			status.NextScheduledBackup = &nextMeta

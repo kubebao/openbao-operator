@@ -56,7 +56,7 @@ func (m *Manager) recoverBackupAttempt(ctx context.Context, cluster *api.OpenBao
 	if raw == "" {
 		// Older operator versions did not write receipts. Keep their Jobs
 		// observable without inventing an acknowledgement for a newer request.
-		return nil, m.recoverLegacyBackupSchedule(ctx, cluster, job)
+		return nil, nil
 	}
 	var receipt backupAttemptReceipt
 	if err := json.Unmarshal([]byte(raw), &receipt); err != nil {

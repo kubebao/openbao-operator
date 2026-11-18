@@ -23,7 +23,7 @@ func (e *uncertainBackupSubmissionError) Unwrap() error { return e.cause }
 
 func backupCreateError(err error) error {
 	if apierrors.IsForbidden(err) || apierrors.IsInvalid(err) || apierrors.IsBadRequest(err) ||
-		apierrors.IsUnauthorized(err) || apierrors.IsNotFound(err) {
+		apierrors.IsUnauthorized(err) || apierrors.IsNotFound(err) || apierrors.IsTooManyRequests(err) {
 		return err
 	}
 	return &uncertainBackupSubmissionError{cause: err}

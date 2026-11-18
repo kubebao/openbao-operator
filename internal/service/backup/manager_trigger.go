@@ -21,13 +21,17 @@ func manualTriggerToken(cluster *openbaov1alpha1.OpenBaoCluster) string {
 	if cluster == nil {
 		return ""
 	}
-	return cluster.Annotations[constants.AnnotationTriggerBackup]
+	token := cluster.Annotations[constants.AnnotationTriggerBackup]
+	if len(token) > maxManualBackupTriggerBytes {
+		return ""
+	}
+	return token
 }
 
 // Reject legacy values that admission allowed before the receipt byte limit.
 // Clear only this request so it cannot block later scheduled backups.
 func (m *Manager) rejectOversizedManualTrigger(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (bool, error) {
-	token := manualTriggerToken(cluster)
+	token := cluster.Annotations[constants.AnnotationTriggerBackup]
 	if len(token) <= maxManualBackupTriggerBytes {
 		return false, nil
 	}

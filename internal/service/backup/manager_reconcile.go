@@ -19,6 +19,12 @@ import (
 // It checks if a backup is due, executes it if needed, and applies retention policies.
 func (m *Manager) Reconcile(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (recon.Result, error) {
 	logger = logger.WithValues("component", constants.ComponentBackup)
+	_, triggerErr := m.rejectOversizedManualTrigger(ctx, logger, cluster)
+	result, err := m.reconcileBackup(ctx, logger, cluster)
+	return result, errors.Join(err, triggerErr)
+}
+
+func (m *Manager) reconcileBackup(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (recon.Result, error) {
 	metrics := NewMetrics(cluster.Namespace, cluster.Name)
 	now := time.Now().UTC()
 
@@ -31,11 +37,6 @@ func (m *Manager) Reconcile(ctx context.Context, logger logr.Logger, cluster *op
 			return result, err
 		}
 		return result, nil
-	}
-
-	if rejected, err := m.rejectOversizedManualTrigger(ctx, logger, cluster); rejected {
-		return recon.Result{RequeueAfter: constants.RequeueShort},
-			errors.Join(err, m.reconcileRestoreTest(ctx, logger, cluster, now))
 	}
 
 	if backupOperationLock.IsHeldBy(cluster.Status.OperationLock) {

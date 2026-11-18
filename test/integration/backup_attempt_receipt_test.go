@@ -252,7 +252,10 @@ func (c *lostBackupCreateResponseClient) Create(callCtx context.Context, obj cli
 	if err := c.Client.Create(callCtx, obj, opts...); err != nil {
 		return err
 	}
-	return apierrors.NewTimeoutError("backup Job Create response lost", 0)
+	if c.jobCreates == 1 {
+		return apierrors.NewTimeoutError("backup Job Create response lost", 0)
+	}
+	return nil
 }
 
 func TestBackupRecoversCommittedJobAfterLostCreateResponse(t *testing.T) {
@@ -281,7 +284,7 @@ func TestBackupRecoversCommittedJobAfterLostCreateResponse(t *testing.T) {
 	require.Len(t, jobs.Items, 1)
 	jobUID := jobs.Items[0].UID
 
-	_, err = newIntegrationBackupManager(t).Reconcile(ctx, logr.Discard(), cluster)
+	_, err = newIntegrationBackupManagerWithClient(t, fault).Reconcile(ctx, logr.Discard(), cluster)
 	require.NoError(t, err)
 	require.NoError(t, k8sClient.Get(ctx, key, cluster))
 	require.Equal(t, "lost-response-request", cluster.Status.Backup.LastHandledManualTrigger)

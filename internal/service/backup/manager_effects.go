@@ -236,6 +236,11 @@ func (m *Manager) applyObserveBackup(
 	if err != nil {
 		return recon.Result{}, err
 	}
+	if receipt == nil && job != nil {
+		if err := m.recoverLegacyBackupSchedule(ctx, cluster, job); err != nil {
+			return recon.Result{}, err
+		}
+	}
 	if receipt != nil && receipt.ManualTrigger != "" && receipt.ManualTrigger == observation.manualTriggerToken {
 		if err := m.skipManualTriggerForActiveJob(ctx, logger, cluster, receipt.ManualTrigger); err != nil {
 			return recon.Result{}, err
@@ -275,6 +280,11 @@ func (m *Manager) applyFinalizeBackup(
 		receipt, err := m.recoverBackupAttempt(ctx, cluster, job)
 		if err != nil {
 			return recon.Result{}, err
+		}
+		if receipt == nil && job != nil {
+			if err := m.recoverLegacyBackupSchedule(ctx, cluster, job); err != nil {
+				return recon.Result{}, err
+			}
 		}
 		if receipt != nil && receipt.ManualTrigger != "" {
 			if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, receipt.ManualTrigger); err != nil {

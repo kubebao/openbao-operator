@@ -154,8 +154,10 @@ uses a separate HTTP client, so these destination checks do not block workload-i
 ## Trigger and verify a backup
 
 The operator does not create a CronJob. Trigger an immediate backup by changing the one-shot annotation value.
-Use at most 1,024 UTF-8 bytes. Admission rejects larger new values. The controller clears an existing oversized
-value without acknowledging it or creating a manual backup, then resumes scheduled backups:
+Use at most 1,024 UTF-8 bytes. Admission rejects larger new values, but permits unchanged legacy values and
+authorized API migration imports. The controller ignores oversized values when deciding whether to start a manual
+backup and attempts to clear them without acknowledgement. Scheduled backups and owned Job completion continue
+if that cleanup fails. Request a backup with a valid value:
 
 {{< command label="apply" title="Request a manual backup" >}}
 kubectl -n <namespace> annotate openbaocluster <name> \
@@ -163,20 +165,27 @@ kubectl -n <namespace> annotate openbaocluster <name> \
 {{< /command >}}
 
 For a new backup Job, the controller records the request value in `status.backup.lastHandledManualTrigger`
-before clearing the annotation. It recovers this receipt after a controller restart while the Job remains available.
+before clearing the annotation. After a restart, recovery verifies that the Job belongs to the current Cluster UID
+and holds the backup operation lock for that Job. A different held operation blocks recovery.
 Backup Jobs become eligible for collection one hour after completion. If the Job is gone and the request has no
 acknowledgement, check backup status and object storage before requesting another backup. The controller acknowledges
 only the request recorded in that Job's receipt. A different request value remains queued until the active Job finishes.
 
 If the controller loses the Job creation response, it retains the backup operation lock and recovers the receipt
 when it observes the owned Job. If the Job remains absent, it holds the operation instead of submitting another Job.
-Inspect the named Job, backup status, and object storage before an administrator clears the uncertain submission
-lock. A timed-out Create call alone does not prove that no Job ran.
+This hold also covers a controller interruption after it records submission intent but before it sends Create.
+Inspect `status.operationLock.message`: `submitting backup job <name>` identifies an uncertain submission, and
+`backup job <name>` identifies an observed Job. Check that named Job, backup status, and object storage. A timed-out
+Create call or an absent Job alone does not prove that no Job ran. This version has no self-service command to
+release an uncertain backup submission. Contact the [maintainers](https://github.com/kubebao/openbao-operator/issues)
+with the Cluster UID, operation lock, Job state, and backup observations before changing status or retrying.
 
 {{< command label="verify" title="Inspect backup readiness and outcome" >}}
 kubectl -n <namespace> get openbaocluster <name> \
   -o jsonpath='{range .status.conditions[?(@.type=="BackupConfigurationReady")]}{.status}{" "}{.reason}{"\n"}{.message}{"\n"}{end}'
 kubectl -n <namespace> get openbaocluster <name> -o jsonpath='{.status.backup}' | jq
+kubectl -n <namespace> get openbaocluster <name> -o jsonpath='{.status.operationLock}' | jq
+kubectl -n <namespace> get job <job-name-from-operation-lock>
 kubectl -n <namespace> get jobs -l openbao.org/cluster=<name>
 {{< /command >}}
 

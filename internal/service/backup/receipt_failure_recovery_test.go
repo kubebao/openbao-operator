@@ -41,6 +41,7 @@ func TestInvalidBackupScheduleStillObservesBoundRestoreTest(t *testing.T) {
 }
 
 func TestManualBackupTriggerByteBudget(t *testing.T) {
+	const previousAck = "acknowledged-earlier"
 	cases := []struct {
 		name    string
 		token   string
@@ -60,7 +61,7 @@ func TestManualBackupTriggerByteBudget(t *testing.T) {
 			cluster.Spec.Backup.JWTAuthRole = testBackupJWTAuthRole
 			cluster.Status.Initialized = true
 			cluster.Status.CurrentVersion = cluster.Spec.Version
-			cluster.Status.Backup.LastHandledManualTrigger = "acknowledged-earlier"
+			cluster.Status.Backup.LastHandledManualTrigger = previousAck
 			due := metav1.NewTime(time.Now().UTC().Truncate(time.Hour).Add(-time.Hour))
 			cluster.Status.Backup.NextScheduledBackup = &due
 			cluster.Annotations = map[string]string{constants.AnnotationTriggerBackup: tc.token}
@@ -77,12 +78,14 @@ func TestManualBackupTriggerByteBudget(t *testing.T) {
 				require.Equal(t, 1, len(jobs.Items))
 				return
 			}
-			require.Equal(t, len("acknowledged-earlier"), len(stored.Status.Backup.LastHandledManualTrigger))
-			require.Empty(t, jobs.Items)
+			require.Equal(t, previousAck, stored.Status.Backup.LastHandledManualTrigger)
+			require.Len(t, jobs.Items, 1)
 			_, err = newBackupManager(c).Reconcile(t.Context(), logr.Discard(), &stored)
 			require.NoError(t, err)
 			require.NoError(t, c.List(t.Context(), &jobs, client.InNamespace(cluster.Namespace)))
 			require.Equal(t, 1, len(jobs.Items), "a rejected request must not block the due scheduled backup")
+			require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(cluster), &stored))
+			require.Equal(t, previousAck, stored.Status.Backup.LastHandledManualTrigger)
 		})
 	}
 }
