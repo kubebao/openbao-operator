@@ -2,6 +2,20 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.7.0-rc.2](https://github.com/kubebao/openbao-operator/compare/0.7.0-rc.1...0.7.0-rc.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **backup:** preserve attempt receipts across controller restarts ([#975](https://github.com/kubebao/openbao-operator/issues/975)) ([b9d52d8](https://github.com/kubebao/openbao-operator/commit/b9d52d836e1a874c55ea56cf21be3d78b9293c56))
+* **docs:** pin API fallback to the merged source ([#976](https://github.com/kubebao/openbao-operator/issues/976)) ([c9ca21f](https://github.com/kubebao/openbao-operator/commit/c9ca21f25a589ed28a86be8fe80e852553089877))
+* **migration:** require published 0.6.2 as migration source ([#962](https://github.com/kubebao/openbao-operator/issues/962)) ([11a1660](https://github.com/kubebao/openbao-operator/commit/11a16603ef2a3ef454e5d9c309b4d1fe8b31e334))
+* **restore:** allow explicit snapshot budgets above the 8 GiB default ([#971](https://github.com/kubebao/openbao-operator/issues/971)) ([4a0975c](https://github.com/kubebao/openbao-operator/commit/4a0975c04ee648d0a78e181e350dc42d40832d3f))
+* **upgrade:** guard legacy crossings and repair migration qualification ([#977](https://github.com/kubebao/openbao-operator/issues/977)) ([f580d3c](https://github.com/kubebao/openbao-operator/commit/f580d3ce0f8f3f7ecfab0b78b470dabb7d034e3f))
+* **upgrade:** wait for Raft catch-up between voter replacements ([#964](https://github.com/kubebao/openbao-operator/issues/964)) ([1a4c4fe](https://github.com/kubebao/openbao-operator/commit/1a4c4fe6fe08bbec9e0c94a55ac95481e030a432))
+* **workload:** allow longer OpenBao startup probe budgets ([#958](https://github.com/kubebao/openbao-operator/issues/958)) ([9f82f52](https://github.com/kubebao/openbao-operator/commit/9f82f5208e9049b295ba4d1fd082f23ae83524ae))
+* **workload:** preserve promoted handoffs and heartbeat freshness ([#969](https://github.com/kubebao/openbao-operator/issues/969)) ([f0db076](https://github.com/kubebao/openbao-operator/commit/f0db076ed287ee156daabdd8130deeb43d8e69b3))
+
 ## [0.7.0-rc.1](https://github.com/kubebao/openbao-operator/compare/0.6.0...0.7.0-rc.1) (2026-11-13)
 
 
