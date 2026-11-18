@@ -1,0 +1,60 @@
+<!doctype html><html lang=en-US><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=color-scheme content="dark light"><meta name=theme-color content="#08141d"><meta name=description content="Raft catch-up checks, guarded rollout recovery, and configurable restore snapshot limits."><title>OpenBao Operator 0.6.3 · OpenBao Operator</title><link rel=canonical href=https://docs.kubebao.org/releases/0.6.3/><link rel=icon type=image/png sizes=512x512 href=/img/brand/kubebao-github-avatar.png><link rel=stylesheet href=/css/site.min.fc8abd6337d96b09dad5103162e39c215037dbe58bd4e02e41a987fde2bec546.css integrity="sha256-/Iq9YzfZawna1RAxYuOcIVA32+WL1OAuQamH/eK+xUY="><script defer src=/js/site.min.efea255d53561b4cd10a556df8886d530a89621d5a853b7b6c7fb41114198335.js integrity="sha256-7+olXVNWG0zRClVt+IhtUwqJYh1ahTt7bH+0ERQZgzU="></script></head><body class=is-global><a class=skip-link href=#main-content>Skip to content</a><header class=site-header><div class=header-inner><button class="icon-button nav-toggle" type=button aria-label="Open primary navigation" aria-controls=primary-navigation aria-expanded=false data-nav-toggle>
+<span></span><span></span><span></span>
+</button>
+<a class=brand href=/ aria-label="OpenBao Operator documentation home"><span class=brand-logo aria-hidden=true><img src=/img/brand/kubebao-logo-dark.png alt width=1254 height=1254>
+</span><span class=brand-name>OpenBao <b>Operator</b></span></a><nav class=top-nav id=primary-navigation aria-label=Primary><a href=/docs/>Docs</a>
+<a href=/releases/ aria-current=location>Releases</a>
+<a href=/project/>Project</a>
+<a href=/contribute/>Contribute</a></nav><div class=header-actions><button class=search-trigger type=button aria-haspopup=dialog data-search-open>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<span>Search</span>
+<kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+</a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=global-shell><main class=doc-main id=main-content><nav class=breadcrumbs aria-label=Breadcrumb><a href=/>Home</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<a href=/releases/>Releases</a>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+<span aria-current=page>OpenBao Operator 0.6.3</span></nav><article class=doc-article><header class=article-header><h1>OpenBao Operator 0.6.3</h1><p class=article-lede>Raft catch-up checks, guarded rollout recovery, and configurable restore snapshot limits.</p><p class=page-meta>Updated 18 November 2026 · 3 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#voter-rollouts-and-recovery>Voter rollouts and recovery</a></li><li><a href=#restore-larger-snapshots>Restore larger snapshots</a></li><li><a href=#upgrade-from-062>Upgrade from 0.6.2</a></li><li><a href=#qualification-and-api-migration>Qualification and API migration</a></li></ul></nav></details><div class=article-content><p>OpenBao Operator 0.6.3 checks Raft catch-up between voter replacements. A returning
+voter can be Ready while still behind the leader. Replacing another voter before
+recovery completes can interrupt writes.</p><p>Restore requests and scheduled restore tests can also select a larger snapshot
+size budget while retaining the 8 GiB default.</p><h2 id=voter-rollouts-and-recovery>Voter rollouts and recovery</h2><p>The operator checks the remaining voters before advancing ordinary Pod-template
+changes, managed rolling version upgrades, and rolling retries. The hold survives
+a controller restart. Failed corrections and rolling retries use a temporary
+<code>OnDelete</code> strategy while the operator repairs voters one at a time. It restores
+<code>RollingUpdate</code> after repair and fresh Raft health checks complete.</p><p>Read <a href=../../docs/operate/upgrades/#wait-for-raft-catch-up-between-voter-replacements>Wait for Raft catch-up between voter replacements</a>
+for controller permissions, progress events, and recovery boundaries. Single-voter
+and two-voter clusters still require a write outage during replacement. Leader
+changes can cause brief client errors.</p><h2 id=restore-larger-snapshots>Restore larger snapshots</h2><p>Set <code>spec.source.maxSnapshotSizeBytes</code> on an <code>OpenBaoRestore</code>, or
+<code>spec.backup.restoreTest.maxSnapshotSizeBytes</code> for scheduled restore tests.
+For example, <code>17179869184</code> permits snapshot objects up to 16 GiB. The limit applies
+to the downloaded object. Backup status retains size and digest metadata for
+larger snapshots.</p><p>The restore Job reserves scratch and ephemeral storage from the selected budget.
+A 16 GiB budget requests 18151 MiB of ephemeral storage. Check node capacity,
+namespace quotas, and target PVC capacity. Job preparation remains limited to
+30 minutes, and the Job deadline remains 40 minutes. Rehearse with representative
+snapshots and storage throughput. See <a href=../../docs/operate/restore/#restore-larger-snapshots>Restore larger snapshots</a>.</p><h2 id=upgrade-from-062>Upgrade from 0.6.2</h2><p>Finish active lifecycle operations. Verify a current backup, a rehearsed restore
+path, administrator access, and seal recovery material. Install this fix on a
+settled cluster; it cannot protect a rollout already started by an older operator.</p><p>Custom controller identities need authenticated read access to
+<code>sys/storage/raft/configuration</code> and <code>sys/storage/raft/autopilot/state</code>. The default
+self-init OIDC controller policy already grants these reads. Missing access holds
+voter rollouts.</p><p>Apply the 0.6.3 CRDs with server-side apply before upgrading the matching chart,
+policies, RBAC, operator, and helper defaults during a maintenance window.
+Follow <a href=../../docs/reference/operator-upgrades/#upgrade-from-062-to-063>Upgrade the operator</a>.
+Verify quorum, Pod readiness, and client behavior. Keep the existing startup budget
+for databases that need longer to open. Upgrade the separate OpenBao server image
+only when you intend to change its version.</p><p>Obtain the
+<a href=https://github.com/kubebao/openbao-operator/releases/tag/0.6.3>0.6.3 release assets</a>
+and the chart at <code>oci://ghcr.io/kubebao/charts/openbao-operator</code>, version <code>0.6.3</code>.
+The handwritten notes are at
+<a href=https://github.com/kubebao/openbao-operator/blob/0.6.3/release-notes/0.6.3.md><code>release-notes/0.6.3.md</code></a>.</p><h2 id=qualification-and-api-migration>Qualification and API migration</h2><p>The <a href=https://github.com/kubebao/openbao-operator/pull/966>release PR</a> tracks the
+required release-profile qualification, including an operator upgrade from
+published 0.6.2. Earlier code-candidate tests do not replace this qualification or
+a rehearsal with production data and storage.</p><p>The API remains <code>openbao.org/v1alpha1</code>. Migration from published 0.6.3 artifacts to
+0.7.0-rc.2 requires separate qualification and updated guidance before RC.2 is
+published. The RC.1 migration binary does not accept 0.6.3. A direct 0.7 chart or
+manifest upgrade leaves existing <code>openbao.org</code> resources unmanaged.</p></div></article><footer class=site-footer><p>OpenBao Operator is an independent open source project.</p><div><a href=https://github.com/kubebao/openbao-operator>GitHub</a>
+<a href=/releases/>Releases</a>
+<a href=/contribute/>Contribute</a></div></footer></main><aside class=page-toc><p>On this page</p><nav id=TableOfContents><ul><li><a href=#voter-rollouts-and-recovery>Voter rollouts and recovery</a></li><li><a href=#restore-larger-snapshots>Restore larger snapshots</a></li><li><a href=#upgrade-from-062>Upgrade from 0.6.2</a></li><li><a href=#qualification-and-api-migration>Qualification and API migration</a></li></ul></nav><a class=edit-link href=https://github.com/kubebao/openbao-operator/edit/main/website/content/releases/0.6.3.md>Edit this page <span>↗</span></a></aside></div><dialog class=search-dialog aria-label="Search documentation" data-search-dialog data-search-index=/index.json><section class=search-panel><div class=search-box><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M19 11A8 8 0 113 11a8 8 0 0116 0z"/></svg>
+<label class=sr-only for=site-search>Search documentation</label>
+<input id=site-search type=search autocomplete=off placeholder="Search the operator docs…" data-search-input>
+<button class=search-close type=button aria-label="Close search" data-search-close>Close <kbd>Esc</kbd></button></div><div class=search-state role=status aria-live=polite data-search-state><div><p id=search-title>Search the handbook</p><span>Try “install”, “threat model”, or “compatibility”.</span></div></div><ol class=search-results aria-label="Search results" data-search-results></ol><footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span></footer></section></dialog></body></html>
