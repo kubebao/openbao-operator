@@ -89,7 +89,11 @@ func TestBackupAttemptReceiptRejectsInvalidOrUnrelatedEvidence(t *testing.T) {
 			}
 			c := newTestClient(t, cluster, job)
 			manager := newBackupManager(c)
-			_, err = manager.Reconcile(ctx, logr.Discard(), cluster.DeepCopy())
+			if scenario == "different-operation" {
+				_, err = manager.recoverBackupAttempt(ctx, cluster.DeepCopy(), job)
+			} else {
+				_, err = manager.Reconcile(ctx, logr.Discard(), cluster.DeepCopy())
+			}
 			require.Error(t, err)
 			var stored api.OpenBaoCluster
 			require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(cluster), &stored))

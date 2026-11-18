@@ -179,8 +179,14 @@ func (m *Manager) applyCreateBackup(
 		Time: observation.now, ScheduledTime: observation.scheduledTime,
 		NextScheduled: observation.nextSchedule, ManualTrigger: observation.manualTriggerToken,
 	}
+	if err := m.markBackupSubmission(ctx, cluster, jobName); err != nil {
+		return recon.Result{}, fmt.Errorf("mark backup Job submission: %w", err)
+	}
 	if _, err := m.ensureBackupJob(ctx, logger, cluster, jobName, attempt); err != nil {
 		ensureErr := fmt.Errorf("failed to ensure backup Job: %w", err)
+		if backupSubmissionUncertain(err) {
+			return recon.Result{}, ensureErr
+		}
 		if releaseErr := m.releaseBackupLock(ctx, logger, cluster, "after job ensure failure"); releaseErr != nil {
 			return recon.Result{}, errors.Join(ensureErr, releaseErr)
 		}
@@ -215,25 +221,27 @@ func (m *Manager) applyObserveBackup(
 	metrics *Metrics,
 	observation backupObservation,
 ) (recon.Result, error) {
-	if observation.ownsLock {
-		if _, err := m.recoverBackupAttempt(ctx, cluster, observation.jobs.activeJob); err != nil {
-			return recon.Result{}, err
-		}
-		if observation.manualTriggerToken != "" {
-			if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
-				return recon.Result{}, fmt.Errorf("failed to clear manual backup trigger while finishing owned operation: %w", err)
+	job := observation.jobs.operationJob
+	if !observation.ownsLock {
+		job = observation.jobs.activeJob
+		if job != nil {
+			if blocked, err := m.acquireBackupLock(ctx, logger, cluster, job.Name); err != nil {
+				return recon.Result{}, err
+			} else if blocked != nil {
+				return *blocked, nil
 			}
 		}
-		m.applyBackupJobSnapshotToMetrics(cluster, metrics, backupJobMetricsSnapshot{inProgress: true})
-		logger.V(1).Info("Owned backup Job is in progress; requeueing to observe completion")
-		return recon.Result{RequeueAfter: constants.RequeueShort}, nil
 	}
-
-	if observation.manualTriggerToken != "" {
-		if err := m.skipManualTriggerForActiveJob(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
+	receipt, err := m.recoverBackupAttempt(ctx, cluster, job)
+	if err != nil {
+		return recon.Result{}, err
+	}
+	if receipt != nil && receipt.ManualTrigger != "" && receipt.ManualTrigger == observation.manualTriggerToken {
+		if err := m.skipManualTriggerForActiveJob(ctx, logger, cluster, receipt.ManualTrigger); err != nil {
 			return recon.Result{}, err
 		}
 	}
+	m.applyBackupJobSnapshotToMetrics(cluster, metrics, backupJobMetricsSnapshot{inProgress: true})
 	logger.V(1).Info("Backup Job in progress; requeueing to observe completion")
 	return recon.Result{RequeueAfter: constants.RequeueShort}, nil
 }
@@ -249,6 +257,21 @@ func (m *Manager) applyFinalizeBackup(
 		// The controller can stop between acquiring the lock and creating its
 		// Job. An unrelated terminal Job must not prevent lock release.
 		job = observation.jobs.operationJob
+		if job == nil && pendingBackupSubmission(cluster) != "" {
+			return recon.Result{}, fmt.Errorf("backup Job %s/%s submission is uncertain and the Job is not observable; inspect its outcome before clearing the operation lock",
+				cluster.Namespace, pendingBackupSubmission(cluster))
+		}
+	}
+	if !observation.ownsLock && observation.jobs.pendingSuccess != nil {
+		job = observation.jobs.pendingSuccess
+		if blocked, err := m.acquireBackupLock(ctx, logger, cluster, job.Name); err != nil {
+			return recon.Result{}, err
+		} else if blocked != nil {
+			return *blocked, nil
+		}
+		observation.ownsLock = true
+	}
+	if observation.ownsLock {
 		receipt, err := m.recoverBackupAttempt(ctx, cluster, job)
 		if err != nil {
 			return recon.Result{}, err
@@ -302,9 +325,11 @@ func (m *Manager) acquireBackupLock(
 	cluster *openbaov1alpha1.OpenBaoCluster,
 	jobName string,
 ) (*recon.Result, error) {
-	if err := opslifecycle.AcquireWithReader(ctx, retentionGuardReader{Reader: m.reader, uid: cluster.UID}, m.client, cluster, backupOperationLock, opslifecycle.AcquireOptions{
-		Message: backupJobLockMessage(jobName),
-	}); err != nil {
+	if err := opslifecycle.AcquireWithReader(ctx,
+		retentionGuardReader{Reader: m.reader, uid: cluster.UID, lockMessage: backupJobLockMessage(jobName)},
+		m.client, cluster, backupOperationLock, opslifecycle.AcquireOptions{
+			Message: backupJobLockMessage(jobName),
+		}); err != nil {
 		if opslifecycle.IsLockHeld(err) {
 			fields := map[string]string{
 				"cluster_namespace": cluster.Namespace,

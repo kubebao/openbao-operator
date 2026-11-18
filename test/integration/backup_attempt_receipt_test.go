@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -100,6 +101,8 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 		{name: "completed-before-apply", completed: true},
 		{name: "running-after-apply", applied: true},
 		{name: "completed-after-apply", completed: true, applied: true},
+		{name: "running-with-newer-request", newRequest: true},
+		{name: "legacy-running-with-newer-request", newRequest: true, legacyJob: true},
 		{name: "completed-with-newer-request", completed: true, newRequest: true},
 		{name: "legacy-completed-with-newer-request", completed: true, newRequest: true, legacyJob: true},
 	}
@@ -205,6 +208,15 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 				require.EqualValues(t, 1, stored.Status.Backup.SuccessfulBackups)
 			}
 			if testCase.newRequest {
+				if !testCase.completed {
+					// The newer request stays queued while the original Job runs.
+					job.Status.Succeeded = 1
+					require.NoError(t, newControllerClient(t).Status().Update(ctx, job))
+					_, err = newIntegrationBackupManager(t).Reconcile(ctx, logr.Discard(), &stored)
+					require.NoError(t, err)
+					require.NoError(t, k8sClient.Get(ctx, key, &stored))
+					require.Equal(t, "newer-request", stored.Annotations[constants.AnnotationTriggerBackup])
+				}
 				// Job names use whole seconds. Give the distinct request a
 				// distinct attempt time before checking that it gets a new Job.
 				var attemptTime time.Time
@@ -222,4 +234,58 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Model an API server that committed Create before its response was lost.
+type lostBackupCreateResponseClient struct {
+	client.Client
+	jobCreates int
+}
+
+func (c *lostBackupCreateResponseClient) Create(callCtx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if _, ok := obj.(*batchv1.Job); !ok {
+		return c.Client.Create(callCtx, obj, opts...)
+	}
+	c.jobCreates++
+	if err := c.Client.Create(callCtx, obj, opts...); err != nil {
+		return err
+	}
+	return apierrors.NewTimeoutError("backup Job Create response lost", 0)
+}
+
+func TestBackupRecoversCommittedJobAfterLostCreateResponse(t *testing.T) {
+	cluster := newMinimalClusterObj(newTestNamespace(t), "lost-create-response")
+	cluster.Annotations = map[string]string{constants.AnnotationTriggerBackup: "lost-response-request"}
+	cluster.Spec.Backup = &api.BackupSchedule{
+		Schedule: "0 0 * * *", JWTAuthRole: "backup", Image: "openbao-backup:dev",
+		Target: api.BackupTarget{Endpoint: "https://minio.example", Bucket: testBackupBucket},
+	}
+	require.NoError(t, k8sClient.Create(ctx, cluster))
+	updateClusterStatus(t, cluster, func(status *api.OpenBaoClusterStatus) {
+		status.Initialized = true
+		status.Phase = api.ClusterPhaseRunning
+		status.CurrentVersion = cluster.Spec.Version
+	})
+	fault := &lostBackupCreateResponseClient{Client: newControllerClient(t)}
+	_, err := newIntegrationBackupManagerWithClient(t, fault).Reconcile(ctx, logr.Discard(), cluster)
+	require.ErrorContains(t, err, "response lost")
+	key := client.ObjectKeyFromObject(cluster)
+	require.NoError(t, k8sClient.Get(ctx, key, cluster))
+	require.NotNil(t, cluster.Status.OperationLock)
+	require.Equal(t, "lost-response-request", cluster.Annotations[constants.AnnotationTriggerBackup])
+	var jobs batchv1.JobList
+	require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+	require.Len(t, jobs.Items, 1)
+	jobUID := jobs.Items[0].UID
+
+	_, err = newIntegrationBackupManager(t).Reconcile(ctx, logr.Discard(), cluster)
+	require.NoError(t, err)
+	require.NoError(t, k8sClient.Get(ctx, key, cluster))
+	require.Equal(t, "lost-response-request", cluster.Status.Backup.LastHandledManualTrigger)
+	require.Empty(t, cluster.Annotations[constants.AnnotationTriggerBackup])
+	require.NotNil(t, cluster.Status.OperationLock)
+	require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+	require.Len(t, jobs.Items, 1)
+	require.Equal(t, jobUID, jobs.Items[0].UID)
+	require.Equal(t, 1, fault.jobCreates)
 }

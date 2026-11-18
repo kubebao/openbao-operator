@@ -35,6 +35,14 @@ func (m *Manager) observeBackup(
 	if !observation.configured {
 		return observation, nil
 	}
+	jobs, err := m.observeBackupJobs(ctx, cluster)
+	if err != nil {
+		return backupObservation{}, fmt.Errorf("failed to observe backup Jobs: %w", err)
+	}
+	observation.jobs = jobs
+	if jobs.hasActive || jobs.pendingSuccess != nil {
+		return observation, nil
+	}
 
 	schedule, err := ParseSchedule(cluster.Spec.Backup.Schedule)
 	if err != nil {
@@ -63,15 +71,6 @@ func (m *Manager) observeBackup(
 	observation.nextSchedule = schedule.Next(observation.scheduledTime)
 	if !observation.nextSchedule.After(now) {
 		observation.nextSchedule = schedule.Next(now)
-	}
-
-	jobs, err := m.observeBackupJobs(ctx, cluster)
-	if err != nil {
-		return backupObservation{}, fmt.Errorf("failed to observe backup Jobs: %w", err)
-	}
-	observation.jobs = jobs
-	if jobs.hasActive {
-		return observation, nil
 	}
 
 	restoreInProgress, err := m.hasInProgressRestore(ctx, logger, cluster)

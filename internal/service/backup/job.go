@@ -225,7 +225,7 @@ func (m *Manager) ensureBackupJob(ctx context.Context, logger logr.Logger, clust
 				logger.V(1).Info("Backup Job already exists after create attempt; ownership verified", "job", jobName)
 				return true, nil
 			}
-			return false, fmt.Errorf("failed to create backup Job %s/%s: %w", cluster.Namespace, jobName, err)
+			return false, fmt.Errorf("failed to create backup Job %s/%s: %w", cluster.Namespace, jobName, backupCreateError(err))
 		}
 
 		logger.Info("Backup Job created", "job", jobName, "backupKey", backupKey)

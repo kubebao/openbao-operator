@@ -49,11 +49,14 @@ func (m *Manager) recoverBackupAttempt(ctx context.Context, cluster *api.OpenBao
 		api.GroupVersion.WithKind("OpenBaoCluster")); err != nil {
 		return nil, err
 	}
+	if err := m.observeBackupSubmission(ctx, cluster, job.Name); err != nil {
+		return nil, err
+	}
 	raw := job.Annotations[backupAttemptAnnotation]
 	if raw == "" {
 		// Older operator versions did not write receipts. Keep their Jobs
 		// observable without inventing an acknowledgement for a newer request.
-		return nil, nil
+		return nil, m.recoverLegacyBackupSchedule(ctx, cluster, job)
 	}
 	var receipt backupAttemptReceipt
 	if err := json.Unmarshal([]byte(raw), &receipt); err != nil {
@@ -72,4 +75,27 @@ func (m *Manager) recoverBackupAttempt(ctx context.Context, cluster *api.OpenBao
 		return nil, fmt.Errorf("record backup attempt receipt for Job %s/%s: %w", job.Namespace, job.Name, err)
 	}
 	return &receipt, nil
+}
+
+// A legacy Job's deterministic name can prove that the persisted scheduled
+// occurrence already exists. It cannot acknowledge a manual request.
+func (m *Manager) recoverLegacyBackupSchedule(ctx context.Context, cluster *api.OpenBaoCluster, job *batchv1.Job) error {
+	status := cluster.Status.Backup
+	if cluster.Spec.Backup == nil || status == nil || status.NextScheduledBackup == nil {
+		return nil
+	}
+	scheduled := status.NextScheduledBackup.Time
+	now := time.Now().UTC()
+	if scheduled.After(now) || backupJobName(cluster, scheduled) != job.Name {
+		return nil
+	}
+	schedule, err := ParseSchedule(cluster.Spec.Backup.Schedule)
+	if err != nil {
+		return nil // Existing Jobs still complete when a schedule edit is invalid.
+	}
+	next := schedule.Next(now)
+	if next.IsZero() {
+		return nil
+	}
+	return m.recordBackupAttempt(ctx, cluster, now, scheduled, next, "")
 }

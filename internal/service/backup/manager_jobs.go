@@ -57,7 +57,9 @@ type backupJobObservation struct {
 	hasActive          bool
 	activeJob          *batchv1.Job
 	operationJob       *batchv1.Job
+	operationActive    bool
 	mostRecentTerminal *batchv1.Job
+	pendingSuccess     *batchv1.Job
 }
 
 // observeBackupJobs reads active and terminal Job state from one live API snapshot.
@@ -89,18 +91,46 @@ func (m *Manager) observeBackupJobs(ctx context.Context, cluster *openbaov1alpha
 		); err != nil {
 			return backupJobObservation{}, err
 		}
-		if backupOperationLock.IsHeldBy(cluster.Status.OperationLock) &&
-			cluster.Status.OperationLock.Message == backupJobLockMessage(job.Name) {
+		if backupLockNamesJob(cluster.Status.OperationLock, job.Name) {
 			observation.operationJob = job.DeepCopy()
+			observation.operationActive = !kube.JobSucceeded(job) && !kube.JobFailed(job)
 		}
 		if !kube.JobSucceeded(job) && !kube.JobFailed(job) {
 			observation.hasActive = true
-			observation.activeJob = job.DeepCopy()
+			if observation.activeJob == nil || job.CreationTimestamp.Before(&observation.activeJob.CreationTimestamp) ||
+				(job.CreationTimestamp.Equal(&observation.activeJob.CreationTimestamp) && job.Name < observation.activeJob.Name) {
+				observation.activeJob = job.DeepCopy()
+			}
 			continue
+		}
+		if backupSuccessNeedsProcessing(cluster, job) &&
+			(observation.pendingSuccess == nil || job.CreationTimestamp.After(observation.pendingSuccess.CreationTimestamp.Time)) {
+			observation.pendingSuccess = job.DeepCopy()
 		}
 		if observation.mostRecentTerminal == nil || job.CreationTimestamp.After(observation.mostRecentTerminal.CreationTimestamp.Time) {
 			observation.mostRecentTerminal = job.DeepCopy()
 		}
 	}
 	return observation, nil
+}
+
+func backupSuccessNeedsProcessing(cluster *openbaov1alpha1.OpenBaoCluster, job *batchv1.Job) bool {
+	if job == nil || !kube.JobSucceeded(job) {
+		return false
+	}
+	status := cluster.Status.Backup
+	if status == nil {
+		return true
+	}
+	if status.LastBackupName != job.Annotations["openbao.org/backup-key"] {
+		return status.LastBackupTime == nil || !job.CreationTimestamp.Before(status.LastBackupTime)
+	}
+	if cluster.Spec.Backup == nil || cluster.Spec.Backup.Retention == nil || job.UID == "" {
+		return false
+	}
+	policy := cluster.Spec.Backup.Retention
+	if policy.MaxCount == 0 && policy.MaxAge == "" {
+		return false
+	}
+	return status.Retention == nil || status.Retention.Last == nil || status.Retention.Last.SourceJobUID != job.UID
 }

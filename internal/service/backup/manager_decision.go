@@ -43,7 +43,7 @@ func decideBackup(observation backupObservation) backupDecision {
 	var kind backupDecisionKind
 
 	switch {
-	case observation.ownsLock && observation.jobs.hasActive:
+	case observation.ownsLock && observation.jobs.operationActive:
 		kind = backupDecisionObserve
 	case observation.ownsLock:
 		kind = backupDecisionFinalize
@@ -51,6 +51,8 @@ func decideBackup(observation backupObservation) backupDecision {
 		kind = backupDecisionIdle
 	case observation.jobs.hasActive:
 		kind = backupDecisionObserve
+	case observation.jobs.pendingSuccess != nil:
+		kind = backupDecisionFinalize
 	case observation.blocker != backupNotBlocked:
 		kind = backupDecisionBlocked
 	case observation.due:

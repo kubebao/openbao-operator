@@ -153,7 +153,9 @@ uses a separate HTTP client, so these destination checks do not block workload-i
 
 ## Trigger and verify a backup
 
-The operator does not create a CronJob. Trigger an immediate backup by changing the one-shot annotation value:
+The operator does not create a CronJob. Trigger an immediate backup by changing the one-shot annotation value.
+Use at most 1,024 UTF-8 bytes. Admission rejects larger new values. The controller clears an existing oversized
+value without acknowledging it or creating a manual backup, then resumes scheduled backups:
 
 {{< command label="apply" title="Request a manual backup" >}}
 kubectl -n <namespace> annotate openbaocluster <name> \
@@ -163,8 +165,13 @@ kubectl -n <namespace> annotate openbaocluster <name> \
 For a new backup Job, the controller records the request value in `status.backup.lastHandledManualTrigger`
 before clearing the annotation. It recovers this receipt after a controller restart while the Job remains available.
 Backup Jobs become eligible for collection one hour after completion. If the Job is gone and the request has no
-acknowledgement, check backup status and object storage before requesting another backup. The controller skips a
-duplicate request while another backup Job is active.
+acknowledgement, check backup status and object storage before requesting another backup. The controller acknowledges
+only the request recorded in that Job's receipt. A different request value remains queued until the active Job finishes.
+
+If the controller loses the Job creation response, it retains the backup operation lock and recovers the receipt
+when it observes the owned Job. If the Job remains absent, it holds the operation instead of submitting another Job.
+Inspect the named Job, backup status, and object storage before an administrator clears the uncertain submission
+lock. A timed-out Create call alone does not prove that no Job ran.
 
 {{< command label="verify" title="Inspect backup readiness and outcome" >}}
 kubectl -n <namespace> get openbaocluster <name> \

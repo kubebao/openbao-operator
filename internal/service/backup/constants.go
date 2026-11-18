@@ -7,6 +7,9 @@ const (
 	// ReasonBackupManualTriggerAccepted indicates a manual backup request was accepted.
 	ReasonBackupManualTriggerAccepted = "BackupManualTriggerAccepted"
 
+	// ReasonBackupManualTriggerRejected indicates an oversized manual request was rejected.
+	ReasonBackupManualTriggerRejected = "BackupManualTriggerRejected"
+
 	// ReasonBackupSkipped indicates a due backup was intentionally skipped.
 	ReasonBackupSkipped = "BackupSkipped"
 

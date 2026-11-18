@@ -18,7 +18,7 @@ func TestDecideBackup(t *testing.T) {
 			name: "observes active owned operation before configuration",
 			observation: backupObservation{
 				ownsLock: true,
-				jobs:     backupJobObservation{hasActive: true},
+				jobs:     backupJobObservation{hasActive: true, operationActive: true},
 			},
 			want: backupDecisionObserve,
 		},

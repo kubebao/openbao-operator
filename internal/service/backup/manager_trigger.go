@@ -15,11 +15,25 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/logging"
 )
 
+const maxManualBackupTriggerBytes = 1024
+
 func manualTriggerToken(cluster *openbaov1alpha1.OpenBaoCluster) string {
 	if cluster == nil {
 		return ""
 	}
 	return cluster.Annotations[constants.AnnotationTriggerBackup]
+}
+
+// Reject legacy values that admission allowed before the receipt byte limit.
+// Clear only this request so it cannot block later scheduled backups.
+func (m *Manager) rejectOversizedManualTrigger(ctx context.Context, logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster) (bool, error) {
+	token := manualTriggerToken(cluster)
+	if len(token) <= maxManualBackupTriggerBytes {
+		return false, nil
+	}
+	m.emitWarningEvent(cluster, ReasonBackupManualTriggerRejected,
+		"Manual backup trigger exceeds the %d-byte limit; request rejected", maxManualBackupTriggerBytes)
+	return true, m.clearManualTriggerAnnotation(ctx, logger, cluster, token)
 }
 
 func (m *Manager) recordManualTriggerAccepted(logger logr.Logger, cluster *openbaov1alpha1.OpenBaoCluster, token string) {

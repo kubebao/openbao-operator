@@ -36,7 +36,7 @@ func (m *Manager) recordBackupAttempt(
 	now time.Time,
 	scheduledTime time.Time,
 	nextScheduled time.Time,
-	manualTriggerToken string,
+	manualToken string,
 ) error {
 	if m.adminOpsMutator == nil {
 		return fmt.Errorf("adminops status mutator is required")
@@ -60,13 +60,17 @@ func (m *Manager) recordBackupAttempt(
 			obj.Status.Backup = &openbaov1alpha1.BackupStatus{}
 		}
 		status := obj.Status.Backup
-		status.LastAttemptTime = &nowMeta
-		status.LastAttemptScheduledTime = &scheduledMeta
-		// Scheduled attempts preserve the last manual acknowledgement.
-		if manualTriggerToken != "" {
-			status.LastHandledManualTrigger = manualTriggerToken
+		older := status.LastAttemptTime != nil && nowMeta.Before(status.LastAttemptTime)
+		if !older {
+			status.LastAttemptTime = &nowMeta
+			status.LastAttemptScheduledTime = &scheduledMeta
+			status.NextScheduledBackup = &nextMeta
 		}
-		status.NextScheduledBackup = &nextMeta
+		// Scheduled attempts preserve the last manual acknowledgement. An older
+		// receipt can acknowledge only the request that is still pending.
+		if manualToken != "" && (!older || manualTriggerToken(obj) == manualToken) {
+			status.LastHandledManualTrigger = manualToken
+		}
 		return nil
 	}, adminops.ForceOwnershipOnConflict)
 }

@@ -3030,6 +3030,10 @@
       },
       "validations": [
         {
+          "expression": "!has(object.metadata.annotations) || !(\"openbao.org/trigger-backup\" in object.metadata.annotations) || size(bytes(object.metadata.annotations[\"openbao.org/trigger-backup\"])) \u003c= 1024 || (oldObject != null \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026\n \"openbao.org/trigger-backup\" in oldObject.metadata.annotations \u0026\u0026\n object.metadata.annotations[\"openbao.org/trigger-backup\"] == oldObject.metadata.annotations[\"openbao.org/trigger-backup\"]) ||\nvariables.is_authorized_migration_import",
+          "message": "openbao.org/trigger-backup must be at most 1024 UTF-8 bytes"
+        },
+        {
           "expression": "variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == \"CREATE\" \u0026\u0026 variables.migration_authorized)",
           "message": "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
         },
@@ -3852,6 +3856,10 @@
           ]
         },
         "validations": [
+          {
+            "expression": "!has(object.metadata.annotations) || !(\"openbao.org/trigger-backup\" in object.metadata.annotations) || size(bytes(object.metadata.annotations[\"openbao.org/trigger-backup\"])) \u003c= 1024 || (oldObject != null \u0026\u0026 has(oldObject.metadata.annotations) \u0026\u0026\n\n \"openbao.org/trigger-backup\" in oldObject.metadata.annotations \u0026\u0026\n object.metadata.annotations[\"openbao.org/trigger-backup\"] == oldObject.metadata.annotations[\"openbao.org/trigger-backup\"]) ||\nvariables.is_authorized_migration_import",
+            "message": "openbao.org/trigger-backup must be at most 1024 UTF-8 bytes"
+          },
           {
             "expression": "variables.migration_source_uid == variables.previous_migration_source_uid || (request.operation == \"CREATE\" \u0026\u0026 variables.migration_authorized)",
             "message": "migration.kubebao.org/source-uid is reserved for API migration imports and cannot be changed or removed"
