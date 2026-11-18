@@ -8926,6 +8926,9 @@ spec:
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   expectedSize:
+                    description: |-
+                      ExpectedSize is the expected snapshot object size in bytes.
+                      It must not exceed MaxSnapshotSizeBytes, which defaults to 8 GiB when omitted.
                     format: int64
                     minimum: 1
                     type: integer
@@ -10536,10 +10539,10 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-4a0975c04ee6
+          value: edge-c9ca21f25a58
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
-        image: ghcr.io/kubebao/openbao-operator@sha256:cab891085eb7b088aa9f2a3583ff2784000fce7cd46598af5c326124e77530ef
+        image: ghcr.io/kubebao/openbao-operator@sha256:b9001b4d326cc8435edef2f0235259b9e6d84bf036d6ef2083f30c74338b51c8
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10660,8 +10663,8 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: edge-4a0975c04ee6
-        image: ghcr.io/kubebao/openbao-operator@sha256:cab891085eb7b088aa9f2a3583ff2784000fce7cd46598af5c326124e77530ef
+          value: edge-c9ca21f25a58
+        image: ghcr.io/kubebao/openbao-operator@sha256:b9001b4d326cc8435edef2f0235259b9e6d84bf036d6ef2083f30c74338b51c8
         livenessProbe:
           httpGet:
             path: /healthz
