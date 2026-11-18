@@ -62,6 +62,9 @@ Kubernetes and cloud principal. Submission claims still require a Pod-bound toke
 
 Add `restoreTest` beneath `spec.backup`. Use either `everySuccessfulBackups` or a five-field UTC cron `schedule`.
 
+Configurable snapshot limits require operator 0.6.3 or later and the matching CRDs. Operator 0.6.2 and earlier
+use a fixed 8 GiB limit.
+
 Each test uses an 8 GiB snapshot limit by default. Set `restoreTest.maxSnapshotSizeBytes` to allow a larger object;
 the operator copies the limit into each generated restore request and reserves matching scratch storage.
 For example, `17179869184` permits up to 16 GiB and requests 18151 MiB of ephemeral storage. If the latest snapshot

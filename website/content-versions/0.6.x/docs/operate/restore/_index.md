@@ -89,9 +89,15 @@ For Hardened targets, configure explicit, port-scoped `spec.network.egressRules`
 
 ### Restore larger snapshots
 
+Configurable snapshot limits require operator 0.6.3 or later and the matching CRDs. Operator 0.6.2 and earlier
+use a fixed 8 GiB limit and do not define `maxSnapshotSizeBytes`.
+
 Set `spec.source.maxSnapshotSizeBytes` on each restore request. For example, `17179869184` permits a snapshot
 object up to 16 GiB. This setting applies to existing and fresh targets. An omitted setting retains the 8 GiB limit.
 The request is immutable, so choose the budget before you create it.
+
+If you provide `spec.source.expectedSize`, it must not exceed `spec.source.maxSnapshotSizeBytes`.
+When the budget is omitted, `expectedSize` must not exceed the 8 GiB default.
 
 The limit measures the downloaded snapshot object, not the original database or the target's required PVC capacity.
 The executor rejects objects above the limit before downloading them. It stages the complete object on disk and

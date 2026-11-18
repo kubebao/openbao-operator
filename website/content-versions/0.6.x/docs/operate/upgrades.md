@@ -105,6 +105,8 @@ upgrade intent.
 
 ## Wait for Raft catch-up between voter replacements
 
+The Raft catch-up gate is available from operator 0.6.3.
+
 For `RollingUpdate`, the operator checks Raft health before releasing each voter replacement. This check covers
 ordinary Pod-template changes, such as startup budgets and resources, and managed version upgrades. A Ready Pod can
 still be catching up with the leader.
@@ -134,8 +136,8 @@ unavailable voter first, then replaces other outdated voters under the Raft gate
 template to replace a deferred BlueGreen-to-RollingUpdate template without recreating Pods from the old current
 revision. It restores `RollingUpdate` only after all voters have the correction and fresh Raft health.
 
-Install the fix on a settled cluster; it does not retroactively protect a rollout already started by an older
-operator.
+Upgrade the operator on a settled cluster before starting a rollout. The gate does not retroactively protect a
+rollout already started by an older operator.
 
 ## Control a blue-green promotion
 

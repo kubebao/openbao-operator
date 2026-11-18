@@ -76,10 +76,16 @@ partition manually to bypass the check.
 1. Replace `X.Y.Z` with the exact target release.
 2. Apply the release CRDs.
 
+   Review the release CRD schema and any local changes before transferring field ownership. Helm can retain
+   ownership of `spec.versions`. The `--force-conflicts` flag replaces conflicting fields with the reviewed release
+   schema.
+
    ```bash
-   kubectl apply --server-side -f \
+   kubectl apply --server-side --force-conflicts -f \
      https://github.com/kubebao/openbao-operator/releases/download/X.Y.Z/crds.yaml
    ```
+
+   Confirm that all three CRDs apply successfully before upgrading the chart.
 
 3. Upgrade the chart.
 
