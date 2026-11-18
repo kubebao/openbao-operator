@@ -4,8 +4,8 @@ description: >-
   OpenBao Operator installs the OpenBao Kubernetes operator and its required
   cluster-scoped resources.
 type: application
-version: 0.6.2
-appVersion: 0.6.2
+version: 0.6.3
+appVersion: 0.6.3
 icon: >-
   https://raw.githubusercontent.com/kubebao/openbao-operator/main/website/static/img/brand/kubebao-github-avatar.png
 home: https://github.com/kubebao/openbao-operator
@@ -27,23 +27,23 @@ annotations:
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
   artifacthub.io/prerelease: "false"
-  artifacthub.io/containsSecurityUpdates: 'true'
+  artifacthub.io/containsSecurityUpdates: 'false'
   artifacthub.io/changes: |
     - kind: fixed
-      description: "release: backport publication hardening to 0.6"
-    - kind: security
-      description: "security: update Go toolchain to 1.27.4"
+      description: "restore: allow explicit snapshot budgets above the 8 GiB default"
     - kind: fixed
-      description: "workload: backport configurable startup budgets to 0.6"
+      description: "upgrade: backport Raft catch-up gating to release-0.6"
+    - kind: fixed
+      description: "workload: preserve promoted handoffs and heartbeat freshness"
   artifacthub.io/images: |
     - name: openbao-operator
-      image: ghcr.io/kubebao/openbao-operator:0.6.2
+      image: ghcr.io/kubebao/openbao-operator:0.6.3
     - name: openbao-init
-      image: ghcr.io/kubebao/openbao-init:0.6.2
+      image: ghcr.io/kubebao/openbao-init:0.6.3
     - name: openbao-backup
-      image: ghcr.io/kubebao/openbao-backup:0.6.2
+      image: ghcr.io/kubebao/openbao-backup:0.6.3
     - name: openbao-upgrade
-      image: ghcr.io/kubebao/openbao-upgrade:0.6.2
+      image: ghcr.io/kubebao/openbao-upgrade:0.6.3
   artifacthub.io/crds: |
     - kind: OpenBaoCluster
       version: v1alpha1
