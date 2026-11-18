@@ -170,6 +170,129 @@ class BaselineSelection(unittest.TestCase):
                     result = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
                     self.assertEqual(result.returncode == 0, success, result.stderr)
 
+    def test_hardened_wait_requires_complete_voter_rollout(self):
+        source = (ROOT / "hack/ci/operator-upgrade-e2e.sh").read_text()
+        functions = "\n".join(
+            name + "() {" + source.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}"
+            for name in ("wait_for_workloads_settled", "wait_for_hardened_cluster")
+        )
+        cases = [
+            ("partition holds all old voters", 3, 0, "old", 2, False),
+            ("partition holds remaining old voters", 2, 1, "old", 2, False),
+            ("latest generation is not observed", 0, 3, "candidate", 1, False),
+            ("all voters use the current revision", 0, 3, "candidate", 2, True),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "kubectl"
+            binary.write_text('#!/usr/bin/env bash\n'
+                              'if [[ "$1" == get && "$2" == statefulsets ]]; then\n'
+                              '  printf "%s" "${STATEFULSETS_JSON}"\n'
+                              'fi\n')
+            binary.chmod(0o700)
+            for description, partition, updated, revision, observed, success in cases:
+                with self.subTest(description=description):
+                    statefulset = {
+                        "metadata": {"name": "operator-upgrade-hardened", "generation": 2},
+                        "spec": {"replicas": 3, "updateStrategy": {"type": "RollingUpdate",
+                                                                  "rollingUpdate": {"partition": partition}}},
+                        "status": {"observedGeneration": observed, "readyReplicas": 3,
+                                   "updatedReplicas": updated, "currentRevision": revision,
+                                   "updateRevision": "candidate"},
+                    }
+                    env = dict(os.environ, KUBECTL_BIN=str(binary), TENANT_NAMESPACE="upgrade-test",
+                               HARDENED_CLUSTER_RESOURCE="openbaocluster/operator-upgrade-hardened",
+                               STATEFULSETS_JSON=json.dumps({"items": [statefulset]}),
+                               WAIT_STEP="5" if success else "901")
+                    # Conditions and kubectl's partition-aware rollout status already succeed.
+                    script = 'set -euo pipefail\n' + functions + (
+                        '\nsleep() { SECONDS=$((SECONDS + WAIT_STEP)); }\n'
+                        'wait_for_hardened_cluster\necho hardened-ready\n'
+                    )
+                    result = subprocess.run(["bash", "-c", script], env=env,
+                                            capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    self.assertEqual("hardened-ready" in result.stdout, success)
+                    if not success:
+                        self.assertIn("fixture StatefulSets did not settle", result.stderr)
+
+    def test_settlement_restarts_after_incomplete_or_failed_samples(self):
+        source = (ROOT / "hack/ci/operator-upgrade-e2e.sh").read_text()
+        functions = "\n".join(
+            name + "() {" + source.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}"
+            for name in ("wait_for_workloads_settled", "wait_for_hardened_cluster")
+        )
+        settled = {
+            "metadata": {"name": "operator-upgrade-hardened", "generation": 2},
+            "spec": {"replicas": 3},
+            "status": {"observedGeneration": 2, "readyReplicas": 3, "updatedReplicas": 3,
+                       "currentRevision": "candidate", "updateRevision": "candidate"},
+        }
+        complete = {"items": [settled]}
+        incomplete = {"items": [{**settled, "status": {**settled["status"], "updatedReplicas": 2}}]}
+        other_fixtures = {"items": [{**settled, "metadata": {**settled["metadata"], "name": name}}
+                                    for name in ("operator-upgrade", "operator-upgrade-transit")]}
+        cases = [
+            ("incomplete poll restarts stability", [complete] * 3 + [incomplete] + [complete] * 7, 5, True, 11),
+            ("failed poll restarts stability", [complete] * 3 + [None] + [complete] * 7, 5, True, 11),
+            ("missing Hardened fixture", [other_fixtures], 100, False, 9),
+            ("empty list", [{"items": []}], 100, False, 9),
+            ("persistent failure respects remaining budget", [None], 890, False, 2),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            count_file = Path(directory) / "count"
+            args_file = Path(directory) / "args.jsonl"
+            binary = Path(directory) / "kubectl"
+            binary.write_text('''#!/usr/bin/env python3
+import json, os, pathlib, sys
+if sys.argv[1:3] == ["get", "statefulsets"]:
+    count_file = pathlib.Path(os.environ["POLL_COUNT_FILE"])
+    index = int(count_file.read_text())
+    count_file.write_text(str(index + 1))
+    with open(os.environ["POLL_ARGS_FILE"], "a") as output:
+        output.write(json.dumps(sys.argv[1:]) + "\\n")
+    polls = json.loads(os.environ["SETTLEMENT_POLLS"])
+    sample = polls[min(index, len(polls) - 1)]
+    if sample is None:
+        print("temporary API list failure", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(sample))
+''')
+            binary.chmod(0o700)
+            for description, samples, step, success, expected_polls in cases:
+                with self.subTest(description=description):
+                    count_file.write_text("0")
+                    args_file.write_text("")
+                    env = dict(os.environ, KUBECTL_BIN=str(binary), TENANT_NAMESPACE="upgrade-test",
+                               HARDENED_CLUSTER_RESOURCE="openbaocluster/operator-upgrade-hardened",
+                               SETTLEMENT_POLLS=json.dumps(samples), WAIT_STEP=str(step),
+                               POLL_COUNT_FILE=str(count_file), POLL_ARGS_FILE=str(args_file))
+                    script = 'set -euo pipefail\nSECONDS=0\n' + functions + (
+                        '\nsleep() { SECONDS=$((SECONDS + WAIT_STEP)); }\n'
+                        'wait_for_hardened_cluster\necho hardened-ready\n'
+                    )
+                    result = subprocess.run(["bash", "-c", script], env=env,
+                                            capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    self.assertEqual("hardened-ready" in result.stdout, success)
+                    self.assertEqual(int(count_file.read_text()), expected_polls)
+                    requests = [json.loads(line) for line in args_file.read_text().splitlines()]
+                    timeouts = []
+                    for args in requests:
+                        values = [arg.split("=", 1)[1] for arg in args if arg.startswith("--request-timeout=")]
+                        self.assertEqual(len(values), 1, args)
+                        self.assertTrue(values[0].endswith("s"))
+                        timeout = int(values[0][:-1])
+                        self.assertGreater(timeout, 0)
+                        self.assertLessEqual(timeout, 30)
+                        timeouts.append(timeout)
+                    if step == 890:
+                        self.assertEqual(timeouts[0], 30)
+                        self.assertLessEqual(timeouts[-1], 10)
+                    if None in samples:
+                        self.assertIn("temporary API list failure", result.stderr)
+                    if not success:
+                        self.assertIn("fixture StatefulSets did not settle", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
