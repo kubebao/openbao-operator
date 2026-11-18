@@ -6,19 +6,87 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
 	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/kubebao/openbao-operator/api/v1alpha1"
 	"github.com/kubebao/openbao-operator/internal/app/openbaocluster/adminopsstatus"
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/port/adminops"
+	"github.com/kubebao/openbao-operator/internal/service/backup"
+	"github.com/kubebao/openbao-operator/internal/service/opslifecycle"
 )
+
+func TestScheduledBackupPreservesManualAcknowledgement(t *testing.T) {
+	for _, legacy := range []bool{false, true} {
+		t.Run(map[bool]string{false: "new-receipt", true: "legacy-job"}[legacy], func(t *testing.T) {
+			cluster := newMinimalClusterObj(newTestNamespace(t), "scheduled-receipt")
+			cluster.Spec.Backup = &api.BackupSchedule{
+				Schedule:    "0 * * * *",
+				Target:      api.BackupTarget{Endpoint: "https://minio.example", Bucket: testBackupBucket},
+				JWTAuthRole: "backup", Image: "openbao-backup:dev",
+			}
+			require.NoError(t, k8sClient.Create(ctx, cluster))
+			updateClusterStatus(t, cluster, func(status *api.OpenBaoClusterStatus) {
+				status.Initialized = true
+				status.Phase = api.ClusterPhaseRunning
+				status.CurrentVersion = cluster.Spec.Version
+			})
+			now := time.Now().UTC()
+			due := now.Truncate(time.Hour).Add(-time.Hour)
+			persist := adminopsstatus.NewMutator(k8sClient, k8sClient)
+			require.NoError(t, persist(ctx, cluster, func(obj *api.OpenBaoCluster) error {
+				obj.Status.Backup = &api.BackupStatus{
+					LastHandledManualTrigger: "previous-request",
+					NextScheduledBackup:      &metav1.Time{Time: due},
+				}
+				return nil
+			}, adminops.ForceOwnershipOnConflict))
+			key := client.ObjectKeyFromObject(cluster)
+			require.NoError(t, k8sClient.Get(ctx, key, cluster))
+			require.Equal(t, "previous-request", cluster.Status.Backup.LastHandledManualTrigger)
+			owned := false
+			for _, field := range cluster.ManagedFields {
+				if field.Manager == constants.FieldOwnerAdminOpsStatus && field.Subresource == "status" {
+					require.Contains(t, string(field.FieldsV1.Raw), `"f:lastHandledManualTrigger"`)
+					owned = true
+				}
+			}
+			require.True(t, owned, "the prior acknowledgement must be owned by the real AdminOps field manager")
+
+			if legacy {
+				name := fmt.Sprintf("backup-%s-%s", cluster.Name, due.Format("20060102-150405"))
+				job, err := backup.BuildJob(cluster, backup.JobOptions{
+					JobName: name, JobType: backup.JobTypeScheduled, BackupKey: "legacy-snapshot",
+				})
+				require.NoError(t, err)
+				require.NoError(t, opslifecycle.PrepareManagedJobOwner(job, cluster, k8sScheme))
+				require.NoError(t, k8sClient.Create(ctx, job))
+				job.Status.Succeeded = 1
+				require.NoError(t, newControllerClient(t).Status().Update(ctx, job))
+			}
+
+			_, err := newIntegrationBackupManager(t).Reconcile(ctx, logr.Discard(), cluster)
+			require.NoError(t, err)
+			var stored api.OpenBaoCluster
+			require.NoError(t, k8sClient.Get(ctx, key, &stored))
+			require.Equal(t, "previous-request", stored.Status.Backup.LastHandledManualTrigger)
+			require.NotNil(t, stored.Status.Backup.LastAttemptScheduledTime)
+			require.True(t, due.Equal(stored.Status.Backup.LastAttemptScheduledTime.Time))
+			require.True(t, stored.Status.Backup.NextScheduledBackup.After(now))
+			var jobs batchv1.JobList
+			require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+			require.Len(t, jobs.Items, 1)
+		})
+	}
+}
 
 func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 	cases := []struct {

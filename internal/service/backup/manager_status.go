@@ -62,7 +62,10 @@ func (m *Manager) recordBackupAttempt(
 		status := obj.Status.Backup
 		status.LastAttemptTime = &nowMeta
 		status.LastAttemptScheduledTime = &scheduledMeta
-		status.LastHandledManualTrigger = manualTriggerToken
+		// Scheduled attempts preserve the last manual acknowledgement.
+		if manualTriggerToken != "" {
+			status.LastHandledManualTrigger = manualTriggerToken
+		}
 		status.NextScheduledBackup = &nextMeta
 		return nil
 	}, adminops.ForceOwnershipOnConflict)
