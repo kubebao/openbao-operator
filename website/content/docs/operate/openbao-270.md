@@ -108,7 +108,7 @@ plugin are removed in 2.7. Install their external replacements on every Pod and
 verify existing mounts, authentication, lease operations, and restarts in staging.
 The operator does not discover these mounts from `OpenBaoCluster` configuration.
 
-The existing pre-2.6 to 2.6-or-newer BlueGreen restriction remains in place until
+The pre-2.6 to 2.6-or-newer compatibility limitation applies to both upgrade strategies until
 specific version pairs pass lifecycle qualification. A request-forwarding fix
 does not establish datastore downgrade compatibility. Use the backup and restore
 procedure for recovery when an in-place downgrade is not supported.

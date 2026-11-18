@@ -414,7 +414,7 @@ nightly:
           kubernetes: "@primary"
           coverage: upgrade-sequence-latest
           labelFilter: "case:rolling-consecutive-execution-identity"
-          upgradeSequence: "2.5.5,2.6.4,2.7.2"
+          upgradeSequence: "2.6.4,2.6.5,2.7.2"
         - lane: upgrade-bluegreen-core
           kubernetes: "@primary"
           coverage: upgrade-sequence-latest
@@ -979,6 +979,26 @@ suites:
         - upgrade-bluegreen-core
         - upgrade-bluegreen-verification
         - upgrade-bluegreen-recovery
+      pullRequest: changed-paths
+    nightly:
+      policy: primary-version-full
+
+  - id: upgrade-version-boundary
+    title: "Upgrade protocol boundary"
+    owner: upgrade
+    riskTier: critical
+    isolation: parallel-safe
+    files:
+      - test/e2e/Upgrade_Version_Boundary_test.go
+    labels:
+      - upgrade
+      - rolling
+      - e2e-anchor
+    coverage:
+      - upgrade-version-compatibility
+    ci:
+      lanes:
+        - upgrade-rolling
       pullRequest: changed-paths
     nightly:
       policy: primary-version-full

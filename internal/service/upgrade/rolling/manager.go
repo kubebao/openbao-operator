@@ -124,6 +124,9 @@ func (m *Manager) reconcile(ctx context.Context, logger logr.Logger, cluster *op
 	if result, done := m.shouldSkipUpgradeReconcile(logger, cluster); done {
 		return result, nil
 	}
+	if err := upgrade.ValidateUpgradeTargetVersion(logger, cluster.Status.CurrentVersion, cluster.Spec.Version); err != nil {
+		return recon.Result{}, err
+	}
 	if err := portopenbao.ValidateSealPlugins(cluster); err != nil {
 		return recon.Result{}, operatorerrors.WrapPermanentConfig(err)
 	}

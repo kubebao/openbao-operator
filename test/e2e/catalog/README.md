@@ -11,10 +11,10 @@ Notes:
 
 ## Summary
 
-- Files: `28`
-- Specs: `105`
-- Explicit case IDs: `105`
-- Coverage tags: `61`
+- Files: `29`
+- Specs: `106`
+- Explicit case IDs: `106`
+- Coverage tags: `62`
 
 ## Suites
 
@@ -44,6 +44,7 @@ Notes:
 | [Upgrade Strategies](suites/Upgrade_Strategies_test.md) | 10 | 10 | 0 | `upgrade`, `upgrades`, `cluster`, `slow`, `bluegreen`, `verification`, `e2e-anchor`, `failure`, `rollback`, `rolling`, `recovery`, `snapshot`, `read-replicas`, `read-replicas-rolling`, `chaos` | `test/e2e/Upgrade_Strategies_test.go` |
 | [Upgrade Strategy Switching](suites/Upgrade_Strategy_Switch_test.md) | 1 | 1 | 0 | `upgrade`, `rolling`, `bluegreen`, `slow` | `test/e2e/Upgrade_Strategy_Switch_test.go` |
 | [Upgrade Strategies: Blue/Green Drift](suites/Upgrade_Target_Drift_test.md) | 1 | 1 | 0 | `upgrade`, `bluegreen`, `slow`, `e2e-anchor` | `test/e2e/Upgrade_Target_Drift_test.go` |
+| [Upgrade protocol boundary](suites/Upgrade_Version_Boundary_test.md) | 1 | 1 | 0 | `upgrade`, `rolling`, `e2e-anchor` | `test/e2e/Upgrade_Version_Boundary_test.go` |
 | [Security: Anti-Tamper Policy](suites/anti_tamper_policy_test.md) | 2 | 2 | 0 | `security`, `tamper`, `cluster`, `slow` | `test/e2e/anti_tamper_policy_test.go` |
 | [DR: Storage Providers Backup & Restore](suites/backup_restore_test.md) | 9 | 9 | 0 | `dr`, `backup`, `restore`, `storage-providers`, `nightly`, `slow`, `e2e-anchor`, `provider-smoke`, `read-replicas`, `read-replicas-restore`, `failure-injection` | `test/e2e/backup_restore_test.go` |
 | [Restore across independent Kubernetes clusters](suites/restore_cross_cluster_test.md) | 2 | 2 | 0 | `restore-cross-cluster`, `dr`, `restore`, `slow` | `test/e2e/restore_cross_cluster_test.go` |
@@ -114,3 +115,4 @@ Notes:
 | `tls-secret-cleanup` | 1 |
 | `tls-verification` | 1 |
 | `upgrade-strategy-switch` | 1 |
+| `upgrade-version-compatibility` | 1 |

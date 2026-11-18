@@ -105,9 +105,9 @@ kubectl -n <namespace> get openbaocluster <name> \
 {{< /command >}}
 
 {{< callout type="warning" title="Separate the strategy and version requests" >}}
-Do not combine a strategy change with a workload change. In particular, a pre-2.6 Blue leader cannot safely promote
-a 2.6-or-newer Green revision. Switch an idle pre-2.6 `BlueGreen` cluster to `RollingUpdate`, wait for acceptance, and
-only then request the 2.6.x upgrade.
+Do not combine a strategy change with a workload change. Neither strategy provides a qualified upgrade path from
+an OpenBao version before 2.6 to 2.6 or newer. Keep the current server version until a compatible path is qualified.
+See the [upgrade limitation](../../operate/upgrades/#choose-the-strategy).
 {{< /callout >}}
 
 Self-init policies are not rewritten after bootstrap. A cluster initialized with rolling-only upgrade permissions

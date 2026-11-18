@@ -11,8 +11,8 @@ func TestParse(t *testing.T) {
 		name, input string
 		want        [3]string
 	}{
-		{"baseline", "2.4.4,2.5.5,2.6.4", [3]string{"2.4.4", "2.5.5", "2.6.4"}},
-		{"modern", " 2.5.5, 2.6.4, 2.7.1 ", [3]string{"2.5.5", "2.6.4", "2.7.1"}},
+		{"legacy generation", "2.4.4,2.5.4,2.5.5", [3]string{"2.4.4", "2.5.4", "2.5.5"}},
+		{"modern", " 2.6.4, 2.6.5, 2.7.2 ", [3]string{"2.6.4", "2.6.5", "2.7.2"}},
 		{"numeric ordering", "2.8.0,2.9.0,2.10.0", [3]string{"2.8.0", "2.9.0", "2.10.0"}},
 		{"prerelease ordering", "2.7.0-rc.1,2.7.0-rc.2,2.7.0", [3]string{"2.7.0-rc.1", "2.7.0-rc.2", "2.7.0"}},
 	} {
@@ -23,7 +23,7 @@ func TestParse(t *testing.T) {
 		})
 	}
 	for _, input := range []string{
-		"", "2.6.4,2.7.1", "2.4.4,2.5.5,2.6.4,2.7.1", "2.5.5,,2.7.1", "2.5.5,nope,2.7.1",
+		"2.4.4,2.5.5,2.6.5", "2.5.5,2.6.4,2.7.2", "2.5.5,2.6.0-rc.1,2.6.0", "", "2.6.4,2.7.1", "2.4.4,2.5.5,2.6.4,2.7.1", "2.5.5,,2.7.1", "2.5.5,nope,2.7.1",
 		"2.5.5,2.6,2.7.1", "v2.5.5,2.6.4,2.7.1", "2.6.4,2.6.4,2.7.1", "2.6.4,2.5.5,2.7.1",
 		"2.6.4+build,2.7.0,2.7.1", "2.6.4,2.7.0+build,2.7.1", "2.6.4,2.7.0,2.7.1+build",
 	} {
@@ -38,7 +38,8 @@ func TestParseStrategySwitch(t *testing.T) {
 	for _, tc := range []struct {
 		name, sequence, wantErr string
 	}{
-		{name: "historical", sequence: DefaultSequence},
+		{name: "default", sequence: DefaultSequence},
+		{name: "rolling boundary after legacy BlueGreen", sequence: "2.4.4,2.5.5,2.6.5", wantErr: "RollingUpdate step"},
 		{name: "modern", sequence: "2.6.4,2.7.0,2.7.1"},
 		{name: "same forwarding generation", sequence: "2.6.0-rc.1,2.6.0,2.6.4"},
 		{name: "crossing boundary", sequence: "2.5.5,2.6.4,2.7.1", wantErr: "BlueGreen step"},

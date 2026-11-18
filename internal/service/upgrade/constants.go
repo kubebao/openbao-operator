@@ -100,9 +100,9 @@ const (
 	// ReasonImageVersionMismatch indicates spec.image conflicts with spec.version.
 	ReasonImageVersionMismatch = constants.ReasonImageVersionMismatch
 
-	// ReasonBlueGreenVersionIncompatible indicates the requested OpenBao
-	// versions cannot safely coexist during a blue/green upgrade.
-	ReasonBlueGreenVersionIncompatible = "BlueGreenVersionIncompatible"
+	// ReasonUpgradeVersionIncompatible indicates the requested OpenBao
+	// versions cannot safely coexist during an automated upgrade.
+	ReasonUpgradeVersionIncompatible = constants.ReasonUpgradeVersionIncompatible
 
 	// ReasonClusterNotReady indicates the cluster is not in a healthy state for upgrade.
 	ReasonClusterNotReady = "ClusterNotReady"
@@ -122,23 +122,23 @@ const (
 
 // Message constants for condition updates.
 const (
-	MessageUpgradeStarted               = "Upgrade from %s to %s has started"
-	MessageUpgradeInProgress            = "Rolling update in progress: %d/%d replicas updated (partition: %d)"
-	MessageUpgradeComplete              = "Upgrade from %s to %s finished successfully"
-	MessageUpgradeFailed                = "Upgrade failed: %s"
-	MessageUpgradePaused                = "Upgrade paused at partition %d"
-	MessageUpgradeResumed               = "Upgrade resumed at partition %d"
-	MessageStepDownTimeout              = "Leader step-down timed out for pod %s"
-	MessagePodNotReady                  = "Pod %s failed to become ready within %v"
-	MessageHealthCheckFailed            = "OpenBao health check failed for pod %s: %s"
-	MessagePreUpgradeBackupStarted      = "Pre-upgrade backup started"
-	MessagePreUpgradeBackupComplete     = "Pre-upgrade backup finished successfully"
-	MessageDowngradeBlocked             = "downgrade from %s to %s is not supported"
-	MessageInvalidVersion               = "invalid target version %q"
-	MessageInvalidImageReference        = "invalid spec.image %q"
-	MessageImageVersionMismatch         = "spec.image tag %q does not match spec.version %q"
-	MessageBlueGreenVersionIncompatible = "blue/green upgrade from OpenBao %s to %s is blocked because OpenBao 2.6.0 changed the Raft Autopilot health protocol used by pre-2.6 peers; restore a backup into a new target-version cluster, or wait for an operator release that qualifies an upstream compatibility fix"
-	MessageClusterNotReady              = "Cluster is not ready for upgrade: %s"
+	MessageUpgradeStarted             = "Upgrade from %s to %s has started"
+	MessageUpgradeInProgress          = "Rolling update in progress: %d/%d replicas updated (partition: %d)"
+	MessageUpgradeComplete            = "Upgrade from %s to %s finished successfully"
+	MessageUpgradeFailed              = "Upgrade failed: %s"
+	MessageUpgradePaused              = "Upgrade paused at partition %d"
+	MessageUpgradeResumed             = "Upgrade resumed at partition %d"
+	MessageStepDownTimeout            = "Leader step-down timed out for pod %s"
+	MessagePodNotReady                = "Pod %s failed to become ready within %v"
+	MessageHealthCheckFailed          = "OpenBao health check failed for pod %s: %s"
+	MessagePreUpgradeBackupStarted    = "Pre-upgrade backup started"
+	MessagePreUpgradeBackupComplete   = "Pre-upgrade backup finished successfully"
+	MessageDowngradeBlocked           = "downgrade from %s to %s is not supported"
+	MessageInvalidVersion             = "invalid target version %q"
+	MessageInvalidImageReference      = "invalid spec.image %q"
+	MessageImageVersionMismatch       = "spec.image tag %q does not match spec.version %q"
+	MessageUpgradeVersionIncompatible = "upgrade from OpenBao %s to %s is blocked for RollingUpdate and BlueGreen because pre-2.6 peers cannot forward requests to a 2.6 or newer leader; keep the current server version until a compatible upgrade path is qualified"
+	MessageClusterNotReady            = "Cluster is not ready for upgrade: %s"
 )
 
 // ExecutorAction selects which upgrade operation the upgrade executor performs.
