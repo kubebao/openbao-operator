@@ -4,7 +4,7 @@
   state: "Release preparation"
   showNotice: true
   sourceRef: "0.7.0"
-  fallbackSourceRef: "4a0975c04ee648d0a78e181e350dc42d40832d3f"
+  fallbackSourceRef: "337f34ff27eac42b403c7b7cf4211d97ee346a6d"
   editRef: "main"
   contentRoot: "website/content"
   editable: true
