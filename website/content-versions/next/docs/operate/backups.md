@@ -154,6 +154,7 @@ uses a separate HTTP client, so these destination checks do not block workload-i
 ## Trigger and verify a backup
 
 The operator does not create a CronJob. Trigger an immediate backup by changing the one-shot annotation value.
+Choose a unique value for each new request. A retained Job receipt with the same value identifies an existing attempt.
 Use at most 1,024 UTF-8 bytes. Admission rejects larger new values, but permits unchanged legacy values and
 authorized API migration imports. The controller ignores oversized values when deciding whether to start a manual
 backup and attempts to clear them without acknowledgement. Scheduled backups and owned Job completion continue

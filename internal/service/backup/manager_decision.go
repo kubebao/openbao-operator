@@ -51,7 +51,7 @@ func decideBackup(observation backupObservation) backupDecision {
 		kind = backupDecisionIdle
 	case observation.jobs.hasActive:
 		kind = backupDecisionObserve
-	case observation.jobs.pendingSuccess != nil:
+	case observation.jobs.pendingTerminal != nil:
 		kind = backupDecisionFinalize
 	case observation.blocker != backupNotBlocked:
 		kind = backupDecisionBlocked

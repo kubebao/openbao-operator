@@ -66,7 +66,11 @@ func (m *Manager) recordBackupAttempt(
 		if !older && !recorded {
 			status.LastAttemptTime = &nowMeta
 			status.LastAttemptScheduledTime = &scheduledMeta
-			status.NextScheduledBackup = &nextMeta
+			// Advance the due occurrence, but preserve a deadline already beyond
+			// it. That deadline can reflect a later attempt or a schedule edit.
+			if status.NextScheduledBackup == nil || !status.NextScheduledBackup.After(scheduledMeta.Time) {
+				status.NextScheduledBackup = &nextMeta
+			}
 		}
 		// Scheduled attempts preserve the last manual acknowledgement. An older
 		// receipt can acknowledge only the request that is still pending.

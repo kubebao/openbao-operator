@@ -267,8 +267,8 @@ func (m *Manager) applyFinalizeBackup(
 				cluster.Namespace, pendingBackupSubmission(cluster))
 		}
 	}
-	if !observation.ownsLock && observation.jobs.pendingSuccess != nil {
-		job = observation.jobs.pendingSuccess
+	if !observation.ownsLock && observation.jobs.pendingTerminal != nil {
+		job = observation.jobs.pendingTerminal
 		if blocked, err := m.acquireBackupLock(ctx, logger, cluster, job.Name); err != nil {
 			return recon.Result{}, err
 		} else if blocked != nil {

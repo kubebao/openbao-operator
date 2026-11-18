@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -59,7 +60,7 @@ type backupJobObservation struct {
 	operationJob       *batchv1.Job
 	operationActive    bool
 	mostRecentTerminal *batchv1.Job
-	pendingSuccess     *batchv1.Job
+	pendingTerminal    *batchv1.Job
 }
 
 // observeBackupJobs reads active and terminal Job state from one live API snapshot.
@@ -103,15 +104,28 @@ func (m *Manager) observeBackupJobs(ctx context.Context, cluster *openbaov1alpha
 			}
 			continue
 		}
-		if backupSuccessNeedsProcessing(cluster, job) &&
-			(observation.pendingSuccess == nil || job.CreationTimestamp.After(observation.pendingSuccess.CreationTimestamp.Time)) {
-			observation.pendingSuccess = job.DeepCopy()
+		if backupTerminalNeedsProcessing(cluster, job) &&
+			(observation.pendingTerminal == nil || job.CreationTimestamp.After(observation.pendingTerminal.CreationTimestamp.Time)) {
+			observation.pendingTerminal = job.DeepCopy()
 		}
 		if observation.mostRecentTerminal == nil || job.CreationTimestamp.After(observation.mostRecentTerminal.CreationTimestamp.Time) {
 			observation.mostRecentTerminal = job.DeepCopy()
 		}
 	}
 	return observation, nil
+}
+
+// A pending request must recover its retained terminal receipt even when a
+// newer completed backup makes that Job's snapshot outcome stale.
+func backupTerminalNeedsProcessing(cluster *openbaov1alpha1.OpenBaoCluster, job *batchv1.Job) bool {
+	if token := manualTriggerToken(cluster); token != "" {
+		var receipt backupAttemptReceipt
+		if err := json.Unmarshal([]byte(job.Annotations[backupAttemptAnnotation]), &receipt); err == nil &&
+			receipt.ManualTrigger == token {
+			return true
+		}
+	}
+	return backupSuccessNeedsProcessing(cluster, job)
 }
 
 func backupSuccessNeedsProcessing(cluster *openbaov1alpha1.OpenBaoCluster, job *batchv1.Job) bool {

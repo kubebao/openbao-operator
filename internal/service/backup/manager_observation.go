@@ -40,7 +40,7 @@ func (m *Manager) observeBackup(
 		return backupObservation{}, fmt.Errorf("failed to observe backup Jobs: %w", err)
 	}
 	observation.jobs = jobs
-	if jobs.hasActive || jobs.pendingSuccess != nil {
+	if jobs.hasActive || jobs.pendingTerminal != nil {
 		return observation, nil
 	}
 
