@@ -170,6 +170,51 @@ class BaselineSelection(unittest.TestCase):
                     result = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
                     self.assertEqual(result.returncode == 0, success, result.stderr)
 
+    def test_hardened_wait_requires_complete_voter_rollout(self):
+        source = (ROOT / "hack/ci/operator-upgrade-e2e.sh").read_text()
+        functions = "\n".join(
+            name + "() {" + source.split(name + "() {", 1)[1].split("\n}\n", 1)[0] + "\n}"
+            for name in ("wait_for_workloads_settled", "wait_for_hardened_cluster")
+        )
+        cases = [
+            ("partition holds all old voters", 3, 0, "old", 2, False),
+            ("partition holds remaining old voters", 2, 1, "old", 2, False),
+            ("latest generation is not observed", 0, 3, "candidate", 1, False),
+            ("all voters use the current revision", 0, 3, "candidate", 2, True),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "kubectl"
+            binary.write_text('#!/usr/bin/env bash\n'
+                              'if [[ "$1" == get && "$2" == statefulsets ]]; then\n'
+                              '  printf "%s" "${STATEFULSETS_JSON}"\n'
+                              'fi\n')
+            binary.chmod(0o700)
+            for description, partition, updated, revision, observed, success in cases:
+                with self.subTest(description=description):
+                    statefulset = {
+                        "metadata": {"name": "operator-upgrade-hardened", "generation": 2},
+                        "spec": {"replicas": 3, "updateStrategy": {"type": "RollingUpdate",
+                                                                  "rollingUpdate": {"partition": partition}}},
+                        "status": {"observedGeneration": observed, "readyReplicas": 3,
+                                   "updatedReplicas": updated, "currentRevision": revision,
+                                   "updateRevision": "candidate"},
+                    }
+                    env = dict(os.environ, KUBECTL_BIN=str(binary), TENANT_NAMESPACE="upgrade-test",
+                               HARDENED_CLUSTER_RESOURCE="openbaocluster/operator-upgrade-hardened",
+                               STATEFULSETS_JSON=json.dumps({"items": [statefulset]}),
+                               WAIT_STEP="5" if success else "901")
+                    # Conditions and kubectl's partition-aware rollout status already succeed.
+                    script = 'set -euo pipefail\n' + functions + (
+                        '\nsleep() { SECONDS=$((SECONDS + WAIT_STEP)); }\n'
+                        'wait_for_hardened_cluster\necho hardened-ready\n'
+                    )
+                    result = subprocess.run(["bash", "-c", script], env=env,
+                                            capture_output=True, text=True, timeout=10)
+                    self.assertEqual(result.returncode == 0, success, result.stderr)
+                    self.assertEqual("hardened-ready" in result.stdout, success)
+                    if not success:
+                        self.assertIn("fixture StatefulSets did not settle", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
