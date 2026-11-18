@@ -149,6 +149,8 @@ type RestoreSource struct {
 	// +kubebuilder:validation:Pattern=`^sha256:[a-f0-9]{64}$`
 	// +optional
 	ExpectedDigest string `json:"expectedDigest,omitempty"`
+	// ExpectedSize is the expected snapshot object size in bytes.
+	// It must not exceed MaxSnapshotSizeBytes, which defaults to 8 GiB when omitted.
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	ExpectedSize int64 `json:"expectedSize,omitempty"`

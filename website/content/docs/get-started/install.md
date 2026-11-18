@@ -265,7 +265,7 @@ The 0.7 operator serves `kubebao.org/v1alpha1` and does not reconcile existing `
 Do not run a direct Helm upgrade or apply the 0.7 installer to an existing 0.6 installation.
 {{< /callout >}}
 
-Upgrade older installations to published 0.6.2 first. Then follow the
+Upgrade older installations to published 0.6.3 first. Then follow the
 [API group migration](../../operate/api-group-migration/) with the destination release's matching `api-migration`
 binary, chart, and images. The guide covers preparation, ownership transfer, verification, rollback, and cleanup
 for Helm, kubectl/Kustomize, Flux, and Argo CD.

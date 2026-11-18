@@ -17,7 +17,7 @@ Flux reconciliation remains suspended. A HelmRelease still requires the local `h
 ## Prepare the installation
 
 1. Review the [shared preflight and context selection](../#before-you-start) and
-   [availability requirements](../#plan-for-availability). Keep one source controller replica in the 0.6.2 release values.
+   [availability requirements](../#plan-for-availability). Keep one source controller replica in the 0.6.3 release values.
 2. [Download and verify the destination command and chart](../#download-the-command), or use a
    [matching edge bundle](../#evaluate-a-matching-edge-build) for staging. Put Helm 4 on `PATH` using an absolute
    directory and require `helm version --template '{{.Version}}'` to print a `v4.` version.
@@ -48,7 +48,7 @@ Save the following as `config.json`. Use the existing Helm release name and oper
   "context": "<context>",
   "release": "openbao-operator",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.2",
+  "sourceVersion": "0.6.3",
   "destinationChart": "./openbao-operator",
   "destinationValues": "./destination-values.yaml"
 }
@@ -188,12 +188,12 @@ Keep Flux suspended and run:
 ./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
-Before source retirement, the command restores source ownership and the saved 0.6.2 Helm release, then verifies it.
+Before source retirement, the command restores source ownership and the saved 0.6.3 Helm release, then verifies it.
 Require `Phase: RolledBack` and follow `migration-state/after-rollback.md`.
 
 If Git still describes the source, it needs no change. Otherwise restore the source chart, values, helper pins,
 and `openbao.org/v1alpha1` manifests. Resume parents first, confirming that children remain suspended and sources
-serve the intended source artifacts. Resume the HelmRelease only after its chart source serves 0.6.2, then resume
+serve the intended source artifacts. Resume the HelmRelease only after its chart source serves 0.6.3, then resume
 OpenBao-resource children. Run `flux resume` for every suspended object even if Git removes `spec.suspend`.
 
 Verify source application access, storage, Flux revisions, and readiness. Restore cleared source backup pins and

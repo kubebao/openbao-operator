@@ -4,22 +4,22 @@
   state: "Release preparation"
   showNotice: true
   sourceRef: "0.7.0"
-  fallbackSourceRef: "9f82f5208e9049b295ba4d1fd082f23ae83524ae"
+  fallbackSourceRef: "337f34ff27eac42b403c7b7cf4211d97ee346a6d"
   editRef: "main"
   contentRoot: "website/content"
   editable: true
   notice: "Prepared documentation for OpenBao Operator 0.7.0. The release is not published; final qualification is pending."
 "0.6.x":
   label: "0.6.x"
-  release: "0.6.2"
+  release: "0.6.3"
   state: "Published stable"
   showNotice: true
-  sourceRef: "0.6.2"
-  fallbackSourceRef: "c21159cc815e0f016136daab122cacbc16ebacf3"
+  sourceRef: "0.6.3"
+  fallbackSourceRef: "c33d9c7b408c2d4f0ccfcca2d1394f89de7af738"
   editRef: "main"
   contentRoot: "website/content-versions/0.6.x"
   editable: true
-  notice: "Documentation for the 0.6 minor line through OpenBao Operator 0.6.2."
+  notice: "Documentation for the 0.6 minor line through OpenBao Operator 0.6.3."
 "0.5.x":
   label: "0.5.x"
   release: "0.5.3"

@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoCluster API.
 eyebrow: Reference · Generated API
 weight: 1
 verifiedBy:
-  - api/v1alpha1 at 0.6.2
-  - website/generated/api-reference.md at 0.6.2
+  - api/v1alpha1 at 0.6.3
+  - website/generated/api-reference.md at 0.6.3
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.6.2` for the `0.6.x` documentation line.
+This page is synchronized from the generated API reference at `0.6.3` for the `0.6.x` documentation line.
 {{< /callout >}}
 
 
@@ -448,7 +448,7 @@ _Appears in:_
 | `digest` _string_ | Digest is sha256: followed by the lowercase digest of the uploaded snapshot. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br /> |
 | `clusterID` _string_ | ClusterID is the source native cluster ID observed during the backup. |  | MaxLength: 128 <br /> |
 | `version` _string_ | Version is the source OpenBao version observed during the backup. |  | MaxLength: 64 <br /> |
-| `size` _integer_ | Size is the snapshot size in bytes. |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br /> |
+| `size` _integer_ | Size is the snapshot size in bytes. |  | Minimum: 1 <br /> |
 
 
 #### BackupStatus
@@ -1967,6 +1967,7 @@ _Appears in:_
 | `everySuccessfulBackups` _integer_ |  |  | Maximum: 10000 <br />Minimum: 1 <br />Optional: \{\} <br /> |
 | `namespace` _string_ |  |  | MaxLength: 63 <br />MinLength: 1 <br /> |
 | `clusterTemplate` _[RestoreClusterTemplate](#restoreclustertemplate)_ |  |  |  |
+| `maxSnapshotSizeBytes` _integer_ | MaxSnapshotSizeBytes sets the snapshot and scratch-storage budget on each<br />generated restore request. The default is 8 GiB. | 8589934592 | Minimum: 1 <br />Optional: \{\} <br /> |
 | `credentialsSecretRef` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core)_ | CredentialsSecretRef is the existing destination storage credential Secret.<br />Storage connection settings are inherited from the source backup target. |  | Optional: \{\} <br /> |
 | `serviceAccountName` _string_ | ServiceAccountName selects an existing executor ServiceAccount in Namespace.<br />The operator does not create, modify, or delete this account. It must have<br />its own storage-reader identity; backup writer identities are not inherited. |  | MaxLength: 253 <br />Pattern: `^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$` <br />Optional: \{\} <br /> |
 | `roleArn` _string_ | RoleARN selects the S3 reader role independently of the backup writer role. |  | MinLength: 1 <br />Optional: \{\} <br /> |
