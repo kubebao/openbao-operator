@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
@@ -136,6 +137,13 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 				require.EqualValues(t, 1, stored.Status.Backup.SuccessfulBackups)
 			}
 			if testCase.newRequest {
+				// Job names use whole seconds. Give the distinct request a
+				// distinct attempt time before checking that it gets a new Job.
+				var attemptTime time.Time
+				require.NoError(t, json.Unmarshal(receipt["time"], &attemptTime))
+				require.Eventually(t, func() bool {
+					return time.Now().Truncate(time.Second).After(attemptTime.Truncate(time.Second))
+				}, 2*time.Second, 10*time.Millisecond)
 				_, err = newIntegrationBackupManager(t).Reconcile(ctx, logr.Discard(), &stored)
 				require.NoError(t, err)
 				require.NoError(t, k8sClient.Get(ctx, key, &stored))
