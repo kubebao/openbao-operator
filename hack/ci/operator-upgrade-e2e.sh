@@ -285,16 +285,34 @@ wait_for_workloads_settled() {
   local previous=""
   local current=""
   local stable=0
+  local request_timeout
+  local poll_interval
 
   while ((SECONDS < deadline)); do
-    current="$(
-      "${KUBECTL_BIN}" get statefulsets -n "${TENANT_NAMESPACE}" -o json | jq -c '
+    request_timeout=$((deadline - SECONDS))
+    if ((request_timeout <= 0)); then
+      break
+    fi
+    if ((request_timeout > 30)); then
+      request_timeout=30
+    fi
+    if ! current="$(
+      "${KUBECTL_BIN}" get statefulsets -n "${TENANT_NAMESPACE}" -o json \
+        --request-timeout="${request_timeout}s" | jq -c '
         [.items[] | {name: .metadata.name, generation: .metadata.generation,
           settled: ((.status.observedGeneration // 0) == .metadata.generation and
             (.status.currentRevision // "") != "" and .status.currentRevision == .status.updateRevision and
             (.status.readyReplicas // 0) == .spec.replicas and (.status.updatedReplicas // 0) == .spec.replicas)}]'
-    )"
-    if jq -e 'all(.[]; .settled)' <<<"${current}" >/dev/null && [[ "${current}" == "${previous}" ]]; then
+    )"; then
+      echo "Failed to sample fixture StatefulSets; retrying within the settlement deadline" >&2
+      current=""
+    fi
+    if ((SECONDS >= deadline)); then
+      break
+    fi
+    if [[ -n "${current}" ]] && jq -e '
+      any(.[]; .name == "operator-upgrade-hardened") and all(.[]; .settled)
+    ' <<<"${current}" >/dev/null && [[ "${current}" == "${previous}" ]]; then
       stable=$((stable + 1))
       if ((stable >= 6)); then
         return 0
@@ -303,7 +321,13 @@ wait_for_workloads_settled() {
       stable=0
     fi
     previous="${current}"
-    sleep 5
+    poll_interval=$((deadline - SECONDS))
+    if ((poll_interval > 5)); then
+      poll_interval=5
+    fi
+    if ((poll_interval > 0)); then
+      sleep "${poll_interval}"
+    fi
   done
   echo "fixture StatefulSets did not settle: ${current}" >&2
   return 1
