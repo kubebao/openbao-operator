@@ -264,8 +264,8 @@ func TestManager_ReconcileBlueGreen_BlocksUnsupportedTargetVersion(t *testing.T)
 			name:          "OpenBao 2.6.0 mixed-version blue green incompatibility",
 			current:       "2.5.5",
 			target:        "2.6.0",
-			wantErrSubstr: "blue/green upgrade from OpenBao 2.5.5 to 2.6.0 is blocked",
-			wantReason:    upgrade.ReasonBlueGreenVersionIncompatible,
+			wantErrSubstr: "upgrade from OpenBao 2.5.5 to 2.6.0 is blocked",
+			wantReason:    upgrade.ReasonUpgradeVersionIncompatible,
 		},
 	}
 

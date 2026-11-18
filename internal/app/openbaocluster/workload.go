@@ -48,6 +48,7 @@ func DefaultWorkloadResultPolicy() WorkloadResultPolicy {
 		RequeueSafetyNetJitter:     constants.RequeueSafetyNetJitter,
 		PermanentConfigurationReason: map[string]struct{}{
 			constants.ReasonInvalidVersion:                              {},
+			constants.ReasonUpgradeVersionIncompatible:                  {},
 			constants.ReasonDowngradeBlocked:                            {},
 			constants.ReasonImageVersionMismatch:                        {},
 			constants.ReasonOIDCBootstrapConfigurationInvalid:           {},

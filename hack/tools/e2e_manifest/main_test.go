@@ -439,7 +439,7 @@ func TestValidateNightlyUpgradeSequence(t *testing.T) {
 		sequence string
 		valid    bool
 	}{
-		{"2.5.5,2.6.4,2.7.1", true},
+		{"2.5.5,2.6.4,2.7.1", false},
 		{"2.6.4,2.7.0,2.7.1", true},
 		{"", false},
 		{"2.6.4,2.7.1", false},

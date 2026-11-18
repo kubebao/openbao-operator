@@ -3,6 +3,7 @@ package rolling
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -1706,5 +1707,34 @@ func pendingRollingTestPod(cluster *openbaov1alpha1.OpenBaoCluster, ordinal int)
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPending,
 		},
+	}
+}
+
+func TestReconcileRejectsProtocolBoundaryBeforeLockAcquisition(t *testing.T) {
+	t.Parallel()
+	for _, active := range []bool{false, true} {
+		t.Run(strconv.FormatBool(active), func(t *testing.T) {
+			cluster := &openbaov1alpha1.OpenBaoCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: "boundary", Namespace: "default"},
+				Spec:       openbaov1alpha1.OpenBaoClusterSpec{Version: "2.6.5", Replicas: 3},
+				Status:     openbaov1alpha1.OpenBaoClusterStatus{Initialized: true, CurrentVersion: "2.5.5"},
+			}
+			if active {
+				cluster.Status.Upgrade = &openbaov1alpha1.UpgradeProgress{FromVersion: "2.5.5", TargetVersion: "2.6.5", CurrentPartition: 3}
+			}
+			before := cluster.DeepCopy()
+			// No client or executor: validation must precede any lock or workload IO.
+			_, err := (&Manager{}).Reconcile(t.Context(), logr.Discard(), cluster)
+			if !errors.Is(err, operatorerrors.ErrPermanentConfig) {
+				t.Fatalf("expected permanent rejection, got %v", err)
+			}
+			reason, _ := operatorerrors.Reason(err)
+			if reason != upgrade.ReasonUpgradeVersionIncompatible {
+				t.Fatalf("reason = %q", reason)
+			}
+			if !reflect.DeepEqual(before, cluster) {
+				t.Fatal("rejected upgrade mutated Cluster state")
+			}
+		})
 	}
 }

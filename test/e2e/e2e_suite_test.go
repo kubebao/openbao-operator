@@ -733,6 +733,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 				}
 				openBaoImages = append(
 					openBaoImages,
+					"openbao/openbao:"+boundarySourceVersion,
 					fmt.Sprintf("openbao/openbao:%s", envOrDefault("E2E_UPGRADE_FROM_VERSION", defaultUpgradeFromVersion)),
 					fmt.Sprintf("openbao/openbao:%s", envOrDefault("E2E_UPGRADE_TO_VERSION", defaultUpgradeToVersion)),
 					fmt.Sprintf("openbao/openbao:%s", blueGreenUpgradeFromVersion()),

@@ -3225,6 +3225,40 @@
     "suiteTitle": ""
   },
   {
+    "id": "upgrade-protocol-boundary",
+    "generatedId": "upgrade-version-boundary-rejects-a-pre-2-6-crossing-e78a85ce",
+    "caseLabel": "upgrade-protocol-boundary",
+    "coverage": [
+      "upgrade-version-compatibility"
+    ],
+    "file": "test/e2e/Upgrade_Version_Boundary_test.go",
+    "type": "It",
+    "name": "rejects a pre-2.6 crossing in both strategies without replacing voters",
+    "path": [
+      "Upgrade protocol boundary",
+      "rejects a pre-2.6 crossing in both strategies without replacing voters"
+    ],
+    "labels": [
+      "upgrade",
+      "rolling",
+      "case:upgrade-protocol-boundary",
+      "covers:upgrade-version-compatibility",
+      "e2e-anchor"
+    ],
+    "domainLabels": [
+      "upgrade",
+      "rolling",
+      "e2e-anchor"
+    ],
+    "steps": [
+      "clearing only the rejected version request before any strategy change"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
     "id": "anti-tamper-configmap-delete-blocked",
     "generatedId": "anti-tamper-policy-prevents-deletion-of-the-managed-configmap-19c6bc2c",
     "caseLabel": "anti-tamper-configmap-delete-blocked",

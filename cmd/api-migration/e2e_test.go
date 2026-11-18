@@ -135,18 +135,19 @@ const (
 )
 
 type e2eFixture struct {
-	t          *testing.T
-	shape      e2eShape
-	name       string
-	dir        string
-	kubeconfig string
-	context    string
-	images     map[string]string
-	port       int
-	bao        *OpenBao
-	cancel     context.CancelFunc
-	forwarding sync.WaitGroup
-	written    []string
+	t             *testing.T
+	shape         e2eShape
+	name          string
+	dir           string
+	kubeconfig    string
+	context       string
+	images        map[string]string
+	port          int
+	bao           *OpenBao
+	cancel        context.CancelFunc
+	forwarding    sync.WaitGroup
+	written       []string
+	writtenValues map[string]string
 	// steps, while set, records when each procedure step starts.
 	steps *stepClock
 	// registryAddr forwards to the GitOps cases' registry.
@@ -771,6 +772,7 @@ func (f *e2eFixture) sourceCluster() map[string]any {
 		"spec": map[string]any{
 			"version": e2eOpenBaoVer, "image": f.images["openbao"], "replicas": f.shape.replicas, "profile": "Development",
 			"deletionPolicy": "Retain",
+			"configuration":  migrationFixtureConfiguration(),
 			"initContainer":  map[string]any{"enabled": true, "image": f.images["init"]},
 			"selfInit": map[string]any{"enabled": true, "oidc": map[string]any{"enabled": true}, "requests": []any{
 				map[string]any{"name": "fixture-kv", "operation": "update", "path": "sys/mounts/migration-data",
@@ -1181,33 +1183,33 @@ func (f *e2eFixture) podUID() string {
 }
 
 func (f *e2eFixture) baoRequest(method, path string, payload any) ([]byte, error) {
-	var data []byte
-	var err error
-	// The port-forward reconnects after Pod replacement; tolerate a short gap.
-	for attempt := 0; attempt < 30; attempt++ {
-		if data, err = f.bao.request(context.Background(), method, path, payload, true); err == nil {
-			return data, nil
-		}
-		var httpErr *openBaoHTTPError
-		if errors.As(err, &httpErr) {
-			return nil, err
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return nil, err
+	ctx, cancel := context.WithTimeout(f.t.Context(), time.Minute)
+	defer cancel()
+	return fixtureRequest(ctx, f.bao, method, path, payload, 2*time.Second)
 }
 
 func (f *e2eFixture) writeData(key, value string) {
+	f.t.Helper()
 	_, err := f.baoRequest(http.MethodPost, "migration-data/data/"+key, map[string]any{"data": map[string]any{"value": value}})
 	require.NoError(f.t, err, "write %s", key)
+	if f.writtenValues == nil {
+		f.writtenValues = map[string]string{}
+	}
+	f.writtenValues[key] = value
 	f.written = append(f.written, key)
 }
 
 func (f *e2eFixture) assertData(keys ...string) {
+	f.t.Helper()
+	voters, closeClients := f.fixtureVoterClients()
+	defer closeClients()
 	for _, key := range keys {
-		data, err := f.baoRequest(http.MethodGet, "migration-data/data/"+key, nil)
-		require.NoError(f.t, err, "read %s", key)
-		require.Contains(f.t, string(data), `"value"`, "data %s", key)
+		expected, ok := f.writtenValues[key]
+		require.True(f.t, ok, "fixture must record the acknowledged value for %s", key)
+		ctx, cancel := context.WithTimeout(f.t.Context(), time.Minute)
+		err := verifyFixtureData(ctx, f.bao, voters, "migration-data/data/"+key, expected, 2*time.Second)
+		cancel()
+		require.NoError(f.t, err, "read acknowledged value for %s", key)
 	}
 }
 

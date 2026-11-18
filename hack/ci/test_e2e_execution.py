@@ -125,7 +125,7 @@ class LaneConfiguration(unittest.TestCase):
             return result, values
 
     def test_two_step_upgrade_sequence_is_exported_and_cleared(self):
-        row = dict(self.rows[0], upgrade_sequence="2.5.5,2.6.4,2.7.1")
+        row = dict(self.rows[0], upgrade_sequence="2.6.4,2.6.5,2.7.1")
         result, values = self.configure(row)
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(values["E2E_UPGRADE_SEQUENCE"], row["upgrade_sequence"])

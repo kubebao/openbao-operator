@@ -35,19 +35,21 @@ These results apply to the released 0.5.2 artifacts; validate the exact deployme
 | 2.6.3 | Default CI, nightly, and release target; local lifecycle, rolling-upgrade, backup, and restore qualification | Operator 0.5.2 validation target; validate the exact environment in staging |
 | 2.6.2 | OpenBao Operator 0.5.0 release target; rolling-upgrade source for local 2.6.3 qualification | Use the latest qualified security patch |
 | Other 2.6.x | Not individually release-gated | Validate the exact patch in staging |
-| 2.5.x | Historical rolling-upgrade source coverage; outside the default config gate | Upgrade to a maintained release |
-| 2.4.x | Outside the default config gate | Upgrade before a new production rollout |
+| 2.5.x | Historical source coverage; outside the default config gate | Do not cross to 2.6 or newer until a compatible upgrade path is qualified |
+| 2.4.x | Outside the default config gate | Do not cross to 2.6 or newer until a compatible upgrade path is qualified |
 | 2.3.x | Not validated | Out of support scope |
 
 The configuration compatibility gate checks OpenBao 2.6.4 as a migration target and 2.7.1 as the current release.
 These labels describe operator validation. The [upstream support policy](https://openbao.org/community/policies/support/)
 provides best-effort support centered on the latest release and does not promise a two-minor maintenance window.
 
-{{< callout type="warning" title="OpenBao 2.6 BlueGreen limitation" >}}
-OpenBao 2.6.0 changed its internal request-forwarding gRPC service name.
-[OpenBao 2.6.3](https://github.com/openbao/openbao/releases/tag/v2.6.3) fixes cross-version request forwarding,
-but the operator still blocks pre-2.6 to 2.6-or-newer `BlueGreen` transitions until an exact version pair is qualified.
-The forwarding fix does not establish datastore downgrade compatibility.
+{{< callout type="warning" title="OpenBao 2.6 mixed-version limitation" >}}
+OpenBao 2.6 changed its internal request-forwarding gRPC service name. Reproduction with 2.5.5 and 2.6.5 shows that
+older voters cannot forward requests to an upgraded leader. The newer client's fallback does not provide the legacy
+server endpoint that older clients need. Neither RollingUpdate nor BlueGreen provides a qualified crossing from
+pre-2.6 servers to 2.6 or newer. Keep the current server version until a compatible upgrade path is qualified.
+See the [upgrade limitation](../../operate/upgrades/#choose-the-strategy). This does not establish datastore downgrade
+compatibility or qualify a cross-version snapshot restore.
 {{< /callout >}}
 
 ## OpenBao 2.6.3 qualification

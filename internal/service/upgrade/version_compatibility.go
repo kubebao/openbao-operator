@@ -1,18 +1,17 @@
-package bluegreen
+package upgrade
 
 import (
 	"fmt"
 
 	operatorerrors "github.com/kubebao/openbao-operator/internal/platform/errors"
-	"github.com/kubebao/openbao-operator/internal/service/upgrade"
 )
 
 func validateVersionCompatibility(currentVersion, targetVersion string) error {
-	current, err := upgrade.ParseVersion(currentVersion)
+	current, err := ParseVersion(currentVersion)
 	if err != nil {
 		return nil
 	}
-	target, err := upgrade.ParseVersion(targetVersion)
+	target, err := ParseVersion(targetVersion)
 	if err != nil {
 		return nil
 	}
@@ -22,25 +21,25 @@ func validateVersionCompatibility(currentVersion, targetVersion string) error {
 	}
 
 	return operatorerrors.WithReason(
-		upgrade.ReasonBlueGreenVersionIncompatible,
+		ReasonUpgradeVersionIncompatible,
 		operatorerrors.WrapPermanentConfig(fmt.Errorf(
-			upgrade.MessageBlueGreenVersionIncompatible,
+			MessageUpgradeVersionIncompatible,
 			currentVersion,
 			targetVersion,
 		)),
 	)
 }
 
-func isPre26Version(version *upgrade.SemVer) bool {
+func isPre26Version(version *SemVer) bool {
 	if version == nil {
 		return false
 	}
 	return version.Major < 2 || (version.Major == 2 && version.Minor < 6)
 }
 
-func is26OrNewerVersion(version *upgrade.SemVer) bool {
+func is26OrNewerVersion(version *SemVer) bool {
 	// Fail closed until an OpenBao release is explicitly verified to preserve
-	// mixed-version request-forwarding compatibility with pre-2.6 leaders.
+	// mixed-version request-forwarding compatibility with pre-2.6 peers.
 	return version != nil &&
 		(version.Major > 2 || (version.Major == 2 && version.Minor >= 6))
 }

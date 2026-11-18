@@ -24,9 +24,15 @@ cluster, a supported target version, and a working upgrade identity.
 | `RollingUpdate` | You want the default, lower-capacity rollout | The operator updates one Pod at a time, coordinates leader step-down, and holds a failed rollout for an explicit retry |
 | `BlueGreen` | You need a parallel Green revision, validation hook, or manual promotion | The operator joins Green as non-voters, promotes it, cuts over, and can abort or roll back according to phase |
 
-{{< callout type="warning" title="Use rolling for a pre-2.6 to 2.6-or-newer transition" >}}
-The operator rejects blue-green upgrades from an OpenBao version before 2.6 to version 2.6 or newer. The mixed-version
-request-forwarding path cannot be qualified safely. Switch an idle cluster to `RollingUpdate` first.
+{{< callout type="warning" title="Do not cross the OpenBao 2.6 protocol boundary" >}}
+Do not upgrade an OpenBao server from a version before 2.6 to 2.6 or newer with either `RollingUpdate` or `BlueGreen`.
+Older voters cannot forward requests to an upgraded leader. Health checks can still pass while forwarding and
+Autopilot health fail. Changing the strategy does not avoid this limitation.
+The operator rejects this version request with `UpgradeVersionIncompatible` before changing workloads.
+Keep the current server version until a compatible upgrade path is qualified. API-group migration that retains
+the server version is a separate operation.
+If a crossing has already started, do not force more voter replacements or downgrade upgraded voters. Preserve
+PVCs and plan recovery from the actual voter versions and quorum state.
 {{< /callout >}}
 
 Check the [compatibility matrix](../../reference/compatibility/) and the upstream release notes before choosing the

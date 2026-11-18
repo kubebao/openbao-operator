@@ -19,12 +19,12 @@ func TestE2EFixtureTwoStepUpgradeVersions(t *testing.T) {
 	}
 	got, err := twoStepUpgradeVersions()
 	require.NoError(t, err)
-	require.Equal(t, [3]string{"2.4.4", "2.5.5", "2.6.5"}, got)
+	require.Equal(t, [3]string{"2.6.3", "2.6.4", "2.6.5"}, got)
 
-	t.Setenv("E2E_UPGRADE_SEQUENCE", "2.5.5,2.6.4,2.7.2")
+	t.Setenv("E2E_UPGRADE_SEQUENCE", "2.6.4,2.6.5,2.7.2")
 	got, err = twoStepUpgradeVersions()
 	require.NoError(t, err)
-	require.Equal(t, [3]string{"2.5.5", "2.6.4", "2.7.2"}, got)
+	require.Equal(t, [3]string{"2.6.4", "2.6.5", "2.7.2"}, got)
 
 	t.Setenv("E2E_UPGRADE_SEQUENCE", "2.6.4,2.7.2")
 	_, err = twoStepUpgradeVersions()
@@ -35,7 +35,7 @@ func TestE2EFixtureStrategySwitchUpgradeVersions(t *testing.T) {
 	t.Setenv("E2E_UPGRADE_SEQUENCE", "")
 	got, err := strategySwitchUpgradeVersions()
 	require.NoError(t, err)
-	require.Equal(t, [3]string{"2.4.4", "2.5.5", "2.6.5"}, got)
+	require.Equal(t, [3]string{"2.6.3", "2.6.4", "2.6.5"}, got)
 
 	t.Setenv("E2E_UPGRADE_SEQUENCE", "2.6.4,2.7.0,2.7.2")
 	got, err = strategySwitchUpgradeVersions()
@@ -46,5 +46,5 @@ func TestE2EFixtureStrategySwitchUpgradeVersions(t *testing.T) {
 	_, err = strategySwitchUpgradeVersions()
 	require.ErrorContains(t, err, "BlueGreen step")
 	_, err = twoStepUpgradeVersions()
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "RollingUpdate step")
 }
