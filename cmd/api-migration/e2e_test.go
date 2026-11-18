@@ -3,7 +3,7 @@
 package main
 
 // End-to-end qualification on a disposable Kind cluster. It installs the
-// released 0.6.2 chart, creates an initialized Target-mode Cluster, and runs
+// released 0.6.3 chart, creates an initialized Target-mode Cluster, and runs
 // the procedure in-process against a destination operator image:
 //
 //	make test-e2e-api-migration API_MIGRATION_E2E_IMAGE=api-migration.local/operator:dev API_MIGRATION_E2E_CASE=commit
@@ -59,11 +59,11 @@ var (
 
 const (
 	e2eNodeImage          = "kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5"
-	e2eSourceImage        = "ghcr.io/kubebao/openbao-operator@sha256:0d2a4c61d8ba741da71dfb09c98ad9975d57828238a0eb66a4265375e2543a4e"
-	e2eInitImage          = "ghcr.io/kubebao/openbao-init@sha256:db2152670a772d765c1173122961a8cf9fff13546037e2f4bcd0a7e461c9f543"
+	e2eSourceImage        = "ghcr.io/kubebao/openbao-operator@sha256:2711cea1789a857d33266e961a2fe967b8724410315af34e49098cddc3ddcafa"
+	e2eInitImage          = "ghcr.io/kubebao/openbao-init@sha256:d58b50f976dcc175e705382b3bc21723430eed16d2ae64e8060833d8d6458ce0"
 	e2eOpenBaoImage       = "openbao/openbao:2.6.5"
 	e2eOpenBaoVer         = "2.6.5"
-	e2eSourceRelease      = "0.6.2"
+	e2eSourceRelease      = "0.6.3"
 	e2eDestinationRelease = "0.7.0"
 	// The Kustomize base pins its policies to the default operator namespace.
 	e2eOperatorNS  = "openbao-operator-system"

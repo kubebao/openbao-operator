@@ -10,13 +10,13 @@ The current manual stays focused on the current contract. Release pages preserve
 
 ## Release in preparation
 
-[0.7.0](0.7.0/) prepares the `kubebao.org` API group migration from 0.6.2. The release is not published, and final
+[0.7.0](0.7.0/) prepares the `kubebao.org` API group migration from 0.6.3. The release is not published, and final
 qualification is pending. Follow the preparation page for the migration scope and remaining gates.
 
 ## Latest published release
 
 <div class="link-grid">
-  <a href="0.6.2/"><strong>0.6.2</strong><p>Configurable startup budgets for slow database opens and Go toolchain updates.</p></a>
+  <a href="0.6.3/"><strong>0.6.3</strong><p>Raft catch-up checks, guarded rollout recovery, and configurable restore snapshot limits.</p></a>
   <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
 
@@ -24,6 +24,7 @@ qualification is pending. Follow the preparation page for the migration scope an
 
 | Release | Published | Context |
 | --- | --- | --- |
+| [0.6.3](0.6.3/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.3) | Raft catch-up checks, guarded rollout recovery, and restore snapshot limits |
 | [0.6.2](0.6.2/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.2) | Configurable startup budgets, lifecycle deadlines, and Go toolchain updates |
 | [0.6.1](0.6.1/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.1) | Helm admission policies, small-cluster Autopilot, security, and restore versions |
 | [0.6.0](0.6.0/) | 2026-10-24 | Target JWT authentication, restore recovery, and networking changes |

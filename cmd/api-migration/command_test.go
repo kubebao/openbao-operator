@@ -40,7 +40,7 @@ import (
 
 func validConfig() Config {
 	return Config{Kubeconfig: "/kubeconfig", Context: "kind", Release: "openbao-operator",
-		OperatorNamespace: "openbao-operator-system", SourceVersion: "0.6.2", DestinationChart: "./chart",
+		OperatorNamespace: "openbao-operator-system", SourceVersion: "0.6.3", DestinationChart: "./chart",
 		Migrator: "system:serviceaccount:openbao-operator-system:api-migrator",
 		Clusters: []ClusterConfig{{Namespace: "openbao", Name: "bao", OpenBao: &OpenBaoConfig{TokenFile: "token"}}}}
 }
@@ -82,6 +82,7 @@ func TestConfigValidation(t *testing.T) {
 		"no source version":       func(c *Config) { c.SourceVersion = "" },
 		"older source version":    func(c *Config) { c.SourceVersion = "0.6.0" },
 		"previous source version": func(c *Config) { c.SourceVersion = "0.6.1" },
+		"superseded RC.2 source":  func(c *Config) { c.SourceVersion = "0.6.2" },
 		"helm without chart":      func(c *Config) { c.DestinationChart = "" },
 		"manifests with chart":    func(c *Config) { c.Release = "" },
 		"helm with manifests":     func(c *Config) { c.DestinationManifests = "./install.yaml" },
