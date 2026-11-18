@@ -277,6 +277,62 @@ inject_api_server_endpoint_ips() {
       '.spec.network.apiServerEndpointIPs = $endpoint_ips'
 }
 
+# wait_for_workloads_settled waits until every fixture StatefulSet has finished
+# its rollout and stayed unchanged for 30 seconds: an operator upgrade rolls
+# them shortly after its Deployments become ready.
+wait_for_workloads_settled() {
+  local deadline=$((SECONDS + 900))
+  local previous=""
+  local current=""
+  local stable=0
+  local request_timeout
+  local poll_interval
+
+  while ((SECONDS < deadline)); do
+    request_timeout=$((deadline - SECONDS))
+    if ((request_timeout <= 0)); then
+      break
+    fi
+    if ((request_timeout > 30)); then
+      request_timeout=30
+    fi
+    if ! current="$(
+      "${KUBECTL_BIN}" get statefulsets -n "${TENANT_NAMESPACE}" -o json \
+        --request-timeout="${request_timeout}s" | jq -c '
+        [.items[] | {name: .metadata.name, generation: .metadata.generation,
+          settled: ((.status.observedGeneration // 0) == .metadata.generation and
+            (.status.currentRevision // "") != "" and .status.currentRevision == .status.updateRevision and
+            (.status.readyReplicas // 0) == .spec.replicas and (.status.updatedReplicas // 0) == .spec.replicas)}]'
+    )"; then
+      echo "Failed to sample fixture StatefulSets; retrying within the settlement deadline" >&2
+      current=""
+    fi
+    if ((SECONDS >= deadline)); then
+      break
+    fi
+    if [[ -n "${current}" ]] && jq -e '
+      any(.[]; .name == "operator-upgrade-hardened") and all(.[]; .settled)
+    ' <<<"${current}" >/dev/null && [[ "${current}" == "${previous}" ]]; then
+      stable=$((stable + 1))
+      if ((stable >= 6)); then
+        return 0
+      fi
+    else
+      stable=0
+    fi
+    previous="${current}"
+    poll_interval=$((deadline - SECONDS))
+    if ((poll_interval > 5)); then
+      poll_interval=5
+    fi
+    if ((poll_interval > 0)); then
+      sleep "${poll_interval}"
+    fi
+  done
+  echo "fixture StatefulSets did not settle: ${current}" >&2
+  return 1
+}
+
 wait_for_hardened_cluster() {
   "${KUBECTL_BIN}" wait "${HARDENED_CLUSTER_RESOURCE}" \
     -n "${TENANT_NAMESPACE}" \
@@ -293,6 +349,10 @@ wait_for_hardened_cluster() {
   "${KUBECTL_BIN}" rollout status statefulset/operator-upgrade-hardened \
     -n "${TENANT_NAMESPACE}" \
     --timeout=12m >/dev/null
+  # A partitioned rollout can report success while old voters remain. Wait for
+  # every replacement before selecting an active Pod for JWT migration.
+  echo "Waiting for all fixture voter replacements to finish..." >&2
+  wait_for_workloads_settled
 }
 
 create_transit_credentials_secret() {
@@ -839,38 +899,6 @@ assert_equal "Hardened PVC UIDs changed before the candidate handoff" "${hardene
 jq -n --arg version "${FROM_VERSION}" --arg manager "${BASELINE_MANAGER_IMAGE}" \
   --arg helper "${DEFAULT_HARDENED_INIT_IMAGE}" \
   '{publishedBaseline: $version, managerImage: $manager, initImage: $helper, retainedData: "verified"}'
-
-# wait_for_workloads_settled waits until every fixture StatefulSet has finished
-# its rollout and stayed unchanged for 30 seconds: an operator upgrade rolls
-# them shortly after its Deployments become ready.
-wait_for_workloads_settled() {
-  local deadline=$((SECONDS + 900))
-  local previous=""
-  local current=""
-  local stable=0
-
-  while ((SECONDS < deadline)); do
-    current="$(
-      "${KUBECTL_BIN}" get statefulsets -n "${TENANT_NAMESPACE}" -o json | jq -c '
-        [.items[] | {name: .metadata.name, generation: .metadata.generation,
-          settled: ((.status.observedGeneration // 0) == .metadata.generation and
-            (.status.currentRevision // "") != "" and .status.currentRevision == .status.updateRevision and
-            (.status.readyReplicas // 0) == .spec.replicas and (.status.updatedReplicas // 0) == .spec.replicas)}]'
-    )"
-    if jq -e 'all(.[]; .settled)' <<<"${current}" >/dev/null && [[ "${current}" == "${previous}" ]]; then
-      stable=$((stable + 1))
-      if ((stable >= 6)); then
-        return 0
-      fi
-    else
-      stable=0
-    fi
-    previous="${current}"
-    sleep 5
-  done
-  echo "fixture StatefulSets did not settle: ${current}" >&2
-  return 1
-}
 
 # migrate_to_candidate moves the installation to the candidate chart with the
 # api-migration command built from this tree, as an administrator runs it.
