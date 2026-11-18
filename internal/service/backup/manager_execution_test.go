@@ -34,6 +34,7 @@ func TestApplyFinalizeBackup_FailedCurrentJobSkipsRetention(t *testing.T) {
 	}
 
 	jobName := backupJobName(cluster, scheduledTime)
+	cluster.Status.OperationLock.Message = backupJobLockMessage(jobName)
 	failedJob := newBackupJobForCluster(cluster, jobName, scheduledTime)
 	failedJob.Annotations["openbao.org/backup-key"] = "backups/default/retention-cluster/2025-01-02T03-00-00Z-partial.snap"
 	failedJob.Status = batchv1.JobStatus{Failed: 1}
@@ -65,6 +66,7 @@ func TestApplyFinalizeBackup_FailedCurrentJobSkipsRetention(t *testing.T) {
 		now:           scheduledTime,
 		scheduledTime: scheduledTime,
 		jobs: backupJobObservation{
+			operationJob:       failedJob,
 			mostRecentTerminal: failedJob,
 		},
 	}
@@ -144,6 +146,7 @@ func TestApplyFinalizeBackup_RetriesTransientLockReleaseFailure(t *testing.T) {
 	}
 
 	jobName := backupJobName(cluster, completedAt)
+	cluster.Status.OperationLock.Message = backupJobLockMessage(jobName)
 	succeededJob := newBackupJobForCluster(cluster, jobName, completedAt)
 	succeededJob.Annotations["openbao.org/backup-key"] = backupKey
 	succeededJob.Status = batchv1.JobStatus{Succeeded: 1}
@@ -158,6 +161,7 @@ func TestApplyFinalizeBackup_RetriesTransientLockReleaseFailure(t *testing.T) {
 		now:           completedAt,
 		scheduledTime: nextScheduled,
 		jobs: backupJobObservation{
+			operationJob:       succeededJob,
 			mostRecentTerminal: succeededJob,
 		},
 	})
@@ -207,6 +211,7 @@ func TestReconcile_ProcessesOwnedBackupBeforePendingOperations(t *testing.T) {
 
 	completedAt := time.Now().UTC().Add(-time.Minute)
 	job := newBackupJobForCluster(cluster, "backup-before-upgrade-complete", completedAt)
+	cluster.Status.OperationLock.Message = backupJobLockMessage(job.Name)
 	job.Annotations["openbao.org/backup-key"] = "backups/default/backup-before-upgrade/complete.snap"
 	job.Status = batchv1.JobStatus{Succeeded: 1}
 	restore := &openbaov1alpha1.OpenBaoRestore{
@@ -283,6 +288,7 @@ func TestReconcile_ProcessesOwnedTerminalJobFromSingleObservation(t *testing.T) 
 		Holder:    backupOperationLockHolder,
 	}
 	job := newBackupJobForCluster(cluster, "terminal-list-race-complete", time.Now().UTC().Add(-time.Minute))
+	cluster.Status.OperationLock.Message = backupJobLockMessage(job.Name)
 	job.Annotations["openbao.org/backup-key"] = "backups/default/terminal-list-race/complete.snap"
 	job.Status = batchv1.JobStatus{Succeeded: 1}
 
@@ -325,7 +331,11 @@ func TestReconcile_OwnedBackupClearsCrashRecoveredManualTrigger(t *testing.T) {
 		Operation: openbaov1alpha1.ClusterOperationBackup,
 		Holder:    backupOperationLockHolder,
 	}
-	job := newBackupJobForCluster(cluster, "manual-crash-recovery-complete", time.Now().UTC().Add(-time.Minute))
+	attempt := testBackupAttempt(time.Now().UTC().Add(-time.Minute))
+	attempt.ManualTrigger = "manual-request-1"
+	job := newBackupJobForCluster(cluster, backupJobName(cluster, attempt.ScheduledTime), attempt.Time)
+	stampTestBackupReceipt(t, job, attempt)
+	cluster.Status.OperationLock.Message = backupJobLockMessage(job.Name)
 	job.Annotations["openbao.org/backup-key"] = "backups/default/manual-crash-recovery/complete.snap"
 	job.Status = batchv1.JobStatus{Succeeded: 1}
 
@@ -442,6 +452,7 @@ func TestReconcile_DisabledBackupFinishesOwnedOperation(t *testing.T) {
 			objects := []client.Object{cluster}
 			if testCase.jobStatus != nil {
 				job := newBackupJobForCluster(cluster, "disabled-backup-complete", time.Now().UTC().Add(-time.Minute))
+				cluster.Status.OperationLock.Message = backupJobLockMessage(job.Name)
 				job.Annotations["openbao.org/backup-key"] = testCase.wantLastKey
 				job.Status = *testCase.jobStatus
 				objects = append(objects, job)

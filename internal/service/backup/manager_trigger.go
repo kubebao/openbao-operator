@@ -65,10 +65,16 @@ func (m *Manager) clearManualTriggerAnnotation(ctx context.Context, logger logr.
 
 	// Do not remove a replacement Cluster's annotation or a concurrent request.
 	path := "/metadata/annotations/" + strings.ReplaceAll(annotation, "/", "~1")
-	patch, err := json.Marshal([]map[string]any{
-		{"op": "test", "path": "/metadata/uid", "value": cluster.UID},
-		{"op": "test", "path": path, "value": expectedToken},
-		{"op": "remove", "path": path},
+	type patchOperation struct {
+		Op    string  `json:"op"`
+		Path  string  `json:"path"`
+		Value *string `json:"value,omitempty"`
+	}
+	uid := string(cluster.UID)
+	patch, err := json.Marshal([]patchOperation{
+		{Op: "test", Path: "/metadata/uid", Value: &uid},
+		{Op: "test", Path: path, Value: &expectedToken},
+		{Op: "remove", Path: path},
 	})
 	if err != nil {
 		return fmt.Errorf("encode manual backup trigger patch: %w", err)

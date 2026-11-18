@@ -42,6 +42,9 @@ func (m *Manager) observeBackup(
 	}
 
 	observation.initialNextSchedule = schedule.Next(now)
+	if observation.initialNextSchedule.IsZero() {
+		return backupObservation{}, fmt.Errorf("backup schedule %q has no future occurrence", cluster.Spec.Backup.Schedule)
+	}
 	if cluster.Status.Backup != nil && cluster.Status.Backup.NextScheduledBackup != nil {
 		persisted := cluster.Status.Backup.NextScheduledBackup.Time
 		// Keep a valid overdue occurrence across restarts, but do not let an old

@@ -161,8 +161,10 @@ kubectl -n <namespace> annotate openbaocluster <name> \
 {{< /command >}}
 
 For a new backup Job, the controller records the request value in `status.backup.lastHandledManualTrigger`
-before clearing the annotation. It recovers this receipt from the Job after a controller restart. The controller skips
-a duplicate request while another backup Job is active.
+before clearing the annotation. It recovers this receipt after a controller restart while the Job remains available.
+Backup Jobs become eligible for collection one hour after completion. If the Job is gone and the request has no
+acknowledgement, check backup status and object storage before requesting another backup. The controller skips a
+duplicate request while another backup Job is active.
 
 {{< command label="verify" title="Inspect backup readiness and outcome" >}}
 kubectl -n <namespace> get openbaocluster <name> \

@@ -56,6 +56,7 @@ func (m *Manager) hasPreUpgradeBackupJob(ctx context.Context, cluster *openbaov1
 type backupJobObservation struct {
 	hasActive          bool
 	activeJob          *batchv1.Job
+	operationJob       *batchv1.Job
 	mostRecentTerminal *batchv1.Job
 }
 
@@ -87,6 +88,10 @@ func (m *Manager) observeBackupJobs(ctx context.Context, cluster *openbaov1alpha
 			openbaov1alpha1.GroupVersion.WithKind("OpenBaoCluster"),
 		); err != nil {
 			return backupJobObservation{}, err
+		}
+		if backupOperationLock.IsHeldBy(cluster.Status.OperationLock) &&
+			cluster.Status.OperationLock.Message == backupJobLockMessage(job.Name) {
+			observation.operationJob = job.DeepCopy()
 		}
 		if !kube.JobSucceeded(job) && !kube.JobFailed(job) {
 			observation.hasActive = true

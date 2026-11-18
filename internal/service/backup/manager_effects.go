@@ -188,11 +188,19 @@ func (m *Manager) applyCreateBackup(
 	}
 
 	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: jobName, Namespace: cluster.Namespace}}
-	if err := m.recoverBackupAttempt(ctx, cluster, job); err != nil {
+	receipt, err := m.recoverBackupAttempt(ctx, cluster, job)
+	if err != nil {
 		return recon.Result{}, err
 	}
-	if manualTrigger {
-		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
+	if receipt == nil && !manualTrigger {
+		// A legacy Job proves this scheduled occurrence already exists, but
+		// cannot prove which manual request its creator observed.
+		if err := m.recordBackupAttempt(ctx, cluster, attempt.Time, attempt.ScheduledTime, attempt.NextScheduled, ""); err != nil {
+			return recon.Result{}, err
+		}
+	}
+	if receipt != nil && receipt.ManualTrigger != "" {
+		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, receipt.ManualTrigger); err != nil {
 			return recon.Result{}, err
 		}
 	}
@@ -208,7 +216,7 @@ func (m *Manager) applyObserveBackup(
 	observation backupObservation,
 ) (recon.Result, error) {
 	if observation.ownsLock {
-		if err := m.recoverBackupAttempt(ctx, cluster, observation.jobs.activeJob); err != nil {
+		if _, err := m.recoverBackupAttempt(ctx, cluster, observation.jobs.activeJob); err != nil {
 			return recon.Result{}, err
 		}
 		if observation.manualTriggerToken != "" {
@@ -236,29 +244,34 @@ func (m *Manager) applyFinalizeBackup(
 	cluster *openbaov1alpha1.OpenBaoCluster,
 	observation backupObservation,
 ) (recon.Result, error) {
+	job := observation.jobs.mostRecentTerminal
 	if observation.ownsLock {
-		if err := m.recoverBackupAttempt(ctx, cluster, observation.jobs.mostRecentTerminal); err != nil {
+		// The controller can stop between acquiring the lock and creating its
+		// Job. An unrelated terminal Job must not prevent lock release.
+		job = observation.jobs.operationJob
+		receipt, err := m.recoverBackupAttempt(ctx, cluster, job)
+		if err != nil {
 			return recon.Result{}, err
 		}
-	}
-	if observation.ownsLock && observation.manualTriggerToken != "" && observation.jobs.mostRecentTerminal != nil {
-		if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, observation.manualTriggerToken); err != nil {
-			return recon.Result{}, fmt.Errorf("failed to clear manual backup trigger while finishing owned operation: %w", err)
+		if receipt != nil && receipt.ManualTrigger != "" {
+			if err := m.clearManualTriggerAnnotation(ctx, logger, cluster, receipt.ManualTrigger); err != nil {
+				return recon.Result{}, fmt.Errorf("failed to clear manual backup trigger while finishing owned operation: %w", err)
+			}
 		}
 	}
 
 	jobResult := backupJobProcessResult{}
-	if observation.jobs.mostRecentTerminal != nil {
+	if job != nil {
 		var err error
-		jobResult, err = m.processBackupJob(ctx, logger, cluster, observation.jobs.mostRecentTerminal)
+		jobResult, err = m.processBackupJob(ctx, logger, cluster, job)
 		if err != nil {
 			return recon.Result{}, fmt.Errorf("failed to process backup Job: %w", err)
 		}
 	}
 	// Snapshot status can survive a lost read-back or a controller restart before
 	// retention is reserved. The source Job identity, not statusUpdated, deduplicates cleanup.
-	if jobResult.successfulCompletion && observation.jobs.mostRecentTerminal != nil {
-		if err := m.reserveRetention(ctx, cluster, observation.jobs.mostRecentTerminal, observation.now); err != nil {
+	if jobResult.successfulCompletion && job != nil {
+		if err := m.reserveRetention(ctx, cluster, job, observation.now); err != nil {
 			return retentionPollResult(), err
 		}
 		if retentionActive(cluster) {

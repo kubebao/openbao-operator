@@ -21,14 +21,18 @@ import (
 
 func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 	cases := []struct {
-		name      string
-		completed bool
-		applied   bool
+		name       string
+		completed  bool
+		applied    bool
+		newRequest bool
+		legacyJob  bool
 	}{
 		{name: "running-before-apply"},
 		{name: "completed-before-apply", completed: true},
 		{name: "running-after-apply", applied: true},
 		{name: "completed-after-apply", completed: true, applied: true},
+		{name: "completed-with-newer-request", completed: true, newRequest: true},
+		{name: "legacy-completed-with-newer-request", completed: true, newRequest: true, legacyJob: true},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -96,15 +100,33 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 				job.Status.Succeeded = 1
 				require.NoError(t, newControllerClient(t).Status().Update(ctx, job))
 			}
+			if testCase.legacyJob {
+				require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(job), job))
+				delete(job.Annotations, "kubebao.org/backup-attempt")
+				require.NoError(t, k8sClient.Update(ctx, job))
+			}
+			if testCase.newRequest {
+				require.NoError(t, k8sClient.Get(ctx, key, &stored))
+				stored.Annotations[constants.AnnotationTriggerBackup] = "newer-request"
+				require.NoError(t, k8sClient.Update(ctx, &stored))
+			}
 
 			// A new manager has no memory of the interrupted request.
 			manager = newIntegrationBackupManager(t)
 			_, err = manager.Reconcile(ctx, logr.Discard(), &stored)
 			require.NoError(t, err)
 			require.NoError(t, k8sClient.Get(ctx, key, &stored))
-			require.Equal(t, "receipt-request", stored.Status.Backup.LastHandledManualTrigger)
-			require.Empty(t, stored.Annotations[constants.AnnotationTriggerBackup])
-			require.NotNil(t, stored.Status.Backup.LastAttemptTime)
+			if testCase.legacyJob {
+				require.Empty(t, stored.Status.Backup.LastHandledManualTrigger)
+			} else {
+				require.Equal(t, "receipt-request", stored.Status.Backup.LastHandledManualTrigger)
+				require.NotNil(t, stored.Status.Backup.LastAttemptTime)
+			}
+			if testCase.newRequest {
+				require.Equal(t, "newer-request", stored.Annotations[constants.AnnotationTriggerBackup])
+			} else {
+				require.Empty(t, stored.Annotations[constants.AnnotationTriggerBackup])
+			}
 			require.Equal(t, "preserve-sibling", stored.Status.UpgradeRequests.LastHandledRetry)
 			require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
 			require.Len(t, jobs.Items, 1)
@@ -112,6 +134,15 @@ func TestBackupAttemptReceiptRecoveryAfterInterruptedStatus(t *testing.T) {
 			if testCase.completed {
 				require.Equal(t, job.Annotations["openbao.org/backup-key"], stored.Status.Backup.LastBackupName)
 				require.EqualValues(t, 1, stored.Status.Backup.SuccessfulBackups)
+			}
+			if testCase.newRequest {
+				_, err = newIntegrationBackupManager(t).Reconcile(ctx, logr.Discard(), &stored)
+				require.NoError(t, err)
+				require.NoError(t, k8sClient.Get(ctx, key, &stored))
+				require.Equal(t, "newer-request", stored.Status.Backup.LastHandledManualTrigger)
+				require.Empty(t, stored.Annotations[constants.AnnotationTriggerBackup])
+				require.NoError(t, k8sClient.List(ctx, &jobs, client.InNamespace(cluster.Namespace)))
+				require.Len(t, jobs.Items, 2)
 			}
 		})
 	}
