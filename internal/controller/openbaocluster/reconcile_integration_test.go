@@ -242,12 +242,14 @@ var _ = Describe("OpenBaoCluster Reconcile", func() {
 		})
 
 		It("reports image version mismatches without mutating existing StatefulSet pods", func() {
+			// Stay within one forwarding protocol generation so this fixture reaches
+			// the image/tag check instead of the upgrade compatibility check.
 			const (
 				clusterName     = "test-image-version-mismatch"
-				stableImage     = "openbao/openbao:2.4.4"
-				mismatchedImage = "openbao/openbao:2.5.0"
-				stableVersion   = "2.4.4"
-				targetVersion   = "2.6.0"
+				stableImage     = "openbao/openbao:2.6.4"
+				mismatchedImage = "openbao/openbao:2.6.3"
+				stableVersion   = "2.6.4"
+				targetVersion   = "2.6.5"
 			)
 
 			cluster := createMinimalCluster(clusterName, false)
