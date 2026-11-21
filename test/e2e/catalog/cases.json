@@ -3169,6 +3169,7 @@
       "switching only the idle strategy from RollingUpdate to BlueGreen",
       "performing a blue-green upgrade to the intermediate version",
       "switching only the idle strategy from BlueGreen to RollingUpdate",
+      "keeping the promoted Pods intact after the strategy handoff",
       "performing a rolling upgrade to the final version against the same StatefulSet"
     ],
     "focused": false,
@@ -3217,6 +3218,40 @@
       "verifying abort preserves Blue and both revisions' recorded data claims",
       "verifying the stale target is abandoned before any rollback",
       "verifying no stale workload remains in the namespace"
+    ],
+    "focused": false,
+    "pending": false,
+    "suiteFile": "",
+    "suiteTitle": ""
+  },
+  {
+    "id": "upgrade-protocol-boundary",
+    "generatedId": "upgrade-version-boundary-rejects-a-pre-2-6-crossing-e78a85ce",
+    "caseLabel": "upgrade-protocol-boundary",
+    "coverage": [
+      "upgrade-version-compatibility"
+    ],
+    "file": "test/e2e/Upgrade_Version_Boundary_test.go",
+    "type": "It",
+    "name": "rejects a pre-2.6 crossing in both strategies without replacing voters",
+    "path": [
+      "Upgrade protocol boundary",
+      "rejects a pre-2.6 crossing in both strategies without replacing voters"
+    ],
+    "labels": [
+      "upgrade",
+      "rolling",
+      "case:upgrade-protocol-boundary",
+      "covers:upgrade-version-compatibility",
+      "e2e-anchor"
+    ],
+    "domainLabels": [
+      "upgrade",
+      "rolling",
+      "e2e-anchor"
+    ],
+    "steps": [
+      "clearing only the rejected version request before any strategy change"
     ],
     "focused": false,
     "pending": false,

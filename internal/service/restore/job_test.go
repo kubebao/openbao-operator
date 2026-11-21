@@ -1,6 +1,7 @@
 package restore
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -68,6 +69,28 @@ func TestBuildRestoreJob_RetainsExecutionReceipt(t *testing.T) {
 	require.NotNil(t, scratch)
 	assert.Empty(t, scratch.Medium, "staging must use disk, not memory")
 	assert.Equal(t, int64(9012*1024*1024), scratch.SizeLimit.Value())
+}
+
+func TestBuildRestoreJobSelectedSnapshotBudget(t *testing.T) {
+	restore := &openbaov1alpha1.OpenBaoRestore{Spec: openbaov1alpha1.OpenBaoRestoreSpec{
+		Image: "example.com/restore:v1", Source: openbaov1alpha1.RestoreSource{MaxSnapshotSizeBytes: 16 * 1024 * 1024 * 1024},
+	}}
+	restore.Status.Execution = newRestoreExecutionStatus(restore)
+	job, err := (&Manager{}).buildRestoreJob(restore, &openbaov1alpha1.OpenBaoCluster{}, "")
+	require.NoError(t, err)
+	container := job.Spec.Template.Spec.Containers[0]
+	require.Contains(t, container.Env, corev1.EnvVar{Name: constants.EnvRestoreMaxSnapshotSizeBytes, Value: "17179869184"})
+	require.Equal(t, int64((18023+128)*1024*1024), container.Resources.Requests.StorageEphemeral().Value())
+	require.Equal(t, container.Resources.Requests.StorageEphemeral(), container.Resources.Limits.StorageEphemeral())
+	for _, volume := range job.Spec.Template.Spec.Volumes {
+		if volume.Name == "restore-scratch" {
+			require.Equal(t, int64(18023*1024*1024), volume.EmptyDir.SizeLimit.Value())
+		}
+	}
+	restore.Spec.Source.MaxSnapshotSizeBytes = math.MaxInt64
+	job, err = (&Manager{}).buildRestoreJob(restore, &openbaov1alpha1.OpenBaoCluster{}, "")
+	require.ErrorContains(t, err, "too large")
+	require.Nil(t, job)
 }
 
 func TestBuildRestoreJobRequiresPersistedPreparationTime(t *testing.T) {

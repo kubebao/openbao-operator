@@ -3,6 +3,7 @@ package restore
 import (
 	"fmt"
 	"maps"
+	"strconv"
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -20,6 +21,7 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	portauth "github.com/kubebao/openbao-operator/internal/port/auth"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
+	portrestore "github.com/kubebao/openbao-operator/internal/port/restore"
 	"github.com/kubebao/openbao-operator/internal/service/workloadidentity"
 )
 
@@ -66,6 +68,10 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 		return nil, fmt.Errorf("restore staging requires a persisted preparation timestamp")
 	}
 	preparationDeadline := restore.Status.Execution.PreparedAt.Add(constants.DefaultRestorePreparationTimeout)
+	budget, err := portrestore.ResolveSnapshotBudget(restore.Spec.Source.MaxSnapshotSizeBytes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid restore snapshot budget: %w", err)
+	}
 	jobName := restoreJobName(restore)
 	labels := restoreLabels(cluster)
 	security.AddManagedWorkloadSecurityLabels(labels, cluster)
@@ -86,6 +92,8 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 	envVars := buildRestoreEnvVars(restore, cluster, m.clientConfig)
 	envVars = append(envVars, corev1.EnvVar{
 		Name: constants.EnvRestorePreparationDeadline, Value: preparationDeadline.UTC().Format(time.RFC3339),
+	}, corev1.EnvVar{
+		Name: constants.EnvRestoreMaxSnapshotSizeBytes, Value: strconv.FormatInt(budget.MaxBytes, 10),
 	})
 
 	tlsTrust, err := portopenbao.ResolveClientTrustBundle(cluster)
@@ -115,7 +123,7 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 	for _, field := range []struct{ name, path string }{{"POD_NAME", "metadata.name"}, {"POD_UID", "metadata.uid"}} {
 		envVars = append(envVars, corev1.EnvVar{Name: field.name, ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: field.path}}})
 	}
-	scratchLimit := resource.NewQuantity(constants.DefaultRestoreScratchLimitBytes, resource.BinarySI)
+	scratchLimit := resource.NewQuantity(budget.ScratchBytes, resource.BinarySI)
 	volumes = append(volumes, corev1.Volume{
 		Name:         "restore-scratch",
 		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: scratchLimit}},
@@ -123,7 +131,7 @@ func (m *Manager) buildRestoreJob(restore *openbaov1alpha1.OpenBaoRestore, clust
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
 		Name: "restore-scratch", MountPath: constants.PathRestoreScratch,
 	})
-	ephemeralStorage := *resource.NewQuantity(constants.DefaultRestoreEphemeralStorageBytes, resource.BinarySI)
+	ephemeralStorage := *resource.NewQuantity(budget.EphemeralStorageBytes, resource.BinarySI)
 
 	// Build container
 	container := corev1.Container{

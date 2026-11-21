@@ -141,9 +141,9 @@ ciLanes:
     labelFilter: "((upgrade && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prLabelFilter: "((upgrade && e2e-anchor && bluegreen && !verification && !failure && !rollback && !chaos && !gateway && !hardened) && !openshift)"
     prScope: upgrade
-    timeoutMinutes: 30
+    timeoutMinutes: 45
     parallelNodes: 2
-    e2eTimeout: 25m
+    e2eTimeout: 40m
     excludePentestOnDefaultPR: false
     hardenedSigned: false
     hardenedInitImage: ""
@@ -392,7 +392,6 @@ nightly:
             - security
             - backup-restore
             - restore-tests
-            - upgrade-rolling
             - upgrade-bluegreen-core
             - upgrade-bluegreen-verification
             - upgrade-bluegreen-recovery
@@ -400,12 +399,22 @@ nightly:
             - hardened
             - networking
 
+        # Serial operation-lock tests follow the parallel recovery and
+        # consecutive-upgrade cases in the full release rolling lane.
+        - coverage: release-gate
+          kubernetes:
+            - "@releaseGate"
+          lanes:
+            - upgrade-rolling
+          timeoutMinutes: 65
+          e2eTimeout: 60m
+
       rows:
         - lane: upgrade-rolling
           kubernetes: "@primary"
           coverage: upgrade-sequence-latest
           labelFilter: "case:rolling-consecutive-execution-identity"
-          upgradeSequence: "2.5.5,2.6.4,2.7.2"
+          upgradeSequence: "2.6.4,2.6.5,2.7.2"
         - lane: upgrade-bluegreen-core
           kubernetes: "@primary"
           coverage: upgrade-sequence-latest
@@ -970,6 +979,26 @@ suites:
         - upgrade-bluegreen-core
         - upgrade-bluegreen-verification
         - upgrade-bluegreen-recovery
+      pullRequest: changed-paths
+    nightly:
+      policy: primary-version-full
+
+  - id: upgrade-version-boundary
+    title: "Upgrade protocol boundary"
+    owner: upgrade
+    riskTier: critical
+    isolation: parallel-safe
+    files:
+      - test/e2e/Upgrade_Version_Boundary_test.go
+    labels:
+      - upgrade
+      - rolling
+      - e2e-anchor
+    coverage:
+      - upgrade-version-compatibility
+    ci:
+      lanes:
+        - upgrade-rolling
       pullRequest: changed-paths
     nightly:
       policy: primary-version-full

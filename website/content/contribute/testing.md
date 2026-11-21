@@ -62,14 +62,14 @@ The consecutive rolling and idle strategy-switch scenarios require two upgrades.
 `E2E_UPGRADE_SEQUENCE=2.6.4,2.7.0,2.7.2` to select their initial, intermediate, and final
 OpenBao versions. The sequence must contain exactly three increasing semantic versions
 without build metadata. The tests use these versions as container image tags.
-The first strategy-switch step uses BlueGreen. The operator currently blocks this step
-from pre-2.6 OpenBao to 2.6 or newer, including 2.6 prereleases. See the
-[BlueGreen compatibility restriction]({{< relref "/docs/reference/compatibility" >}}).
-It is independent of the single-hop `E2E_UPGRADE_FROM_VERSION`, `E2E_UPGRADE_TO_VERSION`,
-and blue-green overrides. The default sequence remains `2.4.4,2.5.5,2.6.5`.
-The release gate retains the default runs and adds both scenarios with the sequence ending at 2.7.2.
-The rolling row uses `2.5.5,2.6.4,2.7.2`. The strategy-switch row uses `2.6.4,2.7.0,2.7.2`
-because the operator blocks a pre-2.6 to 2.6-or-newer blue-green step.
+The first strategy-switch step uses BlueGreen and the second uses RollingUpdate. Both strategies reject a
+pre-2.6 to 2.6-or-newer transition, including 2.6 prereleases. The planner rejects these sequences before execution.
+See the [upgrade compatibility restriction]({{< relref "/docs/reference/compatibility" >}}).
+The sequence is independent of the single-hop `E2E_UPGRADE_FROM_VERSION`, `E2E_UPGRADE_TO_VERSION`,
+and blue-green overrides. The default sequence is `2.6.3,2.6.4,2.6.5`.
+The release gate retains those patch-upgrade runs and adds both scenarios with a sequence ending at 2.7.2.
+The rolling row uses `2.6.4,2.6.5,2.7.2`. The strategy-switch row uses `2.6.4,2.7.0,2.7.2`.
+The `upgrade-protocol-boundary` scenario separately verifies rejection of the legacy crossing without voter replacements.
 Ginkgo reports record the selected sequence, and Kind preloads its images.
 
 Set `E2E_FAIL_ON_EMPTY=true` with label filters. Write Ginkgo JSON and JUnit reports so a failed lane retains selected specs, failure details, and slow-test evidence.

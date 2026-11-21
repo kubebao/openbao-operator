@@ -506,11 +506,11 @@ func TestSelectionStrategySwitchSequenceCompatibility(t *testing.T) {
 		wantErr              bool
 	}{
 		{name: "default", lane: "upgrade-bluegreen-core"},
-		{name: "historical", lane: "upgrade-bluegreen-core", sequence: "2.4.4,2.5.5,2.6.4"},
+		{name: "legacy generation", lane: "upgrade-bluegreen-core", sequence: "2.4.4,2.5.4,2.5.5"},
 		{name: "modern", lane: "upgrade-bluegreen-core", sequence: "2.6.4,2.7.0,2.7.1"},
 		{name: "crossing boundary", lane: "upgrade-bluegreen-core", sequence: "2.5.5,2.6.4,2.7.1", wantErr: true},
 		{name: "prerelease boundary", lane: "upgrade-bluegreen-core", sequence: "2.5.5,2.6.0-rc.1,2.6.4", wantErr: true},
-		{name: "rolling crossing boundary", lane: "upgrade-rolling", sequence: "2.5.5,2.6.4,2.7.1"},
+		{name: "rolling crossing boundary", lane: "upgrade-rolling", sequence: "2.5.5,2.6.4,2.7.1", wantErr: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			matrix, err := buildGithubNightlyMatrix(m, "release-gate", nightlyFilters{Lane: tc.lane})
@@ -525,7 +525,7 @@ func TestSelectionStrategySwitchSequenceCompatibility(t *testing.T) {
 				matrix.Include = []matrixRow{row}
 				_, err := selectScenarios(matrix, m, cases, nil)
 				if tc.wantErr {
-					if err == nil || !strings.Contains(err.Error(), "BlueGreen step") {
+					if err == nil || !strings.Contains(err.Error(), "blocked by the operator") {
 						t.Fatalf("strategy-switch compatibility error = %v", err)
 					}
 				} else if err != nil {

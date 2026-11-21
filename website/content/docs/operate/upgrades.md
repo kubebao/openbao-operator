@@ -24,9 +24,14 @@ cluster, a supported target version, and a working upgrade identity.
 | `RollingUpdate` | You want the default, lower-capacity rollout | The operator updates one Pod at a time, coordinates leader step-down, and holds a failed rollout for an explicit retry |
 | `BlueGreen` | You need a parallel Green revision, validation hook, or manual promotion | The operator joins Green as non-voters, promotes it, cuts over, and can abort or roll back according to phase |
 
-{{< callout type="warning" title="Use rolling for a pre-2.6 to 2.6-or-newer transition" >}}
-The operator rejects blue-green upgrades from an OpenBao version before 2.6 to version 2.6 or newer. The mixed-version
-request-forwarding path cannot be qualified safely. Switch an idle cluster to `RollingUpdate` first.
+{{< callout type="warning" title="Do not cross the OpenBao 2.6 protocol boundary" >}}
+Do not upgrade an OpenBao server from a version before 2.6 to 2.6 or newer with either `RollingUpdate` or `BlueGreen`.
+Older voters cannot forward requests to an upgraded leader. Health checks can still pass while forwarding and
+Autopilot health fail. Changing the strategy does not avoid this limitation.
+Keep the current server version until a compatible upgrade path is qualified. API-group migration that retains
+the server version is a separate operation.
+If a crossing has already started, do not force more voter replacements or downgrade upgraded voters. Preserve
+PVCs and plan recovery from the actual voter versions and quorum state.
 {{< /callout >}}
 
 Check the [compatibility matrix](../../reference/compatibility/) and the upstream release notes before choosing the
@@ -103,6 +108,40 @@ The version must be semantic version syntax. The operator blocks downgrades belo
 `spec.image`, keep a semantic tag aligned with `spec.version`; digest-pinned images still use `spec.version` as the
 upgrade intent.
 
+## Wait for Raft catch-up between voter replacements
+
+For `RollingUpdate`, the operator checks Raft health before releasing each voter replacement. This check covers
+ordinary Pod-template changes, such as startup budgets and resources, and managed version upgrades. A Ready Pod can
+still be catching up with the leader.
+
+The operator holds the StatefulSet partition until the remaining voters are Ready, have the expected voting
+membership, and meet the configured Autopilot health, contact, term, and log-lag thresholds. It then requires a fresh
+observation from each remaining follower: its replication index must advance or its contact age must decrease.
+An increasing contact age does not prove a new heartbeat. The voters must also reach the previously observed leader
+index. The check excludes read replicas from voting quorum. A controller restart preserves the hold and its
+observation. Single-voter and two-voter clusters still require a write outage during replacement.
+
+The controller needs authenticated read access to `sys/storage/raft/configuration` and
+`sys/storage/raft/autopilot/state`. The default self-init OIDC controller policy provides this access. If you manage
+a custom controller identity or policy, grant these reads before requesting a rollout. The upgrade helper's JWT
+role does not replace the controller identity.
+
+A `VoterRolloutWaiting` event records why an ordinary rollout is held. Managed upgrades record the reason in
+`RollingPartitionRetry` events. Check these events, operator logs, Raft health, and the StatefulSet partition when
+progress stops. Restore authentication or peer health before continuing. Do not lower the partition manually to
+bypass the check. A managed upgrade retains its overall readiness deadline and requires a retry if that deadline
+expires.
+
+A healthy active rollout finishes before the operator applies another template, replica count, or version. The
+active rollout uses its published voter count while a scale request waits. If an ordinary template leaves a voter
+unready, a correction with the same version and replica count is staged under `OnDelete`. The operator repairs an
+unavailable voter first, then replaces other outdated voters under the Raft gate. This also permits a later
+template to replace a deferred BlueGreen-to-RollingUpdate template without recreating Pods from the old current
+revision. It restores `RollingUpdate` only after all voters have the correction and fresh Raft health.
+
+Install the fix on a settled cluster; it does not retroactively protect a rollout already started by an older
+operator.
+
 ## Control a blue-green promotion
 
 Set `spec.upgrade.blueGreen.autoPromote: false` before the upgrade begins to hold a healthy Green revision in
@@ -144,6 +183,13 @@ kubectl -n <namespace> patch openbaocluster <name> --type merge -p "{
   }
 }"
 {{< /command >}}
+
+During retry preparation, the operator holds the voter StatefulSet under `OnDelete`. This also allows a corrected
+Pod template to be staged after a failed upgrade. The retry repairs voters one at a time and waits for Raft catch-up
+between replacements. Controller restarts preserve the reset progress. A Pod that recovers without a reset is kept.
+After all voters have the requested template and fresh Raft health, the operator restores `RollingUpdate` and
+acknowledges the retry request. A repair can replace the leader; clients must retry through a brief leadership
+change. Check `status.adminOps.lastError` when retry preparation waits.
 
 Before resetting failed Pods, the operator waits for the StatefulSet to reflect the current cluster generation
 and for the StatefulSet controller to observe that template. The Bao container image must match the resolved

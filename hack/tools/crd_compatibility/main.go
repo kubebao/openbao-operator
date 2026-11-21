@@ -558,6 +558,13 @@ func compareNode(oldNode, newNode schemaNode) []change {
 				newNode,
 				"fresh-target rules are guarded by optional fields absent from the released restore API",
 			))
+		case isRestoreSnapshotBudgetValidation(newNode, added, removed):
+			changes = append(changes, newChange(
+				impactCompatible,
+				"cel-optional-feature-validation",
+				newNode,
+				"snapshot budget validation retains the released 8 GiB limit when the new optional budget is absent",
+			))
 		case isOptionalS3TargetValidation(newNode, added, removed):
 			changes = append(changes, newChange(
 				impactCompatible,
@@ -677,6 +684,21 @@ func isOptionalS3TargetValidation(node schemaNode, added, removed []string) bool
 	allowed := celRuleSet([]celRule{{
 		Rule:    "self.provider == 's3' || !has(self.s3)",
 		Message: "backup target s3 options are only supported when provider is s3",
+	}})
+	return allowed[added[0]]
+}
+
+// isRestoreSnapshotBudgetValidation recognizes only the size relation for the
+// optional restore budget. Previously valid sizes remain valid without opting in.
+func isRestoreSnapshotBudgetValidation(node schemaNode, added, removed []string) bool {
+	if node.CRD != openBaoRestoreCRD || node.Kind != openBaoRestoreKind ||
+		node.Version != currentAPIVersion || node.Path != "spec.source" || len(added) != 1 || len(removed) != 0 {
+		return false
+	}
+	allowed := celRuleSet([]celRule{{
+		Rule: "!has(self.expectedSize) || self.expectedSize <= " +
+			"(has(self.maxSnapshotSizeBytes) ? self.maxSnapshotSizeBytes : 8589934592)",
+		Message: "expectedSize exceeds maxSnapshotSizeBytes",
 	}})
 	return allowed[added[0]]
 }

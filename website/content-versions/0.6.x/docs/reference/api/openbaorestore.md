@@ -4,13 +4,13 @@ description: Fields, defaults, and validation for the OpenBaoRestore API.
 eyebrow: Reference · Generated API
 weight: 2
 verifiedBy:
-  - api/v1alpha1 at 0.6.2
-  - website/generated/api-reference.md at 0.6.2
+  - api/v1alpha1 at 0.6.3
+  - website/generated/api-reference.md at 0.6.3
 ---
 
 {{< callout type="note" title="Generated reference" >}}
 
-This page is synchronized from the generated API reference at `0.6.2` for the `0.6.x` documentation line.
+This page is synchronized from the generated API reference at `0.6.3` for the `0.6.x` documentation line.
 {{< /callout >}}
 
 
@@ -740,10 +740,11 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `maxSnapshotSizeBytes` _integer_ | MaxSnapshotSizeBytes bounds the downloaded snapshot and reserves matching<br />disk-backed scratch storage for the restore Job. The default is 8 GiB. | 8589934592 | Minimum: 1 <br />Optional: \{\} <br /> |
 | `expectedClusterID` _string_ | ExpectedClusterID is the native ID observed on the snapshot source.<br />Required for a fresh target; supplied metadata is an administrator assertion. |  | MaxLength: 128 <br />Optional: \{\} <br /> |
 | `expectedVersion` _string_ | ExpectedVersion is the source version observed when taking the snapshot. |  | MaxLength: 64 <br />Optional: \{\} <br /> |
 | `expectedDigest` _string_ | ExpectedDigest pins the staged bytes before submission. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br />Optional: \{\} <br /> |
-| `expectedSize` _integer_ |  |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br />Optional: \{\} <br /> |
+| `expectedSize` _integer_ |  |  | Minimum: 1 <br />Optional: \{\} <br /> |
 | `target` _[BackupTarget](#backuptarget)_ | Target reuses BackupTarget for storage connection details.<br />This includes endpoint, bucket, region, credentials, etc. |  |  |
 | `key` _string_ | Key is the full path to the snapshot object in the bucket.<br />For example, "clusters/prod/2025-10-14-120000.snap". |  | MinLength: 1 <br /> |
 
@@ -768,7 +769,7 @@ _Appears in:_
 | `targetPodIP` _string_ | TargetPodIP is the address the executor connected to. |  |  |
 | `targetContainerID` _string_ | TargetContainerID identifies the OpenBao container that received the snapshot. |  |  |
 | `digest` _string_ | Digest is sha256: followed by the lowercase digest of the staged snapshot bytes. |  | Pattern: `^sha256:[a-f0-9]\{64\}$` <br /> |
-| `size` _integer_ | Size is the staged snapshot size in bytes. |  | Maximum: 8.589934592e+09 <br />Minimum: 1 <br /> |
+| `size` _integer_ | Size is the staged snapshot size in bytes. |  | Minimum: 1 <br /> |
 | `claimedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | ClaimedAt records when submission was reserved. |  |  |
 
 

@@ -30,10 +30,13 @@ The operator requires Kubernetes 1.33 or newer. The rows below describe the curr
 | 2.4.x | Config compatibility | Upgrade before a new production rollout |
 | 2.3.x | Not validated | Out of support scope |
 
-{{< callout type="warning" title="OpenBao 2.6 BlueGreen limitation" >}}
-OpenBao 2.6 changed its internal request-forwarding gRPC service name. The operator blocks pre-2.6 to 2.6-or-newer
-`BlueGreen` transitions until a compatible target is qualified. Fresh 2.6.0 clusters and rolling upgrades to 2.6.0
-are the release-validated paths.
+{{< callout type="warning" title="OpenBao 2.6 mixed-version limitation" >}}
+OpenBao 2.6 changed its internal request-forwarding gRPC service name. Reproduction with 2.5.5 and 2.6.5 shows that
+older voters cannot forward requests to an upgraded leader. The newer client's fallback does not provide the legacy
+server endpoint that older clients need. Neither RollingUpdate nor BlueGreen provides a qualified crossing from
+pre-2.6 servers to 2.6 or newer. Keep the current server version until a compatible upgrade path is qualified.
+See the [upgrade limitation](../../operate/upgrades/#choose-the-strategy). This does not establish datastore downgrade
+compatibility or qualify a cross-version snapshot restore.
 {{< /callout >}}
 
 ## Production upgrade rule

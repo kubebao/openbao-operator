@@ -1202,8 +1202,10 @@ spec:
                     pattern: ^sha256:[a-f0-9]{64}$
                     type: string
                   expectedSize:
+                    description: |-
+                      ExpectedSize is the expected snapshot object size in bytes.
+                      It must not exceed MaxSnapshotSizeBytes, which defaults to 8 GiB when omitted.
                     format: int64
-                    maximum: 8589934592
                     minimum: 1
                     type: integer
                   expectedVersion:
@@ -1217,6 +1219,14 @@ spec:
                       For example, "clusters/prod/2025-10-14-120000.snap".
                     minLength: 1
                     type: string
+                  maxSnapshotSizeBytes:
+                    default: 8589934592
+                    description: |-
+                      MaxSnapshotSizeBytes bounds the downloaded snapshot and reserves matching
+                      disk-backed scratch storage for the restore Job. The default is 8 GiB.
+                    format: int64
+                    minimum: 1
+                    type: integer
                   target:
                     description: |-
                       Target reuses BackupTarget for storage connection details.
@@ -1432,6 +1442,10 @@ spec:
                 - key
                 - target
                 type: object
+                x-kubernetes-validations:
+                - message: expectedSize exceeds maxSnapshotSizeBytes
+                  rule: '!has(self.expectedSize) || self.expectedSize <= (has(self.maxSnapshotSizeBytes)
+                    ? self.maxSnapshotSizeBytes : 8589934592)'
               targetLifecycle:
                 description: TargetLifecycle retains recovery targets or deletes disposable
                   test resources.
@@ -1707,7 +1721,6 @@ spec:
                   size:
                     description: Size is the staged snapshot size in bytes.
                     format: int64
-                    maximum: 8589934592
                     minimum: 1
                     type: integer
                   targetContainerID:

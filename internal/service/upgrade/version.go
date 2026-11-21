@@ -107,6 +107,10 @@ func ValidateUpgradeTargetVersion(logger logr.Logger, currentVersion, targetVers
 		return nil
 	}
 
+	if err := validateVersionCompatibility(currentVersion, targetVersion); err != nil {
+		return err
+	}
+
 	if change == VersionChangeMajor {
 		logger.Info("Major version upgrade detected; proceed with caution",
 			"from", currentVersion,

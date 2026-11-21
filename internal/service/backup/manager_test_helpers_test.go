@@ -103,3 +103,7 @@ func ptrToTime(value time.Time) *metav1.Time {
 	metaTime := metav1.NewTime(value)
 	return &metaTime
 }
+
+func testBackupAttempt(now time.Time) backupAttemptReceipt {
+	return backupAttemptReceipt{Time: now, ScheduledTime: now, NextScheduled: now.Add(24 * time.Hour)}
+}

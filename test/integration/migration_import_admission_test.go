@@ -72,6 +72,10 @@ func TestMigrationImportAdmission(t *testing.T) {
 	}
 
 	createEventually(importer, shared("imported", "source-uid"), true, "")
+	largeImport := shared("imported-large-trigger", "source-uid")
+	largeImport.Annotations["openbao.org/trigger-backup"] = strings.Repeat("x", 1025)
+	createEventually(importer, largeImport, true, "")
+	createEventually(tenant, largeImport, false, "at most 1024 UTF-8 bytes")
 	createEventually(tenant, shared("forged-import", "source-uid"), false, "reserved for API migration imports")
 	createEventually(tenant, shared("ordinary-shared", ""), false, "spec.controllerJWTMode is required")
 	createEventually(importer, shared("unmarked-shared", ""), false, "spec.controllerJWTMode is required")
@@ -203,4 +207,46 @@ func TestRestoreMigrationImportAdmission(t *testing.T) {
 	fresh.Annotations = map[string]string{migrationSourceUIDAnnotation: "fresh-source-uid"}
 	require.NoError(t, k8sClient.Create(ctx, fresh, &client.CreateOptions{DryRun: []string{metav1.DryRunAll}}),
 		"an import re-creates a record whose target approval was checked when it was created")
+}
+
+func TestManualBackupTriggerAdmission(t *testing.T) {
+	c, _, _ := startIsolatedEnv(t, isolatedEnvOptions{
+		crdDirs: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+	})
+	namespace := createNamespace(t, ctx, c)
+	legacy := newMinimalClusterObj(namespace, "legacy-large-trigger")
+	legacy.Annotations = map[string]string{"openbao.org/trigger-backup": strings.Repeat("x", 1025)}
+	require.NoError(t, c.Create(ctx, legacy))
+	installControllerJWTAdmission(t, c, namespace)
+
+	for _, tc := range []struct {
+		name    string
+		value   string
+		allowed bool
+	}{
+		{name: "maximum-ascii", value: strings.Repeat("x", 1024), allowed: true},
+		{name: "maximum-escaping", value: strings.Repeat(`"`, 1024), allowed: true},
+		{name: "unicode-within-budget", value: strings.Repeat("界", 341), allowed: true},
+		{name: "ascii-over-budget", value: strings.Repeat("x", 1025)},
+		{name: "unicode-over-budget", value: strings.Repeat("界", 342)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cluster := newMinimalClusterObj(namespace, tc.name)
+			cluster.Annotations = map[string]string{"openbao.org/trigger-backup": tc.value}
+			err := c.Create(ctx, cluster, &client.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+			if tc.allowed {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, "at most 1024 UTF-8 bytes")
+			}
+		})
+	}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(legacy), legacy))
+	legacy.Labels = map[string]string{"legacy-edit": "allowed"}
+	require.NoError(t, c.Update(ctx, legacy), "unchanged legacy values must not block unrelated updates")
+	legacy.Annotations["openbao.org/trigger-backup"] = strings.Repeat("y", 1025)
+	require.ErrorContains(t, c.Update(ctx, legacy), "at most 1024 UTF-8 bytes")
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(legacy), legacy))
+	delete(legacy.Annotations, "openbao.org/trigger-backup")
+	require.NoError(t, c.Update(ctx, legacy), "the controller must be able to clear an invalid legacy request")
 }

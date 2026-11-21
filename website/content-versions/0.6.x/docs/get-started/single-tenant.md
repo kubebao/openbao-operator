@@ -31,7 +31,7 @@ in the target namespace, so the platform must own that RoleBinding explicitly.
 
 ## Install with Helm
 
-Use the pinned 0.6.2 chart. Complete [artifact verification](../../security/supply-chain/) before
+Use the pinned 0.6.3 chart. Complete [artifact verification](../../security/supply-chain/) before
 installation.
 
 1. Create the target namespace through the platform's normal workflow. The chart must create a RoleBinding in this
@@ -46,7 +46,7 @@ installation.
    {{< command label="apply" title="Install a single-tenant operator" >}}
    helm upgrade --install openbao-operator \
      oci://ghcr.io/kubebao/charts/openbao-operator \
-     --version 0.6.2 \
+     --version 0.6.3 \
      --namespace openbao-operator-system \
      --create-namespace \
      --set tenancy.mode=single \
@@ -86,10 +86,10 @@ that namespace.
    {{< command label="configure" title="Clone the operator source" >}}
    git clone https://github.com/kubebao/openbao-operator.git
    cd openbao-operator
-   git checkout 0.6.2
+   git checkout 0.6.3
    {{< /command >}}
 
-3. Set the manager image and `OPERATOR_VERSION` to the verified 0.6.2 release, as described in
+3. Set the manager image and `OPERATOR_VERSION` to the verified 0.6.3 release, as described in
    [Install with a custom raw identity](../install/#install-with-a-custom-raw-identity).
 
 4. Set the operator namespace in `config/overlays/single-tenant/kustomization.yaml`.

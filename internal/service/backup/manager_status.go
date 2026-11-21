@@ -36,21 +36,47 @@ func (m *Manager) recordBackupAttempt(
 	now time.Time,
 	scheduledTime time.Time,
 	nextScheduled time.Time,
-	manualTriggerToken string,
+	manualToken string,
 ) error {
-	if cluster.Status.Backup == nil {
-		cluster.Status.Backup = &openbaov1alpha1.BackupStatus{}
+	if m.adminOpsMutator == nil {
+		return fmt.Errorf("adminops status mutator is required")
 	}
-
-	nowMeta := metav1.NewTime(now)
-	cluster.Status.Backup.LastAttemptTime = &nowMeta
-
-	scheduledMeta := metav1.NewTime(scheduledTime)
-	cluster.Status.Backup.LastAttemptScheduledTime = &scheduledMeta
-	cluster.Status.Backup.LastHandledManualTrigger = manualTriggerToken
-
-	nextScheduledMeta := metav1.NewTime(nextScheduled)
-	cluster.Status.Backup.NextScheduledBackup = &nextScheduledMeta
-
-	return m.patchStatusSSA(ctx, cluster)
+	uid := cluster.UID
+	jobName := backupJobName(cluster, scheduledTime)
+	// metav1.Time persists whole seconds. Keep recovered receipts canonical so
+	// repeated observations do not rewrite an already recorded attempt.
+	nowMeta := metav1.NewTime(now.UTC().Truncate(time.Second))
+	scheduledMeta := metav1.NewTime(scheduledTime.UTC().Truncate(time.Second))
+	nextMeta := metav1.NewTime(nextScheduled.UTC().Truncate(time.Second))
+	return m.adminOpsMutator(ctx, cluster, func(obj *openbaov1alpha1.OpenBaoCluster) error {
+		if obj.UID != uid {
+			return fmt.Errorf("cluster identity changed while recording backup attempt")
+		}
+		if !backupOperationLock.IsHeldBy(obj.Status.OperationLock) ||
+			obj.Status.OperationLock.Message != backupJobLockMessage(jobName) {
+			return fmt.Errorf("backup operation changed while recording attempt for Job %s", jobName)
+		}
+		if obj.Status.Backup == nil {
+			obj.Status.Backup = &openbaov1alpha1.BackupStatus{}
+		}
+		status := obj.Status.Backup
+		older := status.LastAttemptTime != nil && nowMeta.Before(status.LastAttemptTime)
+		recorded := status.LastAttemptTime != nil && nowMeta.Equal(status.LastAttemptTime) &&
+			status.LastAttemptScheduledTime != nil && scheduledMeta.Equal(status.LastAttemptScheduledTime)
+		if !older && !recorded {
+			status.LastAttemptTime = &nowMeta
+			status.LastAttemptScheduledTime = &scheduledMeta
+			// Advance the due occurrence, but preserve a deadline already beyond
+			// it. That deadline can reflect a later attempt or a schedule edit.
+			if status.NextScheduledBackup == nil || !status.NextScheduledBackup.After(scheduledMeta.Time) {
+				status.NextScheduledBackup = &nextMeta
+			}
+		}
+		// Scheduled attempts preserve the last manual acknowledgement. An older
+		// receipt can acknowledge only the request that is still pending.
+		if manualToken != "" && (!older || manualTriggerToken(obj) == manualToken) {
+			status.LastHandledManualTrigger = manualToken
+		}
+		return nil
+	}, adminops.ForceOwnershipOnConflict)
 }

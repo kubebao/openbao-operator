@@ -36,7 +36,7 @@ const developmentVersion = "dev"
 
 // sourceRelease is the only source release this command migrates from. Its
 // handoff messages, lock policy, and qualification are pinned to that release.
-const sourceRelease = "0.6.2"
+const sourceRelease = "0.6.3"
 
 // destinationRelease requires the destination to be the release this binary
 // belongs to: its handoff, imports, and checks are qualified against that one.

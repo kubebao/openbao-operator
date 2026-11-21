@@ -126,9 +126,6 @@ func (m *Manager) validateIdleUpgradeInputs(ctx context.Context, logger logr.Log
 	if err := upgrade.ValidateUpgradeTargetVersion(logger, cluster.Status.CurrentVersion, cluster.Spec.Version); err != nil {
 		return core.ReleaseUpgradeLockOnErrorIfHeldWithReader(ctx, m.reader, m.client, logger, cluster, true, err, "")
 	}
-	if err := validateVersionCompatibility(cluster.Status.CurrentVersion, cluster.Spec.Version); err != nil {
-		return core.ReleaseUpgradeLockOnErrorIfHeldWithReader(ctx, m.reader, m.client, logger, cluster, true, err, "")
-	}
 	if err := upgrade.ValidateImageRefMatchesVersion(cluster.Spec.Version, cluster.Spec.Image); err != nil {
 		return core.ReleaseUpgradeLockOnErrorIfHeldWithReader(ctx, m.reader, m.client, logger, cluster, true, err, "")
 	}

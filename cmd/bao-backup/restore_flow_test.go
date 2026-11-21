@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,60 @@ import (
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	backupconfig "github.com/kubebao/openbao-operator/internal/service/backup"
 )
+
+func TestRestoreSettingsSnapshotBudget(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		valid bool
+	}{
+		{"", true}, {"17179869184", true}, {"0", false}, {"-1", false},
+		{"9223372036854775807", false}, {"9223372036854775808", false}, {"16Gi", false},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			t.Setenv(constants.EnvRestoreKey, "snapshot")
+			t.Setenv(constants.EnvRestoreMaxSnapshotSizeBytes, tc.value)
+			settings, err := resolveRestoreSettings(&backupconfig.ExecutorConfig{})
+			if !tc.valid {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			want := constants.DefaultRestoreSnapshotLimitBytes
+			if tc.value != "" {
+				want = 16 * 1024 * 1024 * 1024
+			}
+			require.Equal(t, want, settings.maxSnapshotSizeBytes)
+		})
+	}
+}
+
+func TestExecuteRestoreEnforcesSelectedBudgetBeforeSubmission(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		budget, size int64
+		downloads    int
+	}{
+		{"explicit smaller budget", 7, 8, 0},
+		{"default rejects larger object", 0, 9 * 1024 * 1024 * 1024, 0},
+		{"larger budget permits download but rejects truncation", 16 * 1024 * 1024 * 1024, 9 * 1024 * 1024 * 1024, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			store := &restoreFlowStore{backupFlowBlobStore: backupFlowBlobStore{
+				useHeadResult: true, headResult: &blobstore.ObjectInfo{Size: tc.size},
+			}, reader: io.NopCloser(strings.NewReader("short"))}
+			settings := restoreSettings{key: "snapshot", maxSnapshotSizeBytes: tc.budget}
+			err := executeRestore(t.Context(), t.Context(), store, settings, dir,
+				func(context.Context) (portopenbao.ClusterActions, func(), error) {
+					t.Fatal("failed staging must not connect or submit")
+					return nil, nil, fmt.Errorf("unexpected connection")
+				})
+			require.Error(t, err)
+			require.Equal(t, tc.downloads, store.downloads)
+			assertRestoreScratchEmpty(t, dir)
+		})
+	}
+}
 
 func TestExecuteRestoreStagesBeforeSingleHTTPRequest(t *testing.T) {
 	t.Parallel()

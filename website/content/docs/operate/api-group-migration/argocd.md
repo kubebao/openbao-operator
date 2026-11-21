@@ -48,7 +48,7 @@ Save `config.json` with your existing operator namespace and selected cluster:
   "kubeconfig": "/path/to/admin.kubeconfig",
   "context": "<context>",
   "operatorNamespace": "openbao-operator-system",
-  "sourceVersion": "0.6.2"
+  "sourceVersion": "0.6.3"
 }
 ```
 
@@ -233,7 +233,7 @@ Keep parents, children, and ApplicationSets suspended and run:
 ./api-migration rollback --state ./migration-state --timeout "$MIGRATION_TIMEOUT"
 ```
 
-At exit status 4, apply the printed `source` chart values over your original 0.6.2 source chart and image/helper pins.
+At exit status 4, apply the printed `source` chart values over your original 0.6.3 source chart and image/helper pins.
 Sync only the requested operator resources without pruning, then rerun the same rollback command.
 Require `Phase: RolledBack` and successful source verification.
 

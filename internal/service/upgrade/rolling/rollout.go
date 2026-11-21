@@ -84,7 +84,10 @@ func (m *Manager) targetPodAlreadyRolledOut(
 		return false, err
 	}
 
-	logger.Info("Target pod is already updated and ready; resuming rolling-upgrade progress and deferring full health verification to finalization",
+	if err := m.checkRaftVoterRollout(ctx, logger, cluster, target.Name, false); err != nil {
+		return false, err
+	}
+	logger.Info("Target pod is already updated, ready, and caught up; resuming rolling-upgrade progress",
 		"pod", target.Name,
 		"partition", target.CurrentPartition,
 		"nextPartition", target.NextPartition)
@@ -124,7 +127,11 @@ func (m *Manager) ensureTargetPodLeadershipTransferred(
 	target rolloutTargetPod,
 	metrics *upgrade.Metrics,
 ) (bool, error) {
-	if cluster.Spec.Replicas <= 1 {
+	_, replicas, err := m.getVoterRolloutStatefulSet(ctx, cluster)
+	if err != nil {
+		return false, err
+	}
+	if replicas == 1 {
 		logger.Info("Skipping leader step-down for single-replica rolling upgrade", "pod", target.Name)
 		return true, nil
 	}
@@ -161,6 +168,9 @@ func (m *Manager) waitForTargetPodRollout(
 	podHealthy, err := m.waitForPodHealthy(ctx, logger, cluster, target.Name)
 	if err != nil || !podHealthy {
 		return podHealthy, err
+	}
+	if err := m.checkRaftVoterRollout(ctx, logger, cluster, target.Name, false); err != nil {
+		return false, err
 	}
 
 	return true, nil

@@ -2,6 +2,20 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.7.0-rc.2](https://github.com/kubebao/openbao-operator/compare/0.7.0-rc.1...0.7.0-rc.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **backup:** preserve attempt receipts across controller restarts ([#975](https://github.com/kubebao/openbao-operator/issues/975)) ([b9d52d8](https://github.com/kubebao/openbao-operator/commit/b9d52d836e1a874c55ea56cf21be3d78b9293c56))
+* **docs:** pin API fallback to the merged source ([#976](https://github.com/kubebao/openbao-operator/issues/976)) ([c9ca21f](https://github.com/kubebao/openbao-operator/commit/c9ca21f25a589ed28a86be8fe80e852553089877))
+* **migration:** require published 0.6.2 as migration source ([#962](https://github.com/kubebao/openbao-operator/issues/962)) ([11a1660](https://github.com/kubebao/openbao-operator/commit/11a16603ef2a3ef454e5d9c309b4d1fe8b31e334))
+* **restore:** allow explicit snapshot budgets above the 8 GiB default ([#971](https://github.com/kubebao/openbao-operator/issues/971)) ([4a0975c](https://github.com/kubebao/openbao-operator/commit/4a0975c04ee648d0a78e181e350dc42d40832d3f))
+* **upgrade:** guard legacy crossings and repair migration qualification ([#977](https://github.com/kubebao/openbao-operator/issues/977)) ([f580d3c](https://github.com/kubebao/openbao-operator/commit/f580d3ce0f8f3f7ecfab0b78b470dabb7d034e3f))
+* **upgrade:** wait for Raft catch-up between voter replacements ([#964](https://github.com/kubebao/openbao-operator/issues/964)) ([1a4c4fe](https://github.com/kubebao/openbao-operator/commit/1a4c4fe6fe08bbec9e0c94a55ac95481e030a432))
+* **workload:** allow longer OpenBao startup probe budgets ([#958](https://github.com/kubebao/openbao-operator/issues/958)) ([9f82f52](https://github.com/kubebao/openbao-operator/commit/9f82f5208e9049b295ba4d1fd082f23ae83524ae))
+* **workload:** preserve promoted handoffs and heartbeat freshness ([#969](https://github.com/kubebao/openbao-operator/issues/969)) ([f0db076](https://github.com/kubebao/openbao-operator/commit/f0db076ed287ee156daabdd8130deeb43d8e69b3))
+
 ## [0.7.0-rc.1](https://github.com/kubebao/openbao-operator/compare/0.6.0...0.7.0-rc.1) (2026-11-13)
 
 
@@ -30,6 +44,15 @@ Release notes are generated and maintained via **release-please** based on **Con
 * **release:** prepare 0.7.0 and guard RC publication ([#953](https://github.com/kubebao/openbao-operator/issues/953)) ([aba2ad3](https://github.com/kubebao/openbao-operator/commit/aba2ad3ef3b6db08f83ba8e774bce37417914546))
 * **release:** preserve latest stable and verification evidence ([#942](https://github.com/kubebao/openbao-operator/issues/942)) ([24965bd](https://github.com/kubebao/openbao-operator/commit/24965bdc52197944b29b37ebe41c6fe8c4281c8a))
 * **restore:** accept stable OpenBao versions from 2.7 ([#935](https://github.com/kubebao/openbao-operator/issues/935)) ([ced35e7](https://github.com/kubebao/openbao-operator/commit/ced35e7ea5e2a5ab0b95cd7adc25082a19d5146e))
+
+## [0.6.3](https://github.com/kubebao/openbao-operator/compare/0.6.2...0.6.3) (2026-11-17)
+
+
+### Bug Fixes
+
+* **restore:** allow explicit snapshot budgets above the 8 GiB default ([#970](https://github.com/kubebao/openbao-operator/issues/970)) ([b4fed57](https://github.com/kubebao/openbao-operator/commit/b4fed571cac4a1e10e73144f0a51e6ba6361762a))
+* **upgrade:** backport Raft catch-up gating to release-0.6 ([#965](https://github.com/kubebao/openbao-operator/issues/965)) ([d89496b](https://github.com/kubebao/openbao-operator/commit/d89496bcdd3532d0c8bd9185fde88d93b97a73fe))
+* **workload:** preserve promoted handoffs and heartbeat freshness ([#968](https://github.com/kubebao/openbao-operator/issues/968)) ([e7d8f2b](https://github.com/kubebao/openbao-operator/commit/e7d8f2b96b29e9eb17e4556e74560b20e4d18985))
 
 ## [0.6.2](https://github.com/kubebao/openbao-operator/compare/0.6.1...0.6.2) (2026-11-16)
 

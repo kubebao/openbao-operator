@@ -8,15 +8,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
-// DefaultSequence preserves the historical two-step regression coverage.
-const DefaultSequence = "2.4.4,2.5.5,2.6.5"
+// DefaultSequence exercises two maintained patch upgrades.
+const DefaultSequence = "2.6.3,2.6.4,2.6.5"
 
 // Parse requires exactly three increasing semantic versions without build metadata.
 func Parse(sequence string) ([3]string, error) {
 	return parse(sequence, false)
 }
 
-// ParseStrategySwitch applies the operator's current BlueGreen version restriction.
+// ParseStrategySwitch validates a BlueGreen step followed by a rolling step.
 func ParseStrategySwitch(sequence string) ([3]string, error) {
 	return parse(sequence, true)
 }
@@ -38,12 +38,16 @@ func parse(sequence string, strategySwitch bool) ([3]string, error) {
 			return result, fmt.Errorf("upgrade sequence must increase at each step: %q", sequence)
 		}
 		// Match the operator's version policy, including 2.6 prereleases.
-		if strategySwitch && i == 1 &&
+		if previous != nil &&
 			(previous.Major() < 2 || (previous.Major() == 2 && previous.Minor() < 6)) &&
 			(parsed.Major() > 2 || (parsed.Major() == 2 && parsed.Minor() >= 6)) {
+			strategy := "RollingUpdate"
+			if strategySwitch && i == 1 {
+				strategy = "BlueGreen"
+			}
 			return result, fmt.Errorf(
-				"strategy-switch BlueGreen step from %s to %s is blocked by the operator's OpenBao 2.6 compatibility policy",
-				previous, parsed,
+				"%s step from %s to %s is blocked by the operator's OpenBao 2.6 compatibility policy",
+				strategy, previous, parsed,
 			)
 		}
 		result[i], previous = part, parsed

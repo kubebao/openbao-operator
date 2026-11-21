@@ -185,7 +185,7 @@ func TestEnsureBackupJob_EmitsIdentityConfigurationEvent(t *testing.T) {
 		k8sClient,
 	)
 
-	inProgress, err := manager.ensureBackupJob(context.Background(), logr.Discard(), cluster, backupJobName(cluster, scheduled), scheduled)
+	inProgress, err := manager.ensureBackupJob(context.Background(), logr.Discard(), cluster, backupJobName(cluster, scheduled), testBackupAttempt(scheduled))
 	if err != nil {
 		t.Fatalf("ensureBackupJob() error = %v", err)
 	}

@@ -995,7 +995,7 @@ func TestReleaseGateTwoStepUpgradeSequences(t *testing.T) {
 		if row.Coverage != "upgrade-sequence-latest" {
 			continue
 		}
-		wantSequence := "2.5.5,2.6.4,2.7.2"
+		wantSequence := "2.6.4,2.6.5,2.7.2"
 		if row.ID == "upgrade-bluegreen-core" {
 			wantSequence = "2.6.4,2.7.0,2.7.2"
 		}

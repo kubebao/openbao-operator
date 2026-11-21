@@ -14,17 +14,19 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/constants"
 	"github.com/kubebao/openbao-operator/internal/port/blobstore"
 	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
+	portrestore "github.com/kubebao/openbao-operator/internal/port/restore"
 	backupconfig "github.com/kubebao/openbao-operator/internal/service/backup"
 )
 
 type restoreSettings struct {
-	key          string
-	bucket       string
-	endpoint     string
-	region       string
-	usePathStyle bool
-	force        bool
-	beforeSubmit func(context.Context, portopenbao.ClusterActions, string, int64) error
+	key                  string
+	bucket               string
+	endpoint             string
+	region               string
+	usePathStyle         bool
+	force                bool
+	maxSnapshotSizeBytes int64
+	beforeSubmit         func(context.Context, portopenbao.ClusterActions, string, int64) error
 }
 
 // runRestore executes the restore operation.
@@ -77,8 +79,12 @@ func executeRestore(
 	scratchDir string,
 	connect func(context.Context) (portopenbao.ClusterActions, func(), error),
 ) (err error) {
+	budget, err := portrestore.ResolveSnapshotBudget(settings.maxSnapshotSizeBytes)
+	if err != nil {
+		return categorizef(errConfigCategory, "invalid restore snapshot budget: %w", err)
+	}
 	staged, err := downloadRestoreSnapshot(prepareCtx, storageClient, settings.key, scratchDir,
-		constants.DefaultRestoreSnapshotLimitBytes)
+		budget.MaxBytes)
 	if err != nil {
 		return err
 	}
@@ -191,5 +197,18 @@ func resolveRestoreSettings(cfg *backupconfig.ExecutorConfig) (restoreSettings, 
 		settings.force = force
 	}
 
+	if value := strings.TrimSpace(os.Getenv(constants.EnvRestoreMaxSnapshotSizeBytes)); value != "" {
+		maxBytes, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || maxBytes <= 0 {
+			return restoreSettings{}, fmt.Errorf("%s must be a positive integer in bytes",
+				constants.EnvRestoreMaxSnapshotSizeBytes)
+		}
+		settings.maxSnapshotSizeBytes = maxBytes
+	}
+	budget, err := portrestore.ResolveSnapshotBudget(settings.maxSnapshotSizeBytes)
+	if err != nil {
+		return restoreSettings{}, fmt.Errorf("invalid restore snapshot budget: %w", err)
+	}
+	settings.maxSnapshotSizeBytes = budget.MaxBytes
 	return settings, nil
 }

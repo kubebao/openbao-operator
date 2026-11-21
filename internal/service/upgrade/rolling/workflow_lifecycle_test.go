@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -121,7 +122,7 @@ func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 					if completing {
 						reason = upgrade.ReasonUpgradeComplete
 					}
-					expectEventContains(t, recorder, reason, "2.5.5", "2.6.2")
+					expectEventContains(t, recorder, reason, "2.6.1", "2.6.2")
 					require.Empty(t, recorder.Events)
 				}
 				wantWrites := []string{partitionWrite}
@@ -144,10 +145,10 @@ func TestRollingLifecyclePersistenceOrdering(t *testing.T) {
 					if !completing {
 						require.NotEmpty(t, stored.Status.Upgrade.ExecutionID)
 					}
-					require.Equal(t, "2.5.5", stored.Status.Upgrade.FromVersion)
+					require.Equal(t, "2.6.1", stored.Status.Upgrade.FromVersion)
 					require.Equal(t, "2.6.2", stored.Status.Upgrade.TargetVersion)
 				}
-				require.Equal(t, "2.5.5", stored.Status.CurrentVersion, "the status controller owns the observed version")
+				require.Equal(t, "2.6.1", stored.Status.CurrentVersion, "the status controller owns the observed version")
 			})
 		}
 	}
@@ -162,6 +163,7 @@ func TestRollingExecutionCheckpointFailurePreventsExecutorEffects(t *testing.T) 
 			cluster.Status.Initialized = true
 			cluster.Spec.Upgrade = &openbaov1alpha1.UpgradeConfig{Image: "executor:test", JWTAuthRole: "upgrade"}
 			sts := objects[0].(*appsv1.StatefulSet)
+			sts.Spec.Replicas = ptr.To(cluster.Spec.Replicas)
 			sts.Status.ReadyReplicas = 3
 			sts.Spec.Template.Spec.Containers = []corev1.Container{{Name: constants.ContainerBao, Image: "target"}}
 			sts.Status.UpdateRevision = "target"
@@ -240,16 +242,17 @@ func rollingLifecycleObjects(completing bool) (*openbaov1alpha1.OpenBaoCluster, 
 	cluster := &openbaov1alpha1.OpenBaoCluster{
 		ObjectMeta: metav1.ObjectMeta{Name: "lifecycle-cluster"},
 		Spec:       openbaov1alpha1.OpenBaoClusterSpec{Version: "2.6.2", Replicas: 1},
-		Status:     openbaov1alpha1.OpenBaoClusterStatus{CurrentVersion: "2.5.5"},
+		Status:     openbaov1alpha1.OpenBaoClusterStatus{CurrentVersion: "2.6.1"},
 	}
 	if completing {
 		startedAt := metav1.NewTime(time.Now().Add(-time.Minute))
 		cluster.Status.Upgrade = &openbaov1alpha1.UpgradeProgress{
-			FromVersion: "2.5.5", TargetVersion: "2.6.2", StartedAt: &startedAt,
+			FromVersion: "2.6.1", TargetVersion: "2.6.2", StartedAt: &startedAt,
 		}
 	}
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AnnotationClusterGeneration: "0"}, Name: cluster.Name},
+		Spec:       appsv1.StatefulSetSpec{Replicas: ptr.To(cluster.Spec.Replicas)},
 		Status:     appsv1.StatefulSetStatus{ReadyReplicas: 1, UpdatedReplicas: 1, CurrentRevision: "updated", UpdateRevision: "updated"},
 	}
 	pod := &corev1.Pod{

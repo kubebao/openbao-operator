@@ -16,8 +16,15 @@ import (
 )
 
 func TestRecordBackupAttemptPersistsStatus(t *testing.T) {
+	now := time.Unix(1700000000, 0).UTC()
+	scheduled := now.Add(5 * time.Minute)
+	nextScheduled := scheduled.Add(24 * time.Hour)
 	stored := newTestClusterWithBackup("record-attempt", "backup-ns")
 	stored.Status.Backup = nil
+	stored.Status.OperationLock = &openbaov1alpha1.OperationLockStatus{
+		Operation: openbaov1alpha1.ClusterOperationBackup, Holder: backupOperationLockHolder,
+		Message: backupJobLockMessage(backupJobName(stored, scheduled)),
+	}
 	stored.Status.UpgradeRequests = &openbaov1alpha1.UpgradeRequestStatus{
 		LastHandledRetry: "persist-me",
 	}
@@ -42,10 +49,6 @@ func TestRecordBackupAttemptPersistsStatus(t *testing.T) {
 		Build()
 
 	manager := newBackupManager(k8sClient)
-	now := time.Unix(1700000000, 0).UTC()
-	scheduled := now.Add(5 * time.Minute)
-	nextScheduled := scheduled.Add(24 * time.Hour)
-
 	if err := manager.recordBackupAttempt(context.Background(), cluster, now, scheduled, nextScheduled, "manual-1"); err != nil {
 		t.Fatalf("recordBackupAttempt() error = %v", err)
 	}

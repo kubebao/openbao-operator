@@ -12,6 +12,7 @@ import (
 	metav1unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openbaov1alpha1 "github.com/kubebao/openbao-operator/api/v1alpha1"
@@ -19,15 +20,18 @@ import (
 	"github.com/kubebao/openbao-operator/internal/platform/resourceapply"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceidentity"
 	"github.com/kubebao/openbao-operator/internal/platform/resourceownership"
+	portopenbao "github.com/kubebao/openbao-operator/internal/port/openbao"
 	portworkload "github.com/kubebao/openbao-operator/internal/port/workload"
 )
 
 // Manager reconciles workload-owned resources for an OpenBaoCluster.
 type Manager struct {
-	client   client.Client
-	reader   client.Reader
-	scheme   *runtime.Scheme
-	platform string
+	client         client.Client
+	reader         client.Reader
+	scheme         *runtime.Scheme
+	platform       string
+	raftMembership portopenbao.RaftMembershipReader
+	recorder       events.EventRecorder
 }
 
 func NewManager(c client.Client, scheme *runtime.Scheme, platform string) *Manager {
@@ -38,6 +42,18 @@ func (m *Manager) WithReader(reader client.Reader) *Manager {
 	if reader != nil {
 		m.reader = reader
 	}
+	return m
+}
+
+// WithRaftMembershipReader configures the authenticated voter rollout observer.
+func (m *Manager) WithRaftMembershipReader(reader portopenbao.RaftMembershipReader) *Manager {
+	m.raftMembership = reader
+	return m
+}
+
+// WithRecorder configures rollout progress events.
+func (m *Manager) WithRecorder(recorder events.EventRecorder) *Manager {
+	m.recorder = recorder
 	return m
 }
 

@@ -35,6 +35,14 @@ func decideStatefulSetUpdateStrategy(cluster *openbaov1alpha1.OpenBaoCluster, po
 	}
 
 	rolling := portworkload.EffectiveStrategy(cluster) == openbaov1alpha1.UpdateStrategyRollingUpdate
+	if rolling && existing.Annotations[constants.AnnotationVoterTemplateRepair] != "" &&
+		existing.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType {
+		return statefulSetStrategyDecision{}
+	}
+	if rolling && cluster.Status.Upgrade != nil && existing.Annotations[constants.AnnotationVoterRetryHold] != "" &&
+		existing.Spec.UpdateStrategy.Type == appsv1.OnDeleteStatefulSetStrategyType {
+		return statefulSetStrategyDecision{}
+	}
 	pendingVersionUpgrade := rolling && cluster.Status.Initialized && cluster.Status.Upgrade == nil &&
 		cluster.Status.CurrentVersion != "" && cluster.Status.CurrentVersion != cluster.Spec.Version
 	if pendingVersionUpgrade {
