@@ -2,7 +2,20 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
-## [0.7.0](https://github.com/kubebao/openbao-operator/compare/0.7.0-rc.2...0.7.0) (2026-11-22)
+## [0.7.0](https://github.com/kubebao/openbao-operator/compare/0.6.3...0.7.0) (2026-11-22)
+
+### ⚠ BREAKING CHANGES
+
+* **api:** The operator serves only `kubebao.org/v1alpha1`. Upgrade an existing installation to 0.6.3, then use the matching 0.7.0 API migration command and installation-specific guide. A direct chart or manifest upgrade leaves `openbao.org` resources unmanaged. ([#950](https://github.com/kubebao/openbao-operator/pull/950)) ([#952](https://github.com/kubebao/openbao-operator/pull/952)) ([#973](https://github.com/kubebao/openbao-operator/pull/973))
+
+### Features
+
+* **migration:** Transfer API ownership with verified workload identities and a rollback window before source resources are deleted. The migration retains the OpenBao server version. ([#950](https://github.com/kubebao/openbao-operator/pull/950)) ([#951](https://github.com/kubebao/openbao-operator/pull/951)) ([#952](https://github.com/kubebao/openbao-operator/pull/952))
+
+### Bug Fixes
+
+* **backup:** Preserve attempt receipts across controller restarts and retain the operation lock when Job creation has an uncertain outcome. ([#975](https://github.com/kubebao/openbao-operator/pull/975))
+* **upgrade:** Block operator-managed OpenBao upgrades from versions before 2.6 to 2.6 or newer for both `RollingUpdate` and `BlueGreen`. API-group migration that retains the server version is unaffected. ([#977](https://github.com/kubebao/openbao-operator/pull/977))
 
 ## [0.7.0-rc.2](https://github.com/kubebao/openbao-operator/compare/0.7.0-rc.1...0.7.0-rc.2) (2026-11-18)
 
