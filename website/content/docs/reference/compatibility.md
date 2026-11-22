@@ -12,13 +12,12 @@ verifiedBy:
 ---
 
 The operator and Helm chart require Kubernetes 1.34 or newer. The tables describe configured validation targets
-and earlier focused checks. Final 0.7.0 release qualification is pending in the
-[release PR](https://github.com/kubebao/openbao-operator/pull/948/checks).
+and focused checks. Inspect the matching release's `provenance-index.json` for its source tag, artifact digests,
+and publisher identities. The release PR checks record candidate qualification. The
+[release lifecycle](../release-lifecycle/#stable-release-gates) defines the gates required before publication.
 
-The [0.6.1 release qualification checks](https://github.com/kubebao/openbao-operator/pull/936/checks) record the
-previous stable candidate and results. Those checks and the focused results below retain their stated scope;
-they do not qualify the final 0.7.0 candidate or every cloud authentication method, distribution, seal, storage
-driver, or topology.
+Release qualification and focused checks retain their stated scope. They do not qualify every cloud authentication
+method, distribution, seal, storage driver, or topology.
 
 ## Kubernetes versions
 
@@ -33,9 +32,11 @@ driver, or topology.
 
 | Version | Validation | Production note |
 | --- | --- | --- |
+| 2.7.3 | Focused standalone policy, hybrid TLS, snapshot restore, and follower-restart checks | Kubernetes rollout and migration qualification remains separate |
 | 2.7.2 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and fresh-target restore qualification | Validate the exact production combination in staging |
 | 2.7.1 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and restore qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification; rolling-upgrade source for local 2.7.1 qualification | Use the latest qualified security patch |
+| 2.6.6 | Focused standalone policy-reconciliation checks | Kubernetes rollout and migration qualification remains separate |
 | 2.6.5 | Default CI, nightly, and release target; focused local lifecycle, rolling-upgrade, backup, and recovery qualification | Validate the exact production combination in staging |
 | 2.6.4 | Previous default target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Use the latest qualified security patch |
 | 2.6.3 | OpenBao Operator 0.5.1 validation target; rolling-upgrade source for local 2.6.4 qualification | Use the latest qualified security patch |
@@ -92,6 +93,14 @@ OpenBao namespace deletion after a pre-2.7 upgrade.
 The following results retain their original scope. Cilium native routing remains unqualified; VXLAN coverage does
 not qualify native routing. Cloud identity, storage-driver, and network-topology changes require separate staging
 evidence.
+
+### OpenBao 2.6.6 and 2.7.3
+
+Focused checks at operator source [3338a9061](https://github.com/kubebao/openbao-operator/commit/3338a9061c46fd4a00f6b6becaf43327602bb372)
+pass policy authorization and repair against both versions. The 2.7.3 three-voter container fixture also passes
+hybrid TLS, Raft membership, snapshot save and restore, and follower restart. These checks use digest-pinned server
+images and do not qualify Kubernetes rolling upgrades, API-group migration, or external provider combinations on
+those patches. The default validation targets remain 2.6.5 and 2.7.2.
 
 ### OpenBao 2.6.5 and 2.7.2
 

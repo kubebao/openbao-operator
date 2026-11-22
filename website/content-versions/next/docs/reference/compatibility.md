@@ -26,9 +26,11 @@ The operator requires Kubernetes 1.34 or newer. The rows below describe the curr
 
 | Version | Validation | Production note |
 | --- | --- | --- |
+| 2.7.3 | Focused standalone policy, hybrid TLS, snapshot restore, and follower-restart checks | Kubernetes rollout and migration qualification remains separate |
 | 2.7.2 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and fresh-target restore qualification | Validate the exact production combination in staging |
 | 2.7.1 | Config parser, CI container checks, and focused local lifecycle, rolling-upgrade, and restore qualification | Prepare external plugins before upgrading; see [OpenBao 2.7 migration](../../operate/openbao-270/) |
 | 2.7.0 | Config parser and focused local lifecycle, upgrade, restore, and PKCS#11 qualification; rolling-upgrade source for local 2.7.1 qualification | Use the latest qualified security patch |
+| 2.6.6 | Focused standalone policy-reconciliation checks | Kubernetes rollout and migration qualification remains separate |
 | 2.6.5 | Default CI, nightly, and release target; focused local lifecycle, rolling-upgrade, backup, and recovery qualification | Validate the exact production combination in staging |
 | 2.6.4 | Previous default target; local lifecycle, rolling-upgrade, backup, restore, and SoftHSM PKCS#11 and KMIP seal qualification | Use the latest qualified security patch |
 | 2.6.3 | OpenBao Operator 0.5.1 validation target; rolling-upgrade source for local 2.6.4 qualification | Use the latest qualified security patch |
@@ -80,6 +82,14 @@ Review SSH roles that use identity templates before upgrading. Template substitu
 
 OpenBao 2.7.2 also fixes health responses during leader promotion, cluster-wide external plugin reloads, and
 OpenBao namespace deletion after a pre-2.7 upgrade.
+
+## OpenBao 2.6.6 and 2.7.3 qualification
+
+Focused checks at operator source [3338a9061](https://github.com/kubebao/openbao-operator/commit/3338a9061c46fd4a00f6b6becaf43327602bb372)
+pass policy authorization and repair against both versions. The 2.7.3 three-voter container fixture also passes
+hybrid TLS, Raft membership, snapshot save and restore, and follower restart. These checks use digest-pinned server
+images and do not qualify Kubernetes rolling upgrades, API-group migration, or external provider combinations on
+those patches. The default validation targets remain 2.6.5 and 2.7.2.
 
 ## OpenBao 2.6.5 and 2.7.2 qualification
 
