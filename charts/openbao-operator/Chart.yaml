@@ -26,8 +26,8 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/operator: 'true'
   artifacthub.io/operatorCapabilities: Full Lifecycle
-  artifacthub.io/prerelease: 'true'
-  artifacthub.io/containsSecurityUpdates: 'false'
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: 'true'
   artifacthub.io/changes: |
     - kind: fixed
       description: "backup: preserve attempt receipts across controller restarts"
@@ -45,15 +45,47 @@ annotations:
       description: "workload: allow longer OpenBao startup probe budgets"
     - kind: fixed
       description: "workload: preserve promoted handoffs and heartbeat freshness"
+    - kind: changed
+      description: "api: The operator serves only kubebao.org/v1alpha1. Migrate a 0.6.1 installation with api-migration; upgrading it directly leaves its OpenBao workloads unmanaged."
+    - kind: added
+      description: "api: move the API group to kubebao.org with a migration command"
+    - kind: fixed
+      description: "ci: prepare 0.6.1 release qualification"
+    - kind: fixed
+      description: "ci: publish and verify qualification registry bundles"
+    - kind: fixed
+      description: "ci: tag releases only after manifest changes"
+    - kind: fixed
+      description: "ci: validate root release manifest in qualification"
+    - kind: security
+      description: "deps: patch go-jose RSA JWK denial of service"
+    - kind: fixed
+      description: "dev: exclude local artifacts from Go source checks"
+    - kind: fixed
+      description: "helm: preserve admission policies through YAML post-rendering"
+    - kind: fixed
+      description: "helm: require Kubernetes 1.34 and align support docs"
+    - kind: fixed
+      description: "migration: address findings from the Argo CD staging run"
+    - kind: fixed
+      description: "migration: verify workloads and split installation guides"
+    - kind: fixed
+      description: "raft: apply Autopilot settings on small clusters"
+    - kind: fixed
+      description: "release: prepare 0.7.0 and guard RC publication"
+    - kind: fixed
+      description: "release: preserve latest stable and verification evidence"
+    - kind: fixed
+      description: "restore: accept stable OpenBao versions from 2.7"
   artifacthub.io/images: |
     - name: openbao-operator
-      image: ghcr.io/kubebao/openbao-operator:0.7.0-rc.2
+      image: ghcr.io/kubebao/openbao-operator:0.7.0
     - name: openbao-init
-      image: ghcr.io/kubebao/openbao-init:0.7.0-rc.2
+      image: ghcr.io/kubebao/openbao-init:0.7.0
     - name: openbao-backup
-      image: ghcr.io/kubebao/openbao-backup:0.7.0-rc.2
+      image: ghcr.io/kubebao/openbao-backup:0.7.0
     - name: openbao-upgrade
-      image: ghcr.io/kubebao/openbao-upgrade:0.7.0-rc.2
+      image: ghcr.io/kubebao/openbao-upgrade:0.7.0
   artifacthub.io/crds: |
     - kind: OpenBaoCluster
       version: v1alpha1
