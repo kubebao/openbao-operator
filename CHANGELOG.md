@@ -2,6 +2,8 @@
 
 Release notes are generated and maintained via **release-please** based on **Conventional Commits**.
 
+## [0.7.0](https://github.com/kubebao/openbao-operator/compare/0.7.0-rc.2...0.7.0) (2026-11-22)
+
 ## [0.7.0-rc.2](https://github.com/kubebao/openbao-operator/compare/0.7.0-rc.1...0.7.0-rc.2) (2026-11-18)
 
 
