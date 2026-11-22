@@ -14,7 +14,6 @@ The repository generates the source reference from `api/v1alpha1`. The synchroni
 and writes one page per top-level resource so each page has a useful table of contents and unique anchors.
 
 {{< callout type="warning" title="Apply the matching CRDs" >}}
-This reference is prepared for 0.7.0; final release qualification is pending. After publication, apply the CRDs
-from the matching 0.7.0 release for a new installation. Existing 0.6 installations must use the
+Apply the CRDs from the matching 0.7.0 release for a new installation. Existing 0.6 installations must use the
 [API group migration](../../operate/api-group-migration/). Do not combine this schema with an older operator.
 {{< /callout >}}

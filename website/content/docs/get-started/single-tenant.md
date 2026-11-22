@@ -36,7 +36,7 @@ These commands install a new operator. For an existing 0.6 installation, use the
 
 ## Install with Helm
 
-After publication, use the pinned 0.7.0 chart. Complete [artifact verification](../../security/supply-chain/) before
+Use the pinned 0.7.0 chart. Complete [artifact verification](../../security/supply-chain/) before
 installation.
 
 1. Create the target namespace through the platform's normal workflow. The chart must create a RoleBinding in this

@@ -1,12 +1,12 @@
 ---
 title: Documentation
-description: Prepared 0.7 guidance for installing, configuring, operating, securing, and understanding OpenBao Operator.
+description: Guidance for installing, configuring, operating, securing, and understanding OpenBao Operator 0.7.
 eyebrow: Operator handbook
 weight: 1
 hideChildren: true
 ---
 
-Use the route that matches the work in front of you. This manual prepares the 0.7 minor release contract.
+Use the route that matches the work in front of you. This manual covers the 0.7 minor release line.
 
 <div class="link-grid">
   <a href="get-started/"><strong>Get started</strong><p>Choose a deployment model, install the operator, and create the first cluster.</p></a>
@@ -18,6 +18,7 @@ Use the route that matches the work in front of you. This manual prepares the 0.
 </div>
 
 {{< callout type="note" title="About versions" >}}
-0.7.0 is not published, and final release qualification is pending. Use the [0.6 manual](/0.6.x/docs/) for the
-current published release. The `next` line continues to track unreleased `main`.
+Use the [0.6 manual](/0.6.x/docs/) when operating a 0.6 installation. Follow the
+[API group migration](operate/api-group-migration/) before moving it to 0.7.
+The `next` line tracks unreleased `main`.
 {{< /callout >}}

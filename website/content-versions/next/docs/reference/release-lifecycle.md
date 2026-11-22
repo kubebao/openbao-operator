@@ -34,7 +34,9 @@ Documentation is versioned by minor release, not by patch:
 | --- | --- |
 | Unprefixed | Current stable minor line |
 | `/latest/` | Compatibility redirect to the current stable home |
-| `/0.4.x/` | Previous stable 0.4.x line through 0.4.2 |
+| `/0.6.x/` | Published 0.6.x line through 0.6.3 |
+| `/0.5.x/` | Previous stable 0.5.x line through 0.5.3 |
+| `/0.4.x/` | Archived stable 0.4.x line through 0.4.2 |
 | `/next/` | Unreleased behavior on `main`; evaluation only |
 
 A patch release updates the existing minor line and its release note. Before a new `0.X.0` release, the reviewed
@@ -57,7 +59,7 @@ patch narrow and avoid unrelated refactoring.
 A stable release requires:
 
 - clean pull-request CI on the release branch or release pull request;
-- current end-to-end release evidence;
+- a passed release-profile qualification of the release pull request, including the end-to-end release gate;
 - reviewed documentation, compatibility data, and generated artifacts;
 - reviewed nightly and performance signals;
 - no known upgrade, backup, or restore regression; and

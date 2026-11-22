@@ -67,11 +67,10 @@ Argo CD applies the rendered resources without creating Helm release storage. Ap
 ## Before you start
 
 {{< callout type="note" title="Match the guide to the destination release" >}}
-These instructions prepare migration from 0.6.3 to 0.7.0-rc.2 or a subsequent 0.7 release. RC.2 is not published;
-its migration qualification is pending. The published RC.1 binary accepts only source 0.6.1. For RC.1 evaluation,
-use the [RC.1 migration instructions](https://github.com/kubebao/openbao-operator/blob/0.7.0-rc.1/website/content/docs/operate/api-group-migration/_index.md).
-RC.1 does not include configurable startup budgets or Raft catch-up checks between voter replacements. If your
-Cluster requires these fixes, defer migration until a candidate with them is published and qualified.
+For a stable migration, follow the [0.7 guide](/docs/operate/api-group-migration/) and use its matching release
+artifacts. RC.2 accepts source 0.6.3 and remains an evaluation release. The RC.1 binary accepts only source 0.6.1;
+its [historical instructions](https://github.com/kubebao/openbao-operator/blob/0.7.0-rc.1/website/content/docs/operate/api-group-migration/_index.md)
+do not include the startup-budget and Raft catch-up fixes. Do not mix artifacts from these releases.
 {{< /callout >}}
 
 If a source Cluster needs longer than the default startup window, configure its longer budget in 0.6.3 before

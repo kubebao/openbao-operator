@@ -28,6 +28,7 @@ cluster, a supported target version, and a working upgrade identity.
 Do not upgrade an OpenBao server from a version before 2.6 to 2.6 or newer with either `RollingUpdate` or `BlueGreen`.
 Older voters cannot forward requests to an upgraded leader. Health checks can still pass while forwarding and
 Autopilot health fail. Changing the strategy does not avoid this limitation.
+The operator rejects this version request with `UpgradeVersionIncompatible` before changing workloads.
 Keep the current server version until a compatible upgrade path is qualified. API-group migration that retains
 the server version is a separate operation.
 If a crossing has already started, do not force more voter replacements or downgrade upgraded voters. Preserve

@@ -8,15 +8,10 @@ hideChildren: true
 
 The current manual stays focused on the current contract. Release pages preserve historical changes, migration notes, artifacts, and links to archived documentation when exact older behavior matters.
 
-## Release in preparation
-
-[0.7.0](0.7.0/) prepares the `kubebao.org` API group migration from 0.6.3. The release is not published, and final
-qualification is pending. Follow the preparation page for the migration scope and remaining gates.
-
 ## Latest published release
 
 <div class="link-grid">
-  <a href="0.6.3/"><strong>0.6.3</strong><p>Raft catch-up checks, guarded rollout recovery, and configurable restore snapshot limits.</p></a>
+  <a href="0.7.0/"><strong>0.7.0</strong><p>kubebao.org API migration, startup budgets, guarded voter rollouts, and restore snapshot limits.</p></a>
   <a href="https://github.com/kubebao/openbao-operator/releases"><strong>GitHub Releases</strong><p>Published assets, signatures, provenance, tags, and the full archive.</p></a>
 </div>
 
@@ -24,6 +19,7 @@ qualification is pending. Follow the preparation page for the migration scope an
 
 | Release | Published | Context |
 | --- | --- | --- |
+| [0.7.0](0.7.0/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.7.0) | API group migration from 0.6.3, startup budgets, guarded rollouts, and restore limits |
 | [0.6.3](0.6.3/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.3) | Raft catch-up checks, guarded rollout recovery, and restore snapshot limits |
 | [0.6.2](0.6.2/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.2) | Configurable startup budgets, lifecycle deadlines, and Go toolchain updates |
 | [0.6.1](0.6.1/) | [GitHub Release](https://github.com/kubebao/openbao-operator/releases/tag/0.6.1) | Helm admission policies, small-cluster Autopilot, security, and restore versions |
