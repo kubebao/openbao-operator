@@ -10,11 +10,13 @@
 <span>Search</span>
 <kbd>⌘ K</kbd></button><div class=github-actions><a class=github-link href=https://github.com/kubebao/openbao-operator aria-label="OpenBao Operator on GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2A10 10 0 008.84 21.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94.0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64.0.0.84-.27 2.75 1.02A9.58 9.58.0 0112 6.82c.85.0 1.7.12 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68.0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86v2.76c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
 </a><a class=stargazers-link href=https://github.com/kubebao/openbao-operator aria-label="View OpenBao Operator stars on GitHub" data-stargazers data-endpoint=https://api.github.com/repos/kubebao/openbao-operator><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3z"/></svg>
-<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.6.x"><span>0.6.x</span>
-<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/storage/ aria-current=page><span>0.6.x</span>
-<small>Current stable</small>
-</a><a href=/0.5.x/docs/configure/storage/><span>0.5.x</span>
+<span class=stargazer-count data-stargazer-count hidden></span></a></div></div></div></header><button class=nav-scrim type=button aria-label="Close navigation" data-nav-close></button><div class=docs-shell><aside class=sidebar id=site-sidebar data-sidebar><div class=sidebar-head><p>Documentation</p><div class=sidebar-head-actions><details class=version-switcher><summary aria-label="Documentation version, currently 0.7.x"><span>0.7.x</span>
+<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary><div class=version-menu><a href=/docs/configure/storage/ aria-current=page><span>0.7.x</span>
+<small>Stable</small>
+</a><a href=/0.6.x/docs/configure/storage/><span>0.6.x</span>
 <small>Previous stable</small>
+</a><a href=/0.5.x/docs/configure/storage/><span>0.5.x</span>
+<small>Archived stable</small>
 </a><a href=/0.4.x/docs/configure/storage/><span>0.4.x</span>
 <small>Archived stable</small>
 </a><a href=/next/docs/configure/storage/><span>Next</span>
@@ -52,10 +54,12 @@ Schedule a maintenance window and verify quorum and client behavior during the r
 instead of replacing it. Confirm that the StatefulSet template contains the longer budget before recreating the
 Pod through <a href=../../operate/maintenance/#authorize-direct-maintenance-only-when-required>authorized direct maintenance</a>.
 Retain the Pod&rsquo;s PVC. With a healthy quorum, recreate one affected Pod at a time and wait for it to rejoin. If the
-cluster has no leader, start with <a href=../../operate/recover-no-leader/>Recover from no leader</a>.</p><p>When the startup budget is extended, the rolling-upgrade readiness deadline allows the startup budget plus its
-existing readiness margin for each server Pod in sequence, including read replicas. Clusters using the default
-budget retain the existing 10-minute upgrade deadline. A longer deadline does not allow the operator to advance
-past an unhealthy voter.</p><p>For a fresh restore or scheduled restore test, configure the same <code>probes</code> block in <code>clusterTemplate</code>. Fresh-target
+cluster has no leader, start with <a href=../../operate/recover-no-leader/>Recover from no leader</a>.</p><p>When the threshold exceeds 60, the rolling-upgrade readiness deadline is one shared bound measured from
+<code>status.upgrade.startedAt</code>. Preparation, read-replica waits, and earlier Pod rollouts count toward this bound;
+it does not reset for each Pod. The bound is <code>(10 minutes + (failureThreshold - 60) × 5 seconds) × server Pods</code>,
+counting voters and read replicas. For a threshold of 180, this gives 20 minutes per counted server Pod: 80 minutes
+for three voters and one read replica. Clusters using the default budget retain the shared 10-minute deadline.
+A longer deadline does not allow the operator to advance past an unhealthy voter.</p><p>For a fresh restore or scheduled restore test, configure the same <code>probes</code> block in <code>clusterTemplate</code>. Fresh-target
 bootstrap and restore-application deadlines also allow the extended startup budget. Configure the migration CLI&rsquo;s
 <code>--timeout</code> to cover the complete sequential rollout when migrating a cluster with a longer budget.</p><h2 id=understand-pvc-retention>Understand PVC retention</h2><p>The voter StatefulSet uses these retention policies:</p><ul><li>deleting the StatefulSet retains its data PVCs;</li><li>scaling the StatefulSet down deletes PVCs for removed replicas.</li></ul><p>Do not treat a replica reduction as a reversible scheduling change. Confirm Raft membership, backup state, and the data
 retention consequence before scaling down.</p><h2 id=expand-data-pvcs>Expand data PVCs</h2><p>Increase <code>spec.storage.size</code> only after confirming that the StorageClass and CSI driver support expansion. The operator

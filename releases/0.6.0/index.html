@@ -14,7 +14,7 @@
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
 <a href=/releases/>Releases</a>
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
-<span aria-current=page>OpenBao Operator 0.6.0</span></nav><article class=doc-article><header class=article-header><h1>OpenBao Operator 0.6.0</h1><p class=article-lede>Target-specific controller authentication, guarded restore recovery, and scheduled backup verification.</p><p class=page-meta>Updated 24 October 2026 · 4 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#review-the-new-cluster-contract>Review the new-cluster contract</a></li><li><a href=#plan-restore-authority-and-recovery>Plan restore authority and recovery</a></li><li><a href=#upgrade-from-053>Upgrade from 0.5.3</a></li><li><a href=#preserve-the-support-boundary>Preserve the support boundary</a></li></ul></nav></details><div class=article-content><p>OpenBao Operator 0.6.0 adds target-specific controller JWTs, guarded restore
+<span aria-current=page>OpenBao Operator 0.6.0</span></nav><article class=doc-article><header class=article-header><h1>OpenBao Operator 0.6.0</h1><p class=article-lede>Target-specific controller authentication, guarded restore recovery, and scheduled backup verification.</p><p class=page-meta>Updated 13 November 2026 · 4 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#review-the-new-cluster-contract>Review the new-cluster contract</a></li><li><a href=#plan-restore-authority-and-recovery>Plan restore authority and recovery</a></li><li><a href=#upgrade-from-053>Upgrade from 0.5.3</a></li><li><a href=#preserve-the-support-boundary>Preserve the support boundary</a></li></ul></nav></details><div class=article-content><p>OpenBao Operator 0.6.0 adds target-specific controller JWTs, guarded restore
 recovery, operator-created restore targets, scheduled restore tests, and
 administrator-approved policy reconciliation. Networking adds IPv6 and
 dual-stack Services and a scoped Cilium API-server allowance. Azure Key Vault
@@ -24,8 +24,8 @@ a non-empty self-init request list. Configure an independent administrator login
 before creation. OpenBao revokes its bootstrap root token, and the operator does
 not create a root-token Secret for this path.</p><p>Existing objects with an omitted mode or <code>Shared</code> retain Shared behavior on
 reads and ordinary updates. The CRD does not default the field. Deleting and
-recreating an object uses the new CREATE requirements and gives it a new UID.</p><p><a href=../../docs/operate/controller-jwt-mode/>Controller JWT configuration</a> explains
-the admission contract. <a href=../../docs/operate/controller-jwt-migration/>Migration</a>
+recreating an object uses the new CREATE requirements and gives it a new UID.</p><p><a href=../../0.6.x/docs/operate/controller-jwt-mode/>Controller JWT configuration</a> explains
+the admission contract. <a href=../../0.6.x/docs/operate/controller-jwt-migration/>Migration</a>
 is optional and changes the same object in place. An administrator must prepare
 and verify the existing role before selecting Target, preserve its restrictions,
 then remove shared trust and test rejection. The change is one-way. The operator
@@ -41,8 +41,8 @@ the supported OpenBao 2.7 template versions. Scheduled restore tests use
 disposable targets within one Kubernetes cluster. Neither mechanism adopts
 existing resources or proves cross-version restore compatibility.</p><p>Snapshots can restore older JWT role trust. Preserve a usable administrator
 login in the restored state and repair destination audiences independently.
-<a href=../../docs/operate/restore/authentication/>Restore authentication</a> and
-<a href=../../docs/operate/restore/recover-uncertain/>uncertain-restore recovery</a>
+<a href=../../0.6.x/docs/operate/restore/authentication/>Restore authentication</a> and
+<a href=../../0.6.x/docs/operate/restore/recover-uncertain/>uncertain-restore recovery</a>
 describe the operational boundary.</p><h2 id=upgrade-from-053>Upgrade from 0.5.3</h2><p>Finish active backups, restores, restore tests, retention, and OpenBao upgrades.
 Take and verify current snapshots. Review the complete
 <a href=https://github.com/kubebao/openbao-operator/blob/0.6.0/release-notes/0.6.0.md>0.6.0 release notes</a>
@@ -54,7 +54,7 @@ Existing Shared objects do not need a migration merely to update the operator.
 Review <code>OpenBaoRestore</code> status and alerts: <code>OpenBaoCluster.status.restore</code> is no
 longer written, and <code>openbao_restore_state</code> includes recovery values 4–7.</p><p>Verify the init image installed in every OpenBao Pod. Helm readiness does not
 prove that existing Pods contain new helper binaries. Replace old Pods through
-<a href=../../docs/operate/maintenance/>planned maintenance</a>, one at a time with quorum
+<a href=../../0.6.x/docs/operate/maintenance/>planned maintenance</a>, one at a time with quorum
 and health checks. BlueGreen voter StatefulSets use <code>OnDelete</code>.</p><p><code>deletionPolicy: Retain</code> preserves data PVCs and generated bootstrap Secrets when
 present, after releasing their cluster owner references. New self-init clusters
 have no root-token Secret. Retained material remains sensitive; referenced
@@ -63,7 +63,7 @@ credentials follow their own ownership policy. External snapshots survive
 OpenBao 2.6.4 and selected OpenBao 2.7.1 scenarios. The evidence covers the tested
 combinations. It does not qualify every distribution, cloud authentication
 method, seal, storage driver, or topology.
-Review <a href=../../docs/reference/compatibility/>compatibility</a> and rehearse the exact
+Review <a href=../../0.6.x/docs/reference/compatibility/>compatibility</a> and rehearse the exact
 production combination.</p><p>Cilium native routing remains unqualified. VXLAN qualification does not extend
 to native routing. Cloud integration and performance claims require their own
 current-candidate evidence.</p><p>The production BlueGreen policy is unchanged: pre-2.6 to 2.6-or-newer transitions

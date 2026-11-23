@@ -14,7 +14,7 @@
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
 <a href=/releases/>Releases</a>
 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
-<span aria-current=page>OpenBao Operator 0.6.1</span></nav><article class=doc-article><header class=article-header><h1>OpenBao Operator 0.6.1</h1><p class=article-lede>Maintenance release for Helm admission policies, small-cluster Autopilot, security fixes, and restore versions.</p><p class=page-meta>Updated 7 November 2026 · 3 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#review-the-fixes>Review the fixes</a></li><li><a href=#configure-restore-versions>Configure restore versions</a></li><li><a href=#upgrade-from-060>Upgrade from 0.6.0</a></li><li><a href=#preserve-the-qualification-boundary>Preserve the qualification boundary</a></li></ul></nav></details><div class=article-content><p>OpenBao Operator 0.6.1 fixes Helm admission-policy serialization and small-cluster
+<span aria-current=page>OpenBao Operator 0.6.1</span></nav><article class=doc-article><header class=article-header><h1>OpenBao Operator 0.6.1</h1><p class=article-lede>Maintenance release for Helm admission policies, small-cluster Autopilot, security fixes, and restore versions.</p><p class=page-meta>Updated 13 November 2026 · 3 min read</p></header><details class=mobile-toc><summary>On this page</summary><nav id=MobileTableOfContents><ul><li><a href=#review-the-fixes>Review the fixes</a></li><li><a href=#configure-restore-versions>Configure restore versions</a></li><li><a href=#upgrade-from-060>Upgrade from 0.6.0</a></li><li><a href=#preserve-the-qualification-boundary>Preserve the qualification boundary</a></li></ul></nav></details><div class=article-content><p>OpenBao Operator 0.6.1 fixes Helm admission-policy serialization and small-cluster
 Raft Autopilot configuration. It also addresses denial-of-service issues in
 go-jose and golang.org/x/net. Restore targets accept stable OpenBao versions from
 2.7.0 onward, and scheduled tests can inherit each backup&rsquo;s recorded version.</p><h2 id=review-the-fixes>Review the fixes</h2><ul><li>The Helm chart preserves CEL expressions through Flux and Kustomize YAML
@@ -29,9 +29,9 @@ Admission acceptance does not qualify every future release or provider.</p><p>Fo
 <code>spec.backup.restoreTest.clusterTemplate.version</code> to inherit each backup&rsquo;s
 recorded version. Each request freezes that version before execution. A custom
 image requires a matching version pin. Build metadata also requires an explicit
-image because <code>+</code> cannot appear in a container image tag.</p><p><a href=../../docs/reference/compatibility/#restore-version-support>Restore version support</a>,
-<a href=../../docs/operate/restore/new-cluster/>new targets</a>, and
-<a href=../../docs/operate/restore/tests/>scheduled tests</a> describe the checks and
+image because <code>+</code> cannot appear in a container image tag.</p><p><a href=../../0.6.x/docs/reference/compatibility/#restore-version-support>Restore version support</a>,
+<a href=../../0.6.x/docs/operate/restore/new-cluster/>new targets</a>, and
+<a href=../../0.6.x/docs/operate/restore/tests/>scheduled tests</a> describe the checks and
 recovery requirements. Existing-target restores retain administrator-controlled
 recovery.</p><h2 id=upgrade-from-060>Upgrade from 0.6.0</h2><p>Finish active operations and verify current snapshots, administrator access, and
 seal recovery material. After publication, verify the release signatures and
@@ -40,7 +40,7 @@ Install matching policies, bindings, RBAC, operator, and helper defaults.</p><p>
 overrides, mirrored repositories, and custom identities. Verify actual init
 images in managed Pods. Existing Jobs keep their original images, and
 BlueGreen voter StatefulSets use <code>OnDelete</code>. Replace old Pods through
-<a href=../../docs/operate/maintenance/>planned maintenance</a>, with quorum and health
+<a href=../../0.6.x/docs/operate/maintenance/>planned maintenance</a>, with quorum and health
 checks. Chart readiness alone does not prove helper replacement.</p><p>Review the complete
 <a href=https://github.com/kubebao/openbao-operator/blob/0.6.1/release-notes/0.6.1.md>0.6.1 release notes</a>
 before upgrading. After publication, obtain the
@@ -48,7 +48,7 @@ before upgrading. After publication, obtain the
 and the chart at <code>oci://ghcr.io/kubebao/charts/openbao-operator</code>, version <code>0.6.1</code>.</p><h2 id=preserve-the-qualification-boundary>Preserve the qualification boundary</h2><p>The <a href=https://github.com/kubebao/openbao-operator/pull/936/checks>0.6.1 release qualification checks</a>
 record the full release profile and the operator upgrade rehearsal from published
 0.6.0 to the candidate. Earlier focused checks retain the scope recorded in
-<a href=../../docs/reference/compatibility/>compatibility</a>. Rehearse the
+<a href=../../0.6.x/docs/reference/compatibility/>compatibility</a>. Rehearse the
 production combination in staging. Routine operator and OpenBao downgrades
 remain unsupported.</p><p>The API remains <code>openbao.org/v1alpha1</code>. Published 0.6.1 is the intended source
 baseline for the later 0.7.0 API-group migration. This patch does not change the
