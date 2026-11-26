@@ -2,7 +2,7 @@
 # Expects binaries to be passed via build context or copied in.
 # usage: docker build -f hack/ci/Dockerfile.fast.manager --build-arg BINARY=bin/linux_amd64/manager -t ... .
 
-FROM gcr.io/distroless/static:nonroot@sha256:f512d819b8f109f2375e8b51d8cfd8aafe81034bc3e319740128b7d7f70d5036
+FROM gcr.io/distroless/static:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5
 WORKDIR /
 
 # The binary to copy (relative to build context)
