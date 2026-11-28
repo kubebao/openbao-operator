@@ -10539,7 +10539,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261127-3fba3271d695
+          value: nightly-20261128-3fba3271d695
         - name: OPENBAO_JWT_AUDIENCE
           value: openbao-internal
         image: ghcr.io/kubebao/openbao-operator@sha256:0ac1568dcc36595326a260aae497f0aeec5fc90ffa15ec21fac4a2f1cc497a25
@@ -10663,7 +10663,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: OPERATOR_VERSION
-          value: nightly-20261127-3fba3271d695
+          value: nightly-20261128-3fba3271d695
         image: ghcr.io/kubebao/openbao-operator@sha256:0ac1568dcc36595326a260aae497f0aeec5fc90ffa15ec21fac4a2f1cc497a25
         livenessProbe:
           httpGet:
